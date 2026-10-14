@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-14",
+  "removed_assets": 3671,
+  "mercenary_packages": 272,
+  "paragon_packages": 3399,
+  "removed_asset_bytes": 3085292616.16,
+  "project_sizes_bytes": {
+    ".": 4360003584,
+    "Content": 2917847040,
+    ".git": 68808704,
+    "Intermediate": 1199960064,
+    "Saved": 25542656
+  },
+  "backup": "/Users/agea/git/fdm/_backups/2026-10-14-cleanup",
+  "lfs_cache": "/Users/agea/git/fdm/_cache/lfs",
+  "remaining_packages": 1292,
+  "runtime_packages": 823,
+  "authoring_closure_packages": 892,
+  "network_pass": true,
+  "target_skins_pass": true,
+  "graphics_world_passes": 10,
+  "graphics_forearms_passes": 10,
+  "saved_grip_samples": 550
+}

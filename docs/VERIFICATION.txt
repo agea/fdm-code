@@ -1,0 +1,428 @@
+Eclipse Recoil — local verification, 2026-10-12
+Unreal 5.8.3 / Mac Editor Development arm64 / Xcode 27
+Build.sh: Succeeded (actual output recorded in session)
+setup_editor.py: ER_SETUP_SUCCESS
+
+Saved/Testing/network-host.log
+[2026.10.12-17.20.23:758][  0]LogTemp: Display: ER_PLAYER_JOINED players=1 team=Alpha
+[2026.10.12-17.20.35:308][657]LogTemp: Display: ER_PLAYER_JOINED players=2 team=Omega
+[2026.10.12-17.20.35:311][657]LogTemp: Display: ER_TEST_PASS T03_balanced_teams
+[2026.10.12-17.20.36:410][723]LogTemp: Display: ER_TEST_PASS T14_protection_shot_cancels
+[2026.10.12-17.20.36:910][753]LogTemp: Display: ER_TEST_PASS T04_host_first_projectile_64
+[2026.10.12-17.20.37:411][783]LogTemp: Display: ER_TEST_PASS T04_host_second_projectile_28
+[2026.10.12-17.20.40:811][987]LogTemp: Display: ER_TEST_PASS T04_death_score_T12_no_auto_respawn
+[2026.10.12-17.20.40:811][987]LogTemp: Display: ER_TEST_PASS T12_early_request_rejected
+[2026.10.12-17.20.41:811][ 47]LogTemp: Display: ER_TEST_PASS T12_requested_respawn_T13_no_shot
+[2026.10.12-17.20.42:812][107]LogTemp: Display: ER_TEST_PASS T04_client_rpc_projectile_to_host
+[2026.10.12-17.20.44:912][233]LogTemp: Display: ER_TEST_PASS T08_partial_reload
+[2026.10.12-17.20.47:028][353]LogTemp: Display: ER_TEST_PASS T09_low_reserve
+[2026.10.12-17.20.48:028][413]LogTemp: Display: ER_TEST_PASS T06_rapid_rpc_presses_one_shot
+[2026.10.12-17.20.52:243][525]LogTemp: Display: ER_TEST_PASS T07_empty_clip_30_shots
+[2026.10.12-17.20.53:497][554]LogTemp: Display: ER_TEST_PASS T05_central_wall_blocks_projectile
+[2026.10.12-17.20.54:238][573]LogTemp: Display: ER_TEST_PASS T11_friendly_fire_no_enemy_score
+[2026.10.12-17.20.54:853][589]LogTemp: Display: ER_TEST_PASS T16_time_limit_draw
+[2026.10.12-17.21.05:686][875]LogTemp: Display: ER_TEST_PASS T16_round_restarts
+[2026.10.12-17.21.09:143][999]LogTemp: Display: ER_TEST_PASS T10_reload_cancel_T15_single_death
+[2026.10.12-17.21.10:901][ 36]LogTemp: Display: ER_TEST_PASS T10_new_life_ammo_unchanged
+[2026.10.12-17.21.11:549][ 50]LogTemp: Display: ER_TEST_PASS T16_score_limit_winner
+[2026.10.12-17.21.11:549][ 50]LogTemp: Display: ER_NETWORK_PROBE_COMPLETE result=PASS
+[2026.10.12-17.21.11:554][ 51]LogTemp: Display: ER_PLAYER_LEFT players=1
+
+Saved/Testing/admission-host.log
+[2026.10.12-17.21.42:398][  0]LogTemp: Display: ER_PLAYER_JOINED players=1 team=Alpha
+[2026.10.12-17.21.52:069][278]LogTemp: Display: ER_PLAYER_JOINED players=2 team=Omega
+[2026.10.12-17.22.02:036][577]LogTemp: Display: ER_PLAYER_JOINED players=3 team=Omega
+[2026.10.12-17.22.12:202][769]LogTemp: Display: ER_PLAYER_JOINED players=4 team=Alpha
+[2026.10.12-17.22.22:204][904]LogTemp: Display: ER_PLAYER_LEFT players=3
+
+Saved/Testing/admission-rejected.log
+
+automation.log
+[2026.10.12-17.24.25:383][467]LogAutomationController: Display: Test Completed. Result={Success} Name={IPv4Validation} Path={EclipseRecoil.Menu.IPv4Validation}
+[2026.10.12-17.24.25:383][468]LogAutomationCommandLine: Display: ...Automation Test Queue Empty 1 tests performed.
+
+
+Rifle correction — 2026-10-12
+Build.sh: Succeeded
+fix_viewmodel.py: ER_VIEWMODEL_FIXED / ER_ROTATIONS_REPAIRED
+[2026.10.12-18.01.23:414][550]LogTemp: Display: ER_TEST_PASS T03_balanced_teams
+[2026.10.12-18.01.24:512][616]LogTemp: Display: ER_TEST_PASS T14_protection_shot_cancels
+[2026.10.12-18.01.25:011][646]LogTemp: Display: ER_TEST_PASS T04_host_first_projectile_64
+[2026.10.12-18.01.25:512][676]LogTemp: Display: ER_TEST_PASS T04_host_second_projectile_28
+[2026.10.12-18.01.28:912][880]LogTemp: Display: ER_TEST_PASS T04_death_score_T12_no_auto_respawn
+[2026.10.12-18.01.28:912][880]LogTemp: Display: ER_TEST_PASS T12_early_request_rejected
+[2026.10.12-18.01.29:912][940]LogTemp: Display: ER_TEST_PASS T12_requested_respawn_T13_no_shot
+[2026.10.12-18.01.30:912][  0]LogTemp: Display: ER_TEST_PASS T04_client_rpc_projectile_to_host
+[2026.10.12-18.01.33:012][126]LogTemp: Display: ER_TEST_PASS T08_partial_reload
+[2026.10.12-18.01.35:112][252]LogTemp: Display: ER_TEST_PASS T09_low_reserve
+[2026.10.12-18.01.36:112][312]LogTemp: Display: ER_TEST_PASS T06_rapid_rpc_presses_one_shot
+[2026.10.12-18.01.40:340][458]LogTemp: Display: ER_TEST_PASS T07_empty_clip_30_shots
+[2026.10.12-18.01.41:603][487]LogTemp: Display: ER_TEST_PASS T05_central_wall_blocks_projectile
+[2026.10.12-18.01.42:313][502]LogTemp: Display: ER_TEST_PASS T11_friendly_fire_no_enemy_score
+[2026.10.12-18.01.42:915][514]LogTemp: Display: ER_TEST_PASS T16_time_limit_draw
+[2026.10.12-18.01.53:719][  0]LogTemp: Display: ER_TEST_PASS T16_round_restarts
+[2026.10.12-18.01.57:141][141]LogTemp: Display: ER_TEST_PASS T10_reload_cancel_T15_single_death
+[2026.10.12-18.01.58:857][195]LogTemp: Display: ER_TEST_PASS T10_new_life_ammo_unchanged
+[2026.10.12-18.01.59:473][210]LogTemp: Display: ER_TEST_PASS T16_score_limit_winner
+[2026.10.12-18.01.59:473][210]LogTemp: Display: ER_NETWORK_PROBE_COMPLETE result=PASS
+
+Hip-fire pose correction — 2026-10-12
+[2026.10.12-18.19.18:377][  0]LogPython: ER_HIP_POSE_SAVED: both grip sockets aligned; arm segment lengths preserved
+[2026.10.12-18.19.18:742][  0]LogPython: ER_ROTATIONS_REPAIRED: Alpha/Omega face the arena; sun uses explicit axes.
+[2026.10.12-18.19.18:742][  0]LogPython: ER_VIEWMODEL_FIXED: rifle aligned to HandGrip_R; explicit rotation axes saved.
+Metal graphical observation: forward-facing rifle lower right, left hand on foregrip, unobstructed crosshair. Local depot session left open.
+
+Optional test bots — 2026-10-12
+Build.sh: Succeeded
+setup_bot_routes.py: ER_BOT_ROUTE_SAVED
+
+bot-tests.log
+[2026.10.12-19.08.09:665][504]LogTemp: Display: ER_BOT_TEST_PASS bot_opposite_team_match_started phase=0
+[2026.10.12-19.08.09:665][504]LogTemp: Display: ER_BOT_TEST_PASS all_patrol_segments_clear_for_capsule phase=0
+[2026.10.12-19.08.11:664][624]LogTemp: Display: ER_BOT_TEST_PASS bot_patrol_moves phase=1
+[2026.10.12-19.08.13:399][728]LogTemp: Display: ER_BOT_TEST_PASS bot_real_projectile_damage_ammo phase=2
+[2026.10.12-19.08.14:400][788]LogTemp: Display: ER_BOT_TEST_PASS central_wall_blocks_bot_sight_fire phase=3
+[2026.10.12-19.08.14:800][812]LogTemp: Display: ER_BOT_TEST_PASS bot_shared_reload_started phase=4
+[2026.10.12-19.08.16:101][890]LogTemp: Display: ER_BOT_TEST_PASS bot_shared_reload_ammo_transfer phase=5
+[2026.10.12-19.08.16:902][938]LogTemp: Display: ER_BOT_TEST_PASS player_kills_bot_scores_death phase=6
+[2026.10.12-19.08.16:902][938]LogTemp: Display: ER_BOT_TEST_PASS bot_early_respawn_rejected phase=6
+[2026.10.12-19.08.20:204][136]LogTemp: Display: ER_BOT_TEST_PASS bot_requests_respawn_new_life_protected phase=7
+[2026.10.12-19.08.20:704][166]LogTemp: Display: ER_BOT_TEST_PASS bot_round_finishes phase=8
+[2026.10.12-19.08.31:439][363]LogTemp: Display: ER_BOT_TEST_PASS round_restarts_with_bot phase=9
+[2026.10.12-19.08.31:439][363]LogTemp: Display: ER_BOT_PROBE_COMPLETE result=PASS mode=Patrol
+[2026.10.12-19.08.09:715][  7]LogTemp: Display: ER_BOT_CLIENT_PASS pawn_team_health_replicated
+[2026.10.12-19.08.16:788][431]LogTemp: Display: ER_BOT_CLIENT_PASS bot_death_score_replicated
+[2026.10.12-19.08.49:465][492]LogTemp: Display: ER_BOT_TEST_PASS bot_opposite_team_match_started phase=0
+[2026.10.12-19.08.49:465][492]LogTemp: Display: ER_BOT_TEST_PASS all_patrol_segments_clear_for_capsule phase=0
+[2026.10.12-19.08.51:466][612]LogTemp: Display: ER_BOT_TEST_PASS target_stays_stationary phase=1
+[2026.10.12-19.08.55:469][852]LogTemp: Display: ER_BOT_TEST_PASS target_never_fires phase=2
+[2026.10.12-19.08.56:470][912]LogTemp: Display: ER_BOT_TEST_PASS central_wall_blocks_bot_sight_fire phase=3
+[2026.10.12-19.08.56:871][936]LogTemp: Display: ER_BOT_TEST_PASS bot_shared_reload_started phase=4
+[2026.10.12-19.08.58:171][ 14]LogTemp: Display: ER_BOT_TEST_PASS bot_shared_reload_ammo_transfer phase=5
+[2026.10.12-19.08.58:971][ 62]LogTemp: Display: ER_BOT_TEST_PASS player_kills_bot_scores_death phase=6
+[2026.10.12-19.08.58:971][ 62]LogTemp: Display: ER_BOT_TEST_PASS bot_early_respawn_rejected phase=6
+[2026.10.12-19.09.02:275][260]LogTemp: Display: ER_BOT_TEST_PASS bot_requests_respawn_new_life_protected phase=7
+[2026.10.12-19.09.02:776][290]LogTemp: Display: ER_BOT_TEST_PASS bot_round_finishes phase=8
+[2026.10.12-19.09.13:517][556]LogTemp: Display: ER_BOT_TEST_PASS round_restarts_with_bot phase=9
+[2026.10.12-19.09.13:518][556]LogTemp: Display: ER_BOT_PROBE_COMPLETE result=PASS mode=Target
+[2026.10.12-19.08.49:517][  7]LogTemp: Display: ER_BOT_CLIENT_PASS pawn_team_health_replicated
+[2026.10.12-19.08.58:607][552]LogTemp: Display: ER_BOT_CLIENT_PASS bot_death_score_replicated
+BOT INTEGRATION PASS: both modes and remote-client replication. Logs: /Users/agea/git/fdm/fdm/Saved/Testing
+
+bot-network-regression.log
+[2026.10.12-19.08.10:647][563]LogTemp: Display: ER_TEST_PASS T03_balanced_teams
+[2026.10.12-19.08.11:746][629]LogTemp: Display: ER_TEST_PASS T14_protection_shot_cancels
+[2026.10.12-19.08.12:247][659]LogTemp: Display: ER_TEST_PASS T04_host_first_projectile_64
+[2026.10.12-19.08.12:747][689]LogTemp: Display: ER_TEST_PASS T04_host_second_projectile_28
+[2026.10.12-19.08.16:150][893]LogTemp: Display: ER_TEST_PASS T04_death_score_T12_no_auto_respawn
+[2026.10.12-19.08.16:150][893]LogTemp: Display: ER_TEST_PASS T12_early_request_rejected
+[2026.10.12-19.08.17:151][953]LogTemp: Display: ER_TEST_PASS T12_requested_respawn_T13_no_shot
+[2026.10.12-19.08.18:151][ 13]LogTemp: Display: ER_TEST_PASS T04_client_rpc_projectile_to_host
+[2026.10.12-19.08.20:253][139]LogTemp: Display: ER_TEST_PASS T08_partial_reload
+[2026.10.12-19.08.22:378][260]LogTemp: Display: ER_TEST_PASS T09_low_reserve
+[2026.10.12-19.08.23:435][272]LogTemp: Display: ER_TEST_PASS T06_rapid_rpc_presses_one_shot
+[2026.10.12-19.08.27:720][323]LogTemp: Display: ER_TEST_PASS T07_empty_clip_30_shots
+[2026.10.12-19.08.29:012][336]LogTemp: Display: ER_TEST_PASS T05_central_wall_blocks_projectile
+[2026.10.12-19.08.29:803][346]LogTemp: Display: ER_TEST_PASS T11_friendly_fire_no_enemy_score
+[2026.10.12-19.08.30:493][353]LogTemp: Display: ER_TEST_PASS T16_time_limit_draw
+[2026.10.12-19.08.41:377][592]LogTemp: Display: ER_TEST_PASS T16_round_restarts
+[2026.10.12-19.08.44:826][695]LogTemp: Display: ER_TEST_PASS T10_reload_cancel_T15_single_death
+[2026.10.12-19.08.46:613][713]LogTemp: Display: ER_TEST_PASS T10_new_life_ammo_unchanged
+[2026.10.12-19.08.47:298][719]LogTemp: Display: ER_TEST_PASS T16_score_limit_winner
+[2026.10.12-19.08.47:299][719]LogTemp: Display: ER_NETWORK_PROBE_COMPLETE result=PASS
+
+bot-admission-regression.log
+PASS T03: four players, Alpha 2 / Omega 2
+PASS T17: late joins preserve the running match
+PASS T20: fifth player rejected by server
+PASS T19: disconnect removes player without respawn
+
+bot-slots-tests.log
+PASS BOT SLOTS: three bots replaced by joining humans; four-player cap preserved
+PASS BOT REFILL: one target returns after a human leaves
+PASS T03: four players, Alpha 2 / Omega 2
+PASS T17: late joins preserve the running match
+PASS T20: fifth player rejected by server
+PASS T19: disconnect removes player without respawn
+
+Metal GUI: both training buttons visible; direct bot match timer and human death observed; Space returned with HP 100, 30/90 and protection. Session left open.
+
+Graphical input audit — 2026-10-12
+Build.sh: Succeeded
+fix_controls.py: ER_CONTROLS_UPDATED
+walking speed
+[2026.10.12-20.12.23:813][862]LogTemp: Display: ER_INPUT_AUDIT pawn=BP_ERCharacter_C_0 pos=-2293.0,-550.0,94.1 vel=600.0,0.0 crouch=0 half=88.0 camz=158.1 aim=1.0,0.0 ammo=30/90 reload=0 dead=0 protected=0 menu=0 scoreboard=0 kills=0 deaths=0
+jump
+[2026.10.12-20.11.33:311][832]LogTemp: Display: ER_INPUT_AUDIT pawn=BP_ERCharacter_C_0 pos=-2400.0,-550.0,102.3 vel=0.0,483.7 crouch=0 half=88.0 camz=166.3 aim=1.0,0.0 ammo=30/90 reload=0 dead=0 protected=0 menu=0 scoreboard=0 kills=0 deaths=0
+reload
+[2026.10.12-20.14.05:318][952]LogTemp: Display: ER_INPUT_AUDIT pawn=BP_ERCharacter_C_0 pos=-1856.1,-38.5,90.1 vel=0.0,0.0 crouch=0 half=88.0 camz=154.1 aim=1.0,0.0 ammo=21/90 reload=1 dead=0 protected=0 menu=0 scoreboard=0 kills=0 deaths=0
+reloaded
+[2026.10.12-20.14.06:818][ 42]LogTemp: Display: ER_INPUT_AUDIT pawn=BP_ERCharacter_C_0 pos=-1856.1,-38.5,90.1 vel=0.0,0.0 crouch=0 half=88.0 camz=154.1 aim=1.0,0.0 ammo=30/81 reload=0 dead=0 protected=0 menu=0 scoreboard=0 kills=0 deaths=0
+scoreboard
+[2026.10.12-20.12.43:014][ 14]LogTemp: Display: ER_INPUT_AUDIT pawn=BP_ERCharacter_C_0 pos=-1856.1,-38.5,90.1 vel=26.4,0.0 crouch=0 half=88.0 camz=154.1 aim=1.0,0.0 ammo=30/90 reload=0 dead=0 protected=0 menu=0 scoreboard=1 kills=0 deaths=0
+crouch
+[2026.10.12-20.25.31:509][634]LogTemp: Display: ER_INPUT_AUDIT pawn=BP_ERCharacter_C_0 pos=-2400.0,-550.0,46.1 vel=0.0,0.0 crouch=1 half=40.0 camz=110.1 aim=341.2,18.4 ammo=29/90 reload=0 dead=0 protected=0 menu=0 scoreboard=0 kills=0 deaths=0 ctrl=0 can_crouch=0
+menu
+[2026.10.12-20.25.32:848][661]LogTemp: Display: ER_INPUT_AUDIT pawn=BP_ERCharacter_C_0 pos=-2400.0,-550.0,46.1 vel=0.0,0.0 crouch=1 half=40.0 camz=110.1 aim=341.2,18.4 ammo=29/90 reload=0 dead=0 protected=0 menu=1 scoreboard=0 kills=0 deaths=0 ctrl=0 can_crouch=0
+Metal observation: opaque menu background now readable over depot; target mode launched with Tab/Space; crouch release returns standing; session left open.
+
+MOVEMENT LAB — 2026-10-13
+[2026.10.13-06.19.34:193][497]LogTemp: Display: ER_MOVEMENT_PASS standing capsule 185cm; custom movement loaded
+[2026.10.13-06.19.35:693][587]LogTemp: Display: ER_MOVEMENT_PASS 10 km/h run
+[2026.10.13-06.19.35:693][587]LogTemp: Display: ER_MOVEMENT_PASS progressive acceleration
+[2026.10.13-06.19.37:211][675]LogTemp: Display: ER_MOVEMENT_PASS 5 km/h Shift walk
+[2026.10.13-06.19.37:714][703]LogTemp: Display: ER_MOVEMENT_PASS inertial braking then stop
+[2026.10.13-06.19.38:514][751]LogTemp: Display: ER_MOVEMENT_PASS jump peak 59.9cm; landed within 0.8s
+[2026.10.13-06.19.40:614][877]LogTemp: Display: ER_MOVEMENT_PASS block 10cm reached (feet 12.1cm)
+[2026.10.13-06.19.40:614][877]LogTemp: Display: ER_MOVEMENT_PASS block 10cm traversal threshold
+[2026.10.13-06.19.42:716][  3]LogTemp: Display: ER_MOVEMENT_PASS block 20cm reached (feet 22.1cm)
+[2026.10.13-06.19.42:716][  3]LogTemp: Display: ER_MOVEMENT_PASS block 20cm traversal threshold
+[2026.10.13-06.19.44:816][129]LogTemp: Display: ER_MOVEMENT_PASS block 30cm reached (feet 32.1cm)
+[2026.10.13-06.19.44:816][129]LogTemp: Display: ER_MOVEMENT_PASS block 30cm traversal threshold
+[2026.10.13-06.19.46:917][255]LogTemp: Display: ER_MOVEMENT_PASS block 40cm reached (feet 42.2cm)
+[2026.10.13-06.19.46:917][255]LogTemp: Display: ER_MOVEMENT_PASS block 40cm traversal threshold
+[2026.10.13-06.19.49:017][381]LogTemp: Display: ER_MOVEMENT_PASS block 50cm reached (feet 52.2cm)
+[2026.10.13-06.19.49:017][381]LogTemp: Display: ER_MOVEMENT_PASS block 50cm traversal threshold
+[2026.10.13-06.19.51:128][475]LogTemp: Display: ER_MOVEMENT_PASS block 60cm reached (feet 62.2cm)
+[2026.10.13-06.19.51:128][475]LogTemp: Display: ER_MOVEMENT_PASS block 60cm traversal threshold
+[2026.10.13-06.19.53:233][567]LogTemp: Display: ER_MOVEMENT_PASS block 70cm reached (feet 72.2cm)
+[2026.10.13-06.19.53:233][567]LogTemp: Display: ER_MOVEMENT_PASS block 70cm traversal threshold
+[2026.10.13-06.19.55:348][644]LogTemp: Display: ER_MOVEMENT_PASS block 80cm reached (feet 82.2cm)
+[2026.10.13-06.19.55:348][644]LogTemp: Display: ER_MOVEMENT_PASS block 80cm traversal threshold
+[2026.10.13-06.19.57:477][751]LogTemp: Display: ER_MOVEMENT_PASS block 90cm reached (feet 92.2cm)
+[2026.10.13-06.19.57:478][751]LogTemp: Display: ER_MOVEMENT_PASS block 90cm traversal threshold
+[2026.10.13-06.19.59:581][792]LogTemp: Display: ER_MOVEMENT_PASS block 100cm reached (feet 102.2cm)
+[2026.10.13-06.19.59:581][792]LogTemp: Display: ER_MOVEMENT_PASS block 100cm traversal threshold
+[2026.10.13-06.20.01:693][889]LogTemp: Display: ER_MOVEMENT_PASS block 110cm reached (feet 112.2cm)
+[2026.10.13-06.20.01:693][889]LogTemp: Display: ER_MOVEMENT_PASS block 110cm traversal threshold
+[2026.10.13-06.20.03:795][  5]LogTemp: Display: ER_MOVEMENT_PASS block 120cm reached (feet 122.2cm)
+[2026.10.13-06.20.03:796][  5]LogTemp: Display: ER_MOVEMENT_PASS block 120cm traversal threshold
+[2026.10.13-06.20.05:895][131]LogTemp: Display: ER_MOVEMENT_PASS block 130cm reached (feet 132.2cm)
+[2026.10.13-06.20.05:895][131]LogTemp: Display: ER_MOVEMENT_PASS block 130cm traversal threshold
+[2026.10.13-06.20.07:995][257]LogTemp: Display: ER_MOVEMENT_PASS block 140cm reached (feet 142.2cm)
+[2026.10.13-06.20.07:996][257]LogTemp: Display: ER_MOVEMENT_PASS block 140cm traversal threshold
+[2026.10.13-06.20.10:107][356]LogTemp: Display: ER_MOVEMENT_PASS block 150cm reached (feet 152.2cm)
+[2026.10.13-06.20.10:108][356]LogTemp: Display: ER_MOVEMENT_PASS block 150cm traversal threshold
+[2026.10.13-06.20.12:207][482]LogTemp: Display: ER_MOVEMENT_PASS block 160cm reached (feet 162.1cm)
+[2026.10.13-06.20.12:207][482]LogTemp: Display: ER_MOVEMENT_PASS block 160cm traversal threshold
+[2026.10.13-06.20.14:324][604]LogTemp: Display: ER_MOVEMENT_PASS block 170cm reached (feet 172.1cm)
+[2026.10.13-06.20.14:324][604]LogTemp: Display: ER_MOVEMENT_PASS block 170cm traversal threshold
+[2026.10.13-06.20.16:436][705]LogTemp: Display: ER_MOVEMENT_PASS block 180cm reached (feet 182.2cm)
+[2026.10.13-06.20.16:436][705]LogTemp: Display: ER_MOVEMENT_PASS block 180cm traversal threshold
+[2026.10.13-06.20.18:578][831]LogTemp: Display: ER_MOVEMENT_PASS block 190cm reached (feet 192.2cm)
+[2026.10.13-06.20.18:578][831]LogTemp: Display: ER_MOVEMENT_PASS block 190cm traversal threshold
+[2026.10.13-06.20.20:684][936]LogTemp: Display: ER_MOVEMENT_PASS block 200cm reached (feet 202.2cm)
+[2026.10.13-06.20.20:684][936]LogTemp: Display: ER_MOVEMENT_PASS block 200cm traversal threshold
+[2026.10.13-06.20.22:688][ 39]LogTemp: Display: ER_MOVEMENT_PASS remote client run replicated
+[2026.10.13-06.20.24:702][151]LogTemp: Display: ER_MOVEMENT_PASS remote client walk intent replicated
+[2026.10.13-06.20.27:807][335]LogTemp: Display: ER_MOVEMENT_PASS remote block 80cm (feet 82.2cm)
+[2026.10.13-06.20.30:953][502]LogTemp: Display: ER_MOVEMENT_PASS remote block 150cm (feet 152.2cm)
+[2026.10.13-06.20.34:102][663]LogTemp: Display: ER_MOVEMENT_PASS remote block 200cm (feet 202.2cm)
+[2026.10.13-06.20.34:135][664]LogTemp: Display: ER_MOVEMENT_PASS high ledge requires climb input
+[2026.10.13-06.20.34:135][664]LogTemp: Display: ER_MOVEMENT_PASS 200cm unreachable from standing shoulders
+[2026.10.13-06.20.34:135][664]LogTemp: Display: ER_MOVEMENT_PASS 80cm ledge clear before adding ceiling
+[2026.10.13-06.20.34:136][664]LogTemp: Display: ER_MOVEMENT_PASS standing body clearance rejects low ceiling
+[2026.10.13-06.20.34:479][671]LogTemp: Display: ER_MOVEMENT_PASS 125cm crouch; camera and server aim agree
+[2026.10.13-06.20.34:779][689]LogTemp: Display: ER_MOVEMENT_PASS 185cm standing restored; camera and server aim agree
+[2026.10.13-06.20.34:796][690]LogTemp: Display: ER_MOVEMENT_COMPLETE PASS
+[2026.10.13-06.19.16:986][  0]LogPython: ER_MOVEMENT_LAB_SAVED: 20 blocks, 200x200cm, heights 10..200; capsule 185cm; Shift walk
+[2026.10.13-06.19.17:065][  0]LogPython: ER_MOVEMENT_GEOMETRY_PASS: all 20 block dimensions verified; perimeter saved
+[2026.10.13-06.20.53:975][525]LogTemp: Display: ER_TEST_PASS T03_balanced_teams
+[2026.10.13-06.20.55:074][591]LogTemp: Display: ER_TEST_PASS T14_protection_shot_cancels
+[2026.10.13-06.20.55:574][621]LogTemp: Display: ER_TEST_PASS T04_host_first_projectile_64
+[2026.10.13-06.20.56:074][651]LogTemp: Display: ER_TEST_PASS T04_host_second_projectile_28
+[2026.10.13-06.20.59:475][855]LogTemp: Display: ER_TEST_PASS T04_death_score_T12_no_auto_respawn
+[2026.10.13-06.20.59:475][855]LogTemp: Display: ER_TEST_PASS T12_early_request_rejected
+[2026.10.13-06.21.00:475][915]LogTemp: Display: ER_TEST_PASS T12_requested_respawn_T13_no_shot
+[2026.10.13-06.21.01:475][975]LogTemp: Display: ER_TEST_PASS T04_client_rpc_projectile_to_host
+[2026.10.13-06.21.03:576][101]LogTemp: Display: ER_TEST_PASS T08_partial_reload
+[2026.10.13-06.21.05:679][227]LogTemp: Display: ER_TEST_PASS T09_low_reserve
+[2026.10.13-06.21.06:679][287]LogTemp: Display: ER_TEST_PASS T06_rapid_rpc_presses_one_shot
+[2026.10.13-06.21.10:904][448]LogTemp: Display: ER_TEST_CLIP ammo=0 host_hp=64
+[2026.10.13-06.21.10:904][448]LogTemp: Display: ER_TEST_PASS T07_empty_clip_30_shots
+[2026.10.13-06.21.12:135][474]LogTemp: Display: ER_TEST_PASS T05_central_wall_blocks_projectile
+[2026.10.13-06.21.12:866][489]LogTemp: Display: ER_TEST_PASS T11_friendly_fire_no_enemy_score
+[2026.10.13-06.21.13:490][502]LogTemp: Display: ER_TEST_PASS T16_time_limit_draw
+[2026.10.13-06.21.24:330][744]LogTemp: Display: ER_TEST_PASS T16_round_restarts
+[2026.10.13-06.21.27:760][822]LogTemp: Display: ER_TEST_PASS T10_reload_cancel_T15_single_death
+[2026.10.13-06.21.29:479][859]LogTemp: Display: ER_TEST_PASS T10_new_life_ammo_unchanged
+[2026.10.13-06.21.30:101][873]LogTemp: Display: ER_TEST_PASS T16_score_limit_winner
+[2026.10.13-06.21.30:101][873]LogTemp: Display: ER_NETWORK_PROBE_COMPLETE result=PASS
+[2026.10.13-06.21.47:780][468]LogTemp: Display: ER_BOT_TEST_PASS bot_opposite_team_match_started phase=0
+[2026.10.13-06.21.47:780][468]LogTemp: Display: ER_BOT_TEST_PASS all_patrol_segments_clear_for_capsule phase=0
+[2026.10.13-06.21.49:779][588]LogTemp: Display: ER_BOT_TEST_PASS bot_patrol_moves phase=1
+[2026.10.13-06.21.50:362][623]LogTemp: Display: ER_BOT_TEST_PASS bot_real_projectile_damage_ammo phase=2
+[2026.10.13-06.21.51:362][683]LogTemp: Display: ER_BOT_TEST_PASS central_wall_blocks_bot_sight_fire phase=3
+[2026.10.13-06.21.51:763][707]LogTemp: Display: ER_BOT_TEST_PASS bot_shared_reload_started phase=4
+[2026.10.13-06.21.53:062][785]LogTemp: Display: ER_BOT_TEST_PASS bot_shared_reload_ammo_transfer phase=5
+[2026.10.13-06.21.53:862][833]LogTemp: Display: ER_BOT_TEST_PASS player_kills_bot_scores_death phase=6
+[2026.10.13-06.21.53:863][833]LogTemp: Display: ER_BOT_TEST_PASS bot_early_respawn_rejected phase=6
+[2026.10.13-06.21.57:167][ 31]LogTemp: Display: ER_BOT_TEST_PASS bot_requests_respawn_new_life_protected phase=7
+[2026.10.13-06.21.57:668][ 61]LogTemp: Display: ER_BOT_TEST_PASS bot_round_finishes phase=8
+[2026.10.13-06.22.08:381][699]LogTemp: Display: ER_BOT_TEST_PASS round_restarts_with_bot phase=9
+[2026.10.13-06.22.08:381][699]LogTemp: Display: ER_BOT_PROBE_COMPLETE result=PASS mode=Patrol
+[2026.10.13-06.21.47:834][  8]LogTemp: Display: ER_BOT_CLIENT_PASS pawn_team_health_replicated
+[2026.10.13-06.21.53:885][371]LogTemp: Display: ER_BOT_CLIENT_PASS bot_death_score_replicated
+[2026.10.13-06.22.26:029][509]LogTemp: Display: ER_BOT_TEST_PASS bot_opposite_team_match_started phase=0
+[2026.10.13-06.22.26:029][509]LogTemp: Display: ER_BOT_TEST_PASS all_patrol_segments_clear_for_capsule phase=0
+[2026.10.13-06.22.28:035][629]LogTemp: Display: ER_BOT_TEST_PASS target_stays_stationary phase=1
+[2026.10.13-06.22.32:038][869]LogTemp: Display: ER_BOT_TEST_PASS target_never_fires phase=2
+[2026.10.13-06.22.33:038][929]LogTemp: Display: ER_BOT_TEST_PASS central_wall_blocks_bot_sight_fire phase=3
+[2026.10.13-06.22.33:438][953]LogTemp: Display: ER_BOT_TEST_PASS bot_shared_reload_started phase=4
+[2026.10.13-06.22.34:740][ 31]LogTemp: Display: ER_BOT_TEST_PASS bot_shared_reload_ammo_transfer phase=5
+[2026.10.13-06.22.35:541][ 79]LogTemp: Display: ER_BOT_TEST_PASS player_kills_bot_scores_death phase=6
+[2026.10.13-06.22.35:541][ 79]LogTemp: Display: ER_BOT_TEST_PASS bot_early_respawn_rejected phase=6
+[2026.10.13-06.22.38:847][277]LogTemp: Display: ER_BOT_TEST_PASS bot_requests_respawn_new_life_protected phase=7
+[2026.10.13-06.22.39:348][307]LogTemp: Display: ER_BOT_TEST_PASS bot_round_finishes phase=8
+[2026.10.13-06.22.50:047][949]LogTemp: Display: ER_BOT_TEST_PASS round_restarts_with_bot phase=9
+[2026.10.13-06.22.50:047][949]LogTemp: Display: ER_BOT_PROBE_COMPLETE result=PASS mode=Target
+[2026.10.13-06.22.26:089][  8]LogTemp: Display: ER_BOT_CLIENT_PASS pawn_team_health_replicated
+[2026.10.13-06.22.35:169][552]LogTemp: Display: ER_BOT_CLIENT_PASS bot_death_score_replicated
+
+METAL MOVEMENT INPUT
+[2026.10.13-06.24.07:207][399]LogTemp: Display: ER_INPUT_AUDIT pawn=BP_ERCharacter_C_0 pos=-698.6,2.4,94.7 vel=66.7,0.0 crouch=0 half=92.5 camz=172.2 aim=0.3,57.9 ammo=30/90 reload=0 dead=0 protected=0 menu=0 scoreboard=0 kills=0 deaths=0 ctrl=0 can_crouch=1
+[2026.10.13-06.24.07:307][405]LogTemp: Display: ER_INPUT_AUDIT pawn=BP_ERCharacter_C_0 pos=-691.9,12.9,94.7 vel=166.5,0.0 crouch=0 half=92.5 camz=172.2 aim=336.2,51.1 ammo=30/90 reload=0 dead=0 protected=0 menu=0 scoreboard=0 kills=0 deaths=0 ctrl=0 can_crouch=1
+[2026.10.13-06.24.07:407][411]LogTemp: Display: ER_INPUT_AUDIT pawn=BP_ERCharacter_C_0 pos=-678.8,31.2,94.7 vel=266.1,0.0 crouch=0 half=92.5 camz=172.2 aim=325.3,49.2 ammo=30/90 reload=0 dead=0 protected=0 menu=0 scoreboard=0 kills=0 deaths=0 ctrl=0 can_crouch=1
+[2026.10.13-06.24.07:507][417]LogTemp: Display: ER_INPUT_AUDIT pawn=BP_ERCharacter_C_0 pos=-661.7,53.1,94.7 vel=277.8,0.0 crouch=0 half=92.5 camz=172.2 aim=321.8,48.4 ammo=30/90 reload=0 dead=0 protected=0 menu=0 scoreboard=0 kills=0 deaths=0 ctrl=0 can_crouch=1
+[2026.10.13-06.24.07:607][423]LogTemp: Display: ER_INPUT_AUDIT pawn=BP_ERCharacter_C_0 pos=-644.0,74.5,94.7 vel=277.8,0.0 crouch=0 half=92.5 camz=172.2 aim=318.6,55.7 ammo=30/90 reload=0 dead=0 protected=0 menu=0 scoreboard=0 kills=0 deaths=0 ctrl=0 can_crouch=1
+[2026.10.13-06.24.07:707][429]LogTemp: Display: ER_INPUT_AUDIT pawn=BP_ERCharacter_C_0 pos=-626.9,96.4,94.7 vel=277.8,0.0 crouch=0 half=92.5 camz=172.2 aim=318.0,57.9 ammo=30/90 reload=0 dead=0 protected=0 menu=0 scoreboard=0 kills=0 deaths=0 ctrl=0 can_crouch=1
+[2026.10.13-06.24.07:807][435]LogTemp: Display: ER_INPUT_AUDIT pawn=BP_ERCharacter_C_0 pos=-610.9,119.1,94.7 vel=277.8,0.0 crouch=0 half=92.5 camz=172.2 aim=318.0,57.9 ammo=30/90 reload=0 dead=0 protected=0 menu=0 scoreboard=0 kills=0 deaths=0 ctrl=0 can_crouch=1
+[2026.10.13-06.24.07:907][441]LogTemp: Display: ER_INPUT_AUDIT pawn=BP_ERCharacter_C_0 pos=-595.5,142.2,94.7 vel=277.8,0.0 crouch=0 half=92.5 camz=172.2 aim=318.0,57.9 ammo=30/90 reload=0 dead=0 protected=0 menu=0 scoreboard=0 kills=0 deaths=0 ctrl=0 can_crouch=1
+[2026.10.13-06.24.08:007][447]LogTemp: Display: ER_INPUT_AUDIT pawn=BP_ERCharacter_C_0 pos=-580.4,165.5,94.7 vel=277.8,0.0 crouch=0 half=92.5 camz=172.2 aim=318.1,54.8 ammo=30/90 reload=0 dead=0 protected=0 menu=0 scoreboard=0 kills=0 deaths=0 ctrl=0 can_crouch=1
+[2026.10.13-06.24.08:107][453]LogTemp: Display: ER_INPUT_AUDIT pawn=BP_ERCharacter_C_0 pos=-568.1,184.7,94.7 vel=192.8,0.0 crouch=0 half=92.5 camz=172.2 aim=314.7,30.0 ammo=30/90 reload=0 dead=0 protected=0 menu=0 scoreboard=0 kills=0 deaths=0 ctrl=0 can_crouch=1
+[2026.10.13-06.24.08:207][459]LogTemp: Display: ER_INPUT_AUDIT pawn=BP_ERCharacter_C_0 pos=-560.4,196.8,94.7 vel=107.8,0.0 crouch=0 half=92.5 camz=172.2 aim=314.3,25.9 ammo=30/90 reload=0 dead=0 protected=0 menu=0 scoreboard=0 kills=0 deaths=0 ctrl=0 can_crouch=1
+[2026.10.13-06.24.08:307][465]LogTemp: Display: ER_INPUT_AUDIT pawn=BP_ERCharacter_C_0 pos=-557.2,201.7,94.7 vel=22.8,0.0 crouch=0 half=92.5 camz=172.2 aim=313.8,23.8 ammo=30/90 reload=0 dead=0 protected=0 menu=0 scoreboard=0 kills=0 deaths=0 ctrl=0 can_crouch=1
+[2026.10.13-06.26.12:237][899]LogTemp: Display: ER_INPUT_AUDIT pawn=BP_ERCharacter_C_0 pos=-312.3,345.8,151.4 vel=0.0,106.8 crouch=1 half=62.5 camz=201.4 aim=332.2,31.4 ammo=30/90 reload=0 dead=0 protected=0 menu=0 scoreboard=0 kills=0 deaths=0 ctrl=0 can_crouch=0
+[2026.10.13-06.26.12:337][905]LogTemp: Display: ER_INPUT_AUDIT pawn=BP_ERCharacter_C_0 pos=-312.3,345.8,153.3 vel=0.0,-69.6 crouch=1 half=62.5 camz=203.3 aim=332.2,31.4 ammo=30/90 reload=0 dead=0 protected=0 menu=0 scoreboard=0 kills=0 deaths=0 ctrl=0 can_crouch=0
+[2026.10.13-06.26.12:138][893]LogTemp: Display: ER_INPUT_AUDIT pawn=BP_ERCharacter_C_0 pos=-312.3,345.8,131.8 vel=0.0,283.6 crouch=0 half=92.5 camz=209.3 aim=331.9,30.7 ammo=30/90 reload=0 dead=0 protected=0 menu=0 scoreboard=0 kills=0 deaths=0 ctrl=0 can_crouch=1
+[2026.10.13-06.26.12:237][899]LogTemp: Display: ER_INPUT_AUDIT pawn=BP_ERCharacter_C_0 pos=-312.3,345.8,151.4 vel=0.0,106.8 crouch=1 half=62.5 camz=201.4 aim=332.2,31.4 ammo=30/90 reload=0 dead=0 protected=0 menu=0 scoreboard=0 kills=0 deaths=0 ctrl=0 can_crouch=0
+[2026.10.13-06.26.12:337][905]LogTemp: Display: ER_INPUT_AUDIT pawn=BP_ERCharacter_C_0 pos=-312.3,345.8,153.3 vel=0.0,-69.6 crouch=1 half=62.5 camz=203.3 aim=332.2,31.4 ammo=30/90 reload=0 dead=0 protected=0 menu=0 scoreboard=0 kills=0 deaths=0 ctrl=0 can_crouch=0
+[2026.10.13-06.26.12:437][911]LogTemp: Display: ER_INPUT_AUDIT pawn=BP_ERCharacter_C_0 pos=-312.3,345.8,137.5 vel=0.0,-246.0 crouch=1 half=62.5 camz=187.5 aim=332.2,31.4 ammo=30/90 reload=0 dead=0 protected=0 menu=0 scoreboard=0 kills=0 deaths=0 ctrl=0 can_crouch=0
+[2026.10.13-06.26.12:537][917]LogTemp: Display: ER_INPUT_AUDIT pawn=BP_ERCharacter_C_0 pos=-312.3,345.8,104.0 vel=0.0,-422.4 crouch=1 half=62.5 camz=154.0 aim=332.2,31.4 ammo=30/90 reload=0 dead=0 protected=0 menu=0 scoreboard=0 kills=0 deaths=0 ctrl=0 can_crouch=0
+
+FINAL ASSET / COMPILER CHECK
+[2026.10.13-06.26.51:138][  0]LogPython: ER_MOVEMENT_LAB_SAVED: 20 blocks, 200x200cm, heights 10..200; capsule 185cm; Shift walk
+[2026.10.13-06.26.51:209][  0]LogPython: ER_MOVEMENT_GEOMETRY_PASS: all 20 block dimensions verified; perimeter saved
+[2026.10.13-06.26.51:221][  0]LogPython: ER_MOVEMENT_LABELS_SAVED: dark height labels for bright laboratory surfaces
+Result: Succeeded
+
+PRESENTATION TUNING — 2026-10-13
+Result: Succeeded
+[2026.10.13-06.33.35:849][  0]LogPython: ER_PRESENTATION_SAVED: mouse scalar 0.18 (+50%); other modifiers/mappings preserved
+
+MOUSE RETUNE 0.16
+[2026.10.13-06.38.34:291][  0]LogPython: ER_PRESENTATION_SAVED: mouse scalar 0.16 (-11.1% from 0.18); other modifiers/mappings preserved
+
+MOUSE RESTORE 0.18
+[2026.10.13-06.40.38:485][  0]LogPython: ER_PRESENTATION_SAVED: mouse scalar 0.18 (restored); other modifiers/mappings preserved
+
+=== Shot feedback, 13 October 2026 ===
+Result: Succeeded
+[2026.10.13-07.30.13:269][  0]LogPython: ER_FIRE_POSE_SAMPLE t=0.0000 span_error_cm=0.0000 displacement_cm=0.0000
+[2026.10.13-07.30.13:269][  0]LogPython: ER_FIRE_POSE_SAMPLE t=0.0167 span_error_cm=0.0000 displacement_cm=1.4115
+[2026.10.13-07.30.13:269][  0]LogPython: ER_FIRE_POSE_SAMPLE t=0.0500 span_error_cm=0.0000 displacement_cm=0.5646
+[2026.10.13-07.30.13:270][  0]LogPython: ER_FIRE_POSE_SAMPLE t=0.1000 span_error_cm=0.0000 displacement_cm=0.0000
+[2026.10.13-07.30.13:270][  0]LogPython: ER_FIRE_ANIMATION_VERIFIED: 0.1 s, aligned grips, idle endpoints
+[2026.10.13-07.30.13:515][  0]LogPython: ER_SHOT_ASSETS_SAVED: BP defaults, template sound, spatial attenuation, additive muzzle flash
+[2026.10.13-07.21.26:348][532]LogTemp: Display: ER_TEST_PASS T03_balanced_teams
+[2026.10.13-07.21.27:444][598]LogTemp: Display: ER_TEST_PASS T14_protection_shot_cancels
+[2026.10.13-07.21.27:944][628]LogTemp: Display: ER_TEST_PASS T04_host_first_projectile_64
+[2026.10.13-07.21.28:444][658]LogTemp: Display: ER_TEST_PASS T04_host_second_projectile_28
+[2026.10.13-07.21.31:845][862]LogTemp: Display: ER_TEST_PASS T04_death_score_T12_no_auto_respawn
+[2026.10.13-07.21.31:845][862]LogTemp: Display: ER_TEST_PASS T12_early_request_rejected
+[2026.10.13-07.21.32:845][922]LogTemp: Display: ER_TEST_PASS T12_requested_respawn_T13_no_shot
+[2026.10.13-07.21.33:845][982]LogTemp: Display: ER_TEST_PASS T04_client_rpc_projectile_to_host
+[2026.10.13-07.21.35:945][108]LogTemp: Display: ER_TEST_PASS T08_partial_reload
+[2026.10.13-07.21.38:046][234]LogTemp: Display: ER_TEST_PASS T09_low_reserve
+[2026.10.13-07.21.39:046][294]LogTemp: Display: ER_TEST_PASS T06_rapid_rpc_presses_one_shot
+[2026.10.13-07.21.39:046][294]LogTemp: Display: ER_TEST_PASS Shot_rapid_requests_one_feedback
+[2026.10.13-07.21.43:255][503]LogTemp: Display: ER_TEST_PASS T07_empty_clip_30_shots
+[2026.10.13-07.21.43:255][503]LogTemp: Display: ER_TEST_PASS Shot_30_rounds_30_feedback_events
+[2026.10.13-07.21.43:255][503]LogTemp: Display: ER_TEST_PASS Shot_cosmetic_recoil_preserves_server_aim
+[2026.10.13-07.21.44:488][553]LogTemp: Display: ER_TEST_PASS Shot_empty_clip_no_feedback
+[2026.10.13-07.21.44:488][553]LogTemp: Display: ER_TEST_PASS T05_central_wall_blocks_projectile
+[2026.10.13-07.21.45:196][595]LogTemp: Display: ER_TEST_PASS T11_friendly_fire_no_enemy_score
+[2026.10.13-07.21.45:796][631]LogTemp: Display: ER_TEST_PASS T16_time_limit_draw
+[2026.10.13-07.21.56:621][131]LogTemp: Display: ER_TEST_PASS T16_round_restarts
+[2026.10.13-07.22.00:022][331]LogTemp: Display: ER_TEST_PASS T10_reload_cancel_T15_single_death
+[2026.10.13-07.22.01:722][433]LogTemp: Display: ER_TEST_PASS T10_new_life_ammo_unchanged
+[2026.10.13-07.22.02:322][469]LogTemp: Display: ER_TEST_PASS T16_score_limit_winner
+[2026.10.13-07.22.02:322][469]LogTemp: Display: ER_NETWORK_PROBE_COMPLETE result=PASS
+ER_TEST_PASS host_shot_assets_and_both_perspectives events=44
+ER_TEST_PASS client_shot_assets_and_both_perspectives events=44
+
+=== Ammunition reticle and real rifle spread, 13 October 2026 ===
+Result: Succeeded
+[2026.10.13-07.55.02:211][589]LogTemp: Display: ER_ACCURACY_PASS standing_base_cone
+[2026.10.13-07.55.02:712][619]LogTemp: Display: ER_ACCURACY_PASS crouch_narrows_cone
+[2026.10.13-07.55.03:412][661]LogTemp: Display: ER_ACCURACY_PASS walking_adds_actual_movement_spread
+[2026.10.13-07.55.04:112][703]LogTemp: Display: ER_ACCURACY_PASS running_wider_than_walking
+[2026.10.13-07.55.04:312][715]LogTemp: Display: ER_ACCURACY_PASS jump_adds_airborne_spread
+[2026.10.13-07.55.06:178][827]LogTemp: Display: ER_ACCURACY_PASS ten_real_projectiles_within_server_cone
+[2026.10.13-07.55.06:178][827]LogTemp: Display: ER_ACCURACY_PASS server_samples_different_directions
+[2026.10.13-07.55.06:178][827]LogTemp: Display: ER_ACCURACY_PASS burst_bloom_bounded
+[2026.10.13-07.55.06:829][866]LogTemp: Display: ER_ACCURACY_PASS remote_rpc_burst_adds_server_bloom
+[2026.10.13-07.55.07:228][890]LogTemp: Display: ER_ACCURACY_PASS stopped_burst_recovers_gradually
+[2026.10.13-07.55.08:629][974]LogTemp: Display: ER_ACCURACY_PASS server_bloom_returns_to_base
+[2026.10.13-07.55.09:128][  4]LogTemp: Display: ER_ACCURACY_PASS rejected_empty_shot_adds_no_bloom
+[2026.10.13-07.55.09:129][  4]LogTemp: Display: ER_ACCURACY_COMPLETE result=PASS
+ER_ACCURACY_PASS owner_base_data
+ER_ACCURACY_PASS owner_ammo_bloom_replicated
+ER_ACCURACY_PASS owner_clock_recovers_bloom
+[2026.10.13-07.55.03:766][544]LogTemp: Display: ER_TEST_PASS T03_balanced_teams
+[2026.10.13-07.55.04:864][610]LogTemp: Display: ER_TEST_PASS T14_protection_shot_cancels
+[2026.10.13-07.55.05:364][640]LogTemp: Display: ER_TEST_PASS T04_host_first_projectile_64
+[2026.10.13-07.55.05:864][670]LogTemp: Display: ER_TEST_PASS T04_host_second_projectile_28
+[2026.10.13-07.55.09:264][874]LogTemp: Display: ER_TEST_PASS T04_death_score_T12_no_auto_respawn
+[2026.10.13-07.55.09:264][874]LogTemp: Display: ER_TEST_PASS T12_early_request_rejected
+[2026.10.13-07.55.10:264][934]LogTemp: Display: ER_TEST_PASS T12_requested_respawn_T13_no_shot
+[2026.10.13-07.55.11:264][994]LogTemp: Display: ER_TEST_PASS T04_client_rpc_projectile_to_host
+[2026.10.13-07.55.13:364][120]LogTemp: Display: ER_TEST_PASS T08_partial_reload
+[2026.10.13-07.55.15:467][246]LogTemp: Display: ER_TEST_PASS T09_low_reserve
+[2026.10.13-07.55.16:467][306]LogTemp: Display: ER_TEST_PASS T06_rapid_rpc_presses_one_shot
+[2026.10.13-07.55.16:467][306]LogTemp: Display: ER_TEST_PASS Shot_rapid_requests_one_feedback
+[2026.10.13-07.55.20:674][553]LogTemp: Display: ER_TEST_PASS T07_empty_clip_30_shots
+[2026.10.13-07.55.20:674][553]LogTemp: Display: ER_TEST_PASS Shot_30_rounds_30_feedback_events
+[2026.10.13-07.55.20:674][553]LogTemp: Display: ER_TEST_PASS Shot_cosmetic_recoil_preserves_server_aim
+[2026.10.13-07.55.21:874][625]LogTemp: Display: ER_TEST_PASS Shot_empty_clip_no_feedback
+[2026.10.13-07.55.21:874][625]LogTemp: Display: ER_TEST_PASS T05_central_wall_blocks_projectile
+[2026.10.13-07.55.22:574][667]LogTemp: Display: ER_TEST_PASS T11_friendly_fire_no_enemy_score
+[2026.10.13-07.55.23:174][703]LogTemp: Display: ER_TEST_PASS T16_time_limit_draw
+[2026.10.13-07.55.33:977][324]LogTemp: Display: ER_TEST_PASS T16_round_restarts
+[2026.10.13-07.55.37:388][454]LogTemp: Display: ER_TEST_PASS T10_reload_cancel_T15_single_death
+[2026.10.13-07.55.39:088][556]LogTemp: Display: ER_TEST_PASS T10_new_life_ammo_unchanged
+[2026.10.13-07.55.39:689][592]LogTemp: Display: ER_TEST_PASS T16_score_limit_winner
+[2026.10.13-07.55.39:690][592]LogTemp: Display: ER_NETWORK_PROBE_COMPLETE result=PASS
+ER_TEST_PASS host_shot_assets_and_both_perspectives events=44
+ER_TEST_PASS client_shot_assets_and_both_perspectives events=44
+[2026.10.13-07.57.34:261][572]LogTemp: Display: ER_BOT_TEST_PASS bot_opposite_team_match_started phase=0
+[2026.10.13-07.57.34:261][572]LogTemp: Display: ER_BOT_TEST_PASS all_patrol_segments_clear_for_capsule phase=0
+[2026.10.13-07.57.36:260][692]LogTemp: Display: ER_BOT_TEST_PASS bot_patrol_moves phase=1
+[2026.10.13-07.57.36:843][727]LogTemp: Display: ER_BOT_TEST_PASS bot_real_projectile_damage_ammo phase=2
+[2026.10.13-07.57.37:843][787]LogTemp: Display: ER_BOT_TEST_PASS central_wall_blocks_bot_sight_fire phase=3
+[2026.10.13-07.57.38:243][811]LogTemp: Display: ER_BOT_TEST_PASS bot_shared_reload_started phase=4
+[2026.10.13-07.57.39:543][889]LogTemp: Display: ER_BOT_TEST_PASS bot_shared_reload_ammo_transfer phase=5
+[2026.10.13-07.57.40:343][937]LogTemp: Display: ER_BOT_TEST_PASS player_kills_bot_scores_death phase=6
+[2026.10.13-07.57.40:343][937]LogTemp: Display: ER_BOT_TEST_PASS bot_early_respawn_rejected phase=6
+[2026.10.13-07.57.43:643][135]LogTemp: Display: ER_BOT_TEST_PASS bot_requests_respawn_new_life_protected phase=7
+[2026.10.13-07.57.44:143][165]LogTemp: Display: ER_BOT_TEST_PASS bot_round_finishes phase=8
+[2026.10.13-07.57.54:844][719]LogTemp: Display: ER_BOT_TEST_PASS round_restarts_with_bot phase=9
+[2026.10.13-07.57.54:844][719]LogTemp: Display: ER_BOT_PROBE_COMPLETE result=PASS mode=Patrol
+[2026.10.13-07.57.34:313][  7]LogTemp: Display: ER_BOT_CLIENT_PASS pawn_team_health_replicated
+[2026.10.13-07.57.40:363][370]LogTemp: Display: ER_BOT_CLIENT_PASS bot_death_score_replicated
+[2026.10.13-07.58.18:806][666]LogTemp: Display: ER_BOT_TEST_PASS bot_opposite_team_match_started phase=0
+[2026.10.13-07.58.18:806][666]LogTemp: Display: ER_BOT_TEST_PASS all_patrol_segments_clear_for_capsule phase=0
+[2026.10.13-07.58.20:804][786]LogTemp: Display: ER_BOT_TEST_PASS target_stays_stationary phase=1
+[2026.10.13-07.58.24:807][ 26]LogTemp: Display: ER_BOT_TEST_PASS target_never_fires phase=2
+[2026.10.13-07.58.25:807][ 86]LogTemp: Display: ER_BOT_TEST_PASS central_wall_blocks_bot_sight_fire phase=3
+[2026.10.13-07.58.26:207][110]LogTemp: Display: ER_BOT_TEST_PASS bot_shared_reload_started phase=4
+[2026.10.13-07.58.27:507][188]LogTemp: Display: ER_BOT_TEST_PASS bot_shared_reload_ammo_transfer phase=5
+[2026.10.13-07.58.28:307][236]LogTemp: Display: ER_BOT_TEST_PASS player_kills_bot_scores_death phase=6
+[2026.10.13-07.58.28:307][236]LogTemp: Display: ER_BOT_TEST_PASS bot_early_respawn_rejected phase=6
+[2026.10.13-07.58.31:619][394]LogTemp: Display: ER_BOT_TEST_PASS bot_requests_respawn_new_life_protected phase=7
+[2026.10.13-07.58.32:119][424]LogTemp: Display: ER_BOT_TEST_PASS bot_round_finishes phase=8
+[2026.10.13-07.58.42:832][  1]LogTemp: Display: ER_BOT_TEST_PASS round_restarts_with_bot phase=9
+[2026.10.13-07.58.42:832][  1]LogTemp: Display: ER_BOT_PROBE_COMPLETE result=PASS mode=Target
+[2026.10.13-07.58.18:860][  8]LogTemp: Display: ER_BOT_CLIENT_PASS pawn_team_health_replicated
+[2026.10.13-07.58.27:962][554]LogTemp: Display: ER_BOT_CLIENT_PASS bot_death_score_replicated
+Graphical HUD audit: 2345 samples; no ammo/tick mismatch; ammo 0..30; spread 0.108..0.930 deg; radius 27.2..36.4 px.

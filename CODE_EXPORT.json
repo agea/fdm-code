@@ -1,0 +1,586 @@
+{
+  "files": [
+    {
+      "path": ".gitattributes",
+      "bytes": 342,
+      "sha256": "e6c0718dee17b41f370600e988f1c5f2db433f0b9834173fbef931d353bb2926"
+    },
+    {
+      "path": ".gitignore",
+      "bytes": 350,
+      "sha256": "1356b198c5c2de19f4d0196e9f5829b769faac659f75ed6bafe95f4421674827"
+    },
+    {
+      "path": "AGENTS.md",
+      "bytes": 13095,
+      "sha256": "f945bfbefcea345a28b95d2f508440db3f54d78ceb5c90063211995909d789c1"
+    },
+    {
+      "path": "Config/DefaultEditor.ini",
+      "bytes": 33963,
+      "sha256": "7adde2c1c64e88152ba5493f21dc6ee782c69007b8b475e77838c3adeaf8bd21"
+    },
+    {
+      "path": "Config/DefaultEditorPerProjectUserSettings.ini",
+      "bytes": 69,
+      "sha256": "9d721c9b4792dbd5dfb3f69780d28c66ee68d552318c84d998ae754a5a56b506"
+    },
+    {
+      "path": "Config/DefaultEngine.ini",
+      "bytes": 10618,
+      "sha256": "5c750321bcfe34070690a8c0c63d52389f13f550e4d590a16672e68a6aada24a"
+    },
+    {
+      "path": "Config/DefaultGame.ini",
+      "bytes": 438,
+      "sha256": "8b02a6245dddb358a4e9bd7a876e89126b7cc885858607309850e0e5d0d4fac8"
+    },
+    {
+      "path": "Config/DefaultInput.ini",
+      "bytes": 13787,
+      "sha256": "939c5a585186a7e67b1ace9f0d0705aff82e56e7b2d6a296614943e0ff1b46e5"
+    },
+    {
+      "path": "README.md",
+      "bytes": 10394,
+      "sha256": "444065052205fb6223da9b178a6e99f4ae2c5684ffd1475daa14a7a5d518df20"
+    },
+    {
+      "path": "Source/fdm/ERAccuracyProbe.cpp",
+      "bytes": 6975,
+      "sha256": "82e905976f16110f267fb01d9c3672d354f0ffefada7ddf94d954c67a60c026a"
+    },
+    {
+      "path": "Source/fdm/ERAccuracyProbe.h",
+      "bytes": 1064,
+      "sha256": "ac770393bbe4a6e2fcf01096867dad383488c0994ea28828585efdb5b6c72de9"
+    },
+    {
+      "path": "Source/fdm/ERArsenalProbe.cpp",
+      "bytes": 14900,
+      "sha256": "0b346307aaa06a890cdf7d4b3a6479bb1b262547c8cf9147ccd7619ca08392c7"
+    },
+    {
+      "path": "Source/fdm/ERArsenalProbe.h",
+      "bytes": 960,
+      "sha256": "5a23d6afa1ff5c3feb1ce59b8e28b77e465b50b52b781e0f82e23f1aef2ec46f"
+    },
+    {
+      "path": "Source/fdm/ERBotController.cpp",
+      "bytes": 6783,
+      "sha256": "3c26b430240f7b76b74c34f76c32950ab04630af61c6483d63e15aa5dbc803ba"
+    },
+    {
+      "path": "Source/fdm/ERBotController.h",
+      "bytes": 1246,
+      "sha256": "5eb6d6a347761a57c33686a62656745a607ddd9a99f618818bb1e7e4c81118ce"
+    },
+    {
+      "path": "Source/fdm/ERBotProbe.cpp",
+      "bytes": 9872,
+      "sha256": "27c43c1abf0be8f10b8b4236c05dec3793071e9cf3a708ccff3baa3984bc92f2"
+    },
+    {
+      "path": "Source/fdm/ERBotProbe.h",
+      "bytes": 986,
+      "sha256": "9d19a2b53289338907200ebb14f045b7dd29d46944326d0acf5f6e67519b5510"
+    },
+    {
+      "path": "Source/fdm/ERCharacter.cpp",
+      "bytes": 32303,
+      "sha256": "16d608abf8b08dd7d800ff52be218617d838b7c16b9f8a30bc945bdbf32652d9"
+    },
+    {
+      "path": "Source/fdm/ERCharacter.h",
+      "bytes": 8220,
+      "sha256": "e2bd913fffdec713462f2b3bb7b0902c1f8f325156aa3366adcdfe6b4f76b792"
+    },
+    {
+      "path": "Source/fdm/ERCorpse.cpp",
+      "bytes": 7996,
+      "sha256": "7aee7e068df116f41804f6224afeb07624980c913b6601b1538012812423a0e7"
+    },
+    {
+      "path": "Source/fdm/ERCorpse.h",
+      "bytes": 2313,
+      "sha256": "c4bad37aa45dfbfdf66bc37825df46516f8442412113d1510c023e321ac24108"
+    },
+    {
+      "path": "Source/fdm/ERCorpsePhysics.cpp",
+      "bytes": 6250,
+      "sha256": "e9b6aef6471d3891d158f72e2e9d1ce6de6da86813fd01741e8b1c00f66a541f"
+    },
+    {
+      "path": "Source/fdm/ERFirstPersonForearms.cpp",
+      "bytes": 17380,
+      "sha256": "684625d8e11d9e2326ea6b14790669d501e86c0f7a585ac60936e007c81c5433"
+    },
+    {
+      "path": "Source/fdm/ERGrenadeExplosion.cpp",
+      "bytes": 4097,
+      "sha256": "f9a9d88551c65725a87ab3c99517dc4660dcb8e8686fb1812c4a81aa673d9101"
+    },
+    {
+      "path": "Source/fdm/ERGrenadeExplosion.h",
+      "bytes": 1569,
+      "sha256": "1a5764c5e9c9ecb00978b09fa910e6df23c530518f19562ec54038c13f8ee994"
+    },
+    {
+      "path": "Source/fdm/ERMatch.cpp",
+      "bytes": 18992,
+      "sha256": "eafddbdc2abfba16125bb5ae3fec846f9af6b06665034fdbb2797ae920139161"
+    },
+    {
+      "path": "Source/fdm/ERMatch.h",
+      "bytes": 3768,
+      "sha256": "5e7447f570147aaccb082b3255b288bc5662effeca3c57439bfcee37879f9dc8"
+    },
+    {
+      "path": "Source/fdm/ERMouseResponse.h",
+      "bytes": 902,
+      "sha256": "cfba147fe074b8993dcdd11201e357f7e5aeaebca228f5b6f78ef1e7798c8c98"
+    },
+    {
+      "path": "Source/fdm/ERMouseResponseTests.cpp",
+      "bytes": 1752,
+      "sha256": "7786f5bc476424a9f9dc801112d73db7ec320dfe4321d41fb261c7aa7d046195"
+    },
+    {
+      "path": "Source/fdm/ERMovement.cpp",
+      "bytes": 7194,
+      "sha256": "cc440ce406122be50da6def4d4a72f7f441622b340949179132d84727776f8fb"
+    },
+    {
+      "path": "Source/fdm/ERMovement.h",
+      "bytes": 1173,
+      "sha256": "0670d81a0ec52820bc66c4900623d1ec77cd57de60c617901a08b50db6f4fba3"
+    },
+    {
+      "path": "Source/fdm/ERMovementProbe.cpp",
+      "bytes": 9075,
+      "sha256": "02528bbe32efe83a59c088b854e971294d0eca82a442495c84fe9738bd9b4fa6"
+    },
+    {
+      "path": "Source/fdm/ERMovementProbe.h",
+      "bytes": 785,
+      "sha256": "b41cb80d6ecbdf3132bdc9ff80510fcd1be24cadd89db07f82983e05c02289f5"
+    },
+    {
+      "path": "Source/fdm/ERNetworkProbe.cpp",
+      "bytes": 13038,
+      "sha256": "b9176786fa668775922d3b0e507b787e3a6d3a43aeb6d02df38fa69c16625829"
+    },
+    {
+      "path": "Source/fdm/ERNetworkProbe.h",
+      "bytes": 1015,
+      "sha256": "1b9d835503c98163874a078663dd00f678920a14249efa31eeb3bb68a89f4574"
+    },
+    {
+      "path": "Source/fdm/ERPlayerController.cpp",
+      "bytes": 45316,
+      "sha256": "6f3a39ad7bb67e5c08b53ee5240432adbbd2cd5cedd6ab5356332dd3fdf14c1c"
+    },
+    {
+      "path": "Source/fdm/ERPlayerController.h",
+      "bytes": 5641,
+      "sha256": "75a9eee464ea028e51324362a822ba38b5b2d17b7ee30bee753fb2ca3a39bcd6"
+    },
+    {
+      "path": "Source/fdm/ERRulesTests.cpp",
+      "bytes": 1259,
+      "sha256": "942ede5209af6b4e3cc426060ee151b7e3bfc1c064d5b4c768ae0da79904ea7a"
+    },
+    {
+      "path": "Source/fdm/ERSkinGear.cpp",
+      "bytes": 4753,
+      "sha256": "486bdf0af0015c71b031b1e56c95350530ffb5d73f8cd735747cccdca804f006"
+    },
+    {
+      "path": "Source/fdm/ERSmokeCloud.cpp",
+      "bytes": 11266,
+      "sha256": "28242b4f3299d10f8917742baa15aba89cb468aedb5e19e90e36ce0a226ee6de"
+    },
+    {
+      "path": "Source/fdm/ERSmokeCloud.h",
+      "bytes": 1838,
+      "sha256": "f27075a0d8509283cab67de06390157669cd3546cc0fbe44800582fc8e49efab"
+    },
+    {
+      "path": "Source/fdm/ERTeamAppearance.cpp",
+      "bytes": 4454,
+      "sha256": "36843ef4bbdf7699b148f874d24bee012fe13ed3a141c4d449c79647e933caaa"
+    },
+    {
+      "path": "Source/fdm/ERTeamAppearance.h",
+      "bytes": 2386,
+      "sha256": "bac4833321a8c66cd07e516ccdf9f1bf23499f99d82e77c5ba762618c1ffb56c"
+    },
+    {
+      "path": "Source/fdm/ERTeamGallery.cpp",
+      "bytes": 14378,
+      "sha256": "23f767677796235c4db4368db26bd56b29af28d08d885def2479140e8eee81ca"
+    },
+    {
+      "path": "Source/fdm/ERTeamGallery.h",
+      "bytes": 901,
+      "sha256": "3c260aa64317830016ca66e381d8a24bd3c4c70e902c3fa73d52fa0222d5b9e6"
+    },
+    {
+      "path": "Source/fdm/ERWeapon.cpp",
+      "bytes": 17884,
+      "sha256": "e2e95ba69ce132505bf7c3c5bcc198e4e41f3828c40c7b9cddf1a480a1cd3235"
+    },
+    {
+      "path": "Source/fdm/ERWeapon.h",
+      "bytes": 7263,
+      "sha256": "bd6e48b5fb7044d2b04a9200fbedbe73b28d9126b0c1e5c600935f07640c585c"
+    },
+    {
+      "path": "Source/fdm/fdm.Build.cs",
+      "bytes": 719,
+      "sha256": "3c54ea5bf23be9ebe10f5e6b1f48263dc288baf1885929e7c30064e167bb3d1b"
+    },
+    {
+      "path": "Source/fdm/fdm.cpp",
+      "bytes": 102,
+      "sha256": "729fdca6186fd6f78ecd874e7934cd57138c725cc2cfdb4728d4368577eb16c8"
+    },
+    {
+      "path": "Source/fdm.Target.cs",
+      "bytes": 323,
+      "sha256": "4ec637899d7077a51966a2c557a34f26a3c55e960d40626bbe244de643509741"
+    },
+    {
+      "path": "Source/fdmEditor.Target.cs",
+      "bytes": 337,
+      "sha256": "a29ce000211fb9c939c6767ae96929cfc8b1e1edc1655a7c211a6048d562615e"
+    },
+    {
+      "path": "assets.json",
+      "bytes": 835,
+      "sha256": "3ea7b1b3bd6e89b055339bf41ca5753ed1aeb14b4598e621d83ca20fc9eda582"
+    },
+    {
+      "path": "docs/ASSETS.md",
+      "bytes": 19751,
+      "sha256": "5d60690ac96b990f0edb7b79e58ce8ae43223272a932f96af016bea8584fa3c8"
+    },
+    {
+      "path": "docs/ASSET_AUDIT_SUMMARY.json",
+      "bytes": 4675,
+      "sha256": "70ffa70f90e923962acded51ba91281396337ea667f4e659ef0f046cf8dd35bd"
+    },
+    {
+      "path": "docs/ASSET_LICENSES.md",
+      "bytes": 4836,
+      "sha256": "046435fa9ac2bac71a417791c41eadab296a1501420cbaba1e17d2a876870623"
+    },
+    {
+      "path": "docs/ASSET_SUBMODULES.md",
+      "bytes": 4641,
+      "sha256": "8c88a3832e5bd172539ed07f25ff45e82275601d3af1553006a8f81308c0be8f"
+    },
+    {
+      "path": "docs/CLEANUP_RESULT.json",
+      "bytes": 659,
+      "sha256": "e527633babdf405d7bddcd4de83e8e421139e15fc325b5d6c9e3dceb212387c2"
+    },
+    {
+      "path": "docs/DEVELOPMENT.md",
+      "bytes": 54163,
+      "sha256": "3a2c6b697f61d202db83ddfd6d8f44f90d2586249350eb1c8547fb7dcd909b0f"
+    },
+    {
+      "path": "docs/ECLIPSE_RECOIL_UNREAL_BASE.md",
+      "bytes": 57601,
+      "sha256": "c386d30ff9daa8a0db9423e4ca8ab2fb187e6147886b6ae3c176637ecb8ef6b4"
+    },
+    {
+      "path": "docs/ENVIRONMENT.md",
+      "bytes": 899,
+      "sha256": "9f4baa79f67b3772fbeb6505c4888f268bcb84c13ad37f3fa64ed4d9fe5732c2"
+    },
+    {
+      "path": "docs/REPOSITORY_CLEANUP.md",
+      "bytes": 14233,
+      "sha256": "fe78c8ed472792d5c6a728f932c7147c4710997ea0579db6e1c895e557934378"
+    },
+    {
+      "path": "docs/TEST_RESULTS.md",
+      "bytes": 63438,
+      "sha256": "6406868f0c475509a6c59d123f33eb320bd31dde51db3e530c64fd99404a3878"
+    },
+    {
+      "path": "docs/VERIFICATION.txt",
+      "bytes": 39821,
+      "sha256": "d0d73e3e0580d9aa8390a089cf8ce1ed02fbc6abbd70917f33b25b7473908814"
+    },
+    {
+      "path": "fdm.uproject",
+      "bytes": 854,
+      "sha256": "6bdb4da4d288a0801057a15e7d1339c4898025aef85e1f4e68ab226c51e6096c"
+    },
+    {
+      "path": "scripts/audit-assets.py",
+      "bytes": 5880,
+      "sha256": "9dec214633c8af7a5455a38d4e91b472932480ea392ec5718ac95268242e06f6"
+    },
+    {
+      "path": "scripts/bake_bomb_crack.py",
+      "bytes": 5846,
+      "sha256": "ab26c4e044d2640aba370693e472bcb5515b0d47278d849e9b88048b8eada110"
+    },
+    {
+      "path": "scripts/clean-project.py",
+      "bytes": 5266,
+      "sha256": "8806de5e8124fbd56395c1e81d1ffa2a4d31677dc6d636fb8e4be9dfe2362167"
+    },
+    {
+      "path": "scripts/create_rifle_pose.py",
+      "bytes": 8321,
+      "sha256": "a2692f23e26b41e51bdcb1d1962f6cc437adf2101b4a0107942d5f4258eda33d"
+    },
+    {
+      "path": "scripts/detach_mercenary.py",
+      "bytes": 8952,
+      "sha256": "3f479c6e6cdbd50757abc2bf93eb08392dca9112d4086644d86ae347a43136ee"
+    },
+    {
+      "path": "scripts/export-code.py",
+      "bytes": 3422,
+      "sha256": "c6e341ecb4dfb374c6ebe07f4344d0bfd2bdfad3f93e6c0b5d48d8f488a53949"
+    },
+    {
+      "path": "scripts/fix_controls.py",
+      "bytes": 1150,
+      "sha256": "64de6348b5a7eb2db894993399906773c4d0dfc664136dcad9f609c48cdaab32"
+    },
+    {
+      "path": "scripts/fix_spawn_rotations.py",
+      "bytes": 877,
+      "sha256": "f209c2230f24d83296837de896ca9556bb88be678f7d47ba9246845c960ace65"
+    },
+    {
+      "path": "scripts/fix_viewmodel.py",
+      "bytes": 1446,
+      "sha256": "3a93eb43484c43f591571400b4ef5f3813c0e00e74fdd4ae0a4b6d2b38bb8d20"
+    },
+    {
+      "path": "scripts/generate_hit_sound.py",
+      "bytes": 724,
+      "sha256": "a063d9c3aa580507289afeb98a9ac2ab1d2f7b57e65d5a6d3ae24ca8961e83d8"
+    },
+    {
+      "path": "scripts/import_low_poly_weapons.py",
+      "bytes": 4446,
+      "sha256": "04f1cfeed5ae1707ff67f060de78c34319beb1b724151ca1085a9845082f2b04"
+    },
+    {
+      "path": "scripts/legacy/setup_mercenary_first_person.py",
+      "bytes": 7994,
+      "sha256": "757fe1664be42fcad4945fdd9451ca617b373b4a39100af31066c35029e24dcb"
+    },
+    {
+      "path": "scripts/legacy/setup_mercenary_target.py",
+      "bytes": 5846,
+      "sha256": "ca47940e76d1a2db5c4379ee0f111741a0f120c9e09652eeebb565598bcc48f4"
+    },
+    {
+      "path": "scripts/migrate_interactive_smoke.py",
+      "bytes": 2270,
+      "sha256": "f665836356554ae052132ea87815e214cf3e03f7424d4194c82d4b9fc23c635f"
+    },
+    {
+      "path": "scripts/open-editor.command",
+      "bytes": 222,
+      "sha256": "78d1d629453c7e060d050ab2ad40355e3cc034f1a553d88be9a46af9aee701ff"
+    },
+    {
+      "path": "scripts/play-bots.command",
+      "bytes": 618,
+      "sha256": "69af3af3457db67238af2732f972ec7d8e40e6d7aa6f62ff499159b2c54dcb1e"
+    },
+    {
+      "path": "scripts/play-local.command",
+      "bytes": 467,
+      "sha256": "85ad08639e10ac3e00bd906ede73a2022af5b6ec1c89d6dcd417a1e1a619c694"
+    },
+    {
+      "path": "scripts/play-movement.command",
+      "bytes": 479,
+      "sha256": "54e6b8cdeafeb49a23d1ff2fff8885568c3871b2ca388741b662f597a4f8faee"
+    },
+    {
+      "path": "scripts/prune_unused_paragon.py",
+      "bytes": 3601,
+      "sha256": "c3f260e1278b6349d298dbd6a15d89df21bbf50d4d5621344dc8d0baacb73936"
+    },
+    {
+      "path": "scripts/remove_legacy_mercenary.py",
+      "bytes": 2318,
+      "sha256": "6b9a1a25b5039dbcf0bf52d2c990bc7ba7518f8da1a6645bbcd8fc8a233ca8a8"
+    },
+    {
+      "path": "scripts/restore_mannequin_first_person.py",
+      "bytes": 2385,
+      "sha256": "06a12e5fc2ddefa7ed9c8cc22d560ab8c3173800e246aa86203044c09d1f456b"
+    },
+    {
+      "path": "scripts/setup-assets.py",
+      "bytes": 4325,
+      "sha256": "b9291c1fae2dc8dd0d0b2065ae282ea6501d0e6d79f3c914caed22036ddca9c8"
+    },
+    {
+      "path": "scripts/setup_bot_routes.py",
+      "bytes": 1686,
+      "sha256": "b20a30c2969af0817feeb32ad973b0d96507c400ce903a46152dee2811014ff5"
+    },
+    {
+      "path": "scripts/setup_bullet_impact.py",
+      "bytes": 5378,
+      "sha256": "7a1c6583a243da8b14d0ee7657fe0bb2d65921afd041d57412a2a907dac342b2"
+    },
+    {
+      "path": "scripts/setup_damage_death.py",
+      "bytes": 3419,
+      "sha256": "5ce6dda31a309023ba0e519290e35d1aa41683b98d2eef64bee3661243f54e88"
+    },
+    {
+      "path": "scripts/setup_editor.py",
+      "bytes": 10953,
+      "sha256": "43a725594243746a7d8da773049d86cbb2571c39be9926c553d70c8d2960dfa8"
+    },
+    {
+      "path": "scripts/setup_grenade_explosion.py",
+      "bytes": 7307,
+      "sha256": "64507548b971099469edb13d57acdf37d5e2deb23b9226374d7d9895b5ea9aad"
+    },
+    {
+      "path": "scripts/setup_interactive_smoke.py",
+      "bytes": 2221,
+      "sha256": "d88169d9127c998963d3a1c86f6ed1b3c0e60810a1ddd32d4357949010bf5fad"
+    },
+    {
+      "path": "scripts/setup_low_poly_arsenal.py",
+      "bytes": 10291,
+      "sha256": "5240a4615ce014acacdb8432536d8a99dcfc3a3bf07960a773c931b33ddd4926"
+    },
+    {
+      "path": "scripts/setup_movement_lab.py",
+      "bytes": 6989,
+      "sha256": "6620a94b7759437d5cca1a9f9c9080068f088ad3ab076a6e7a2801e46e865f22"
+    },
+    {
+      "path": "scripts/setup_shot_feedback.py",
+      "bytes": 6644,
+      "sha256": "5bb14e0224a5cd9d8635e6065ed4fb0c37b9bc4475a2dba5d12ef293c15d6710"
+    },
+    {
+      "path": "scripts/setup_skin_first_person_forearms.py",
+      "bytes": 3269,
+      "sha256": "db3f867bdeedd4ab2745676f571084b54db050817be8c96361ef00b1daabde41"
+    },
+    {
+      "path": "scripts/setup_team_characters.py",
+      "bytes": 11993,
+      "sha256": "e67aaeed21edd6215a964ba2766426d4c5da32695c65bad17f7e44190545dd49"
+    },
+    {
+      "path": "scripts/setup_team_ragdolls.py",
+      "bytes": 1568,
+      "sha256": "11d6f28bc696c0cb2f1f4c0eda336bcda66f349f474221469efbcf9750d3bdfb"
+    },
+    {
+      "path": "scripts/setup_team_skins.py",
+      "bytes": 9969,
+      "sha256": "714ee903a817f3fa2ee1cfa09c774b5d474c8245091231601e238dbbb2fa2af2"
+    },
+    {
+      "path": "scripts/test-admission.py",
+      "bytes": 3703,
+      "sha256": "e0123a9db0255f946d87d2f417cd10a0493453f86400fe03592d8f159bad781a"
+    },
+    {
+      "path": "scripts/test-arsenal.py",
+      "bytes": 2781,
+      "sha256": "3b8b9790b75c897f6c4d645fa33dcb0ea699cc3a490d108721343d51bb9610c0"
+    },
+    {
+      "path": "scripts/test-bots.py",
+      "bytes": 3998,
+      "sha256": "ee84bbaf49cea487c16f905e3763687e7362e41376ccd71a476e1c7fa73be888"
+    },
+    {
+      "path": "scripts/test-movement.py",
+      "bytes": 2695,
+      "sha256": "1fc80da8fcb2352ddcee5de286c82248e8b7dd419374044ddc4f4957b373dd83"
+    },
+    {
+      "path": "scripts/test-network.py",
+      "bytes": 6146,
+      "sha256": "87e5e8cae02e71f0f4a1cc9114658e011f7ccde20a4a52c69732c1b122c4a095"
+    },
+    {
+      "path": "scripts/test-target-skins.py",
+      "bytes": 2439,
+      "sha256": "a2c73e32c162e42cd0c4da8155007c27060c033c180d0661136482a2f1d36e57"
+    },
+    {
+      "path": "scripts/test-team-skins.py",
+      "bytes": 1936,
+      "sha256": "96a982af9729c453dc420752a33b4b58159f66f2cd759d730a1f684e45e698e7"
+    },
+    {
+      "path": "scripts/test-without-mercenary.py",
+      "bytes": 1739,
+      "sha256": "5c95bf0c3ffb57113cc56d495702d8086933c23859af7cee1e5d89ebee4af41e"
+    },
+    {
+      "path": "scripts/tests/test_clean_project.py",
+      "bytes": 4044,
+      "sha256": "5a05102a5b1caeee9b5adcbe9ce4a99c6c36f7395c8a5a1fb3811e0056bf5fb9"
+    },
+    {
+      "path": "scripts/tests/test_export_code.py",
+      "bytes": 1948,
+      "sha256": "4d3b2bde9a42d54daca574d6f5b275d7cc5896f12e3a6795f46b6c3b03649265"
+    },
+    {
+      "path": "scripts/tests/test_setup_assets.py",
+      "bytes": 3635,
+      "sha256": "1da4adec1fa4159bab965c45b086f53464f301c47e22617c8c925a9f5ce44a55"
+    },
+    {
+      "path": "scripts/tune_presentation.py",
+      "bytes": 856,
+      "sha256": "a4a21877236f28cdfd7cdaf6051f73f90d314343077927e9338ae53dbf6ab9ed"
+    },
+    {
+      "path": "scripts/verify-public-tree.py",
+      "bytes": 2277,
+      "sha256": "8213ca3a9a8c667af17455c6fab9a99da73179581923ce9818793a52d6aed6bd"
+    },
+    {
+      "path": "scripts/verify_no_mercenary.py",
+      "bytes": 1579,
+      "sha256": "029f48278d964c47d3812bdf1575314216fd5b3a384523b8e7ea88a670fa3f5c"
+    },
+    {
+      "path": "scripts/verify_skin_first_person_forearms.py",
+      "bytes": 3636,
+      "sha256": "da060a5058321af8ff44f6b148cb9695ade595aa2f3dd67b74e0d03caaab9c26"
+    },
+    {
+      "path": "scripts/verify_team_characters.py",
+      "bytes": 1839,
+      "sha256": "9b5a09a644bb79cee81189bab2c3c1fdae6d27338629fcd02c3cbe3bdb8bde43"
+    },
+    {
+      "path": "scripts/verify_team_skins.py",
+      "bytes": 1862,
+      "sha256": "34978484782f120cce45b0856bfe7658f1d9a81316bfa553caad64a3d2f4cf4a"
+    }
+  ],
+  "assets_included": false,
+  "git_history_included": false
+}

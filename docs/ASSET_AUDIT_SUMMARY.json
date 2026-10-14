@@ -1,0 +1,129 @@
+{
+  "schema": 1,
+  "unreal_version": "5.8.3-58210709+++UE5+Release-5.8",
+  "method": "Transitive hard/soft package and management references; editor dependencies can overestimate runtime.",
+  "limitations": [
+    "Runtime-generated paths and constructed Python paths may be absent.",
+    "candidate_review is NOT authorization to delete; original skin sources and rebuild inputs may be needed.",
+    "External actors, redirectors, plugin/engine dependencies and edited maps require separate review.",
+    "No cook or load test has been performed by this read-only audit."
+  ],
+  "runtime_roots": [
+    "/Game/EclipseRecoil/Core/BP_ERCharacter",
+    "/Game/EclipseRecoil/Core/BP_ERCorpse",
+    "/Game/EclipseRecoil/Core/BP_ERGameMode",
+    "/Game/EclipseRecoil/Core/BP_ERPlayerController",
+    "/Game/EclipseRecoil/Core/BP_ERTrainingTarget",
+    "/Game/EclipseRecoil/Maps/L_Depot",
+    "/Game/EclipseRecoil/Maps/L_MainMenu",
+    "/Game/EclipseRecoil/Maps/L_MovementLab",
+    "/Game/EclipseRecoil/Weapons/DA_Rifle_A"
+  ],
+  "skin_source_roots": [
+    "/Game/ParagonTwinblast/Characters/Heroes/TwinBlast/Skins/Tier2/ActionMovie/Meshes/TwinBlast_ActionHero",
+    "/Game/ParagonTwinblast/Characters/Heroes/TwinBlast/Skins/Tier2/ShadowOps/Meshes/TwinBlast_ShadowOps",
+    "/Game/ParagonTwinblast/Characters/Heroes/TwinBlast/Meshes/TwinBlast",
+    "/Game/ParagonTwinblast/Characters/Heroes/TwinBlast/Skins/Tier1/CS_Twinblast_Apocalyptic/TwinBlast_Wasteland",
+    "/Game/ParagonDrongo/Characters/Heroes/Drongo/Meshes/Drongo_GDC",
+    "/Game/ParagonDrongo/Characters/Heroes/Drongo/Skins/Scavenger/Meshes/Drongo_Scavenger"
+  ],
+  "summary": {
+    "Characters": {
+      "total_bytes": 131381051,
+      "total_packages": 128,
+      "candidate_review_bytes": 34426723,
+      "candidate_review_packages": 78,
+      "authoring_reachable_bytes": 15045703,
+      "authoring_reachable_packages": 27,
+      "runtime_reachable_bytes": 81908625,
+      "runtime_reachable_packages": 23
+    },
+    "EclipseRecoil": {
+      "total_bytes": 512123869,
+      "total_packages": 325,
+      "runtime_reachable_bytes": 487477085,
+      "runtime_reachable_packages": 292,
+      "authoring_reachable_bytes": 24646784,
+      "authoring_reachable_packages": 33
+    },
+    "FirstPerson": {
+      "total_bytes": 583618,
+      "total_packages": 8,
+      "candidate_review_bytes": 583618,
+      "candidate_review_packages": 8
+    },
+    "Input": {
+      "total_bytes": 325917,
+      "total_packages": 9,
+      "candidate_review_bytes": 325917,
+      "candidate_review_packages": 9
+    },
+    "InteractiveSmoke": {
+      "total_bytes": 8368522,
+      "total_packages": 11,
+      "authoring_reachable_bytes": 5589062,
+      "authoring_reachable_packages": 4,
+      "runtime_reachable_bytes": 2779460,
+      "runtime_reachable_packages": 7
+    },
+    "LevelPrototyping": {
+      "total_bytes": 2859075,
+      "total_packages": 29,
+      "candidate_review_bytes": 2859075,
+      "candidate_review_packages": 29
+    },
+    "ParagonDrongo": {
+      "total_bytes": 881836322,
+      "total_packages": 185,
+      "runtime_reachable_bytes": 869255008,
+      "runtime_reachable_packages": 183,
+      "authoring_reachable_bytes": 12581314,
+      "authoring_reachable_packages": 2
+    },
+    "ParagonTwinblast": {
+      "total_bytes": 1355431190,
+      "total_packages": 315,
+      "runtime_reachable_bytes": 1330727206,
+      "runtime_reachable_packages": 311,
+      "protected_review_bytes": 1630,
+      "protected_review_packages": 2,
+      "authoring_reachable_bytes": 24702354,
+      "authoring_reachable_packages": 2
+    },
+    "Variant_Shooter": {
+      "total_bytes": 6438650,
+      "total_packages": 50,
+      "candidate_review_bytes": 6023932,
+      "candidate_review_packages": 49,
+      "authoring_reachable_bytes": 414718,
+      "authoring_reachable_packages": 1
+    },
+    "Weapons": {
+      "total_bytes": 14571297,
+      "total_packages": 27,
+      "runtime_reachable_bytes": 4465619,
+      "runtime_reachable_packages": 7,
+      "candidate_review_bytes": 10105678,
+      "candidate_review_packages": 20
+    },
+    "__ExternalActors__": {
+      "total_bytes": 977486,
+      "total_packages": 195,
+      "protected_review_bytes": 977486,
+      "protected_review_packages": 195
+    },
+    "__ExternalObjects__": {
+      "total_bytes": 18896,
+      "total_packages": 10,
+      "protected_review_bytes": 18896,
+      "protected_review_packages": 10
+    }
+  },
+  "registry_missing_files": [
+    "/Game/ParagonTwinblast/Characters/Heroes/TwinBlast/Animations/AimOffsets/Idle_AO_Yaw",
+    "/Game/ParagonTwinblast/TwinBast"
+  ],
+  "review_date": "2026-10-14",
+  "mercenary_detached": true,
+  "cleanup_executed": true
+}

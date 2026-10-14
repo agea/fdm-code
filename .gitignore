@@ -1,0 +1,22 @@
+/Binaries/
+/DerivedDataCache/
+/Intermediate/
+/Saved/
+/.vs/
+/.idea/
+/dist/
+/BuildArtifacts/
+/*.sln
+/*.xcworkspace/
+/*.xcodeproj/
+/*.log
+.DS_Store
+__pycache__/
+
+# Generated mounts; licensed data is versioned only in private submodules.
+/Content/
+/SourceAssets/
+
+# Restored licensed assets stay outside the public code history.
+/Content/
+/SourceAssets/

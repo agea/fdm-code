@@ -1,0 +1,9 @@
+[submodule "Assets/characters"]
+	path = Assets/characters
+	url = ../fdm-assets-characters.git
+[submodule "Assets/weapons"]
+	path = Assets/weapons
+	url = ../fdm-assets-weapons.git
+[submodule "Assets/maps"]
+	path = Assets/maps
+	url = ../fdm-assets-maps.git
