@@ -6,6 +6,7 @@ No packages are loaded, modified, moved or deleted.
 import collections
 import json
 import re
+import runpy
 from pathlib import Path
 import unreal as ue
 
@@ -20,7 +21,8 @@ options = ue.AssetRegistryDependencyOptions(
 assets = registry.get_all_assets(True)
 packages = {str(a.package_name) for a in assets if str(a.package_name).startswith('/Game/')}
 files = {}
-for path in (project / 'Content').rglob('*'):
+content_files = runpy.run_path(str(project / 'scripts/asset_files.py'))['content_files']
+for path in content_files(project):
     if path.is_file() and path.suffix in ('.uasset', '.umap'):
         package = '/Game/' + path.relative_to(project / 'Content').with_suffix('').as_posix()
         files[package] = {'path': path.relative_to(project).as_posix(), 'bytes': path.stat().st_size}

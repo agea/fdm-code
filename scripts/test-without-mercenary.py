@@ -18,7 +18,9 @@ for folder in ('Config', 'Source', 'Binaries', 'scripts'):
     shutil.copytree(project / folder, destination / folder, ignore=shutil.ignore_patterns('__pycache__'))
 shutil.copy2(project / 'fdm.uproject', destination / 'fdm.uproject')
 count = 0
-for path in (project / 'Content').rglob('*'):
+import runpy
+content_files = runpy.run_path(str(project / 'scripts/asset_files.py'))['content_files']
+for path in content_files(project):
     if not path.is_file() or path.is_symlink():
         continue
     relative = path.relative_to(project)

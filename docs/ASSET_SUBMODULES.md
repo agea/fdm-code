@@ -1,6 +1,9 @@
 # Public code and private assets
 
-The current project lives in **agea/fdm-code** (public). The original
+The current checkout is prepared for **agea/fdm-code** (public).
+GitHub creation/upload is pending the action-time approval requested by the
+automatic approval reviewer. All four local repositories are committed and
+the project has passed compile, saved-asset, network and FPS render checks. The original
 **agea/fdm** repository remains private with its original history. The code
 repository starts with a fresh history containing text and three gitlinks;
 it never imports the old Content history or LFS objects.

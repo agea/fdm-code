@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+import runpy
 
 spec = importlib.util.spec_from_file_location('asset_setup', Path(__file__).resolve().parents[1] / 'setup-assets.py')
 module = importlib.util.module_from_spec(spec)
@@ -28,6 +29,9 @@ class AssetSetupTests(unittest.TestCase):
             self.assertTrue((root / 'Content/Characters').is_symlink())
             self.assertFalse((root / 'Content/Characters').readlink().is_absolute())
             module.validate(root, require_mounts=True)
+            iterator = runpy.run_path(str(Path(__file__).resolve().parents[1] / 'asset_files.py'))['content_files']
+            self.assertEqual({p.relative_to(root).as_posix() for p in iterator(root)},
+                             {'Content/Characters/test.uasset', 'Content/EclipseRecoil/Maps/test.uasset'})
 
     def test_existing_content_is_never_overwritten_and_no_partial_mounts(self):
         with tempfile.TemporaryDirectory() as directory:

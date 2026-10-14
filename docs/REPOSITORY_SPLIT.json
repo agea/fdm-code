@@ -1,0 +1,27 @@
+{
+  "schema": 1,
+  "date": "2026-10-14",
+  "asset_hashes_verified": true,
+  "asset_files": 1336,
+  "package_files": 1292,
+  "mounts": 22,
+  "categories": {
+    "characters": {
+      "files": 860,
+      "bytes": 2814974413
+    },
+    "weapons": {
+      "files": 149,
+      "bytes": 222248356
+    },
+    "maps": {
+      "files": 327,
+      "bytes": 11663589
+    }
+  },
+  "editor_build": "Succeeded",
+  "unit_tests": 15,
+  "network_skins_shots": "PASS",
+  "publication": "pending_action_time_confirmation",
+  "fps_gallery": "10/10 PASS"
+}

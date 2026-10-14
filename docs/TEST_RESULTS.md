@@ -1007,3 +1007,39 @@ Only local lfs.storage changed, no remote/history/index edits by these tools.
 Project: ~4.1 GiB; Content ~2.7 GiB; .git ~66 MiB. Backups and cache are local
 and external to the project, so these sizes are not a claim of disk space freed
 by moving data. Python syntax and git diff --check pass.
+
+
+## 14 October 2026 — Code/asset submodule separation
+
+New checkout: `/Users/agea/git/fdm/fdm-code`. The original private repository
+and working tree remain available; no original remote history was rewritten.
+All 1,336 Content/SourceAssets files were copied into three independent private
+repositories and verified SHA-256 against the original tree. The public parent
+contains only allowlisted text and three pinned gitlinks, with 22 generated
+directory mounts preserving every `/Game` package path.
+
+Validation in the new checkout:
+
+- Editor Mac arm64 Development compile: **Succeeded**, 39.77 seconds. Existing
+  deprecated Unreal API warning remains; no new compile error.
+- Mount check: **22/22**, zero unresolved LFS pointers.
+- Unreal saved-asset verification: **10 skins, 11 weapons, 550 grip samples ×
+  2 hands**, preserved fitted frame and no Mercenary dependency.
+- Asset Registry: **1,292 packages, runtime 823, authoring 892**, unchanged.
+- `test-network.py --skins --shot-feedback`: **PASS**, host/client combat,
+  replicated appearances, corpse identity/settling, respawn, invalid skin
+  rejection and authorized shot feedback.
+- `unittest discover -s scripts/tests`: **15 tests PASS**, including
+  conflicts/overwrites, missing LFS data, logical mounted paths and rejection
+  of binary assets anywhere in public history (even deleted later).
+
+Evidence: `Saved/AssetAudit/submodule-build.log`, `submodule-assets.log`,
+`submodule-network-summary.log`, `submodule-unit-tests.log`; network details
+in `Saved/Testing/network-{host,client}.log`. These generated logs stay local.
+Windows junction setup is implemented but has not been tested on Windows.
+A fresh remote clone will be checked after repository creation/upload.
+
+- Metal FPS gallery on the mounted checkout: **10/10 frame checks**, gallery
+  complete; Alpha Support and Omega Smuggler screenshots inspected.
+  Evidence: `Saved/AssetAudit/submodule-fps-gallery.log` and
+  `Saved/Testing/FPS-Forearms-*.png`. No asset files were modified.

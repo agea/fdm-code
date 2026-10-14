@@ -3,7 +3,7 @@
 Unreal Engine **5.8.3**, macOS arm64. Existing First Person project with a native
 server-authoritative Team Deathmatch module. Packaging and distribution are deferred.
 
-Code is public in **agea/fdm-code**; licensed content is held in three private
+Code is prepared for publication in **agea/fdm-code**; licensed content is held in three private
 submodules for characters, weapons and maps. A public code clone needs asset
 access before it can run. See [asset setup and editing](docs/ASSET_SUBMODULES.md).
 
