@@ -3,6 +3,16 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "ERMovement.generated.h"
 
+USTRUCT()
+struct FERLocomotionState
+{
+    GENERATED_BODY()
+    UPROPERTY() float HalfHeight = 92.5f;
+    UPROPERTY() float ProneBlend = 0;
+    UPROPERTY() double SprintUntil = 0;
+    UPROPERTY() double RecoverUntil = 0;
+};
+
 // Intent travels with Unreal's saved moves, including correction/replay.
 UCLASS()
 class FDM_API UERMovement : public UCharacterMovementComponent
@@ -13,6 +23,26 @@ public:
     bool bWalkHeld = false;
     bool bClimbHeld = false;
     bool bHighClimb = false;
+    bool bSprintHeld = false;
+    bool bProneWanted = false;
+    bool bPreviousSprintHeld = false;
+    double SprintRequestUntil = 0;
+    UPROPERTY(ReplicatedUsing=OnRep_Locomotion) FERLocomotionState Locomotion;
+    bool IsSprinting() const;
+    bool IsProne() const { return Locomotion.ProneBlend > .5f; }
+    bool IsChangingPosture() const;
+    float GetSprintRemaining() const;
+    float GetRecoveryRemaining() const;
+    float GetEyeOffset() const;
+    void ApplyPosturePresentation();
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Props) const override;
+    virtual void Crouch(bool bClientSimulation = false) override {}
+    virtual void UnCrouch(bool bClientSimulation = false) override {}
+    virtual void UpdateCharacterStateAfterMovement(float DeltaSeconds) override {}
+    virtual void SimulateMovement(float DeltaSeconds) override;
+    virtual bool ClientUpdatePositionAfterServerUpdate() override;
+    virtual bool DoJump(bool bReplayingMoves, float DeltaTime) override;
+    UFUNCTION() void OnRep_Locomotion();
     virtual float GetMaxSpeed() const override;
     virtual void UpdateFromCompressedFlags(uint8 Flags) override;
     virtual FNetworkPredictionData_Client* GetPredictionData_Client() const override;
@@ -24,4 +54,8 @@ public:
     FVector TraversalStart = FVector::ZeroVector, TraversalEnd = FVector::ZeroVector;
     float TraversalElapsed = 0, TraversalDuration = 0;
     double RetryAfter = 0;
+private:
+    double ServerTime() const;
+    void UpdatePosture(float DeltaSeconds);
+    void UpdateSprint();
 };

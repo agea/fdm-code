@@ -1,4 +1,5 @@
 #include "ERWeapon.h"
+#include "ERMovement.h"
 #include "ERCharacter.h"
 #include "ERMatch.h"
 #include "ERPlayerController.h"
@@ -64,7 +65,9 @@ float AERWeapon::GetSpreadDegrees() const
     const auto* Character = Cast<AERCharacter>(GetOwner());
     if (!Data || !Character) return 0;
     const float SpeedFraction = FMath::Clamp(Character->GetVelocity().Size2D() / (1000.f / 3.6f), 0.f, 1.f);
-    const float Posture = Character->bIsCrouched ? Data->CrouchSpreadMultiplier : 1.f;
+    const auto* Movement = Cast<UERMovement>(Character->GetCharacterMovement());
+    const float LowPosture = FMath::GetMappedRangeValueClamped(FVector2D(62.5f,92.5f), FVector2D(Data->CrouchSpreadMultiplier,1.f), Movement->Locomotion.HalfHeight);
+    const float Posture = FMath::Lerp(LowPosture, Data->CrouchSpreadMultiplier * .65f, Movement->Locomotion.ProneBlend);
     const float Air = Character->GetCharacterMovement()->IsFalling() ? Data->AirborneSpreadDegrees : 0.f;
     return FMath::Clamp((Data->StandingSpreadDegrees + Data->RunningSpreadDegrees * SpeedFraction) * Posture + Air + GetBloomDegrees(), 0.f, 10.f);
 }

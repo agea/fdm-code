@@ -16,6 +16,7 @@ public:
 private:
     UPROPERTY() TObjectPtr<class AERCharacter> Host;
     UPROPERTY() TObjectPtr<class AERCharacter> Client;
+    UPROPERTY() TObjectPtr<AActor> PostureRoof;
     float Elapsed = 0, Peak = 0, GroundZ = 0;
     bool Failed = false, SawTraversal = false;
     int32 LocalPhase = -1;

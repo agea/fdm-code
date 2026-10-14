@@ -75,6 +75,11 @@ public:
     void ShowMenu(bool bShow);
     void ScrollWeapon(int32 Direction);
 private:
+    double LastForwardTap = -1;
+    double LastCrouchTap = -1;
+    TWeakObjectPtr<APawn> GesturePawn;
+    void ForwardPressed();
+    void ForwardReleased();
     double WheelQuietUntil = 0;
     TSharedPtr<class SWidget> MenuWidget;
     TSharedPtr<class SWidget> FrameRateWidget;

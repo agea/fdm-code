@@ -1077,3 +1077,48 @@ outside the public Git history. See `REPOSITORY_SPLIT.json` for the summary.
 - The disposable remote-clone checkout and its duplicate LFS cache were
   removed only after checking all worktrees clean and retaining receipts/logs.
   The active checkout, private LFS caches and original history are retained.
+
+
+## Sprint, postura prona e transizioni — 14 ottobre 2026
+
+- Compilazione reale Editor: **Succeeded**, `Saved/Testing/locomotion-build.log`.
+- `scripts/test-movement.py`: **73 controlli server + 1 proprietario/proxy
+  superati**, `ER_MOVEMENT_COMPLETE PASS`. Conservati i log completi in
+  `locomotion-full-movement-host.log`, `locomotion-full-movement-client.log`
+  e il riepilogo `locomotion-network.log`, sotto Saved/Testing.
+  Comprendono corsa/camminata/inertia, salto, venti altezze del laboratorio,
+  arrampicata remota, accovacciamento graduale, sprint a 18 km/h, limite 5 s,
+  recupero 10 s senza riavvio tenendo W, interruzione anticipata, prona remota,
+  altezza capsula, camera/mira, volume colpibile oltre la capsula, soffitto
+  bloccante e rialzata dopo rimozione del soffitto.
+- Le ultime cinque asserzioni usano **InputKey di Unreal e i binding effettivi**:
+  doppio W, rilascio W, doppio C, C per rialzarsi, doppio Ctrl. Non sono input
+  fisici del sistema operativo. La prova via automazione nativa è rimasta
+  inconclusiva per timeout della connessione alla finestra; la sessione di
+  laboratorio temporanea è stata chiusa. Nessun collaudo OS dichiarato.
+- `scripts/test-network.py --accuracy`: **15 controlli superati**,
+  `ER_ACCURACY_COMPLETE result=PASS`, log `locomotion-accuracy.log`.
+  Include dispersione accovacciata, camminata/corsa/salto, proiettili campionati
+  dal server, recupero raffica e replica dati al proprietario.
+- `-ERPostureGallery`: sessione grafica **Metal**, completata; ispezionate
+  `Posture-FPS.png`, `Posture-Alpha.png`, `Posture-Omega.png` in Saved/Testing.
+  Vista a terra, entrambe le squadre pancia in giù, testa sollevata e fucile
+  orientato in avanti. Corretto l'iniziale sollevamento delle gambe usando
+  la catena di riferimento e abbassando l'origine visuale. Non si dichiara
+  una nuova animazione mocap di discesa/risalita o strisciamento.
+- Il campione di accelerazione della vecchia sonda cercava un singolo intervallo
+  80–120 ms, che poteva essere saltato con frame lunghi durante l'avvio. Ora
+  verifica un campione effettivo fra fermo e velocità di regime. Anche la
+  sonda del doppio W attende l'accelerazione prevista prima di misurare la corsa.
+- `py_compile` dello script modificato e `git diff --check`: superati.
+  Nessun asset binario modificato; nessun commit/push. Test con due processi
+  locali senza latenza/perdita artificiale. Collisione di movimento resta la
+  capsula verticale; il volume lungo il corpo prono è solo per colpi/visibilità.
+
+La ripetizione completa sulla build finale, dopo la preservazione dello smoothing
+nativo e degli intenti correnti durante `ClientUpdatePositionAfterServerUpdate`,
+ha confermato nuovamente **73 + 1 PASS**, nessun FAIL. Questo corregge il caso
+intermittente in cui il replay di un saved move antecedente al gesto poteva
+rilasciare il nuovo intento di sprint/prona. Le scadenze correnti del server
+restano preservate dopo il replay. I log completi sopra indicati sono stati
+aggiornati a questa esecuzione finale.

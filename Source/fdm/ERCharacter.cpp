@@ -1,4 +1,5 @@
 #include "ERCharacter.h"
+#include "ERPostureMesh.h"
 #include "ERCorpse.h"
 #include "Engine/DamageEvents.h"
 #include "ERMatch.h"
@@ -109,7 +110,7 @@ void UERHealthComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& O
     DOREPLIFETIME(UERHealthComponent, Health); DOREPLIFETIME(UERHealthComponent, bDead); DOREPLIFETIME(UERHealthComponent, ProtectionEndServerTime);
 }
 AERCharacter::AERCharacter(const FObjectInitializer& ObjectInitializer)
-    : Super(ObjectInitializer.SetDefaultSubobjectClass<UERMovement>(ACharacter::CharacterMovementComponentName))
+    : Super(ObjectInitializer.SetDefaultSubobjectClass<UERMovement>(ACharacter::CharacterMovementComponentName).SetDefaultSubobjectClass<UERPostureMesh>(ACharacter::MeshComponentName))
 {
     bReplicates = true;
     PrimaryActorTick.bCanEverTick = true;
@@ -122,6 +123,17 @@ AERCharacter::AERCharacter(const FObjectInitializer& ObjectInitializer)
     BaseEyeHeight = 77.5f; CrouchedEyeHeight = 50;
     bUseControllerRotationYaw = true;
     Health = CreateDefaultSubobject<UERHealthComponent>(TEXT("Health"));
+    ProneHitVolume = CreateDefaultSubobject<UCapsuleComponent>(TEXT("ProneHitVolume"));
+    ProneHitVolume->SetupAttachment(GetCapsuleComponent());
+    ProneHitVolume->InitCapsuleSize(22,105);
+    ProneHitVolume->SetRelativeLocation(FVector(30,0,-9));
+    ProneHitVolume->SetRelativeRotation(FRotator(90,0,0));
+    ProneHitVolume->SetCollisionObjectType(ECC_Pawn);
+    ProneHitVolume->SetCollisionResponseToAllChannels(ECR_Ignore);
+    ProneHitVolume->SetCollisionResponseToChannel(ECC_GameTraceChannel1,ECR_Block);
+    ProneHitVolume->SetCollisionResponseToChannel(ECC_Visibility,ECR_Block);
+    ProneHitVolume->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    ProneHitVolume->SetGenerateOverlapEvents(false);
     Camera = CreateDefaultSubobject<UCameraComponent>(TEXT("Camera"));
     Camera->SetupAttachment(GetCapsuleComponent());
     Camera->SetRelativeLocation(FVector(0, 0, 77.5f));
@@ -280,6 +292,7 @@ const FERTeamAppearance& AERCharacter::GetTeamAppearance() const
 void AERCharacter::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
+    Cast<UERMovement>(GetCharacterMovement())->ApplyPosturePresentation();
     UpdateWeaponPresentation();
     DamageViewKick = FMath::VInterpTo(DamageViewKick, FVector::ZeroVector, DeltaTime, 18.f);
     DeathViewDrop = FMath::FInterpTo(DeathViewDrop, Health->bDead ? -55.f : 0.f, DeltaTime, 5.f);

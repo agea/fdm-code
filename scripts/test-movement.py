@@ -9,6 +9,11 @@ import os
 import subprocess
 import sys
 import time
+import argparse
+
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--posture-only", action="store_true", help="Run sprint/posture phases only")
+args = parser.parse_args()
 
 project = Path(__file__).resolve().parents[1]
 engine = Path(os.environ.get("UE_ROOT", "/Users/Shared/Epic Games/UE_5.8"))
@@ -16,6 +21,7 @@ editor = engine / "Engine/Binaries/Mac/UnrealEditor.app/Contents/MacOS/UnrealEdi
 logs = project / "Saved/Testing"
 logs.mkdir(parents=True, exist_ok=True)
 common = [str(editor), str(project / "fdm.uproject"), "-game", "-nullrhi", "-nosound", "-unattended", "-NoSplash", "-Multiprocess", "-stdout", "-FullStdOutLogOutput", "-ExecCmds=t.MaxFPS 60"]
+if args.posture_only: common.append("-ERPostureProbe")
 processes = []
 handles = []
 try:
@@ -37,7 +43,7 @@ try:
     handles.append(client_log)
     client = subprocess.Popen(common + ["127.0.0.1:17781?Name=Client"], stdout=client_log, stderr=subprocess.STDOUT)
     processes.append(client)
-    deadline = time.monotonic()+100
+    deadline = time.monotonic()+160
     while time.monotonic()<deadline and host.poll() is None:
         time.sleep(.2)
     if host.poll() is None:
@@ -45,7 +51,9 @@ try:
     output = (logs / "movement-host.log").read_text(errors="replace")
     markers = [line for line in output.splitlines() if "ER_MOVEMENT_" in line or "ER_MOVEMENT_COMPLETE" in line]
     print("\n".join(markers))
-    success = "ER_MOVEMENT_COMPLETE PASS" in output and "ER_MOVEMENT_FAIL" not in output
+    client_output = (logs / "movement-client.log").read_text(errors="replace")
+    print("\n".join(line for line in client_output.splitlines() if "ER_MOVEMENT_CLIENT_" in line))
+    success = "ER_MOVEMENT_CLIENT_PASS owner_and_simulated_proxy_prone" in client_output and "ER_MOVEMENT_CLIENT_FAIL" not in client_output and "ER_MOVEMENT_COMPLETE PASS" in output and "ER_MOVEMENT_FAIL" not in output
     print("Logs:", logs)
     sys.exit(0 if success else 1)
 finally:

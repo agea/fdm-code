@@ -1,5 +1,6 @@
 #include "ERTeamGallery.h"
 #include "ERCharacter.h"
+#include "ERMovement.h"
 #include "ERCorpse.h"
 #include "ERWeapon.h"
 #include "ERMatch.h"
@@ -181,6 +182,7 @@ void AERTeamGallery::Tick(float DeltaTime)
     Age += DeltaTime;
     auto* PC = GetWorld()->GetFirstPlayerController();
     auto* Player = PC ? Cast<AERCharacter>(PC->GetPawn()) : nullptr;
+    if (FParse::Param(FCommandLine::Get(), TEXT("ERPostureGallery"))) { TickPosture(Player,PC); return; }
     if (FParse::Param(FCommandLine::Get(), TEXT("ERFPSForearmsGallery"))) { TickForearms(Player,PC); return; }
     if (FParse::Param(FCommandLine::Get(), TEXT("ERSkinGallery"))) { TickSkins(Player,PC); return; }
     const bool bCorpseGallery = FParse::Param(FCommandLine::Get(), TEXT("ERCorpseGallery"));
@@ -269,6 +271,60 @@ void AERTeamGallery::Tick(float DeltaTime)
         Stage = 3;
         UE_LOG(LogTemp, Display, TEXT("ER_TEAM_GALLERY_COMPLETE"));
         FPlatformMisc::RequestExit(false);
+    }
+#endif
+}
+
+void AERTeamGallery::TickPosture(AERCharacter* Player, APlayerController* PC)
+{
+#if !UE_BUILD_SHIPPING
+    if (!Player || !PC || !Player->Weapon) return;
+    auto* M = Cast<UERMovement>(Player->GetCharacterMovement());
+    if (Stage == 0 && Age > 3)
+    {
+        Player->TeleportTo(FVector(-900,-1500,95),FRotator::ZeroRotator);
+        PC->SetControlRotation(FRotator::ZeroRotator);
+        PC->SetIgnoreMoveInput(true); PC->SetIgnoreLookInput(true);
+        M->bProneWanted = true;
+        Stage = 1;
+    }
+    if (Stage == 1 && Age > 8)
+    {
+        FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir()/TEXT("Testing/Posture-FPS.png"),false,false);
+        Stage = 2;
+    }
+    if (Stage == 2 && Age > 9)
+    {
+        const FVector Center = Player->GetActorLocation() + FVector(30,0,-5);
+        const FVector View = Center + FVector(50,-280,130);
+        GalleryCamera = GetWorld()->SpawnActor<ACameraActor>(View,(Center-View).Rotation());
+        GalleryCamera->GetCameraComponent()->SetFieldOfView(60);
+        PC->SetViewTarget(GalleryCamera);
+        Player->GetMesh()->SetOwnerNoSee(false); Player->WorldRifle->SetOwnerNoSee(false);
+        Player->FirstPersonBody->SetVisibility(false); Player->FirstPersonRifle->SetVisibility(false);
+        if (PC->GetHUD()) PC->GetHUD()->bShowHUD=false;
+        UWidgetLayoutLibrary::RemoveAllWidgets(this);
+        Stage = 3;
+    }
+    if (Stage == 3 && Age > 12)
+    {
+        FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir()/TEXT("Testing/Posture-Alpha.png"),false,false);
+        Stage = 4;
+    }
+    if (Stage == 4 && Age > 13)
+    {
+        if (auto* State = Player->GetPlayerState<AERPlayerState>()) State->Team = EERTeam::Omega;
+        Stage = 5;
+    }
+    if (Stage == 5 && Age > 16)
+    {
+        FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir()/TEXT("Testing/Posture-Omega.png"),false,false);
+        Stage = 6;
+    }
+    if (Stage == 6 && Age > 18)
+    {
+        UE_LOG(LogTemp,Display,TEXT("ER_POSTURE_GALLERY_COMPLETE"));
+        FPlatformMisc::RequestExit(false); Stage = 7;
     }
 #endif
 }

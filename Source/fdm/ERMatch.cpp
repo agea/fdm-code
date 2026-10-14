@@ -116,7 +116,7 @@ void AERGameMode::BeginPlay()
 {
     Super::BeginPlay();
 #if !UE_BUILD_SHIPPING
-    if (FParse::Param(FCommandLine::Get(), TEXT("ERTeamGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERCorpseGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERSkinGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERFPSForearmsGallery"))) GetWorld()->SpawnActor<AERTeamGallery>();
+    if (FParse::Param(FCommandLine::Get(), TEXT("ERPostureGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERTeamGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERCorpseGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERSkinGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERFPSForearmsGallery"))) GetWorld()->SpawnActor<AERTeamGallery>();
 #endif
     if (GameSession) GameSession->MaxPlayers = 4;
     GetWorldTimerManager().SetTimer(MatchTimer, this, &AERGameMode::CheckMatch, 0.2f, true);

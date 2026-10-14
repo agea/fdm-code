@@ -17,6 +17,7 @@ private:
     UPROPERTY() TArray<TObjectPtr<class AERCorpse>> Corpses;
     UPROPERTY() TObjectPtr<class ACameraActor> GalleryCamera;
     UPROPERTY() TArray<TObjectPtr<class ASkeletalMeshActor>> SkinActors;
+    void TickPosture(class AERCharacter* Player, class APlayerController* PC);
     void TickSkins(class AERCharacter* Player, class APlayerController* PC);
     void TickForearms(class AERCharacter* Player, class APlayerController* PC);
     float NextForearmCapture = 0.f;

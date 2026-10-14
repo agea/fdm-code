@@ -881,3 +881,30 @@ Content/SourceAssets sono collegamenti generati e ignorati. La struttura
 attuale e i comandi sono in [ASSET_SUBMODULES.md](ASSET_SUBMODULES.md), che
 sostituisce la precedente proposta di un solo submodule. Nessuna licenza
 open-source del codice è stata scelta implicitamente.
+
+
+## Sprint e posizione prona — 14 ottobre 2026
+
+- Doppio W entro 300 ms, seconda pressione tenuta: sprint **18 km/h**, massimo
+  **5 s**, poi **10 s** di recupero completo. Interrompere prima avvia comunque
+  10 s di recupero; tenere W non riavvia lo sprint. Stato e scadenze autorizzati
+  dal server, intenti nelle quattro flag custom dei saved move Unreal.
+- C/Ctrl premuto conserva l'accovacciamento; doppio tocco attiva la posizione
+  prona persistente. Una nuova pressione risale verso accovacciato, il rilascio
+  verso in piedi. I gesti si azzerano al menu e al cambio pawn.
+- Accovacciarsi/rialzarsi: **0,4 s**, sdraiarsi/rialzarsi: circa **1,1 s**;
+  capsula, camera e mira server cambiano progressivamente mantenendo i piedi.
+  Movimento limitato a 45 cm/s durante le transizioni; da prono 55 cm/s.
+  La rialzata attende spazio per la capsula finale. Salto e presa del bordo
+  richiedono postura in piedi. Lo sprint termina con postura bassa, Shift,
+  rilascio W, caduta o arrampicata.
+- Prono: capsula verticale alta **68 cm**, occhi a **45 cm** dal piede.
+  Collisione rimane la capsula del CharacterMovement; non è un volume anatomico
+  lungo tutto il corpo. Un volume orizzontale supplementare di query copre
+  i colpi/visibilità oltre la capsula (testa e gambe), senza ostacolare gli altri
+  giocatori. La posa procedurale raddrizza le gambe, solleva la testa
+  e conserva l'orientamento del fucile tramite un pivot comune delle braccia.
+  Non introduce asset binari né animazioni mocap di strisciamento.
+- Dispersione segue l'altezza effettiva e la transizione prona; la posizione
+  completa usa il 65% del moltiplicatore accovacciato. HUD mostra sprint e recupero.
+  La verifica grafica opzionale `ERPostureGallery` usa i personaggi Alpha/Omega.

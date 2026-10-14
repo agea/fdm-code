@@ -20,7 +20,8 @@ Run `scripts/play-local.command` to play in a separate window using the Editor r
 Use **Host** in the menu, then run the same launcher again and **Join**
 `127.0.0.1:7777`. A match begins once both teams have a player.
 
-Controls: WASD, mouse aim / left-click fire, Space jump / climb / respawn, Shift walk, Ctrl or C crouch,
+Controls: WASD, mouse aim / left-click fire, Space jump / climb / respawn, Shift walk, double-tap W sprint (5s, then 10s recovery), hold Ctrl or C crouch,
+double-tap Ctrl or C prone (press again to rise),
 R reload, 1–5 or mouse wheel select weapon, right-click zoom, Tab scoreboard,
 Esc menu. After dying, wait three seconds and press
 fire or jump again. The respawn press is consumed; release before firing.
@@ -171,3 +172,11 @@ Private backups are in /Users/agea/git/fdm/_backups/2026-10-14-cleanup;
 local LFS cache is /Users/agea/git/fdm/_cache/lfs via local lfs.storage.
 Both remain on this machine. See docs/CLEANUP_RESULT.json and
 docs/REPOSITORY_CLEANUP.md for evidence, recovery and cache portability.
+
+Sprint and posture: double-tap W within 300ms and hold the second press to sprint
+at 18km/h. Releasing W, walking, crouching, leaving the ground or climbing ends
+sprint and starts 10s of recovery. A fresh double-tap is required after recovery.
+Crouching/rising takes 0.4s; going prone/rising takes about 1.1s. Movement slows
+during transitions; prone crawling is 55cm/s. Standing waits for ceiling clearance.
+The prone world pose is procedural, layered over the existing team skeletons.
+`-ERPostureGallery` captures FPS, Alpha and Omega posture images in Saved/Testing.

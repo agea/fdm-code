@@ -44,6 +44,7 @@ public:
     static bool BuildFirstPersonForearms(class USkeletalMesh* Destination, class USkeletalMesh* SkinMesh,
         class USkeletalMesh* FirstPersonRig, const TArray<int32>& ExcludedMaterials, const TArray<FName>& ExcludedBones);
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly) TObjectPtr<UERHealthComponent> Health;
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly) TObjectPtr<class UCapsuleComponent> ProneHitVolume;
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly) TObjectPtr<class UCameraComponent> Camera;
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly) TObjectPtr<USkeletalMeshComponent> FirstPersonBody;
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly) TObjectPtr<USkeletalMeshComponent> FirstPersonRifle;

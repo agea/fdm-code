@@ -38,6 +38,16 @@ reviewing their new repository ownership.
   Shift walks at 5km/h, acceleration/braking inertia and a lower, faster jump.
   Step automatically through 30cm; timed weapon-held vault through 80cm;
   Space+forward climbs through 150cm relative to current feet, including in air.
+- Sprint/posture scope (14 October): double W within 300ms, held second press,
+  runs at 18km/h for at most five seconds, followed by ten seconds of recovery
+  including early interruption. Require a fresh gesture after recovery. Hold
+  C/Ctrl crouches; double C/Ctrl latches prone, next press/release rises.
+  Keep physical posture/eye transitions timed (0.4s crouch, about 1.1s prone),
+  validate final standing clearance and keep the owner camera/server eye aligned.
+  Prone world pose is procedural on team rigs; its extra query hit volume must
+  stop accepting hits at death. Movement still uses the standard vertical capsule.
+  Verify with test-movement.py (including InputKey binding tests) and accuracy;
+  ERPostureGallery is opt-in art capture, never enabled in ordinary play.
 - Presentation: hide the FPS left arm with the rifle during high climbing.
   Render FPS arms, rifle and muzzle flash as FirstPerson primitives, using
   camera depth scale 0.2 and 1cm near plane. Keep physical socket transforms,

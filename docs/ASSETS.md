@@ -316,3 +316,11 @@ Content/SourceAssets sono collegamenti generati e ignorati. La struttura
 attuale e i comandi sono in [ASSET_SUBMODULES.md](ASSET_SUBMODULES.md), che
 sostituisce la precedente proposta di un solo submodule. Nessuna licenza
 open-source del codice è stata scelta implicitamente.
+
+
+## Postura prona — 14 ottobre 2026
+
+Nessun nuovo asset binario: `UERPostureMesh` modifica la posa world dei rig team
+esistenti dopo la valutazione delle animazioni. Mani/FPS e grip delle armi
+restano sugli asset attuali. `ERPostureGallery` genera immagini temporanee sotto
+Saved/Testing; non salva o modifica Blueprint, mappe, mesh o animazioni.

@@ -211,6 +211,8 @@ void AERPlayerController::EndPlay(const EEndPlayReason::Type Reason)
 void AERPlayerController::SetupInputComponent()
 {
     Super::SetupInputComponent();
+    InputComponent->BindKey(EKeys::W, IE_Pressed, this, &AERPlayerController::ForwardPressed);
+    InputComponent->BindKey(EKeys::W, IE_Released, this, &AERPlayerController::ForwardReleased);
     InputComponent->BindKey(EKeys::One, IE_Pressed, this, &AERPlayerController::SelectPrimary);
     InputComponent->BindKey(EKeys::Two, IE_Pressed, this, &AERPlayerController::SelectSidearm);
     InputComponent->BindKey(EKeys::Three, IE_Pressed, this, &AERPlayerController::SelectHE);
@@ -245,6 +247,23 @@ void AERPlayerController::SetupInputComponent()
         Input->BindAction(ScoreboardAction, ETriggerEvent::Canceled, this, &AERPlayerController::ScoreboardReleased);
         Input->BindAction(MenuAction, ETriggerEvent::Started, this, &AERPlayerController::MenuPressed);
     }
+}
+void AERPlayerController::ForwardPressed()
+{
+    auto* C = Cast<AERCharacter>(GetPawn());
+    if (bMenuOpen || !C || C->Health->bDead) return;
+    if (GesturePawn.Get() != C) { GesturePawn = C; LastForwardTap = LastCrouchTap = -1; }
+    const double Now = GetWorld()->GetTimeSeconds();
+    if (LastForwardTap >= 0 && Now - LastForwardTap <= .3)
+    {
+        Cast<UERMovement>(C->GetCharacterMovement())->bSprintHeld = true;
+        LastForwardTap = -1;
+    }
+    else LastForwardTap = Now;
+}
+void AERPlayerController::ForwardReleased()
+{
+    if (auto* C = Cast<AERCharacter>(GetPawn())) Cast<UERMovement>(C->GetCharacterMovement())->bSprintHeld = false;
 }
 void AERPlayerController::WalkPressed() { if (!bMenuOpen) if (auto* C = Cast<AERCharacter>(GetPawn())) Cast<UERMovement>(C->GetCharacterMovement())->bWalkHeld = true; }
 void AERPlayerController::WalkReleased() { if (auto* C = Cast<AERCharacter>(GetPawn())) Cast<UERMovement>(C->GetCharacterMovement())->bWalkHeld = false; }
@@ -288,8 +307,26 @@ void AERPlayerController::JumpPressed()
     if (auto* Character = Cast<AERCharacter>(GetPawn()); Character && !Character->Health->bDead) { Cast<UERMovement>(Character->GetCharacterMovement())->bClimbHeld = true; Character->Jump(); }
 }
 void AERPlayerController::JumpReleased() { if (auto* Character = Cast<AERCharacter>(GetPawn())) { Cast<UERMovement>(Character->GetCharacterMovement())->bClimbHeld = false; Character->StopJumping(); } }
-void AERPlayerController::CrouchPressed() { if (!bMenuOpen) if (auto* Character = Cast<AERCharacter>(GetPawn()); Character && !Character->Health->bDead && !Cast<UERMovement>(Character->GetCharacterMovement())->IsTraversing()) Character->Crouch(); }
-void AERPlayerController::CrouchReleased() { if (auto* Character = Cast<AERCharacter>(GetPawn())) Character->UnCrouch(); }
+void AERPlayerController::CrouchPressed()
+{
+    auto* C = Cast<AERCharacter>(GetPawn());
+    if (bMenuOpen || !C || C->Health->bDead) return;
+    auto* M = Cast<UERMovement>(C->GetCharacterMovement());
+    if (M->IsTraversing() || !M->IsMovingOnGround()) return;
+    if (GesturePawn.Get() != C) { GesturePawn = C; LastForwardTap = LastCrouchTap = -1; }
+    const double Now = GetWorld()->GetTimeSeconds();
+    if (M->bProneWanted)
+    {
+        M->bProneWanted = false; C->Crouch(); LastCrouchTap = -1;
+    }
+    else if (LastCrouchTap >= 0 && Now - LastCrouchTap <= .3)
+    {
+        M->bProneWanted = true; C->UnCrouch(); LastCrouchTap = -1;
+    }
+    else { C->Crouch(); LastCrouchTap = Now; }
+    M->bSprintHeld = false;
+}
+void AERPlayerController::CrouchReleased() { if (auto* C = Cast<AERCharacter>(GetPawn())) C->UnCrouch(); }
 void AERPlayerController::ReloadPressed() { if (!bMenuOpen) if (auto* Character = Cast<AERCharacter>(GetPawn())) Character->ServerReload(); }
 void AERPlayerController::ScoreboardPressed() { bShowScoreboard = true; }
 void AERPlayerController::ScoreboardReleased() { bShowScoreboard = false; }
@@ -437,6 +474,7 @@ void AERPlayerController::ApplyDisplaySize(int32 Percent)
 void AERPlayerController::ShowMenu(bool bShow)
 {
     if (!IsLocalController() || !GetWorld()->GetGameViewport()) return;
+    ForwardReleased(); LastForwardTap = LastCrouchTap = -1;
     FireReleased(); WalkReleased(); CrouchReleased(); JumpReleased(); bShowScoreboard = false;
     bZoomHeld = false;
     bMenuOpen = bShow; bShowMouseCursor = bShow;
@@ -557,7 +595,7 @@ void AERPlayerController::ShowMenu(bool bShow)
     Panel->AddSlot().AutoHeight().Padding(0,3)[SNew(STextBlock)
         .Text(FText::FromString(TEXT("Movimenti lenti precisi, movimenti rapidi più ampi. 0% = risposta uniforme."))).AutoWrapText(true)];
     Panel->AddSlot().AutoHeight().Padding(0,15)[SNew(STextBlock).Text_Lambda([GI]() { return FText::FromString(GI->LastError); }).AutoWrapText(true).ColorAndOpacity(FLinearColor(1,.6f,.25f))];
-    Panel->AddSlot().AutoHeight().Padding(0,10)[SNew(STextBlock).Text(FText::FromString(TEXT("WASD  Movimento     Mouse  Mira / Fuoco\nShift  Cammina     Spazio  Salto / Arrampicata / Respawn     Ctrl / C  Accovacciati\nR  Ricarica     Tab  Classifica     Esc  Menu"))).AutoWrapText(true)];
+    Panel->AddSlot().AutoHeight().Padding(0,10)[SNew(STextBlock).Text(FText::FromString(TEXT("WASD  Movimento     Mouse  Mira / Fuoco\nShift  Cammina     Spazio  Salto / Arrampicata / Respawn     Ctrl / C  Accovacciati\nDoppio W  Sprint (5 s / recupero 10 s)     Doppio Ctrl / C  Pancia a terra\nR  Ricarica     Tab  Classifica     Esc  Menu"))).AutoWrapText(true)];
     MenuWidget = SNew(SBorder).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
         .BorderBackgroundColor(FLinearColor(.015f,.025f,.045f,.96f)).HAlign(HAlign_Center).VAlign(VAlign_Center)
         [SNew(SBox).WidthOverride(470).MaxDesiredHeight_Lambda([this]() {
@@ -603,6 +641,10 @@ void AERHUD::DrawHUD()
     }
     if (Character && !Character->Health->bDead)
     {
+        const auto* Movement = Cast<UERMovement>(Character->GetCharacterMovement());
+        const float Sprint = Movement->GetSprintRemaining(), Recovery = Movement->GetRecoveryRemaining();
+        Text(Sprint > 0 ? FString::Printf(TEXT("SPRINT %.1f s"), Sprint) : (Recovery > 0 ? FString::Printf(TEXT("RECUPERO %.1f s"), Recovery) : TEXT("SPRINT PRONTO  |  doppio W")), 30, H-100, FLinearColor(.6f,.8f,1), 1.f);
+        if (Movement->bProneWanted || Movement->IsProne()) Text(TEXT("PANCIA A TERRA  |  C / Ctrl per rialzarti"), 30, H-125, FLinearColor::White, 1.f);
         DrawLine(W/2-8,H/2,W/2-3,H/2,FLinearColor::White); DrawLine(W/2+3,H/2,W/2+8,H/2,FLinearColor::White);
         DrawLine(W/2,H/2-8,W/2,H/2-3,FLinearColor::White); DrawLine(W/2,H/2+3,W/2,H/2+8,FLinearColor::White);
         Text(FString::Printf(TEXT("HP  %.0f"), Character->Health->Health), 30, H-65, FLinearColor(.4f,1,.7f), 2.f);
