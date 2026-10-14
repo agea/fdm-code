@@ -1,4 +1,5 @@
 #include "ERWeapon.h"
+#include "ERShotEffects.h"
 #include "ERMovement.h"
 #include "ERCharacter.h"
 #include "ERMatch.h"
@@ -28,6 +29,15 @@ void SpawnBulletHole(UWorld* World, UMaterialInterface* Material, const FVector&
     if (auto* Decal = UGameplayStatics::SpawnDecalAtLocation(World, Material, FVector(1.5f, 5.f, 5.f),
         Position + Normal * .15f, Rotation, 20.f))
     {
+        // Keep sustained automatic fire bounded on each rendering peer.
+        static TArray<TWeakObjectPtr<UDecalComponent>> Holes;
+        Holes.RemoveAll([](const auto& Hole) { return !Hole.IsValid(); });
+        while (Holes.Num() >= 128)
+        {
+            if (Holes[0].IsValid()) Holes[0]->DestroyComponent();
+            Holes.RemoveAt(0);
+        }
+        Holes.Add(Decal);
         Decal->SetFadeScreenSize(.0005f);
         Decal->SetFadeOut(15.f, 5.f, false);
     }
@@ -44,6 +54,8 @@ void AERWeapon::BeginPlay()
 {
     Super::BeginPlay();
     if (!Data) Data = NewObject<UERWeaponData>(this);
+    if (const auto* Character = Cast<AERCharacter>(GetOwner()))
+        UERShotEffects::Prewarm(GetWorld(), ImpactSystem, Character->Camera->GetComponentLocation());
     if (ProjectileClass)
     {
         AERGrenadeExplosion::PrecacheEffect(ProjectileClass->GetDefaultObject<AERProjectile>()->GrenadeExplosionClass);
@@ -101,69 +113,78 @@ void AERWeapon::TryFire()
     Eye = Character->Camera->GetComponentLocation();
     FCollisionQueryParams Params(SCENE_QUERY_STAT(ERRifle), false, Character); Params.AddIgnoredActor(this);
     FHitResult ViewHit;
-    const FVector Far = Eye + Aim.Vector() * 60000;
-    const bool bViewHit = GetWorld()->LineTraceSingleByChannel(ViewHit, Eye, Far, ECC_Visibility, Params);
+    const FVector Far = Eye + Aim.Vector() * FMath::Max(1.f, Data->HitscanRange);
+    const bool bViewHit = GetWorld()->LineTraceSingleByChannel(ViewHit, Eye, Far, ECC_GameTraceChannel1, Params);
     const FVector Target = bViewHit ? ViewHit.ImpactPoint : Far;
     const FVector IntendedMuzzle = Eye + Aim.RotateVector(FVector(45, 12, -12));
     LastShotAimDirection = (Target - IntendedMuzzle).GetSafeNormal();
     LastShotSpreadDegrees = GetSpreadDegrees();
     LastShotDirection = ShotRandom.VRandCone(LastShotAimDirection, FMath::DegreesToRadians(LastShotSpreadDegrees));
     FHitResult MuzzleHit;
-    const bool bBlocked = GetWorld()->SweepSingleByChannel(MuzzleHit, Eye, IntendedMuzzle, FQuat::Identity, ECC_Visibility, FCollisionShape::MakeSphere(3), Params);
+    const bool bBlocked = GetWorld()->SweepSingleByChannel(MuzzleHit, Eye, IntendedMuzzle, FQuat::Identity, ECC_GameTraceChannel1, FCollisionShape::MakeSphere(3), Params);
     --MagazineAmmo; NextAllowedShotTime = Now + Data->ShotInterval; Character->Health->ProtectionEndServerTime = 0;
     // Only an authorized shot changes burst buildup. Owners recover it against the server clock.
     BloomAtLastShot = FMath::Min(GetBloomDegrees() + Data->BloomPerShotDegrees, Data->MaxBloomDegrees);
     LastSpreadShotServerTime = Now;
     ForceNetUpdate();
-    if (bBlocked && Data->Payload == EERPayload::Bullet)
+    ++AuthorizedShotCount;
+    LastShotTraceCount = 0;
+    if (Data->Payload == EERPayload::Bullet)
     {
-        // Authorize the shot but resolve the first obstacle before the muzzle; never spawn beyond it.
-        UGameplayStatics::ApplyPointDamage(MuzzleHit.GetActor(), Data->Damage * Data->Pellets, LastShotDirection, MuzzleHit,
-            Character->Controller, this, UDamageType::StaticClass());
-        Character->MulticastShot(Eye, MuzzleHit.ImpactPoint);
-        if (MuzzleHit.GetActor() && !MuzzleHit.GetActor()->IsA<APawn>())
-            MulticastImpact(MuzzleHit.ImpactPoint, MuzzleHit.ImpactNormal, FMath::FRandRange(0.f, 360.f));
+        const int32 PelletCount = FMath::Clamp(Data->Pellets, 1, 16);
+        FVector FeedbackEnd = IntendedMuzzle;
+        for (int32 Pellet = 0; Pellet < PelletCount; ++Pellet)
+        {
+            const FVector Direction = Pellet == 0 ? LastShotDirection : ShotRandom.VRandCone(LastShotAimDirection, FMath::DegreesToRadians(LastShotSpreadDegrees));
+            FHitResult Hit = MuzzleHit;
+            const FVector TraceEnd = IntendedMuzzle + Direction * FMath::Max(1.f, Data->HitscanRange);
+            const bool bHit = bBlocked || GetWorld()->LineTraceSingleByChannel(Hit, IntendedMuzzle, TraceEnd, ECC_GameTraceChannel1, Params);
+            ++LastShotTraceCount;
+            if (Pellet == 0)
+            {
+                LastShotTraceStart = bBlocked ? Eye : IntendedMuzzle;
+                LastShotTraceEnd = FeedbackEnd = bHit ? Hit.ImpactPoint : TraceEnd;
+            }
+            if (bHit)
+            {
+                UGameplayStatics::ApplyPointDamage(Hit.GetActor(), Data->Damage, Direction, Hit,
+                    Character->Controller, this, UDamageType::StaticClass());
+                if (Hit.GetActor() && !Hit.GetActor()->IsA<APawn>())
+                    MulticastImpact(Hit.ImpactPoint, Hit.ImpactNormal, FMath::FRandRange(0.f, 360.f), uint8(FMath::RandRange(0, 3)));
+            }
+        }
+        const bool bTracer = Data->TracerEveryNShots > 0 && (AuthorizedShotCount - 1) % uint32(Data->TracerEveryNShots) == 0;
+        Character->MulticastShot(LastShotTraceStart, FeedbackEnd, bTracer);
     }
     else
     {
-        for (int32 Pellet = 0; Pellet < FMath::Clamp(Data->Pellets, 1, 16); ++Pellet)
-        {
-        const FVector Direction = Pellet == 0 ? LastShotDirection : ShotRandom.VRandCone(LastShotAimDirection, FMath::DegreesToRadians(LastShotSpreadDegrees));
+        // Rockets and thrown utility retain their physical movement and fuse rules.
         const FVector LaunchPosition = bBlocked ? Eye + Aim.Vector() * 12.f : IntendedMuzzle;
-        auto* Projectile = GetWorld()->SpawnActorDeferred<AERProjectile>(ProjectileClass, FTransform(Direction.Rotation(), LaunchPosition), this, Character, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+        auto* Projectile = GetWorld()->SpawnActorDeferred<AERProjectile>(ProjectileClass, FTransform(LastShotDirection.Rotation(), LaunchPosition), this, Character, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
         if (Projectile)
         {
             Projectile->Damage = Data->Damage;
             Projectile->Payload = Data->Payload;
-            Projectile->ThrownMesh = Data->bOneHanded && Data->Payload != EERPayload::Bullet ? Data->Mesh : nullptr;
+            Projectile->ThrownMesh = Data->bOneHanded ? Data->Mesh : nullptr;
             Projectile->ExplosionRadius = Data->ExplosionRadius;
             Projectile->FuseDuration = Data->FuseDuration;
             Projectile->Movement->InitialSpeed = Data->ProjectileSpeed;
             Projectile->Movement->MaxSpeed = Data->ProjectileSpeed;
-            Projectile->Movement->Velocity = Direction * Data->ProjectileSpeed;
+            Projectile->Movement->Velocity = LastShotDirection * Data->ProjectileSpeed;
             Projectile->SetLifeSpan(Data->ProjectileLife);
             UGameplayStatics::FinishSpawningActor(Projectile, Projectile->GetActorTransform());
         }
-        }
-        FVector FeedbackEnd=IntendedMuzzle+LastShotDirection*250;
-        if(Data->Payload==EERPayload::Bullet)
-        {
-            FHitResult FeedbackHit;
-            const FVector LaunchPosition=bBlocked ? Eye+Aim.Vector()*12.f : IntendedMuzzle;
-            const FVector End=LaunchPosition+LastShotDirection*60000;
-            const bool Hit=GetWorld()->LineTraceSingleByChannel(FeedbackHit,LaunchPosition,End,ECC_Visibility,Params);
-            FeedbackEnd=Hit ? FeedbackHit.ImpactPoint : End;
-            Character->MulticastShot(LaunchPosition,FeedbackEnd);
-        }
-        else Character->MulticastShot(IntendedMuzzle,FeedbackEnd);
+        Character->MulticastShot(IntendedMuzzle, IntendedMuzzle + LastShotDirection * 250, false);
     }
     if (MagazineAmmo <= 0) StopFire();
     else if (bWantsFire && Data->bAutomatic) GetWorldTimerManager().SetTimer(FireTimer, this, &AERWeapon::TryFire, Data->ShotInterval, false);
 }
-void AERWeapon::MulticastImpact_Implementation(FVector_NetQuantize Position, FVector_NetQuantizeNormal Normal, float Roll)
+void AERWeapon::MulticastImpact_Implementation(FVector_NetQuantize Position, FVector_NetQuantizeNormal Normal, float Roll, uint8 Variant)
 {
     const AERProjectile* Defaults = ProjectileClass ? ProjectileClass->GetDefaultObject<AERProjectile>() : nullptr;
-    SpawnBulletHole(GetWorld(), Defaults ? Defaults->ImpactDecalMaterial : nullptr, Position, Normal, Roll);
+    UMaterialInterface* Material = ImpactDecalVariants.IsValidIndex(Variant) ? ImpactDecalVariants[Variant].Get() : (Defaults ? Defaults->ImpactDecalMaterial.Get() : nullptr);
+    SpawnBulletHole(GetWorld(), Material, Position, Normal, Roll);
+    UERShotEffects::SpawnImpact(GetWorld(), ImpactSystem, Position, Normal);
 }
 void AERWeapon::Reload()
 {

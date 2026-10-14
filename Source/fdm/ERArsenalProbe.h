@@ -20,6 +20,9 @@ private:
     double BurstFrameTotal = 0, BurstFrameMax = 0;
     int32 BurstFrames = 0, BurstSlowFrames = 0;
     bool Failed = false;
+    TWeakObjectPtr<class AERSpentCasing> GalleryCasing;
+    FVector CasingOrigin = FVector::ZeroVector;
+    int32 MotionAmmoBefore = 0;
     UPROPERTY() TObjectPtr<class AERPlayerController> Host;
     UPROPERTY() TObjectPtr<class AERPlayerController> Client;
     void Check(bool Value, const TCHAR* Label);

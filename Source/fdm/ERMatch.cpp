@@ -125,7 +125,7 @@ void AERGameMode::BeginPlay()
     if (FParse::Param(FCommandLine::Get(), TEXT("ERMovementProbe"))) GetWorld()->SpawnActor<AERMovementProbe>();
     if (FParse::Param(FCommandLine::Get(), TEXT("ERBotProbe")) || FParse::Param(FCommandLine::Get(), TEXT("ERTargetSkinsProbe"))) GetWorld()->SpawnActor<AERBotProbe>();
     if (FParse::Param(FCommandLine::Get(), TEXT("ERAccuracyProbe"))) GetWorld()->SpawnActor<AERAccuracyProbe>();
-    if (FParse::Param(FCommandLine::Get(), TEXT("ERArsenalProbe")) || FParse::Param(FCommandLine::Get(), TEXT("ERArsenalGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERGrenadeGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERSmokeGallery")))
+    if (FParse::Param(FCommandLine::Get(), TEXT("ERArsenalProbe")) || FParse::Param(FCommandLine::Get(), TEXT("ERArsenalGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERHitscanGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERGrenadeGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERSmokeGallery")))
         GetWorld()->SpawnActor<AERArsenalProbe>();
 #endif
 }

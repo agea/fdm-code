@@ -2,7 +2,7 @@
   "version": 1,
   "repositories": {
     "characters": {"path": "Assets/characters", "mounts": ["Content/Characters", "Content/ParagonDrongo", "Content/ParagonTwinblast", "Content/EclipseRecoil/Characters"]},
-    "weapons": {"path": "Assets/weapons", "mounts": ["Content/Weapons", "Content/EclipseRecoil/Weapons", "Content/EclipseRecoil/Audio", "Content/EclipseRecoil/Effects", "Content/InteractiveSmoke", "SourceAssets/LowPolyWeapons", "SourceAssets/BombCrackGround", "SourceAssets/InteractiveSmoke"]},
+    "weapons": {"path": "Assets/weapons", "mounts": ["Content/Weapons", "Content/EclipseRecoil/Weapons", "Content/EclipseRecoil/Audio", "Content/EclipseRecoil/Effects", "Content/InteractiveSmoke", "SourceAssets/LowPolyWeapons", "SourceAssets/BombCrackGround", "SourceAssets/InteractiveSmoke", "SourceAssets/BulletImpacts"]},
     "maps": {"path": "Assets/maps", "mounts": ["Content/FirstPerson", "Content/Variant_Shooter", "Content/Input", "Content/LevelPrototyping", "Content/__ExternalActors__", "Content/__ExternalObjects__", "Content/EclipseRecoil/Maps", "Content/EclipseRecoil/Core", "Content/EclipseRecoil/Input", "Content/EclipseRecoil/Art"]}
   }
 }

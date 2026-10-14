@@ -36,6 +36,9 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite) float ReloadDuration = 1.5f;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) float ProjectileSpeed = 30000;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) float ProjectileLife = 2;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Hitscan", meta=(ClampMin="1")) float HitscanRange = 60000;
+    // Zero disables tracers; one shows every shot. Server selects cosmetic cadence.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Hitscan", meta=(ClampMin="0")) int32 TracerEveryNShots = 3;
     // Cone half-angles in degrees. Movement and burst penalties are additive.
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Accuracy", meta=(ClampMin="0", ClampMax="10")) float StandingSpreadDegrees = .18f;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Accuracy", meta=(ClampMin="0", ClampMax="1")) float CrouchSpreadMultiplier = .6f;
@@ -55,7 +58,9 @@ public:
     AERWeapon();
     UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadWrite) TObjectPtr<UERWeaponData> Data;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) TSubclassOf<class AERProjectile> ProjectileClass;
-    UFUNCTION(NetMulticast, Unreliable) void MulticastImpact(FVector_NetQuantize Position, FVector_NetQuantizeNormal Normal, float Roll);
+    UFUNCTION(NetMulticast, Unreliable) void MulticastImpact(FVector_NetQuantize Position, FVector_NetQuantizeNormal Normal, float Roll, uint8 Variant);
+    UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Shot feedback") TArray<TObjectPtr<class UMaterialInterface>> ImpactDecalVariants;
+    UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Shot feedback") TObjectPtr<class UNiagaraSystem> ImpactSystem;
     UPROPERTY(Replicated, BlueprintReadOnly) int32 MagazineAmmo = 30;
     UPROPERTY(Replicated, BlueprintReadOnly) int32 ReserveAmmo = 90;
     UPROPERTY(Replicated, BlueprintReadOnly) bool bReloading = false;
@@ -63,7 +68,11 @@ public:
     UPROPERTY(Replicated, BlueprintReadOnly) double LastSpreadShotServerTime = -100;
     float GetSpreadDegrees() const;
     float GetBloomDegrees() const;
-    // Observations of the actual last server projectile launch for development probes.
+    // Observations of the actual server traces for development probes.
+    FVector LastShotTraceStart = FVector::ZeroVector;
+    FVector LastShotTraceEnd = FVector::ZeroVector;
+    int32 LastShotTraceCount = 0;
+    uint32 AuthorizedShotCount = 0;
     FVector LastShotAimDirection = FVector::ForwardVector;
     FVector LastShotDirection = FVector::ForwardVector;
     float LastShotSpreadDegrees = 0;

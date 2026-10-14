@@ -82,11 +82,10 @@ void AERAccuracyProbe::Tick(float DeltaTime)
         SamplesWithinCone &= Angle<=Weapon->LastShotSpreadDegrees+.01f;
         if (ConeSamples==0) FirstDirection=Weapon->LastShotDirection;
         else SamplesVary |= !FirstDirection.Equals(Weapon->LastShotDirection,.0001f);
-        bool FoundLaunch=false;
+        const FVector TraceDirection = (Weapon->LastShotTraceEnd - Weapon->LastShotTraceStart).GetSafeNormal();
+        SamplesWithinCone &= Weapon->LastShotTraceCount == 1 && TraceDirection.Equals(Weapon->LastShotDirection, .001f);
         for (TActorIterator<AERProjectile> It(GetWorld()); It; ++It)
-            if (It->GetOwner()==Weapon && FVector::Dist(It->GetActorLocation(),H->Camera->GetComponentLocation())<80)
-                FoundLaunch |= It->Movement->Velocity.GetSafeNormal().Equals(Weapon->LastShotDirection,.0001f);
-        SamplesWithinCone &= FoundLaunch;
+            if (It->GetOwner() == Weapon && It->Payload == EERPayload::Bullet) SamplesWithinCone = false;
         ++ConeSamples; Deadline=Now+.11; return;
     }
     if (Now<Deadline) return;
@@ -111,7 +110,7 @@ void AERAccuracyProbe::Tick(float DeltaTime)
         Check(Move->IsFalling() && H->Weapon->GetSpreadDegrees()>Running,TEXT("jump_adds_airborne_spread"));
         Advance(6,.7f); break;
     case 6:
-        Check(ConeSamples==10 && SamplesWithinCone,TEXT("ten_real_projectiles_within_server_cone"));
+        Check(ConeSamples==10 && SamplesWithinCone,TEXT("ten_hitscan_traces_within_server_cone_no_bullet_actors"));
         Check(SamplesVary,TEXT("server_samples_different_directions"));
         Check(H->Weapon->GetBloomDegrees()<=H->Weapon->Data->MaxBloomDegrees+.001f,TEXT("burst_bloom_bounded"));
         H->Health->ProtectionEndServerTime=Now+60;

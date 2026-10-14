@@ -37,6 +37,8 @@ public:
     UFUNCTION(BlueprintCallable, Category="Assets|Editor")
     static bool DeleteUnloadedParagonPackages(const TArray<FString>& Packages);
     UFUNCTION(BlueprintCallable, Category="Arsenal|Editor")
+    static FVector GetWeaponMuzzleFromGeometry(class USkeletalMesh* WeaponMesh);
+    UFUNCTION(BlueprintCallable, Category="Arsenal|Editor")
     static FTransform GetWeaponReferenceBone(class USkeletalMesh* WeaponMesh, FName Bone);
     UFUNCTION(BlueprintCallable, Category="Arsenal|Editor")
     static bool AssignWeaponMaterial(class USkeletalMesh* WeaponMesh, class UMaterialInterface* Material);
@@ -74,6 +76,8 @@ public:
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Shot feedback") TObjectPtr<class UAnimSequence> FirstPersonFireAnimation;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Shot feedback") TObjectPtr<class USoundBase> FireSound;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Shot feedback") TObjectPtr<class USoundAttenuation> FireAttenuation;
+    UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Shot feedback") TSubclassOf<class AERSpentCasing> CasingClass;
+    UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Shot feedback") TObjectPtr<class UNiagaraSystem> TracerSystem;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Shot feedback") TObjectPtr<class UStaticMesh> MuzzleFlashMesh;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Shot feedback") TObjectPtr<class UMaterialInterface> MuzzleFlashMaterial;
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly) TObjectPtr<class UStaticMeshComponent> FirstPersonMuzzleFlash;
@@ -94,7 +98,8 @@ public:
     UFUNCTION(Server, Reliable) void ServerSelectWeapon(int32 Slot);
     void InitializeLoadout(int32 Primary);
     FVector GetVisualMuzzle(bool bFirstPerson) const;
-    UFUNCTION(NetMulticast, Unreliable) void MulticastShot(FVector_NetQuantize Start, FVector_NetQuantize End);
+    FVector GetRenderedMuzzle(bool bFirstPerson) const;
+    UFUNCTION(NetMulticast, Unreliable) void MulticastShot(FVector_NetQuantize Start, FVector_NetQuantize End, bool bTracer = true);
     void ApplyDeathVisuals();
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 private:

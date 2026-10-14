@@ -324,3 +324,48 @@ Nessun nuovo asset binario: `UERPostureMesh` modifica la posa world dei rig team
 esistenti dopo la valutazione delle animazioni. Mani/FPS e grip delle armi
 restano sugli asset attuali. `ERPostureGallery` genera immagini temporanee sotto
 Saved/Testing; non salva o modifica Blueprint, mappe, mesh o animazioni.
+
+
+## Effetti hitscan — 14 ottobre 2026
+
+- PNG utente «Quattro Impatti sulla Parete Trasparente.png», RGBA 1254x1254,
+  conservata intatta come SourceAssets/BulletImpacts/FourBulletImpacts.png
+  nel submodule privato weapons. Provenienza: allegato dell'utente; nessuna
+  ulteriore licenza dedotta e nessun inserimento nel codice pubblico.
+- Effects/Shots/T_ER_BulletImpacts, M_ER_BulletImpactAtlas e
+  MI_ER_BulletImpact_1..4: texture alpha e quattro quadranti dello stesso atlas.
+- NS_ER_Tracer e M_ER_Tracer: sistema Niagara proprio, costruito dall'emitter
+  SingleLoopingParticle incluso in Epic Niagara; renderer sprite SourceMode=Emitter
+  con posizione dal componente, allineamento/dimensione in parametri User
+  ed emissione dorata nel materiale. Bounds comprendono tutto il segmento.
+- NS_ER_Impact: copia privata di Epic Niagara DirectionalBurst, simulazione
+  locale e M_ER_ImpactSprite proprio, morbido e caldo; scala/moto compatti
+  e rimozione gestiti dal codice. Non è una libreria per tipi di superficie.
+- Muzzle flash e audio esistenti conservati. Riferimenti nei Blueprint privati
+  BP_ERCharacter (maps) e BP_ERWeapon_Rifle (weapons).
+- Ricostruzione: scripts/setup_hitscan_effects.py tramite Unreal dopo la build.
+
+
+### Revisione discreta dopo screenshot utente
+
+NS_ER_Impact ora usa un solo sprite morbido di 1,6 cm per 35 ms, creato
+dall'emitter Epic SingleLoopingParticle e dal materiale proprio
+M_ER_ImpactSprite. Il precedente DirectionalBurst non viene più usato.
+M_ER_Tracer attenuato; M_ER_MuzzleFlashSoft per il flash ridotto a 18 ms.
+BP_ER_SpentCasing usa Engine BasicShapes/Cube e M_ER_CasingDark proprio:
+nessun nuovo modello o sorgente esterno. Default CasingClass e materiale
+flash in BP_ERCharacter. Gli asset restano nei submodule privati weapons/maps.
+
+
+Ulteriore feedback del 14 ottobre: ripristinata la visibilità di M_ER_Tracer
+(emissione dorata 4/2,2/0,65 e alpha 0,7), larghezza runtime 0,12 cm.
+Conservati i materiali tenui di impatto/muzzle flash e il bossolo scuro.
+
+
+Origine traccianti (14 ottobre): aggiornati solo MuzzleOffset nei data asset
+DA_AK74, DA_M4_8, DA_Uzi, DA_SG_M4, DA_M249, DA_M107 e DA_M1911.
+Punta dal centro della geometria frontale (ultimi 4mm lungo +X), via Unreal
+MeshDescription e fix_weapon_muzzles.py. Nessuna modifica alle mesh Fab,
+agli skeleton o alle pose dei grip. Nel solo M_ER_Tracer rimossa la
+sfumatura longitudinale che nascondeva l'inizio del segmento; colore,
+luminosità e sfumatura trasversale conservati.

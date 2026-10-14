@@ -1,0 +1,268 @@
+#include "ERShotEffects.h"
+#include "ERCharacter.h"
+#include "ERWeapon.h"
+#include "Camera/PlayerCameraManager.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Kismet/GameplayStatics.h"
+#include "NiagaraComponent.h"
+#include "NiagaraFunctionLibrary.h"
+#include "NiagaraSystem.h"
+#include "TimerManager.h"
+#include "Misc/App.h"
+#include "Components/StaticMeshComponent.h"
+#include "EngineUtils.h"
+#if WITH_EDITOR
+#include "NiagaraSystemFactoryNew.h"
+#include "NiagaraEditorUtilities.h"
+#include "UObject/UnrealType.h"
+#include "NiagaraEmitter.h"
+#include "NiagaraSpriteRendererProperties.h"
+#endif
+
+namespace
+{
+void RemoveAfter(UWorld* World, UNiagaraComponent* Component, float Seconds)
+{
+    FTimerHandle Handle;
+    const TWeakObjectPtr<UNiagaraComponent> Weak(Component);
+    World->GetTimerManager().SetTimer(Handle, FTimerDelegate::CreateLambda([Weak]()
+    { if (Weak.IsValid()) Weak->DestroyComponent(); }), Seconds, false);
+}
+}
+void UERShotEffects::Prewarm(UWorld* World, UNiagaraSystem* System, const FVector& Position)
+{
+    if (!World || !System || !FApp::CanEverRender() || World->GetNetMode() == NM_DedicatedServer) return;
+    if (auto* Effect = UNiagaraFunctionLibrary::SpawnSystemAtLocation(World, System, Position,
+        FRotator::ZeroRotator, FVector::OneVector, true, false, ENCPoolMethod::None, false))
+    {
+        Effect->SetVisibility(false);
+        Effect->SetVariablePosition(TEXT("User.Position"), Position);
+        Effect->SetVariableVec3(TEXT("User.Alignment"), FVector::ForwardVector);
+        Effect->SetVariableVec2(TEXT("User.Size"), FVector2D(1,1));
+        Effect->SetVariableLinearColor(TEXT("User.Color"), FLinearColor::Transparent);
+        Effect->Activate(true);
+        RemoveAfter(World, Effect, 2.f);
+    }
+}
+void UERShotEffects::SpawnTracer(UWorld* World, UNiagaraSystem* System, const FVector& Start, const FVector& End, float Lifetime)
+{
+    if (!World || !System || !FApp::CanEverRender() || World->GetNetMode() == NM_DedicatedServer) return;
+    const FVector Segment = End - Start;
+    if (Segment.SizeSquared() < 1) return;
+    // Purely cosmetic: the server has already applied damage. No ticking bullet actor.
+    auto* Beam = UNiagaraFunctionLibrary::SpawnSystemAtLocation(World, System, (Start + End) * .5,
+        FRotator::ZeroRotator, FVector::OneVector, true, false, ENCPoolMethod::None, false);
+    if (!Beam) return;
+    // Emitter-source sprites do not contribute particle bounds. Enclose the
+    // complete segment so frustum culling cannot discard a visible tracer.
+    const FVector Extent = Segment.GetAbs() * .5 + FVector(4);
+    Beam->SetSystemFixedBounds(FBox(-Extent, Extent));
+    Beam->SetVariablePosition(TEXT("User.Position"), (Start + End) * .5);
+    Beam->SetVariableVec3(TEXT("User.Alignment"), Segment.GetSafeNormal());
+    Beam->SetVariableVec2(TEXT("User.Size"), FVector2D(.12, Segment.Size()));
+    Beam->SetVariableLinearColor(TEXT("User.Color"), FLinearColor(4.f, 2.2f, .65f, .7f));
+    Beam->Activate(true);
+    RemoveAfter(World, Beam, Lifetime);
+}
+void UERShotEffects::SpawnImpact(UWorld* World, UNiagaraSystem* System, const FVector& Position, const FVector& Normal)
+{
+    if (!World || !System || !FApp::CanEverRender() || World->GetNetMode() == NM_DedicatedServer || Normal.IsNearlyZero()) return;
+    // One tiny, soft sprite for 35ms; no directional burst or spark fan.
+    if (auto* Effect = UNiagaraFunctionLibrary::SpawnSystemAtLocation(World, System, Position + Normal * .15f,
+        FRotator::ZeroRotator, FVector::OneVector, true, false, ENCPoolMethod::None, false))
+    {
+        Effect->SetSystemFixedBounds(FBox(FVector(-3), FVector(3)));
+        Effect->SetVariableVec2(TEXT("User.Size"), FVector2D(1.6,1.6));
+        Effect->SetVariableVec3(TEXT("User.Alignment"), FVector::UpVector);
+        Effect->Activate(true);
+        static TArray<TWeakObjectPtr<UNiagaraComponent>> Impacts;
+        Impacts.RemoveAll([](const auto& Item) { return !Item.IsValid(); });
+        while (Impacts.Num() >= 64)
+        {
+            if (Impacts[0].IsValid()) Impacts[0]->DestroyComponent();
+            Impacts.RemoveAt(0);
+        }
+        Impacts.Add(Effect);
+        RemoveAfter(World, Effect, .035f);
+    }
+}
+bool UERShotEffects::ConfigureImpact(UNiagaraSystem* System, UMaterialInterface* Material)
+{
+    // Both effects use a single emitter-source sprite; only size/material differ.
+    return ConfigureTracer(System, Material);
+}
+
+bool UERShotEffects::ConfigureTracer(UNiagaraSystem* System, UMaterialInterface* Material)
+{
+#if WITH_EDITOR
+    if (!System || !Material || !System->GetPathName().StartsWith(TEXT("/Game/EclipseRecoil/Effects/Shots/"))) return false;
+    auto* Source = LoadObject<UNiagaraEmitter>(nullptr, TEXT("/Niagara/DefaultAssets/Templates/Emitters/SingleLoopingParticle.SingleLoopingParticle"));
+    if (!Source) return false;
+    System->Modify();
+    TSet<FGuid> Handles;
+    for (const auto& Handle : System->GetEmitterHandles()) Handles.Add(Handle.GetId());
+    System->RemoveEmitterHandlesById(Handles);
+    UNiagaraSystemFactoryNew::InitializeSystem(System, true);
+    FNiagaraEditorUtilities::AddEmitterToSystem(*System, *Source, Source->GetExposedVersion().VersionGuid);
+    auto Handle = System->GetEmitterHandles().Last();
+    const auto Emitter = Handle.GetInstance();
+    auto* Data = Handle.GetEmitterData();
+    if (!Data || !Emitter.Emitter) return false;
+    Data->bLocalSpace = false;
+    const auto Renderers = Data->GetRenderers();
+    for (auto* Renderer : Renderers) Emitter.Emitter->RemoveRenderer(Renderer, Emitter.Version);
+    auto* Sprite = NewObject<UNiagaraSpriteRendererProperties>(Emitter.Emitter);
+    Sprite->Material = Material;
+    Sprite->SourceMode = ENiagaraRendererSourceDataMode::Emitter;
+    Sprite->Alignment = ENiagaraSpriteAlignment::CustomAlignment;
+    Sprite->FacingMode = ENiagaraSpriteFacingMode::FaceCamera;
+    const auto AddParameter = [System](const FNiagaraTypeDefinition& Type, const TCHAR* Name)
+    { System->GetExposedParameters().AddParameter(FNiagaraVariable(Type, FName(Name))); };
+    AddParameter(FNiagaraTypeDefinition::GetPositionDef(), TEXT("User.Position"));
+    AddParameter(FNiagaraTypeDefinition::GetVec3Def(), TEXT("User.Alignment"));
+    AddParameter(FNiagaraTypeDefinition::GetVec2Def(), TEXT("User.Size"));
+    AddParameter(FNiagaraTypeDefinition::GetColorDef(), TEXT("User.Color"));
+    Sprite->PositionBinding.SetValue(NAME_None, Emitter, Sprite->SourceMode);
+    Sprite->SpriteAlignmentBinding.SetValue(TEXT("User.Alignment"), Emitter, Sprite->SourceMode);
+    Sprite->SpriteSizeBinding.SetValue(TEXT("User.Size"), Emitter, Sprite->SourceMode);
+    Sprite->ColorBinding.SetValue(NAME_None, Emitter, Sprite->SourceMode);
+    Emitter.Emitter->AddRenderer(Sprite, Emitter.Version);
+    FPropertyChangedEvent Changed(FindFProperty<FProperty>(UNiagaraSpriteRendererProperties::StaticClass(), TEXT("SourceMode")));
+    Sprite->PostEditChangeProperty(Changed);
+    System->RequestCompile(true);
+    System->WaitForCompilationComplete();
+    System->MarkPackageDirty();
+    return true;
+#else
+    return false;
+#endif
+}
+
+AERSpentCasing::AERSpentCasing()
+{
+    bReplicates = false;
+    PrimaryActorTick.bCanEverTick = false;
+    InitialLifeSpan = 3.f;
+    Mesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Mesh"));
+    SetRootComponent(Mesh);
+    Mesh->SetMobility(EComponentMobility::Movable);
+    Mesh->SetRelativeScale3D(FVector(.03f,.009f,.009f));
+    Mesh->SetCollisionObjectType(ECC_PhysicsBody);
+    Mesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+    Mesh->SetCollisionResponseToAllChannels(ECR_Ignore);
+    Mesh->SetCollisionResponseToChannel(ECC_WorldStatic, ECR_Block);
+    Mesh->SetGenerateOverlapEvents(false);
+    Mesh->SetCastShadow(false);
+    Mesh->SetReceivesDecals(false);
+    Mesh->SetLinearDamping(.25f);
+    Mesh->SetAngularDamping(.6f);
+    Mesh->BodyInstance.bUseCCD = true;
+}
+void AERSpentCasing::BeginPlay()
+{
+    Super::BeginPlay();
+    Mesh->SetSimulatePhysics(true);
+    Mesh->SetEnableGravity(true);
+}
+AERSpentCasing* AERSpentCasing::Eject(UWorld* World, TSubclassOf<AERSpentCasing> Class,
+    const FVector& Position, const FVector& Right, const FVector& Forward, float VisualScale)
+{
+    if (!World || !Class || !FApp::CanEverRender() || World->GetNetMode() == NM_DedicatedServer) return nullptr;
+    TArray<AERSpentCasing*> Casings;
+    for (TActorIterator<AERSpentCasing> It(World); It; ++It) Casings.Add(*It);
+    Casings.Sort([](const auto& A, const auto& B) { return A.GetGameTimeSinceCreation() > B.GetGameTimeSinceCreation(); });
+    while (Casings.Num() >= 32) { Casings[0]->Destroy(); Casings.RemoveAt(0); }
+    FActorSpawnParameters Params;
+    Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+    Params.TransformScaleMethod = ESpawnActorScaleMethod::MultiplyWithRoot;
+    auto* Casing = World->SpawnActor<AERSpentCasing>(Class,
+        FTransform(FRotator::MakeFromEuler(FVector(20,45,10)), Position, FVector(VisualScale)), Params);
+    if (Casing)
+    {
+        Casing->Mesh->SetPhysicsLinearVelocity(Right * FMath::FRandRange(65.f,95.f) +
+            FVector::UpVector * FMath::FRandRange(35.f,60.f) + Forward * FMath::FRandRange(-10.f,10.f));
+        Casing->Mesh->SetPhysicsAngularVelocityInDegrees(FVector(340,210,120));
+#if !UE_BUILD_SHIPPING
+        if (FParse::Param(FCommandLine::Get(), TEXT("ERShotAudit")))
+            UE_LOG(LogTemp, Display, TEXT("ER_CASING_EJECT net=%d replicated=%d sim=%d pawn=%d projectile=%d"),
+                int32(World->GetNetMode()), Casing->GetIsReplicated(), Casing->Mesh->IsSimulatingPhysics(),
+                int32(Casing->Mesh->GetCollisionResponseToChannel(ECC_Pawn)),
+                int32(Casing->Mesh->GetCollisionResponseToChannel(ECC_GameTraceChannel1)));
+#endif
+    }
+    return Casing;
+}
+
+AERAttachedTracer::AERAttachedTracer()
+{
+    bReplicates = false;
+    PrimaryActorTick.bCanEverTick = true;
+    PrimaryActorTick.TickGroup = TG_PostUpdateWork;
+    InitialLifeSpan = .5f; // Safety cleanup if the source disappears before ticking.
+    Beam = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Beam"));
+    SetRootComponent(Beam);
+    Beam->SetAutoActivate(false);
+    Beam->SetForceSolo(true);
+    Beam->SetTickBehavior(ENiagaraTickBehavior::UsePrereqs);
+}
+AERAttachedTracer* AERAttachedTracer::Spawn(AERCharacter* Character, UNiagaraSystem* System,
+    const FVector& End, bool bInFirstPerson, float Duration)
+{
+    if (!Character || !System || !FApp::CanEverRender() || Character->GetNetMode() == NM_DedicatedServer || !Character->Weapon) return nullptr;
+    auto* Tracer = Character->GetWorld()->SpawnActorDeferred<AERAttachedTracer>(StaticClass(), FTransform::Identity,
+        Character, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+    if (!Tracer) return nullptr;
+    Tracer->Source = Character;
+    Tracer->ShotData = Character->Weapon->Data;
+    Tracer->LastEnd = End;
+    Tracer->bFirstPerson = bInFirstPerson;
+    Tracer->DurationSeconds = Duration;
+    Tracer->Beam->SetAsset(System);
+    Tracer->AddTickPrerequisiteComponent(bInFirstPerson ? Character->FirstPersonBody.Get() : Character->GetMesh());
+    Tracer->AddTickPrerequisiteComponent(bInFirstPerson ? Character->FirstPersonRifle.Get() : Character->WorldRifle.Get());
+    UGameplayStatics::FinishSpawningActor(Tracer, FTransform::Identity);
+    return Tracer;
+}
+void AERAttachedTracer::BeginPlay()
+{
+    Super::BeginPlay();
+    Beam->AddTickPrerequisiteActor(this);
+    UpdateBeam();
+    Beam->Activate(true);
+    Beam->PrimaryComponentTick.TickGroup = TG_PostUpdateWork;
+}
+void AERAttachedTracer::UpdateBeam()
+{
+    if (!Source.IsValid()) return;
+    const FVector Tip = Source->GetRenderedMuzzle(bFirstPerson);
+    const FVector ToEnd = LastEnd - Tip;
+    const double Distance = ToEnd.Size();
+    LastStart = Tip + ToEnd.GetSafeNormal() * FMath::Min(.75, Distance * .25);
+    const FVector Segment = LastEnd - LastStart;
+    Beam->SetWorldLocation((LastStart + LastEnd) * .5);
+    const FVector Extent = Segment.GetAbs() * .5 + FVector(4);
+    Beam->SetSystemFixedBounds(FBox(-Extent, Extent));
+    Beam->SetVariableVec3(TEXT("User.Alignment"), Segment.GetSafeNormal());
+    Beam->SetVariableVec2(TEXT("User.Size"), FVector2D(.12, Segment.Size()));
+}
+void AERAttachedTracer::Tick(float DeltaSeconds)
+{
+    Super::Tick(DeltaSeconds);
+    if (!Source.IsValid() || Source->Health->bDead || !Source->Weapon || Source->Weapon->Data != ShotData.Get())
+    { Destroy(); return; }
+    const double Now = GetWorld()->GetTimeSeconds();
+    if (VisibleSince < 0) VisibleSince = Now;
+    else if (Now - VisibleSince >= DurationSeconds) { Destroy(); return; }
+    UpdateBeam();
+    ++UpdatedFrames;
+#if !UE_BUILD_SHIPPING
+    if (FParse::Param(FCommandLine::Get(), TEXT("ERTracerAudit")))
+    {
+        const auto* PC = Cast<APlayerController>(Source->GetController());
+        const float CameraAge = PC && PC->PlayerCameraManager ? float(Now - PC->PlayerCameraManager->GetCameraCacheTime()) : 0.f;
+        UE_LOG(LogTemp, Display, TEXT("ER_TRACER_FRAME first_person=%d frames=%u speed=%.1f camera_age=%.4f lead=%.2f start=%s end=%s"),
+            bFirstPerson, UpdatedFrames, Source->GetVelocity().Size2D(), CameraAge,
+            FVector::Dist(LastStart, Source->GetRenderedMuzzle(bFirstPerson)), *LastStart.ToString(), *LastEnd.ToString());
+    }
+#endif
+}

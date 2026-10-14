@@ -17,6 +17,8 @@ python3 scripts/setup-assets.py --check
 
 Open `fdm.uproject` with Unreal 5.8.3, or run `scripts/open-editor.command`.
 Run `scripts/play-local.command` to play in a separate window using the Editor runtime.
+The default window uses 70% of the main screen's width and height (1280x720
+fallback when no graphical session is available).
 Use **Host** in the menu, then run the same launcher again and **Join**
 `127.0.0.1:7777`. A match begins once both teams have a player.
 
@@ -48,7 +50,7 @@ rendering are enabled for the scene and HUD. The ring
 widens with real rifle spread: crouching improves accuracy, movement and
 jumping reduce it, and sustained fire builds spread that recovers after release.
 Its radius includes a fixed readability margin; it indicates accuracy rather
-than marking the exact screen boundary of the projectile cone.
+than marking the exact screen boundary of the hitscan cone.
 
 For solo testing, choose **Allenamento contro bot** for one enemy bot, or
 **Bersagli fermi · 5 Alpha / 5 Omega** for ten stationary characters, five per
@@ -139,9 +141,25 @@ Run `python3 scripts/test-network.py --shot-feedback` to also check authorized
 shot counts, empty-clip silence, unchanged server aim, and host/client assets.
 `scripts/setup_shot_feedback.py` regenerates only firing presentation assets
 through Unreal Python. `-ERShotAudit` enables per-shot development diagnostics.
-Run `python3 scripts/test-network.py --accuracy` for real projectile cone,
+Run `python3 scripts/test-network.py --accuracy` for real hitscan cone,
 posture/movement, burst recovery and remote owner replication checks.
 `-ERAccuracyAudit` logs graphical reticle ammunition, spread and radius.
+Bullet weapons use immediate server Line Traces on the Projectile channel,
+with cosmetic Niagara tracers from the visible muzzle (one in three shots by
+default; configurable through `TracerEveryNShots`). Rockets and grenades retain
+physical movement. Impact/muzzle glints are deliberately faint; tracers have clear gold emission.
+Every second bullet shot ejects a small local dark casing with gravity and floor
+contact (three-second lifetime, maximum 32; ignores players and shot traces).
+`scripts/setup_hitscan_effects.py` builds owned Niagara effects
+and four transparent decal variants from the private BulletImpacts source atlas.
+Run `python3 scripts/test-arsenal.py` to check shotgun pellets and utility payloads.
+`-ERHitscanGallery` with `?ERBots=2?ERBotMode=Target` captures the four decal
+variants and a tracer sample in `Saved/Testing/Hitscan-Effects.png`; the gallery
+holds the sample for 350 ms for screenshot readback (ordinary tracers last about
+20 ms, with one visible frame guaranteed). The tracer origin follows the current
+rendered barrel tip, 0.75 cm forward, after camera/animation updates.
+Add `-ERTracerMotion -ERTracerAudit` to the gallery to verify a moving burst.
+`scripts/fix_weapon_muzzles.py` updates owned muzzle data from actual gun geometry.
 
 
 ## Repository maintenance

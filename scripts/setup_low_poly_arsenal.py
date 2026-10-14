@@ -91,7 +91,7 @@ for p in profiles:
     grip_transform = ue.Transform(location=ue.Vector(grip.y,-grip.x,-grip.z),
                                   rotation=ue.Rotator(pitch=0,yaw=90,roll=0), scale=ue.Vector(1,1,1))
     bounds = mesh.get_imported_bounds()
-    muzzle = ue.Vector(bounds.origin.x + bounds.box_extent.x, 0, 0)
+    muzzle = ue.ERCharacter.get_weapon_muzzle_from_geometry(mesh)
     settings = dict(display_name=p['name'], mesh=mesh, grip_transform=grip_transform, muzzle_offset=muzzle,
                     view_offset=ue.Vector(*(p.get('view',(18,-3,10) if p.get('one') else (0,0,0)))),
                     idle_animation=idle, fire_animation=fire, damage=p['damage'], shot_interval=p['interval'],

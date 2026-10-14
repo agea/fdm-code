@@ -6,6 +6,8 @@
 #include "ERGrenadeExplosion.h"
 #include "ERSmokeCloud.h"
 #include "NiagaraComponent.h"
+#include "ERShotEffects.h"
+#include "Engine/StaticMeshActor.h"
 #include "Camera/CameraComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -30,6 +32,97 @@ void AERArsenalProbe::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
 #if !UE_BUILD_SHIPPING
+    if (FParse::Param(FCommandLine::Get(), TEXT("ERHitscanGallery")))
+    {
+        auto* PC = Cast<AERPlayerController>(GetWorld()->GetFirstPlayerController());
+        auto* C = PC ? Cast<AERCharacter>(PC->GetPawn()) : nullptr;
+        if (!C || !C->Weapon || !PC->IsLocalController()) return;
+        const double GalleryNow = GetWorld()->GetTimeSeconds();
+        if (FParse::Param(FCommandLine::Get(), TEXT("ERTracerMotion")) &&
+            ((Phase == 2 && GalleryNow >= Deadline - .5) || Phase == 3))
+            C->AddMovementInput(FVector::YAxisVector, .6f, true);
+        if (GalleryNow < FMath::Max(5., Deadline)) return;
+        if (GShaderCompilingManager && GShaderCompilingManager->IsCompiling()) return;
+        if (Phase == 0)
+        {
+            PC->SetInputMode(FInputModeUIOnly());
+            PC->SetIgnoreLookInput(true); PC->SetIgnoreMoveInput(true);
+            C->Weapon->StopFire();
+            const bool MotionGallery = FParse::Param(FCommandLine::Get(), TEXT("ERTracerMotion"));
+            C->TeleportTo(FVector(-1000, MotionGallery ? -1700 : -1500,95), FRotator::ZeroRotator);
+            C->GetCharacterMovement()->StopMovementImmediately();
+            PC->SetControlRotation(FRotator::ZeroRotator);
+            auto* Wall = GetWorld()->SpawnActor<AStaticMeshActor>(C->Camera->GetComponentLocation() + FVector(220,0,0), FRotator::ZeroRotator);
+            Wall->GetStaticMeshComponent()->SetMobility(EComponentMobility::Movable);
+            Wall->GetStaticMeshComponent()->SetStaticMesh(LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube")));
+            Wall->SetActorScale3D(FVector(.2f, MotionGallery ? 6.f : 4.f,3.f));
+            UE_LOG(LogTemp, Display, TEXT("ER_HITSCAN_GALLERY_WALL eye=%s wall=%s"), *C->Camera->GetComponentLocation().ToString(), *Wall->GetActorLocation().ToString());
+            Advance(1, 1.f);
+        }
+        else if (Phase == 1)
+        {
+            const FVector Center = C->Camera->GetComponentLocation() + FVector(210,0,0);
+            UE_LOG(LogTemp, Display, TEXT("ER_HITSCAN_GALLERY_SHOT eye=%s aim=%s"), *C->Camera->GetComponentLocation().ToString(), *PC->GetControlRotation().ToString());
+            for (uint8 Variant = 0; Variant < 4; ++Variant)
+                C->Weapon->MulticastImpact(Center + FVector(0, Variant % 2 ? 30 : -30, Variant / 2 ? -25 : 25), FVector(-1,0,0), 0, Variant);
+            UERShotEffects::SpawnTracer(GetWorld(), C->TracerSystem, C->GetVisualMuzzle(true), Center);
+            Advance(2, 8.f);
+        }
+        else if (Phase == 2)
+        {
+            // Isolate cosmetic cadence from any startup click used to focus the window.
+            C->ShotFeedbackCount = 0;
+            MotionAmmoBefore = C->Weapon->MagazineAmmo;
+            C->Weapon->StartFire();
+            if (!FParse::Param(FCommandLine::Get(), TEXT("ERTracerMotion"))) C->Weapon->StopFire();
+            Check(C->Weapon->LastShotTraceCount == 1 && C->TracerSystem && C->Weapon->ImpactSystem && C->Weapon->ImpactDecalVariants.Num() == 4,
+                TEXT("hitscan_gallery_assets_and_authorized_trace"));
+            for (TActorIterator<AERSpentCasing> It(GetWorld()); It; ++It) GalleryCasing = *It;
+            Check(GalleryCasing.IsValid() && GalleryCasing->Mesh->GetStaticMesh() && GalleryCasing->Mesh->IsSimulatingPhysics()
+                && !GalleryCasing->GetIsReplicated() && GalleryCasing->Mesh->GetCollisionResponseToChannel(ECC_Pawn) == ECR_Ignore
+                && GalleryCasing->Mesh->GetCollisionResponseToChannel(ECC_GameTraceChannel1) == ECR_Ignore,
+                TEXT("casing_is_local_physics_ignores_players_and_shots"));
+            if (GalleryCasing.IsValid()) CasingOrigin = GalleryCasing->GetActorLocation();
+            Advance(3, .85f);
+        }
+        else if (Phase == 3)
+        {
+            C->Weapon->StopFire();
+            if (FParse::Param(FCommandLine::Get(), TEXT("ERTracerMotion")))
+                Check(C->GetVelocity().Size2D() > 100 && MotionAmmoBefore - C->Weapon->MagazineAmmo >= 7,
+                    TEXT("moving_burst_keeps_weapon_cadence"));
+            // Check physics before screenshot readback can stall the game thread.
+            FHitResult Floor;
+            const FVector Position = GalleryCasing.IsValid() ? GalleryCasing->GetActorLocation() : CasingOrigin;
+            const bool OnFloor = GetWorld()->LineTraceSingleByObjectType(Floor, Position + FVector(0,0,5), Position - FVector(0,0,5),
+                FCollisionObjectQueryParams(ECC_WorldStatic));
+            UE_LOG(LogTemp, Display, TEXT("ER_CASING_FLOOR start=%s now=%s floor=%d"), *CasingOrigin.ToString(), *Position.ToString(), OnFloor);
+            Check(GalleryCasing.IsValid() && Position.Z < CasingOrigin.Z - 50 && OnFloor,
+                TEXT("casing_falls_and_lands_on_world_floor"));
+            CasingOrigin = Position;
+            // Hold this purely cosmetic tracer sample for screenshot readback.
+            UERShotEffects::SpawnImpact(GetWorld(), C->Weapon->ImpactSystem, C->Weapon->LastShotTraceEnd, FVector(-1,0,0));
+            AERAttachedTracer::Spawn(C, C->TracerSystem, C->Weapon->LastShotTraceEnd, true, .35f);
+            FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir()/TEXT("Testing/Hitscan-Effects.png"), true, false);
+            Advance(4, 1.f);
+        }
+        else if (Phase == 4)
+        {
+            PC->SetControlRotation((CasingOrigin - C->Camera->GetComponentLocation()).Rotation());
+            Advance(5, .1f);
+        }
+        else if (Phase == 5)
+        {
+            FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir()/TEXT("Testing/Casing-OnFloor.png"), true, false);
+            Advance(6, 2.5f);
+        }
+        else
+        {
+            Check(!GalleryCasing.IsValid(), TEXT("casing_removed_after_three_seconds"));
+            FPlatformMisc::RequestExitWithStatus(false, Failed ? 1 : 0);
+        }
+        return;
+    }
     const bool SmokeGallery=FParse::Param(FCommandLine::Get(),TEXT("ERSmokeGallery"));
     if (FParse::Param(FCommandLine::Get(), TEXT("ERGrenadeGallery")) || SmokeGallery)
     {
@@ -182,7 +275,7 @@ void AERArsenalProbe::Tick(float DeltaTime)
         H->Weapon->Data=H->Arsenal[3]; H->Weapon->MagazineAmmo=7;
         Host->SetControlRotation(FRotator(80,0,0)); H->Weapon->StartFire(); H->Weapon->StopFire();
         { int32 Count=0; for(TActorIterator<AERProjectile> It(GetWorld());It;++It) if(It->GetOwner()==H->Weapon && It->Payload==EERPayload::Bullet) ++Count;
-          Check(Count==6 && H->Weapon->MagazineAmmo==6,TEXT("shotgun_six_projectiles_one_shell")); }
+          Check(Count==0 && H->Weapon->LastShotTraceCount==6 && H->Weapon->MagazineAmmo==6,TEXT("shotgun_six_hitscan_traces_one_shell_no_bullet_actors")); }
         Advance(6,.6f); break;
     case 6:
         H->Weapon->Data=H->Arsenal[6]; H->Weapon->MagazineAmmo=1; H->Weapon->StartFire(); H->Weapon->StopFire();

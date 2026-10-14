@@ -35,8 +35,8 @@ Queste decisioni aggiornano la guida senza cancellarne i criteri di accettazione
 ## Regole implementate da verificare
 
 Alpha/Omega; quattro giocatori; 100 HP; friendly fire; 36 danni uniformi;
-fucile automatico 600 RPM; 30+90; ricarica manuale 1,5 s; proiettile swept
-30.000 cm/s, gravità zero; primo impatto conclusivo. Server autorevole.
+fucile automatico 600 RPM; 30+90; ricarica manuale 1,5 s; hitscan immediato
+con primo impatto conclusivo, traccianti Niagara e decal. Server autorevole.
 Respawn su nuova pressione di sparo/salto dopo almeno 3 s; input anticipato ignorato.
 Protezione 4 s interrotta dal primo colpo autorizzato. Scoreboard persistente nel
 PlayerState. 50 eliminazioni nemiche / 10 minuti / nuova partita dopo 10 s.
@@ -908,3 +908,110 @@ open-source del codice è stata scelta implicitamente.
 - Dispersione segue l'altezza effettiva e la transizione prona; la posizione
   completa usa il 65% del moltiplicatore accovacciato. HUD mostra sprint e recupero.
   La verifica grafica opzionale `ERPostureGallery` usa i personaggi Alpha/Omega.
+
+
+## Hitscan ed effetti dei colpi — 14 ottobre 2026
+
+Le armi con payload Bullet (fucili, pistola e fucile a pompa) usano ora
+LineTraceSingleByChannel sul server. Il canale Projectile conserva i blocchi
+delle capsule e delle superfici: Visibility ignora le capsule in piedi e non
+è adatto al danno. Il server campiona la dispersione esistente, verifica
+l'ostacolo tra occhio e volata logica, risolve ogni pallino e applica
+ApplyPointDamage prima di terminare TryFire. Nessun AERProjectile per Bullet.
+HitscanRange predefinito 60000 cm; munizioni, bloom, protezione e cooldown
+restano autorizzati dal server. Rocket/HE/Smoke/Stun conservano movimento e fuse.
+
+MulticastShot mantiene recoil, audio e muzzle flash già esistenti. La scelta
+del tracciante arriva dal server: TracerEveryNShots=3, 1 per ogni sparo, 0
+per disattivarlo. NS_ER_Tracer usa uno sprite Niagara orientato lungo il
+segmento, senza particelle che rappresentino proiettili in volo; durata 55 ms,
+larghezza 0,12 cm. Bounds espliciti comprendono tutto il segmento.
+L'origine visiva è la volata dell'arma del peer; per l'owner si applica
+la trasformazione FirstPerson della camera, rispettando la scala 0,2.
+L'estremo finale è l'impatto reale o il limite di portata. Gli effetti vengono preriscaldati invisibilmente al caricamento del pawn/arma.
+L'effetto non
+calcola danno e non modifica la mira. Il feedback del fumo riceve la
+trace autorizzata anche negli spari senza tracciante.
+
+Ogni impatto sulle superfici multicast un burst Niagara orientato secondo
+la normale (400 ms, simulazione locale e materiale caldo proprio) e una delle quattro varianti della PNG fornita
+dall'utente. La PNG RGBA originale resta intatta in SourceAssets/BulletImpacts
+nel submodule privato weapons. Un atlas 2x2 e quattro material instance
+selezionano le varianti; indice e rotazione arrivano dal server. Nessuna
+decal sui pawn. Dimensioni del foro 10x10 cm, profondità 1,5 cm, offset
+0,15 cm; durata 20 s con fade negli ultimi 5 s, limite 128 decal e 64 burst Niagara simultanei per processo.
+I default artistici sono salvati in BP_ERWeapon_Rifle/BP_ERCharacter.
+setup_hitscan_effects.py genera gli asset propri sotto Effects/Shots;
+setup_bullet_impact.py resta disponibile come fallback procedurale storico.
+
+-ERHitscanGallery con una partita avviata (per esempio ERBots=2,
+ERBotMode=Target) genera una parete temporanea, mostra le quattro varianti
+e cattura Saved/Testing/Hitscan-Effects.png. Non salva modifiche alla mappa.
+Le prove rete verificano danno immediato e assenza di attori Bullet; accuracy
+controlla le direzioni delle trace e arsenal i sei pallini con una cartuccia.
+Gli esiti effettivi sono registrati in TEST_RESULTS.md.
+
+
+## Effetti discreti e bossoli — 14 ottobre 2026, revisione dopo screenshot
+
+Rimosso il burst direzionale luminoso: l'impatto è un unico sprite Niagara
+morbido da 1,6x1,6 cm, durata 35 ms, emissione sotto l'unità e opacità massima
+0,12. Rimangono le quattro decal PNG. Il tracciante ogni tre colpi è molto
+più tenue: larghezza 0,045 cm, colore (0,6; 0,45; 0,25), alpha 0,15, durata
+ordinaria 55 ms. Muzzle flash ridotto a 1,2x2,5x1,2 cm e 18 ms, con materiale
+M_ER_MuzzleFlashSoft proprio, senza cambiare i primitive FirstPerson.
+
+Ogni secondo evento cosmetico di sparo Bullet espelle un AERSpentCasing
+locale vicino all'otturatore, verso destra e leggermente in alto. È un
+semplice parallelepipedo nero opaco (Cube Epic), 3x0,9x0,9 cm nel mondo,
+ridotto alla scala 0,2 nella visuale FPS per seguirne la profondità compressa.
+Gravità e CCD, contatto soltanto con WorldStatic: ignora pawn, visibilità,
+proiettili e altri bossoli. Nessuna replica, danno o attore tick. Vita 3 s,
+limite 32 per peer; anche gli eventi remoti generano la propria copia locale.
+Razzi e granate non espellono bossoli.
+
+Classe e materiali sono nei default Blueprint, generati attraverso Unreal
+da setup_hitscan_effects.py; la logica di danno hitscan resta invariata.
+La gallery disabilita gli input e isola la cadenza da eventuali clic iniziali
+di focus. Verifica fisica/collisioni, discesa fino al pavimento e rimozione
+prima/dopo il readback delle immagini. Esiti effettivi in TEST_RESULTS.md.
+
+
+### Traccianti più leggibili — ulteriore feedback del 14 ottobre
+
+Ripristinati i soli traccianti al livello precedente: larghezza 0,12 cm,
+emissione dorata (4; 2,2; 0,65) e alpha 0,7. Durata 55 ms e cadenza uno
+ogni tre spari. Bagliore d'impatto discreto, muzzle flash morbido e bossoli
+continuano a usare la revisione precedente. Aggiornato il generatore e
+modificato via Unreal soltanto M_ER_Tracer, senza rigenerare gli altri asset.
+
+
+### Origine dalla punta durante il movimento — 14 ottobre, ulteriore revisione
+
+I traccianti di sparo usano ora un attore cosmetico locale AERAttachedTracer
+che aggiorna il segmento in TG_PostUpdateWork, dopo animazione e camera.
+La punta visiva viene trasformata con il POV della camera del frame corrente,
+poi spostata di 0,75 cm verso il punto colpito (offset limitato vicino ai muri).
+L'estremo finale resta quello autorizzato dal server; l'origine segue invece
+la punta attuale per tutti i frame visibili. Nessuna collisione/replica/danno.
+
+Niagara ForceSolo con prerequisito sull'attore aggiorna i parametri dopo
+il nuovo segmento, evitando la latenza della simulazione batched del frame
+precedente. Durata ordinaria circa 20 ms, almeno un frame renderizzato:
+a 60 FPS una o due immagini, senza lasciare una riga statica dietro al
+giocatore. Camera/spread/hitscan non cambiano. Nei processi senza rendering
+non vengono creati attori Niagara di questo tipo.
+
+MuzzleOffset delle sette armi Bullet deriva dal centro degli ultimi 4 mm
+di vertici reali del modello +X, includendo Y/Z invece di assumere zero.
+fix_weapon_muzzles.py salva solo i data asset; il generatore dell'arsenale usa
+lo stesso helper. Mesh, skeleton e trasformazioni dei grip sono preservati.
+
+Rimossa la sfumatura longitudinale dal materiale della scia: nascondeva i
+primi centimetri o metri in proporzione alla lunghezza del segmento, facendo
+apparire l'origine lontana dalla canna. Resta la sfumatura trasversale.
+
+-ERTracerMotion aggiunge una raffica in movimento laterale alla gallery,
+con controllo della cadenza. -ERTracerAudit registra velocità, età del POV,
+origine/endpoint e distanza dalla punta. Il campione della gallery può
+durare 350 ms per il readback; i colpi ordinari mantengono 20 ms.

@@ -1122,3 +1122,133 @@ intermittente in cui il replay di un saved move antecedente al gesto poteva
 rilasciare il nuovo intento di sprint/prona. Le scadenze correnti del server
 restano preservate dopo il replay. I log completi sopra indicati sono stati
 aggiornati a questa esecuzione finale.
+
+
+## Hitscan e quattro decal PNG — 14 ottobre 2026
+
+- Build `fdmEditor Mac Development`, arm64, UE 5.8.3: **Succeeded**.
+  `Saved/Testing/hitscan-build.log`. Nuovo helper Niagara Editor; le binding
+  usano una API deprecata in 5.7 ancora supportata in 5.8 (warning, non errori).
+- Generazione tramite Unreal: `ER_HITSCAN_EFFECTS_SAVED`, asset Niagara,
+  texture RGBA e quattro material instance salvati, assegnati ai Blueprint.
+  `Saved/Testing/hitscan-assets.log`; `setup-assets.py --check`: **23 mounts**,
+  nessun puntatore LFS irrisolto. PNG privata intatta, 1254x1254, alpha 0..255.
+- `scripts/test-network.py --shot-feedback`: **PASS**, due processi Unreal
+  reali, host/client. Il danno del primo colpo è già 64 HP prima del ritorno
+  della richiesta di sparo; nessun attore AERProjectile Bullet. Passano
+  protezione, replica, cadenza, caricatore vuoto, danno client→host, friendly
+  fire, blocco della parete, death/respawn, score e feedback direzionale.
+  `Saved/Testing/hitscan-network.log` e `network-{host,client}.log`.
+- `scripts/test-network.py --accuracy`: **PASS**, dieci trace realmente
+  campionate entro il cono server, direzioni diverse, nessun attore Bullet;
+  cammino/corsa/salto, limite/recupero bloom e replica owner.
+  `Saved/Testing/hitscan-accuracy.log` e `accuracy-{host,client}.log`.
+- `scripts/test-arsenal.py`: **PASS**, sei trace del fucile a pompa e una sola
+  cartuccia consumata; regressioni loadout, slot, RPG, HE/smoke/stun, nube
+  e carving autorizzato verificati su due peer.
+  `Saved/Testing/hitscan-arsenal.log` e `arsenal-{host,client}.log`.
+
+Le prove di rete usano nullrhi/nosound: verificano logica e presenza del
+feedback, senza giudicare la resa grafica o il suono udibile. La prima prova
+ha rilevato capsule ignorate da Visibility: corretto usando il canale
+Projectile, verificato ripetendo con successo la suite completa.
+La scena Metal temporanea conferma quattro immagini distinte con alpha
+sulle superfici; la PNG non è stata modificata per nascondere i bordi
+originali. Non sono state salvate modifiche alla mappa del deposito.
+
+Verifica grafica finale **PASS**, `-ERHitscanGallery`, renderer Metal,
+1280x720 con due bersagli fermi. `Saved/Testing/hitscan-gallery.log` e
+`Saved/Testing/Hitscan-Effects.png`: scia dorata sottile dalla volata
+al punto colpito, burst compatto orientato fuori dalla parete e quattro
+decal diverse con alpha. Il campione cosmetico della scia è mantenuto
+350 ms soltanto nella gallery per il readback; gli spari normali usano 55 ms.
+Il muzzle flash già esistente è conservato, con durata ordinaria 35 ms;
+questa cattura differita non verifica il suo picco. Nessun benchmark FPS
+è stato eseguito e il readback dello screenshot non misura il costo di gioco.
+
+La scia usa bounds espliciti dell'intero segmento e l'emitter è collegato
+al grafo tramite FNiagaraEditorUtilities::AddEmitterToSystem (la sola
+AddEmitterHandle non crea i nodi che lo eseguono). Il burst d'impatto usa
+spazio locale per scalare sia moto sia sprite, con materiale proprio.
+Controlli finali: Python py_compile e git diff --check **PASS**.
+
+
+## Bagliore discreto e bossolo nero — 14 ottobre 2026
+
+- Build Editor arm64 **Succeeded** (`Saved/Testing/subtle-shots-build.log`).
+- Generazione asset Unreal **PASS**: nuovo impatto a sprite singolo, materiali
+  attenuati per scia/flash, BP_ER_SpentCasing con Cube e materiale nero opaco;
+  riferimenti salvati nel Blueprint del personaggio.
+  `Saved/Testing/subtle-shots-assets.log`.
+- `test-network.py --shot-feedback` **PASS**, due peer reali nullrhi/nosound:
+  hitscan immediato, danni, munizioni, protezione, cadenza, round, respawn e
+  feedback invariati. `ER_CASING_EJECT` osservato su host e client con
+  replicated=0, sim=1, pawn=0, projectile=0 (ECR_Ignore).
+  `Saved/Testing/subtle-shots-network.log`, network-host/client.log.
+- `-ERHitscanGallery -ERShotAudit`, Metal 1280x720: **PASS** per traccia
+  autorizzata e quattro decal; bossolo con mesh e fisica locale, collisioni
+  pawn/proiettili ignorate, discesa superiore a 50 cm e pavimento entro 5 cm
+  dopo 850 ms, poi eliminazione per lifetime di tre secondi.
+  `Saved/Testing/subtle-shots-gallery.log`.
+- Ispezionata `Saved/Testing/Hitscan-Effects.png`: nessun ventaglio luminoso,
+  bagliore piccolo/morbido e scia molto tenue. La gallery mantiene la sola
+  scia 350 ms per il readback; impatto ordinario 35 ms, muzzle flash 18 ms.
+  `Casing-OnFloor.png` è una vista del pavimento, non una prova leggibile
+  del minuscolo bossolo: contatto e cleanup sono verificati dalla sonda.
+
+La prima cattura è stata invalidata da un clic di focus iniziale che aveva
+consumato la cadenza cosmetica del bossolo; isolati input/counter nella sola
+gallery. La misura di caduta viene eseguita prima del readback per non
+confondere una pausa di acquisizione con il tempo fisico. Nessuna modifica
+alla logica di danno né alla mappa salvata. Python py_compile e
+git diff --check **PASS**. Non misurata la qualità audio (nosound).
+
+
+## Ripristino visibilità traccianti — 14 ottobre 2026
+
+Build Editor arm64 **Succeeded**; aggiornato tramite Unreal soltanto il
+materiale M_ER_Tracer, emissione 4/2,2/0,65 e alpha 0,7. Larghezza runtime
+ripristinata a 0,12 cm. Generatore aggiornato; impatto/muzzle flash tenui
+e bossoli conservati. Log `Saved/Testing/visible-tracer-{build,assets}.log`.
+
+Gallery Metal 1280x720 **PASS**, immagine Hitscan-Effects.png ispezionata:
+scia dorata chiaramente leggibile e nessun ritorno del ventaglio luminoso
+all'impatto. Passano anche fisica locale, contatto col pavimento e rimozione
+del bossolo nella sonda esistente. Log visible-tracer-gallery.log.
+Il campione della scia nella gallery dura 350 ms per il readback; durata
+ordinaria 55 ms e cadenza ogni tre spari. Nessuna modifica alla logica
+di sparo; non ripetute le suite gameplay già superate per questa regolazione
+cosmetica. Python py_compile e git diff --check **PASS**.
+
+
+## Traccianti dalla punta durante il movimento — 14 ottobre 2026
+
+- Build Editor arm64 **Succeeded** (`Saved/Testing/muzzle-tracer-build.log`).
+- Unreal **PASS**: salvati MuzzleOffset delle sette armi Bullet dal centro
+  della geometria frontale, senza modificare mesh/grip. Il campo previous
+  nel primo log usa una proxy Struct già modificata: non rappresenta il valore
+  precedente. `muzzle-tracer-assets.log` conferma i sette valori finali.
+- Materiale M_ER_Tracer aggiornato tramite Unreal **PASS**: rimossa solo
+  la sfumatura lungo il segmento, mantenuti colore/alpha/sfumatura trasversale.
+  `muzzle-tracer-cap.log`.
+- Gallery Metal 1280x720, `-ERHitscanGallery -ERTracerMotion -ERTracerAudit`
+  **PASS**. Raffica laterale a 166,7 cm/s, POV dello stesso frame (camera_age
+  circa zero), origine 0,75 cm oltre la punta. Tra due frame consecutivi
+  l'origine segue il movimento mentre l'endpoint del server resta fisso.
+  Traccianti ordinari visibili uno/due frame a 60 FPS, durata circa 20 ms;
+  solo il campione per readback è mantenuto 350 ms.
+  `muzzle-tracer-motion.log`, `Hitscan-Effects.png` ispezionata visivamente:
+  scia dalla volata e bossolo scuro in caduta, senza ventaglio d'impatto.
+- La stessa sonda conferma cadenza in movimento, bossolo locale con collisioni
+  player/shot ignorate, caduta da Z=168,545 a Z=4,177 cm e contatto col pavimento,
+  poi cleanup a tre secondi. Percorso temporaneo spostato su pavimento libero
+  per evitare un appoggio su oggetti della mappa. Nessuna mappa salvata.
+- `test-network.py --shot-feedback` **PASS**, due peer nullrhi/nosound,
+  `ER_NETWORK_PROBE_COMPLETE result=PASS` in `muzzle-tracer-network.log`.
+  Le prime prove avevano superato il tempo previsto per svuotare il caricatore:
+  eliminati Niagara/bossoli inutili nei processi senza rendering, senza cambiare
+  cadenza, danno o assert gameplay. La rete verifica feedback/danni/munizioni,
+  non la resa grafica dei traccianti, verificata separatamente con Metal.
+
+Python py_compile dei tre generatori modificati e git diff --check **PASS**.
+Qualità audio non verificata (nosound); nessun benchmark prestazioni.

@@ -7,6 +7,7 @@
 #include "ERMovement.h"
 #include "ERPlayerController.h"
 #include "Camera/CameraComponent.h"
+#include "Camera/PlayerCameraManager.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -15,12 +16,17 @@
 #include "DrawDebugHelpers.h"
 #include "Animation/AnimSequence.h"
 #include "ERSmokeCloud.h"
+#include "ERShotEffects.h"
 #include "EngineUtils.h"
 #include "Animation/AnimSingleNodeInstance.h"
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundBase.h"
 #include "Engine/SkeletalMesh.h"
 #include "Engine/SkeletalMeshSocket.h"
+#if WITH_EDITOR
+#include "MeshDescription.h"
+#include "SkeletalMeshAttributes.h"
+#endif
 
 bool AERCharacter::CopyTrainingGripSockets(USkeletalMesh* TargetMesh, USkeletalMesh* SourceMesh)
 {
@@ -50,6 +56,26 @@ FTransform AERCharacter::GetWeaponReferenceBone(USkeletalMesh* WeaponMesh, FName
     FTransform Result = Ref.GetRefBonePose()[Index];
     while ((Index = Ref.GetParentIndex(Index)) != INDEX_NONE) Result *= Ref.GetRefBonePose()[Index];
     return Result;
+}
+FVector AERCharacter::GetWeaponMuzzleFromGeometry(USkeletalMesh* WeaponMesh)
+{
+#if WITH_EDITOR
+    if (!WeaponMesh) return FVector::ZeroVector;
+    FMeshDescription* Description = WeaponMesh->GetMeshDescription(0);
+    if (!Description || Description->Vertices().Num() == 0) return FVector::ZeroVector;
+    FSkeletalMeshAttributes Attributes(*Description);
+    const auto Positions = Attributes.GetVertexPositions();
+    float Front = -FLT_MAX;
+    for (const FVertexID Vertex : Description->Vertices().GetElementIDs()) Front = FMath::Max(Front, Positions[Vertex].X);
+    FBox TipBounds(ForceInit);
+    // These supplied guns point +X. Center the final 4mm of actual geometry,
+    // including the barrel's real height, rather than assuming Y=Z=0.
+    for (const FVertexID Vertex : Description->Vertices().GetElementIDs())
+        if (Positions[Vertex].X >= Front - .4f) TipBounds += FVector(Positions[Vertex]);
+    return FVector(Front, TipBounds.GetCenter().Y, TipBounds.GetCenter().Z);
+#else
+    return FVector::ZeroVector;
+#endif
 }
 bool AERCharacter::AssignWeaponMaterial(USkeletalMesh* WeaponMesh, UMaterialInterface* Material)
 {
@@ -199,6 +225,7 @@ void AERCharacter::BeginPlay()
 {
     Super::BeginPlay();
     FirstPersonBodyBaseLocation = FirstPersonBody->GetRelativeLocation();
+    UERShotEffects::Prewarm(GetWorld(), TracerSystem, Camera->GetComponentLocation());
     // Compress only the viewmodel's rendered depth, preserving its framing and
     // socket transforms. Keep it inside the capsule clearance near walls.
     // Apply at runtime too: existing Blueprint component defaults are serialized.
@@ -512,6 +539,14 @@ FVector AERCharacter::GetVisualMuzzle(bool bFirstPerson) const
     return Weapon && Weapon->Data && Weapon->Data->Mesh ? Component->GetComponentTransform().TransformPosition(Weapon->Data->MuzzleOffset) :
         Component->GetSocketLocation(TEXT("Muzzle"));
 }
+FVector AERCharacter::GetRenderedMuzzle(bool bFirstPerson) const
+{
+    const FVector Muzzle = GetVisualMuzzle(bFirstPerson);
+    if (bFirstPerson)
+        if (const auto* PC = Cast<APlayerController>(Controller); PC && PC->PlayerCameraManager)
+            return PC->PlayerCameraManager->GetCameraCacheView().TransformWorldToFirstPerson(Muzzle, false);
+    return Muzzle;
+}
 void AERCharacter::UpdateWeaponPresentation()
 {
     auto* Data = Weapon ? Weapon->Data.Get() : nullptr;
@@ -533,7 +568,7 @@ void AERCharacter::UpdateWeaponPresentation()
     MuzzleFlashUntil = 0;
     UE_LOG(LogTemp, Display, TEXT("ER_WEAPON_MODEL name=%s mesh=%s"), *Data->DisplayName, *Data->Mesh->GetPathName());
 }
-void AERCharacter::MulticastShot_Implementation(FVector_NetQuantize Start, FVector_NetQuantize End)
+void AERCharacter::MulticastShot_Implementation(FVector_NetQuantize Start, FVector_NetQuantize End, bool bTracer)
 {
     ++ShotFeedbackCount;
     if (GetNetMode() == NM_DedicatedServer || Health->bDead || Cast<UERMovement>(GetCharacterMovement())->bHighClimb) return;
@@ -541,6 +576,18 @@ void AERCharacter::MulticastShot_Implementation(FVector_NetQuantize Start, FVect
     const auto* Data = Weapon ? Weapon->Data.Get() : nullptr;
     if(Data && Data->Payload==EERPayload::Bullet)
         for(TActorIterator<AERSmokeCloud> It(GetWorld());It;++It) It->AddShot(Start,End);
+    if (bTracer && Data && Data->Payload == EERPayload::Bullet)
+        AERAttachedTracer::Spawn(this, TracerSystem, End, bFirstPerson);
+    if (Data && Data->Payload == EERPayload::Bullet && ShotFeedbackCount % 2 == 1)
+    {
+        const FVector Forward = GetBaseAimRotation().Vector();
+        const FVector Right = FRotationMatrix(GetBaseAimRotation()).GetUnitAxis(EAxis::Y);
+        FVector Port = GetVisualMuzzle(bFirstPerson) - Forward * (Data->bOneHanded ? 8.f : 24.f) + Right * 4.f;
+        if (bFirstPerson)
+            if (auto* PC = Cast<APlayerController>(Controller); PC && PC->PlayerCameraManager)
+                Port = PC->PlayerCameraManager->GetCameraCacheView().TransformWorldToFirstPerson(Port, false);
+        AERSpentCasing::Eject(GetWorld(), CasingClass, Port, Right, Forward, bFirstPerson ? .2f : 1.f);
+    }
     const auto* Animation = Data && Data->Mesh ? Data->FireAnimation.Get() : FirstPersonFireAnimation.Get();
     const float Pitch = Data ? Data->SoundPitch : 1.f;
     if (bFirstPerson)
@@ -560,7 +607,7 @@ void AERCharacter::MulticastShot_Implementation(FVector_NetQuantize Start, FVect
             .6f, Pitch, 0.f, FireAttenuation);
     }
     // Align the glow along the rifle's model-space barrel (+Y), without rotating the rifle.
-    const FVector FlashScale(.025f, .10f, .025f);
+    const FVector FlashScale(.012f, .025f, .012f);
     for (auto* Flash : {FirstPersonMuzzleFlash.Get(), WorldMuzzleFlash.Get()})
     {
         Flash->SetWorldRotation(Flash->GetAttachParent()->GetComponentQuat() *
@@ -571,7 +618,7 @@ void AERCharacter::MulticastShot_Implementation(FVector_NetQuantize Start, FVect
         Flash->SetWorldScale3D(FlashScale);
         Flash->SetVisibility(!(Data && Data->bOneHanded && Data->Payload != EERPayload::Bullet));
     }
-    MuzzleFlashUntil = GetWorld()->GetTimeSeconds() + (Data && Data->bOneHanded && Data->Payload != EERPayload::Bullet ? 0 : .035);
+    MuzzleFlashUntil = GetWorld()->GetTimeSeconds() + (Data && Data->bOneHanded && Data->Payload != EERPayload::Bullet ? 0 : .018);
 #if !UE_BUILD_SHIPPING
     if (FParse::Param(FCommandLine::Get(), TEXT("ERShotAudit")))
     {

@@ -109,9 +109,13 @@ void AERNetworkProbe::Tick(float DeltaTime)
             HostShot(); Advance(2,.5f); break;
         case 2:
             Check(C->Health->Health==100 && H->Weapon->MagazineAmmo==29 && !H->Health->IsProtected(),TEXT("T14_protection_shot_cancels"));
-            C->Health->ProtectionEndServerTime=0; HostShot(); Advance(3,.5f); break;
-        case 3: Check(C->Health->Health==64,TEXT("T04_host_first_projectile_64")); HostShot(); Advance(4,.5f); break;
-        case 4: Check(C->Health->Health==28,TEXT("T04_host_second_projectile_28")); HostShot(); Advance(5,3.4f); break;
+            C->Health->ProtectionEndServerTime=0; HostShot();
+            Check(C->Health->Health==64, TEXT("hitscan_damage_applied_before_shot_returns"));
+            { bool Bullet=false; for (TActorIterator<AERProjectile> It(GetWorld()); It; ++It) Bullet |= It->Payload==EERPayload::Bullet;
+              Check(!Bullet, TEXT("hitscan_no_physical_bullet_actors")); }
+            Advance(3,.5f); break;
+        case 3: Check(C->Health->Health==64,TEXT("T04_host_first_hitscan_64")); HostShot(); Advance(4,.5f); break;
+        case 4: Check(C->Health->Health==28,TEXT("T04_host_second_hitscan_28")); HostShot(); Advance(5,3.4f); break;
         case 5:
             if (FParse::Param(FCommandLine::Get(),TEXT("ERSkinProbe")))
                 Check(Client->GetPlayerState<AERPlayerState>()->OmegaSkin == 2 && Client->GetPlayerState<AERPlayerState>()->ActiveSkin == 4,TEXT("Skin_pending_until_respawn"));
@@ -135,7 +139,7 @@ void AERNetworkProbe::Tick(float DeltaTime)
             Check(!C->Health->bDead && C->Health->Health==100 && C->Weapon->MagazineAmmo==30 && C->Health->IsProtected(),TEXT("T12_requested_respawn_T13_no_shot"));
             PlacePlayers(); H->Health->ProtectionEndServerTime=0; Advance(7,1.f); break;
         case 7:
-            Check(H->Health->Health==64 && C->Weapon->MagazineAmmo==29,TEXT("T04_client_rpc_projectile_to_host"));
+            Check(H->Health->Health==64 && C->Weapon->MagazineAmmo==29,TEXT("T04_client_rpc_hitscan_to_host"));
             C->Weapon->MagazineAmmo=20; C->Weapon->ReserveAmmo=90; Advance(8,2.1f); break;
         case 8:
             Check(C->Weapon->MagazineAmmo==30 && C->Weapon->ReserveAmmo==80 && !C->Weapon->bReloading,TEXT("T08_partial_reload"));
@@ -166,7 +170,7 @@ void AERNetworkProbe::Tick(float DeltaTime)
         case 13:
             if (FParse::Param(FCommandLine::Get(), TEXT("ERShotAudit")))
                 Check(C->ShotFeedbackCount == ClientFeedbackBefore + 31, TEXT("Shot_empty_clip_no_feedback"));
-            Check(C->Health->Health==100,TEXT("T05_central_wall_blocks_projectile"));
+            Check(C->Health->Health==100,TEXT("T05_central_wall_blocks_hitscan"));
             Client->GetPlayerState<AERPlayerState>()->Team=Host->GetPlayerState<AERPlayerState>()->Team;
             PlacePlayers(); H->ServerStartFire(); Advance(14,.7f); break;
         case 14:
