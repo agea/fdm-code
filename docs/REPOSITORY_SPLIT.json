@@ -22,6 +22,56 @@
   "editor_build": "Succeeded",
   "unit_tests": 15,
   "network_skins_shots": "PASS",
-  "publication": "approved_upload_in_progress",
-  "fps_gallery": "10/10 PASS"
+  "publication": "published",
+  "fps_gallery": "10/10 PASS",
+  "repositories": {
+    "code": {
+      "url": "https://github.com/agea/fdm-code",
+      "visibility": "public",
+      "anonymous_clone": "PASS"
+    },
+    "characters": {
+      "url": "https://github.com/agea/fdm-assets-characters",
+      "visibility": "private"
+    },
+    "weapons": {
+      "url": "https://github.com/agea/fdm-assets-weapons",
+      "visibility": "private"
+    },
+    "maps": {
+      "url": "https://github.com/agea/fdm-assets-maps",
+      "visibility": "private"
+    },
+    "original": {
+      "url": "https://github.com/agea/fdm",
+      "visibility": "private",
+      "history_unchanged": true
+    }
+  },
+  "remote_clone": {
+    "code_public_clone": "PASS",
+    "submodules": {
+      "characters": {
+        "commit": "0f177de63c09b8a71294aae165506f876e9ef82c",
+        "files": 860,
+        "sha256": "PASS",
+        "lfs_fsck": "PASS"
+      },
+      "weapons": {
+        "commit": "2dd51711b4ebd76d73fb9784dfff3627a43175f3",
+        "files": 149,
+        "sha256": "PASS",
+        "lfs_fsck": "PASS"
+      },
+      "maps": {
+        "commit": "b9f6a649eb80718500100fe31ecc8b50b30203e0",
+        "files": 327,
+        "sha256": "PASS",
+        "lfs_fsck": "PASS"
+      }
+    },
+    "unreal_saved_asset_verification": "PASS",
+    "maps_opened": 3,
+    "temporary_checkout_removed_after_verification": true
+  }
 }

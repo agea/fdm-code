@@ -26,7 +26,10 @@ cd fdm-code
 ```
 
 To run or rebuild content, Git LFS and access to all three private repositories
-are required. Relative URLs in .gitmodules inherit SSH or HTTPS from the parent
+are required. If your existing access uses SSH keys, clone with
+`git clone git@github.com:agea/fdm-code.git` instead, or set an existing
+clone origin with `git remote set-url origin git@github.com:agea/fdm-code.git`.
+Relative URLs in .gitmodules inherit SSH or HTTPS from the parent
 clone; use your normal GitHub authentication. Do not put tokens in URLs/files.
 
 ```sh
@@ -92,3 +95,11 @@ license has been selected for the project code. Public visibility permits
 viewing and GitHub forking under GitHub's terms; broader use remains governed
 by the respective author/third-party terms. Epic notices in template sources
 remain unchanged. Publishing the code does not publish a packaged game.
+
+## Recorded validation
+
+All four repositories were created and uploaded on 14 October 2026.
+A fresh anonymous code clone and authenticated download of all three asset
+repositories passed: 1,336 verified file hashes, LFS fsck and 22 mounts.
+The split checkout passed Mac Editor compilation, network skin/shot tests
+and the ten-skin FPS Metal gallery. See TEST_RESULTS.md and REPOSITORY_SPLIT.json.

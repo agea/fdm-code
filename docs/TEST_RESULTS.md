@@ -1043,3 +1043,37 @@ A fresh remote clone will be checked after repository creation/upload.
   complete; Alpha Support and Omega Smuggler screenshots inspected.
   Evidence: `Saved/AssetAudit/submodule-fps-gallery.log` and
   `Saved/Testing/FPS-Forearms-*.png`. No asset files were modified.
+
+
+## 14 October 2026 — GitHub publication and fresh clone
+
+The user confirmed creation/upload of all four repositories at action time.
+`agea/fdm-code` is public; `fdm-assets-characters`, `fdm-assets-weapons`,
+`fdm-assets-maps` are private. Each private main branch matches its pinned
+gitlink, including all LFS objects. The old `agea/fdm` remains private.
+
+- Anonymous GitHub API check: code HTTP **200**, private assets and old
+  repository HTTP **404**. Private creation was also verified in the signed-in
+  UI; all three asset commits were confirmed over authenticated SSH.
+- A fresh HTTPS code clone with credential helpers disabled: **PASS**.
+- Fresh clone switched to SSH for private dependency authentication, then
+  `setup-assets.py --init`: **22/22 mounts**, no unresolved LFS pointers.
+- Downloaded private payload: **1,336 files**, every SHA-256 matches the
+  manifest; `git lfs fsck` **PASS** for each repository. No local LFS cache
+  was seeded into this remote-clone test.
+- Public history verifier: **PASS**; all branches contain text and the
+  three private gitlinks, with no asset blobs or LFS pointers.
+
+Evidence: `Saved/AssetAudit/remote-submodule-init.log` and
+`remote-clone-verification.json`. Detailed machine-local receipts stay
+outside the public Git history. See `REPOSITORY_SPLIT.json` for the summary.
+
+- Unreal verification on the freshly downloaded clone: **PASS**, unchanged
+  1,292 packages / runtime 823 / authoring 892, ten FPS skins and 550 two-hand
+  grip samples; **all three maps loaded** (MainMenu, Depot, MovementLab).
+  Evidence: `Saved/AssetAudit/remote-clone-unreal.log`. The already compiled
+  Mac Editor module was copied into the test clone; this check verifies
+  downloaded assets and map loading, not a second independent compilation.
+- The disposable remote-clone checkout and its duplicate LFS cache were
+  removed only after checking all worktrees clean and retaining receipts/logs.
+  The active checkout, private LFS caches and original history are retained.

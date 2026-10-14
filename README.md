@@ -157,8 +157,7 @@ an ignored code-only review tree in BuildArtifacts/code-only, excluding assets
 and Git history. These tools never upload files or change repository visibility.
 
 
-The Mercenary vendor tree and old Characters/Mercenary tree are now optional
-retired content. Fitted FPS rig/poses live in Characters/FirstPerson, while
+The Mercenary vendor tree and old Characters/Mercenary tree have been removed. Fitted FPS rig/poses live in Characters/FirstPerson, while
 forearm geometry comes from the chosen team skin. Verify removal readiness
 with Unreal scripts/remove_legacy_mercenary.py (preview by default) and run
 scripts/verify_no_mercenary.py. A game fixture with both trees absent passed
