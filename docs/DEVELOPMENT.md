@@ -1410,3 +1410,92 @@ La migrazione setup_dust_town_compact.py preserva palette e materiali esistenti;
 validazione515 seed prima del salvataggio. Collisioni ruotate controllate nel
 riferimento locale di ogni volume; punti di pattuglia Town con raggio10cm per
 evitare tagli delle curve, valore standard90cm nelle altre mappe.
+
+## Phase in Omega e Belica in Alpha — 15 ottobre 2026
+
+Richiesta corrente: aggiungere cinque varianti per ciascun nuovo personaggio,
+con lo stesso trattamento militare/opaco e palette dominante di squadra, parti
+neutre e pelle/capelli naturali. I cinque indici Twinblast/Drongo esistenti restano
+0–4; Belica Alpha e Phase Omega occupano 5–9, per dieci scelte per squadra.
+La scelta rimane locale persistente, validata dal server e applicata al respawn;
+i cadaveri conservano l'indice della vita precedente.
+
+`setup_phase_belica.py` crea scheletri e locomozione rifle adattati separatamente,
+ragdoll anatomici e avambracci sul rig FPS esistente. Preserva texture, normal,
+opacity e override dei materiali originali, elimina l'emissione e usa superfici
+opache. Belica usa fanteria, PolarStrike, Biohazard, HeavyArmor e supporto con
+zaino; Phase usa base, Kitty e Pandapack ripulite, casco da campo e zaino.
+Giocattoli/zaini decorativi, gioielli pendenti, maschera Kitty, armi originali
+e ologrammi vengono nascosti. Le mesh Paragon restano riconoscibili: non sono
+stati modellati pantaloni o corpi militari sostitutivi. Il marker
+ERPhaseBelicaVersion protegge i ritocchi successivi da una nuova importazione.
+
+Gli originali completi sono montati nel submodule privato characters agli
+stessi percorsi /Game/ParagonPhase e /Game/ParagonLtBelica. `assets.json` include
+i due nuovi mount; nessun pacchetto binario entra nel repository pubblico.
+Gallerie a pagine da cinque e galleria FPS coprono il catalogo esteso. Il test
+bersagli verifica venti modelli replicati; `test-network.py --phase-belica`
+esercita selezione, morte, conservazione del cadavere e nuova skin al respawn.
+Gli esiti effettivamente eseguiti sono registrati in TEST_RESULTS.md.
+
+Rifinitura Phase: capelli lunghi nascosti mantenendo la sezione corta naturale;
+maniche in tessuto opaco e casco adattato al cranio. La migrazione separata
+`refine_phase_field_appearance.py` conserva i ritocchi successivi tramite marker.
+
+Correzione Omega 9: il presunto residuo sulla testa era la calotta del casco
+con facce esterne scartate dal rendering, che lasciava visibili retro e bordo.
+`fix_phase_engineer_helmet.py` genera una copia dedicata con winding esterno,
+materiale opaco a due facce e bordo rialzato sulla fronte. Aggiornati soltanto
+gli accessori PhaseEngineer nei tre cataloghi Blueprint; casco condiviso e altre
+skin restano invariati. Marker separato per conservare i ritocchi successivi.
+La galleria supporta `-ERSkinDetail=8 -ERSkinPage=1 -ERSkinDetailYaw=0` (indice
+zero-based) per dettagli della testa; yaw90/180 danno lato e retro, senza etichette.
+
+Correzione ragdoll rilevata nell’ispezione Metal: le pose Phase richiedevano un
+controllo esplicito della copia visibile e limiti articolari meno ampi.
+Il flag Blueprint `CopyPhysicsPoseForRendering` delle sole skin Phase abilita
+un componente visibile senza collisioni che riceve la posa fisica dopo il passo
+fisico. I trasformi locali vengono aggiornati in un unico batch; dopo cinque
+secondi la fisica si addormenta e la copia visibile viene congelata. Il componente
+fisico conserva sedici corpi/quindici giunti, WorldStatic soltanto, limite dodici
+cadaveri e durata novanta secondi. Anche materiale, ossa nascoste e accessori
+mantengono la selezione originale. Il costo non è stato misurato come benchmark.
+La galleria verifica posa, assestamento e concordanza della copia visibile.
+
+Profilo Phase campale: braccia 45°, gambe 35°, ginocchia 25°, caviglie 15°,
+polsi 20° e torsione delle gambe 15°. I parametri del generatore restano 65°
+per i personaggi precedenti; `fit_phase_ragdolls.py` applica il nuovo profilo
+alle sole copie Phase una volta, poi conserva i ritocchi dell’artista.
+Corpo e vestiti Phase sono opachi; capelli, occhi e ciglia mantengono le loro
+maschere naturali. Restano le geometrie originali di gonne, stivali e giacche.
+
+
+## Personaggi approvati: nomi e pulizia — 15 ottobre 2026
+
+L'utente approva le venti skin e autorizza la rimozione degli originali e degli
+asset non necessari al loro uso attuale. Questa richiesta sostituisce la
+precedente riserva integrale Phase/Belica. Nomi omogenei `personaggio · ruolo`
+per Twinblast, Drongo, Belica e Phase, definiti in character_catalog.py e salvati
+nei tre cataloghi; gli indici di selezione restano stabili.
+
+Separati i riferimenti di ricostruzione dalle dipendenze effettive: anteprime
+skeleton/animazioni/BlendSpace sulle mesh possedute, materiali predefiniti delle
+mesh allineati alle skin attive e materiale neutro per le sezioni nascoste.
+Svuotati i collegamenti agli asset delle ombre a capsule soltanto dopo aver
+verificato che entrambi i relativi flag siano disattivati nei tre Blueprint.
+Conservati geometria, materiali visibili, dati delle pose retarget, rig FPS,
+profili fisici e impugnature. Migrazioni separate con marker per i ritocchi futuri.
+
+Rimozione Unreal in due lotti: 3.136 + 74 package, 2.329.822.505 byte (2,170 GiB).
+Una copia di prova senza il primo lotto carica tutte le skin e sette mappe;
+verifica fresca finale anche dopo il secondo lotto. Trentaquattro package sono
+conservati per referencer esterni, oltre al rig/pose FPS protetti; il piano
+finale non contiene altri candidati eliminabili. Archivio di ripristino privato
+esterno, verificato SHA-256, contenente rimossi e versioni precedenti dei file
+modificati; la copia completa ridondante e il progetto di prova sono rimossi.
+I vecchi generatori richiedono il ripristino degli input prima di ricostruire.
+
+Il primo test bersagli aveva una corsa temporale: l'host usciva a 20s, meno di 5s
+dopo il join del client a freddo. La sola finestra del probe esplicito passa a 35s;
+nessuna attesa aggiunta alle partite normali. La successiva esecuzione LAN passa
+su host e client. Esiti e limiti in TEST_RESULTS.md e CHARACTER_CLEANUP_RESULT.json.

@@ -283,3 +283,47 @@ Nessun prune Git/LFS, commit o push. La cancellazione dello ZIP risulta come
 rimozione locale nel submodule maps; gli estratti e il manifest restano presenti.
 Non riavviato Unreal e non ricompilato: nessun asset attivo o codice cambiato.
 Ricevuta: `Saved/AssetAudit/storage-cleanup-2026-10-15.json`.
+
+
+## Personaggi definitivi — 15 ottobre 2026, successiva autorizzazione
+
+L'utente ha approvato i modelli attuali e chiesto nomi omogenei e rimozione degli
+originali non più necessari. Questa istruzione sostituisce la precedente riserva
+integrale Phase/Belica e la conservazione locale degli input di ricostruzione.
+Le venti etichette seguono ora `personaggio · ruolo` senza cambiare gli indici.
+
+Rimossi attraverso Unreal **3.210 package / 2,170 GiB** dal solo insieme
+personaggi: varianti, demo, effetti, input di retarget e altri asset inutilizzati.
+Sono rimaste le dipendenze realmente usate, anche nei namespace Paragon originali,
+il rig/pose FPS e 34 package condivisi con referencer esterni. Non eliminare una
+cartella vendor soltanto perché contiene originali: materiali/texture e alcune
+dipendenze restano necessari. L'audit fresco finale non trova altri package
+personaggio rimuovibili nel perimetro autorizzato.
+
+Prima sono stati verificati un archivio completo e una copia di gioco priva dei
+3.136 candidati iniziali. Il secondo lotto di 74 package è seguito alla rimozione
+di sole anteprime/ombre a capsule disabilitate. Ogni rimozione ha verificato SHA256,
+perimetro del submodule e assenza di referencer esterni prima della cancellazione.
+Content personaggi: 6.428.771.571 -> 4.098.883.603 byte. È una misura dei file attivi,
+non una promessa di risparmio netto su disco: l'archivio esterno occupa spazio.
+
+Rimane un solo archivio privato di ripristino:
+`/Users/agea/git/fdm/_backups/characters-cleanup-rollback-20261015.tar.gz`.
+Contiene 3.314 file: tutti i rimossi, le versioni precedenti dei 103 asset modificati
+e la provenienza; i file invariati conservati nel progetto non sono duplicati.
+Archivio e ciascun membro verificati SHA256. La copia completa ridondante e la
+fixture con hardlink sono state eliminate. Git/LFS, altre categorie di asset e
+file esterni scaricati altrove non sono stati ripuliti implicitamente.
+
+Ricevute private in Saved/AssetAudit: character-cleanup-rollback.json,
+character-cleanup-deletions.json, character-cleanup-original-snapshot.json e
+character-cleanup-preservation.json. Sintesi versionabile:
+[CHARACTER_CLEANUP_RESULT.json](CHARACTER_CLEANUP_RESULT.json).
+
+Per ricostruire da sorgenti, chiudere Unreal, verificare l'archivio con la ricevuta
+e ripristinare gli input selezionati in un progetto privato separato, quindi
+migrarli con Unreal agli stessi percorsi /Game. Non sovrascrivere automaticamente
+le 103 versioni precedenti delle skin attuali: sono incluse per un rollback
+completo, non per il normale avvio. I generatori storici interrompono la procedura
+prima di scrivere quando mancano gli input; le skin salvate si usano e verificano
+senza ripristino. Nulla è stato committato, pubblicato o rimosso dalla storia LFS.

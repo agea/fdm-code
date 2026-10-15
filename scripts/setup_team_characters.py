@@ -99,6 +99,10 @@ def grounded_material(source, folder, team, slot_name):
 
 
 manny = load('/Game/Characters/Mannequins/Meshes/SKM_Manny_Simple')
+for source in ['/Game/ParagonTwinblast/Characters/Heroes/TwinBlast/Skins/Tier2/ActionMovie/Meshes/TwinBlast_ActionHero',
+               '/Game/ParagonDrongo/Characters/Heroes/Drongo/Meshes/Drongo_GDC']:
+    if not assets.does_asset_exist(source):
+        raise RuntimeError('Historical rebuild inputs were archived after character approval. Restore the private character cleanup archive before rebuilding; current saved skins need no setup.')
 source_rig = None if globals().get('ER_SKIP_RETARGET') else make_rig(manny, 'IK_ER_Manny')
 source_abp = load('/Game/Variant_Shooter/Anims/ABP_TP_Rifle')
 source_idle = load('/Game/Characters/Mannequins/Anims/Rifle/MF_Rifle_Idle_ADS')

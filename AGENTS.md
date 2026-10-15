@@ -491,3 +491,18 @@ removal of completed Factory/Arabian scratch projects, Saved/Source2DustMirror
 and the duplicate texture ZIP. Keep all88 extracted texture inputs and their
 manifest. Intermediate/Binaries and active packages were preserved.
 See REPOSITORY_CLEANUP.md and Saved/AssetAudit/storage-cleanup-2026-10-15.json.
+
+
+Character finalization (15 October, latest user request): the user approved the
+twenty current skins and explicitly authorized removing downloaded originals and
+other character assets unnecessary for their current in-game use. This supersedes
+the earlier complete Phase/Belica reservation and rebuild-source retention for
+this cleanup. Display names use `character_catalog.py`: hero name + middle dot +
+role, with stable indices and unchanged geometry/palette. Preserve the independent
+FPS rig/poses, all live skin/corpse/weapon bindings and source textures/materials
+still referenced by them. Vendor folder names alone do not imply unused assets.
+The approved cleanup is scoped to the characters submodule; never prune maps,
+weapons, Git/LFS or other downloads implicitly. A verified private rollback archive
+and manifests are kept outside the project in the sibling `_backups` directory.
+Historical rebuild scripts require restoring archived inputs before generation;
+ordinary play and saved-asset verification require no originals restoration.

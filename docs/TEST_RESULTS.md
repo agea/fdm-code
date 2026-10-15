@@ -2002,3 +2002,116 @@ No packet-loss sweep, packaging or publication in this revision.
   DustTown-OppositeSwingGates.png with fixed frontal view: opposite-swing timber
   leaves hide the standing-eye sightline. This preview does not repeat the
   completed full traversal/LAN test. Final source/asset diff checks: PASS.
+
+## Phase Omega / Belica Alpha — 15 ottobre 2026
+
+Importazione locale completata con cinque nuove varianti per personaggio,
+aggiunte agli indici 5–9 delle rispettive squadre. Catalogo totale: venti skin.
+Originali completi conservati nel submodule privato characters, agli stessi
+percorsi /Game: SHA-256 dei 3.276 file originali invariati. `setup-assets.py
+--check`: 26 mount corretti, nessun puntatore LFS irrisolto.
+
+- Compilazione reale fdmEditor Mac Development arm64: **Succeeded**. Restano
+  avvisi di API deprecate già presenti in ERFirstPersonForearms/ERShotEffects;
+  nessun errore di compilazione nel risultato finale.
+- Verifica Editor dei riferimenti Character/TrainingTarget/Corpse: dieci skin
+  per squadra, nomi/mesh distinti, animazioni, materiali, socket e rig salvati.
+  Verifica FPS: venti mesh, undici armi, 1.100 campioni, entrambe le impugnature
+  coincidenti con il rig di riferimento; posizione/scala della camera conservate.
+- Gallerie Metal: venti silhouette in pagine da cinque e venti visuali FPS
+  (`ER_FPS_FOREARM_FRAME_PASS` ×20), oltre a prima persona e due pose prone
+  dei nuovi personaggi. Anteprime locali: Phase-Belica-{Alpha,Omega}-Final.png.
+- Ragdoll finali: cinque coppie nuove e una coppia originale, tre campioni
+  per coppia, **36 controlli superati**, comprese ossa/giunti, accessori nascosti,
+  assestamento e concordanza tra posa fisica e copia visibile Phase. PNG finali
+  in Saved/Testing/Final-Corpses-{5..9,0}-{1..3}.png, ispezionate realmente.
+  I primi controlli numerici sulle sole ossa non bastavano a valutare l'aspetto:
+  la verifica visiva ha portato a posa visibile esplicita e limiti articolari
+  Phase più contenuti, evitando gambe e polsi eccessivamente ripiegati.
+- `test-target-skins.py`: venti bersagli verificati sul listen host e sul client,
+  dieci per squadra; mask Alpha/Omega 1023 su entrambi, armi e immobilità corrette.
+- `test-network.py --phase-belica` e `--skins`: **PASS** nella versione finale,
+  34 controlli server per esecuzione più conferme client. Selezione valida,
+  rifiuto indici fuori catalogo, applicazione al respawn e skin precedente
+  conservata dal cadavere; danno, protezione, ammo e feedback restano verificati.
+- Regressioni eseguite durante l'integrazione: bot **PASS**, precisione **PASS**,
+  arsenale **PASS**. Nessun esito headless viene usato come prova di qualità
+  visiva o audio; le immagini sopra provengono da processi Metal reali.
+
+Le migrazioni usano marker per conservare i successivi ritocchi dell'artista.
+Il riavvio degli script già applicati è stato verificato senza rigenerare gli
+asset. Il renderer Phase aggiunge una componente cosmetica senza collisioni,
+aggiornata dopo la fisica in un batch; fisica e copia visibile vengono congelate
+all'assestamento dopo cinque secondi. Restano sedici corpi/quindici giunti,
+WorldStatic soltanto, massimo dodici cadaveri e novanta secondi di durata.
+Non è stato eseguito un benchmark del costo delle copie di posa.
+
+Rimangono le limitazioni delle geometrie Paragon, soprattutto gonne/giacche corte
+Phase e armature futuristiche Belica. Sono stati adattati materiali, accessori,
+rig e pose; non sono stati modellati corpi o uniformi sostitutivi. Originali e
+derivati restano privati; nessuna verifica indipendente di ricevute/licenze Fab,
+packaging o pubblicazione è stata effettuata in questa richiesta.
+
+### 15 ottobre — correzione testa Phase Omega 9
+
+Il bordo isolato proveniva dalla calotta del casco con winding rivolto verso
+l'interno. Creata una copia PhaseEngineer con facce esterne corrette, materiale
+opaco a due facce e bordo rialzato; aggiornati Character/TrainingTarget/Corpse
+senza modificare il casco condiviso delle altre skin.
+
+- Compilazione Editor Mac Development arm64: **Succeeded** (build correzione
+  33,65s; successivo aggiornamento galleria 8,94s).
+- Verifica fresca Editor e doppia esecuzione migrazione: **PASS**, cataloghi
+  coincidenti, migrazione idempotente; venti mesh FPS/undici armi/1.100 campioni
+  con entrambe le impugnature allineate.
+- Metal reale: dettagli testa frontale/lato/retro **PASS**, immagini realmente
+  ispezionate (`Head-Omega-9-{0,90,180}.png`). La calotta è intera e la fronte
+  non presenta il precedente bordo isolato. Anche la galleria pagina1 completa
+  passa dieci controlli; anteprime Phase-Belica-{Alpha,Omega}-Final.png aggiornate.
+- `git diff --check`, parsing dei quattro script interessati e mount asset:
+  **PASS**, ventisei mount e nessun puntatore LFS irrisolto.
+
+Log locali: build-phase-helmet-fix.log, build-phase-helmet-gallery-final.log,
+verify-phase9-fix.log, phase9-head-fixed-report.log e phase9-catalog-report.log.
+Nessuna modifica alla logica di rete/gameplay e nessuna nuova esecuzione LAN
+richiesta per questa correzione cosmetica.
+
+### 15 ottobre — nomi omogenei e pulizia dei personaggi approvati
+
+Venti nomi nel formato `personaggio · ruolo`, stessi indici, cataloghi
+Character/TrainingTarget/Corpse concordanti. Rimossi tramite Unreal 3.210 package,
+2.329.822.505 byte (2,170 GiB), in due lotti da 3.136 e 74. Il primo lotto è stato
+provato prima in una fixture senza quei file; il secondo segue la sola rimozione
+di riferimenti editor e di ombre a capsule disattivate, mantenendo la resa attiva.
+
+- Compilazioni Editor Mac arm64 Development: **Succeeded**, 30,80s e 17,58s.
+  Nessun nuovo errore C++; rimangono gli avvisi di deprecazione già documentati.
+- Editor fresco finale: **PASS** sulle 20 skin e sui tre cataloghi; 1.100 campioni
+  di grip, 11 armi, entrambe le mani, rig e framing conservati. Migrazioni già
+  applicate saltate senza rigenerare asset. Caricate tutte le 7 mappe del progetto.
+- Metal reale:20 silhouette e20 visuali FPS **PASS**; quattro gallerie finali e
+  contatto FPS realmente ispezionati. Dopo l'ultimo lotto ripetute entrambe le
+  pagine di silhouette. Due coppie di ragdoll (indici 0 e 8, quattro personaggi),
+  tre campioni per coppia: 12 controlli **PASS**, incluse pose assestate e
+  concordanza del renderer Phase. Le due immagini finali dei cadaveri sono
+  state ispezionate. Nessuna pretesa di nuova verifica di tutti e dieci i ragdoll.
+- `test-target-skins.py`: host e client 20 bersagli, mask 1023 per squadra **PASS**.
+  Primo tentativo fallito: l'host terminava prima dei 5s del client appena entrato
+  a freddo. La finestra del solo probe passa da 20 a 35s; successivo test passa su
+  entrambi. Nessuna modifica ai tempi delle partite ordinarie.
+- `test-network.py --phase-belica` e `--skins`: **PASS** (selezione, replica,
+  rifiuto indici invalidi, respawn, cadavere con skin precedente e fisica).
+- Audit fresco dopo le cancellazioni: nessun ulteriore package personaggio
+  eliminabile; 34 sono conservati per referencer esterni. Rig/pose FirstPerson
+  esplicitamente esclusi dalla rimozione. Mount 26, nessun puntatore LFS irrisolto.
+- Archivio finale: 3.314 membri verificati SHA256 e digest dell'archivio completo.
+  Tutti i 3.210 file rimossi sono coperti; 103 asset prima delle modifiche e la
+  provenienza sono recuperabili. 1.198 file conservati restano identici SHA256;
+  aggiornamento della sola documentazione di provenienza registrato a parte.
+  Fixture e archivio completo ridondante eliminati. Nessun prune Git/LFS.
+
+Ricevuta versionabile: CHARACTER_CLEANUP_RESULT.json. Log: Saved/AssetAudit/
+character-cleanup-{build,final-build,delete,delete-final}.log e Saved/Testing/
+character-cleanup-{final-verify,graphics-report,final-galleries-report,network-report}.log.
+La riduzione dichiarata riguarda i file attivi del progetto; il backup privato
+esterno occupa spazio. Nessun cook/packaging, benchmark o pubblicazione eseguito.

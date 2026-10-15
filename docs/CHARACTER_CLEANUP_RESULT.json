@@ -1,0 +1,74 @@
+{
+  "schema": 1,
+  "date": "2026-10-15",
+  "scope": "Approved runtime character catalog in Assets/characters; Core catalogs in private maps",
+  "names": {
+    "Alpha": [
+      "Twinblast · ufficiale",
+      "Twinblast · assalto",
+      "Twinblast · pattuglia",
+      "Twinblast · ricognizione",
+      "Twinblast · supporto",
+      "Belica · fanteria",
+      "Belica · pattuglia artica",
+      "Belica · difesa NBC",
+      "Belica · corazzata",
+      "Belica · supporto"
+    ],
+    "Omega": [
+      "Drongo · predone",
+      "Drongo · sciacallo",
+      "Drongo · incursione",
+      "Drongo · contrabbando",
+      "Drongo · milizia",
+      "Phase · ricognizione",
+      "Phase · incursione",
+      "Phase · pattuglia",
+      "Phase · geniere",
+      "Phase · supporto"
+    ]
+  },
+  "indices_preserved": true,
+  "removed_packages": 3210,
+  "removed_bytes": 2329822505,
+  "removed_gib": 2.169816,
+  "character_content_before_bytes": 6428771571,
+  "character_content_after_bytes": 4098883603,
+  "retained_shared_packages_with_outside_referencers": 34,
+  "further_prunable_packages": 0,
+  "protected_independent_fps_rig_and_poses": true,
+  "unchanged_files_verified_sha256": 1198,
+  "modified_assets": 103,
+  "backup": {
+    "archive": "/Users/agea/git/fdm/_backups/characters-cleanup-rollback-20261015.tar.gz",
+    "bytes": 2298711800,
+    "sha256": "9b02440d2aabce8d8a8d4970413bc603b785bd6837fe6180cacfd0dea98a9208",
+    "files": 3314,
+    "verified": true,
+    "contents": "Removed files and pre-change versions of modified files; unchanged active assets are not duplicated"
+  },
+  "validation": {
+    "editor_build": "Succeeded",
+    "fresh_editor_maps": 7,
+    "skin_catalog": 20,
+    "fps_grip_samples": 1100,
+    "weapons": 11,
+    "metal_silhouettes": 20,
+    "metal_fps_views": 20,
+    "metal_corpse_checks": 12,
+    "corpse_skin_pairs": [
+      0,
+      8
+    ],
+    "lan_targets_host_and_client": "PASS",
+    "lan_phase_belica": "PASS",
+    "lan_original_skins": "PASS",
+    "final_audit": "PASS; zero further deletable packages"
+  },
+  "limitations": [
+    "Active-project file reduction is not net filesystem savings because an external rollback archive is retained.",
+    "Referenced vendor dependencies, shared template assets and the independent FPS rig/poses remain necessary.",
+    "Historical generation requires restoring archived inputs.",
+    "No Git/LFS history pruning, commit, push or publication."
+  ]
+}

@@ -122,7 +122,7 @@ testing. The audit is off by default and unavailable in Shipping.
 See `docs/DEVELOPMENT.md`, `docs/TEST_RESULTS.md`, `docs/ASSETS.md` and the imported
 Italian development specification. Only recorded tests are considered verified.
 
-Choose one of five Alpha and five Omega characters in the main or Escape menu.
+Choose one of ten Alpha and ten Omega characters in the main or Escape menu.
 Alpha uses cold blue/navy clothing and Omega warm orange/rust, with neutral
 equipment and natural skin. Variants combine different existing hero clothing
 with owned field helmets and packs. Both preferences are saved locally; team
@@ -130,11 +130,19 @@ assignment remains automatic. In-match changes apply at the next spawn, and
 existing corpses retain the appearance worn at death. First-person rendering
 uses the chosen skin's extracted forearms/hands on the fitted independent FPS rig,
 preserving existing weapon poses and grips.
-Generate owned assets with Unreal Python `scripts/setup_team_skins.py` after
-the base team rigs. Verify saved references with `scripts/verify_team_skins.py`,
-render the ten choices and all corpse variants with
+Labels follow `character · role` consistently for Twinblast, Drongo, Belica and
+Phase; `scripts/character_catalog.py` defines the twenty stable menu names.
+Approved skins are saved and ready to play. Historical generation scripts
+(`setup_team_characters.py`, `setup_team_skins.py`, `setup_phase_belica.py`)
+require restoring archived source inputs before a new import/rebuild; they are
+not launch steps. Use `normalize_character_names.py` only to refresh labels.
+Verify saved references with `scripts/verify_team_skins.py`,
+render the twenty choices and all corpse variants with
 `python3 scripts/test-team-skins.py`, and test replicated selection with
-`python3 scripts/test-network.py --skins --shot-feedback`.
+`python3 scripts/test-network.py --skins --shot-feedback`. Check the new
+characters with `scripts/verify_phase_belica.py` inside Unreal and
+`python3 scripts/test-network.py --phase-belica`; the target-skin test checks
+all twenty variants on a listen host and remote peer.
 
 Repeat local checks with `python3 scripts/test-network.py` and
 `python3 scripts/test-admission.py`. The network probe is opt-in and is never
@@ -189,12 +197,13 @@ network and graphical checks. See docs/REPOSITORY_CLEANUP.md for safe removal
 and backup details.
 
 
-Cleanup has been executed: obsolete Mercenary and unreachable Paragon
-packages are removed. The working project is about 4.1 GiB, Content 2.7 GiB.
-Private backups are in /Users/agea/git/fdm/_backups/2026-10-14-cleanup;
-local LFS cache is /Users/agea/git/fdm/_cache/lfs via local lfs.storage.
-Both remain on this machine. See docs/CLEANUP_RESULT.json and
-docs/REPOSITORY_CLEANUP.md for evidence, recovery and cache portability.
+Character cleanup keeps the approved twenty skins and their required dependency
+closure, with unused original/demo/retarget assets removed through Unreal.
+The private rollback archive is outside the project in the sibling `_backups`
+directory. Current evidence, exact counts and recovery instructions are in
+`docs/CHARACTER_CLEANUP_RESULT.json` and `docs/REPOSITORY_CLEANUP.md`.
+Earlier cleanup sizes/receipts describe historical checkpoints. No Git/LFS
+history is pruned by asset cleanup.
 
 Sprint and posture: double-tap W within 300ms and hold the second press to sprint
 at 18km/h. Releasing W, walking, crouching, leaving the ground or climbing ends

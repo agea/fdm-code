@@ -96,7 +96,7 @@ void AERTeamGallery::TickForearms(AERCharacter* Player, APlayerController* PC)
         NextForearmCapture = Age + 2.f;
         return;
     }
-    if (Stage >= 2 && Stage <= 11)
+    if (Stage >= 2 && Stage <= 2 * ERSkins::Count + 1)
     {
         const int32 Sample = Stage - 2;
         const bool Alpha = Sample >= ERSkins::Count;
@@ -112,15 +112,15 @@ void AERTeamGallery::TickForearms(AERCharacter* Player, APlayerController* PC)
         FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir()/FString::Printf(
             TEXT("Testing/FPS-Forearms-%s-%d.png"),Alpha ? TEXT("Alpha") : TEXT("Omega"),Sample % ERSkins::Count + 1),false,false);
         ++Stage;
-        bForearmChangePending = Stage <= 11;
+        bForearmChangePending = Stage <= 2 * ERSkins::Count + 1;
         NextForearmCapture = Age + 2.f;
         return;
     }
-    if (Stage == 12)
+    if (Stage == 2 * ERSkins::Count + 2)
     {
         UE_LOG(LogTemp,Display,TEXT("ER_FPS_FOREARM_GALLERY_COMPLETE"));
         FPlatformMisc::RequestExit(false);
-        Stage = 13;
+        Stage = 2 * ERSkins::Count + 3;
     }
 #endif
 }
@@ -139,14 +139,18 @@ void AERTeamGallery::TickSkins(AERCharacter* Player, APlayerController* PC)
         UWidgetLayoutLibrary::RemoveAllWidgets(this);
         Stage = 1;
     }
+    int32 Page = 0; FParse::Value(FCommandLine::Get(), TEXT("ERSkinPage="), Page);
+    Page = FMath::Clamp(Page, 0, (ERSkins::Count - 1) / 5);
+    int32 DetailSkin = INDEX_NONE;
+    FParse::Value(FCommandLine::Get(), TEXT("ERSkinDetail="), DetailSkin);
     const int32 TeamIndex = Stage == 1 ? 0 : 1;
     if (SkinActors.IsEmpty() && (Stage == 1 || Stage == 3))
     {
         const auto& Options = TeamIndex == 0 ? Player->AlphaSkins : Player->OmegaSkins;
-        for (int32 I=0; I<Options.Num(); ++I)
+        for (int32 I=Page*5; I<FMath::Min(Page*5+5,Options.Num()); ++I)
         {
             const auto& Appearance = Options[I];
-            const FVector Location(-900,-1400+(I-2)*135,92.5f+Appearance.FeetOffset);
+            const FVector Location(-900,-1400+(I-Page*5-2)*135,92.5f+Appearance.FeetOffset);
             auto* Actor = GetWorld()->SpawnActor<ASkeletalMeshActor>(Location, FRotator(0,90,0));
             auto* Body = Actor->GetSkeletalMeshComponent();
             Body->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -160,16 +164,36 @@ void AERTeamGallery::TickSkins(AERCharacter* Player, APlayerController* PC)
             Label->SetText(FText::FromString(FString::Printf(TEXT("%d"),I+1)));
             Label->SetHorizontalAlignment(EHTA_Center);Label->SetWorldSize(16);
             Label->SetTextRenderColor(TeamIndex==0 ? FColor(110,180,255) : FColor(255,150,70));
+            Label->SetVisibility(DetailSkin == INDEX_NONE);
             UE_LOG(LogTemp,Display,TEXT("ER_SKIN_GALLERY_%s team=%d index=%d name=%s"),Appearance.Matches(Body,true)?TEXT("PASS"):TEXT("FAIL"),TeamIndex+1,I,*Appearance.DisplayName);
         }
     }
-    if (Stage == 1 && Age > 30)
-    { FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir()/TEXT("Testing/Skins-Alpha.png"),false,false);Stage = 2; }
-    else if (Stage == 2 && Age > 33 && SkinActors.Num())
+    // Optional head close-up for checking hair/helmet intersections in real rendering.
+    float ViewYaw = 0.f;
+    FParse::Value(FCommandLine::Get(), TEXT("ERSkinDetailYaw="), ViewYaw);
+    if (SkinActors.IsValidIndex(DetailSkin - Page*5) && GalleryCamera)
+    {
+        const auto* Body = SkinActors[DetailSkin - Page*5]->GetSkeletalMeshComponent();
+        const FVector Head = Body->GetSocketLocation(TEXT("head")) + FVector(0,0,7);
+        const FVector Forward = FRotator(0,ViewYaw,0).Vector();
+        GalleryCamera->SetActorLocationAndRotation(Head - Forward*65.f, Forward.Rotation());
+        GalleryCamera->GetCameraComponent()->SetFieldOfView(45.f);
+    }
+    const bool bDetail = SkinActors.IsValidIndex(DetailSkin - Page*5);
+    const auto Capture = [&](const TCHAR* Team)
+    {
+        const FString Name = bDetail
+            ? FString::Printf(TEXT("Testing/Head-%s-%d-%d.png"),Team,DetailSkin+1,FMath::RoundToInt(ViewYaw))
+            : FString::Printf(TEXT("Testing/Skins-%s-%d.png"),Team,Page);
+        FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir()/Name,false,false);
+    };
+    if (Stage == 1 && Age > (bDetail ? 10.f : 30.f))
+    { Capture(TEXT("Alpha")); Stage = 2; }
+    else if (Stage == 2 && Age > (bDetail ? 13.f : 33.f) && SkinActors.Num())
     { for (auto Actor : SkinActors) Actor->Destroy();SkinActors.Reset(); Stage = 3; }
-    if (Stage == 3 && Age > 55)
-    { FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir()/TEXT("Testing/Skins-Omega.png"),false,false); Stage=4; }
-    if (Stage == 4 && Age > 58)
+    if (Stage == 3 && Age > (bDetail ? 25.f : 55.f))
+    { Capture(TEXT("Omega")); Stage=4; }
+    if (Stage == 4 && Age > (bDetail ? 28.f : 58.f))
     { UE_LOG(LogTemp,Display,TEXT("ER_SKIN_GALLERY_COMPLETE"));FPlatformMisc::RequestExit(false); }
 #endif
 }
@@ -203,6 +227,7 @@ void AERTeamGallery::Tick(float DeltaTime)
                 Corpse->ImpactDirection = FVector(-1, 0, 0);
                 Corpse->FinishSpawning(Spawn);
                 Corpses.Add(Corpse);
+                AddTickPrerequisiteActor(Corpse);
                 FString Bones;
                 for (const auto& Setup : Corpse->Body->GetPhysicsAsset()->SkeletalBodySetups) Bones += Setup->BoneName.ToString() + TEXT(",");
                 UE_LOG(LogTemp, Display, TEXT("ER_CORPSE_RIG team=%d bodies=%s"), I, *Bones);
@@ -246,7 +271,7 @@ void AERTeamGallery::Tick(float DeltaTime)
             GalleryCamera->SetActorLocationAndRotation(ViewLocation, (Center - ViewLocation).Rotation());
             for (auto Corpse : Corpses)
             {
-                UE_LOG(LogTemp, Display, TEXT("ER_CORPSE_GALLERY_%s team=%d sample=%d"), Corpse->HasValidRagdollPose() ? TEXT("PASS") : TEXT("FAIL"), static_cast<int32>(Corpse->Team), Stage);
+                UE_LOG(LogTemp, Display, TEXT("ER_CORPSE_GALLERY_%s team=%d sample=%d"), (Corpse->HasValidRagdollPose() && (Stage == 1 || !Corpse->Body->IsAnyRigidBodyAwake())) ? TEXT("PASS") : TEXT("FAIL"), static_cast<int32>(Corpse->Team), Stage);
                 const auto& Appearance = Corpse->GetTeamAppearance();
                 for (const FName Bone : Appearance.HiddenBones)
                     UE_LOG(LogTemp, Display, TEXT("ER_CORPSE_HIDDEN team=%d bone=%s scale=%s"), static_cast<int32>(Corpse->Team), *Bone.ToString(), *Corpse->Body->GetBoneTransform(Corpse->Body->GetBoneIndex(Bone)).GetScale3D().ToString());

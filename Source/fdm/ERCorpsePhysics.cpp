@@ -4,7 +4,7 @@
 #include "PhysicsEngine/SkeletalBodySetup.h"
 #include "PhysicsEngine/PhysicsConstraintTemplate.h"
 
-bool AERCorpse::BuildTeamRagdollPhysics(UPhysicsAsset* Asset, USkeletalMesh* Mesh)
+bool AERCorpse::BuildTeamRagdollPhysics(UPhysicsAsset* Asset, USkeletalMesh* Mesh, float LimbSwing, float LegSwing)
 {
 #if WITH_EDITOR
     if (!Asset || !Mesh || !Asset->GetPathName().StartsWith(TEXT("/Game/EclipseRecoil/Characters/Teams/")) ||
@@ -84,9 +84,14 @@ bool AERCorpse::BuildTeamRagdollPhysics(UPhysicsAsset* Asset, USkeletalMesh* Mes
             Constraint.SetRefFrame(EConstraintFrame::Frame2, Bone.GetRelativeTransform(Reference(Part.Parent)));
             Constraint.SetLinearXMotion(LCM_Locked); Constraint.SetLinearYMotion(LCM_Locked); Constraint.SetLinearZMotion(LCM_Locked);
             const FString Name(Part.Bone);
-            const float Swing = Name.StartsWith(TEXT("spine")) ? 25.f : Name == TEXT("head") ? 40.f : 65.f;
+            const bool bFieldFit=LegSwing<65.f;
+            const bool bLeg=Name.StartsWith(TEXT("thigh")) || Name.StartsWith(TEXT("calf")) || Name.StartsWith(TEXT("foot"));
+            float Swing = Name.StartsWith(TEXT("spine")) ? 25.f : Name == TEXT("head") ? 40.f : bLeg ? LegSwing : LimbSwing;
+            if (bFieldFit && Name.StartsWith(TEXT("calf"))) Swing=FMath::Min(Swing,25.f);
+            if (bFieldFit && Name.StartsWith(TEXT("foot"))) Swing=FMath::Min(Swing,15.f);
+            if (bFieldFit && Name.StartsWith(TEXT("hand"))) Swing=FMath::Min(Swing,20.f);
             Constraint.SetAngularSwing1Limit(ACM_Limited, Swing); Constraint.SetAngularSwing2Limit(ACM_Limited, Swing);
-            Constraint.SetAngularTwistLimit(ACM_Limited, 35.f);
+            Constraint.SetAngularTwistLimit(ACM_Limited, bFieldFit && bLeg ? 15.f : 35.f);
             Constraint.SetProjectionParams(true, .5f, .2f, 1.f, 15.f);
             Constraint.SetDisableCollision(true);
             // Editor serialization writes DefaultProfile back into the

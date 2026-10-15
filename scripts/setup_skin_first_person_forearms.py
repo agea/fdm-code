@@ -52,4 +52,4 @@ for path in ['/Game/EclipseRecoil/Core/BP_ERCharacter', '/Game/EclipseRecoil/Cor
         raise RuntimeError('Cannot save FPS skin references: ' + path)
     ue.log('ER_FPS_SKIN_DEFAULTS class=%s frame=%s' % (path, body.relative_location))
 
-ue.log('ER_FPS_FOREARMS_READY skins=10 camera_frame_preserved=1 weapon_poses_preserved=1')
+ue.log('ER_FPS_FOREARMS_READY skins=%d camera_frame_preserved=1 weapon_poses_preserved=1' % sum(len(x) for x in choices.values()))

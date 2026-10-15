@@ -542,7 +542,7 @@ void AERPlayerController::ShowMenu(bool bShow)
             .Text(FText::FromString(Alpha ? TEXT("Personaggio Alpha · blu / freddo") : TEXT("Personaggio Omega · arancio / caldo")))];
         Panel->AddSlot().AutoHeight()[SNew(SComboButton)
             .ButtonContent()[SNew(STextBlock).Text_Lambda([GI, Alpha, Label]() { return FText::FromString(Label(Alpha ? GI->AlphaSkin : GI->OmegaSkin)); })]
-            .MenuContent()[SkinChoices]];
+            .MenuContent()[SNew(SBox).MaxDesiredHeight(400)[SNew(SScrollBox) + SScrollBox::Slot()[SkinChoices]]]];
     }
     Panel->AddSlot().AutoHeight().Padding(0,5)[SNew(STextBlock).AutoWrapText(true)
         .Text(FText::FromString(bMain ? TEXT("Scegli un aspetto per ogni squadra e la squadra con cui giocare.") : TEXT("Le modifiche al personaggio si applicano dalla prossima nascita.")))];

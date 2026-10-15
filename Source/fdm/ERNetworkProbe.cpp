@@ -11,7 +11,7 @@
 #include "Net/UnrealNetwork.h"
 #include "HAL/PlatformMisc.h"
 
-AERNetworkProbe::AERNetworkProbe() { bReplicates = true; bAlwaysRelevant = true; PrimaryActorTick.bCanEverTick = true; SetNetUpdateFrequency(30); }
+AERNetworkProbe::AERNetworkProbe() { PrimaryActorTick.TickGroup = TG_PostUpdateWork; bReplicates = true; bAlwaysRelevant = true; PrimaryActorTick.bCanEverTick = true; SetNetUpdateFrequency(30); }
 void AERNetworkProbe::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps); DOREPLIFETIME(AERNetworkProbe, Phase);
@@ -61,7 +61,7 @@ void AERNetworkProbe::ClientStep()
             break;
         }
         case 5:
-            if (FParse::Param(FCommandLine::Get(),TEXT("ERSkinProbe"))) PC->ServerSetSkins(1,2);
+            if (FParse::Param(FCommandLine::Get(),TEXT("ERSkinProbe"))) PC->ServerSetSkins(1,FParse::Param(FCommandLine::Get(),TEXT("ERPhaseBelicaProbe")) ? 7 : 2);
             PC->ServerRequestRespawn(); break;
         case 6: PC->ServerRequestRespawn(); break;
         case 7: PC->SetControlRotation(FRotator(0,180,0)); Pawn->ServerStartFire(); Pawn->ServerStopFire(); break;
@@ -96,14 +96,16 @@ void AERNetworkProbe::Tick(float DeltaTime)
     if (GetWorld()->GetTimeSeconds() < Deadline) return;
     auto* H = Cast<AERCharacter>(Host->GetPawn()); auto* C = Cast<AERCharacter>(Client->GetPawn());
     if (!H || !C || !H->Weapon || !C->Weapon) { Check(false,TEXT("valid_pawns_and_weapons")); FPlatformMisc::RequestExitWithStatus(false,1); return; }
+    const bool bNewCharacters = FParse::Param(FCommandLine::Get(),TEXT("ERPhaseBelicaProbe"));
+    const int32 HostSkin = bNewCharacters ? 8 : 3, ClientSkin = bNewCharacters ? 9 : 4, NextSkin = bNewCharacters ? 7 : 2;
     switch (Phase)
     {
         case 1:
             if (FParse::Param(FCommandLine::Get(),TEXT("ERSkinProbe")))
             {
-                Check(Host->GetPlayerState<AERPlayerState>()->ActiveSkin == 3 && Client->GetPlayerState<AERPlayerState>()->ActiveSkin == 4, TEXT("Skin_preferences_replicated"));
+                Check(Host->GetPlayerState<AERPlayerState>()->ActiveSkin == HostSkin && Client->GetPlayerState<AERPlayerState>()->ActiveSkin == ClientSkin, TEXT("Skin_preferences_replicated"));
                 Host->ServerSetSkins(999,-1);
-                Check(Host->GetPlayerState<AERPlayerState>()->AlphaSkin == 3, TEXT("Skin_invalid_index_rejected"));
+                Check(Host->GetPlayerState<AERPlayerState>()->AlphaSkin == HostSkin, TEXT("Skin_invalid_index_rejected"));
             }
             Check(H->GetTeamAppearance().Matches(H->GetMesh()) && C->GetTeamAppearance().Matches(C->GetMesh()), TEXT("Team_human_mesh_animation_hidden_equipment"));
             HostShot(); Advance(2,.5f); break;
@@ -118,7 +120,7 @@ void AERNetworkProbe::Tick(float DeltaTime)
         case 4: Check(C->Health->Health==28,TEXT("T04_host_second_hitscan_28")); HostShot(); Advance(5,3.4f); break;
         case 5:
             if (FParse::Param(FCommandLine::Get(),TEXT("ERSkinProbe")))
-                Check(Client->GetPlayerState<AERPlayerState>()->OmegaSkin == 2 && Client->GetPlayerState<AERPlayerState>()->ActiveSkin == 4,TEXT("Skin_pending_until_respawn"));
+                Check(Client->GetPlayerState<AERPlayerState>()->OmegaSkin == NextSkin && Client->GetPlayerState<AERPlayerState>()->ActiveSkin == ClientSkin,TEXT("Skin_pending_until_respawn"));
             for (TActorIterator<AERCorpse> It(GetWorld()); It; ++It) FirstCorpse = *It;
             Check(FirstCorpse.IsValid() && FirstCorpse->Body->IsSimulatingPhysics(), TEXT("Death_corpse_ragdoll_created"));
             Check(FirstCorpse.IsValid() && FirstCorpse->GetTeamAppearance().Matches(FirstCorpse->Body, true), TEXT("Team_omega_corpse_matches_live_character"));
@@ -129,8 +131,8 @@ void AERNetworkProbe::Tick(float DeltaTime)
         case 6:
             if (FParse::Param(FCommandLine::Get(),TEXT("ERSkinProbe")))
             {
-                Check(FirstCorpse.IsValid() && FirstCorpse->SkinIndex == 4,TEXT("Skin_corpse_preserves_old_selection"));
-                Check(Client->GetPlayerState<AERPlayerState>()->ActiveSkin == 2,TEXT("Skin_new_selection_on_respawn"));
+                Check(FirstCorpse.IsValid() && FirstCorpse->SkinIndex == ClientSkin,TEXT("Skin_corpse_preserves_old_selection"));
+                Check(Client->GetPlayerState<AERPlayerState>()->ActiveSkin == NextSkin,TEXT("Skin_new_selection_on_respawn"));
             }
             Check(FirstCorpse.IsValid(), TEXT("Death_corpse_survives_respawn"));
             Check(C->GetTeamAppearance().Matches(C->GetMesh()), TEXT("Team_appearance_survives_respawn"));

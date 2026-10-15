@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render five silhouettes per team and verify every selectable corpse during and after physics."""
+"""Render ten silhouettes per team and verify every selectable corpse during and after physics."""
 from pathlib import Path
 import os
 import subprocess
@@ -22,11 +22,12 @@ def run(label,flags,complete,passes):
                 except subprocess.TimeoutExpired:child.kill();child.wait()
     output=path.read_text(errors='replace')
     assert child.returncode==0 and complete in output and '_FAIL' not in output,(label,'failure',path)
-    assert output.count(passes)==(10 if label=='skins-gallery-final' else 6),(label,'pass count')
+    assert output.count(passes)==(10 if label.startswith('skins-gallery-final') else 6),(label,'pass count')
     assert 'Failed to compile Material' not in output,(label,'material compilation')
     print('ER_SKINS_RENDER_PASS '+label,flush=True)
-run('skins-gallery-final',['-ERSkinGallery'],'ER_SKIN_GALLERY_COMPLETE','ER_SKIN_GALLERY_PASS')
-for pair in range(5):
+for page in range(2):
+    run('skins-gallery-final-'+str(page),['-ERSkinGallery','-ERSkinPage='+str(page)],'ER_SKIN_GALLERY_COMPLETE','ER_SKIN_GALLERY_PASS')
+for pair in range(10):
     run('skins-corpses-'+str(pair),['-ERCorpseGallery','-ERSkinPair='+str(pair)],'ER_CORPSE_GALLERY_COMPLETE','ER_CORPSE_GALLERY_PASS')
     for sample in range(1,4):
         shutil.copyfile(logs/('Team-Corpses-'+str(sample)+'.png'),logs/('Skin-Corpses-'+str(pair)+'-'+str(sample)+'.png'))

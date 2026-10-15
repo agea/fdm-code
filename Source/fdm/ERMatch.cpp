@@ -129,8 +129,8 @@ void AERGameMode::FillBots()
             State->AlphaSkin = State->OmegaSkin = Skin;
             State->SetPlayerName(FString::Printf(TEXT("%s %d"), State->Team == EERTeam::Alpha ? TEXT("Alpha") : TEXT("Omega"), Skin + 1));
             // Keep each variant's place on respawn. The two clear spawn strips
-            // provide room for five capsules without modifying the depot map.
-            const FVector Position(State->Team == EERTeam::Alpha ? -2300.f : 2300.f, (Skin - 2) * 180.f, 100.f);
+            // provide room for the full skin catalog without modifying the depot map.
+            const FVector Position(State->Team == EERTeam::Alpha ? -2300.f : 2300.f, (Skin - (ERSkins::Count - 1) * .5f) * 180.f, 100.f);
             const FRotator Facing(0, State->Team == EERTeam::Alpha ? 0.f : 180.f, 0);
             Bot->TrainingStart = GetWorld()->SpawnActor<AERTeamPlayerStart>(Position, Facing);
             if (Bot->TrainingStart) Bot->TrainingStart->Team = State->Team;

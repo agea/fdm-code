@@ -544,5 +544,69 @@ SourceAssets/MapTemplates/DustTown/compact_migration.json.
 User-approved storage cleanup,15 October2026: completed Factory/Arabian scratch
 projects and Source2 Dust analysis exports removed from Saved; active private
 art/maps preserved. The duplicate texture ZIP was removed while all88 extracted
-source files and provenance remain. Belica and Phase are explicitly reserved
+source files and provenance remain. At that checkpoint Belica and Phase were explicitly reserved
 for future character imports and must not be pruned. See REPOSITORY_CLEANUP.md.
+
+### Phase / Lt. Belica — 15 October 2026
+
+User-supplied Epic Paragon packages, previously reserved locally in Content,
+are mounted unchanged into private Assets/characters/Content/ParagonPhase and
+ParagonLtBelica (3,276 original files at import). The later approval/cleanup
+below supersedes the initial complete-source reservation. The private character repository also holds owned Belica/Phase team
+skeletons, rifle retargeters/animations, ten derived meshes/material sets,
+anatomical ragdolls and extracted/rebound FPS forearms. Base Belica, PolarStrike,
+Biohazard and HeavyArmor provide Alpha silhouettes; Phase base/Kitty/Pandapack
+provide Omega silhouettes, with project helmet/pack geometry and decorative
+parts hidden. SpiderWitch is unused. Blue/navy and rust/orange clothing retains
+neutral lower clothing/gear and natural face/hair treatment. Supplied skirt,
+boots and futuristic armor geometry remain a limitation of the source models.
+
+Core Blueprint defaults in private maps reference the full twenty-skin catalog.
+Setup: scripts/setup_phase_belica.py; saved verification:
+scripts/verify_phase_belica.py. Original SHA-256 inventory is retained locally
+in Saved/Testing/phase-belica-original-hashes.json; no license receipt has been
+independently verified or new public asset redistribution authorized.
+
+Phase field finish hides the long hair sections, retains short natural hair,
+turns lace sleeves into opaque field fabric and fits the helmet. The separate
+refinement marker preserves later artist edits. Original vendor meshes remain
+unchanged; supplied skirts/cropped jackets are still a source-model limitation.
+
+Omega 9 (PhaseEngineer) uses a private fitted helmet mesh/material in its own
+skin folder. Its shell has outward-facing polygon winding and a two-sided matte
+material; the original shared gear is preserved. The rim is raised above the
+brow. `fix_phase_engineer_helmet.py` applies this correction once to Character,
+TrainingTarget and Corpse defaults, preserving later art edits.
+
+Phase corpse defaults use an explicit collision-free physical-pose renderer;
+the original sixteen-body ragdoll still handles only WorldStatic contacts. The
+visual pose is copied in one batch after physics and frozen once settled. The
+private PhysicsAssets use conservative limb/leg limits (45/35 degrees, with
+smaller knee/ankle/wrist limits) to avoid excessively curled poses. Core
+Blueprint defaults select this behavior; no additional vendor asset is required.
+
+### Final character catalog and cleanup — 15 October 2026
+
+All twenty labels now use `character · role`, defined in
+scripts/character_catalog.py (Twinblast/Belica Alpha, Drongo/Phase Omega).
+Character, TrainingTarget and Corpse catalogs agree; selection indices are stable.
+The user's later approval supersedes the complete Phase/Belica source reservation.
+
+Removed 3,210 unused character packages (2,329,822,505 bytes / 2.170 GiB) through
+Unreal, including original variants/demos/effects and obsolete owned retarget
+inputs. Current characters Content decreased from 6,428,771,571 to 4,098,883,603
+bytes. Required source textures/materials and shared dependencies retain their
+namespaces. The independent FirstPerson rig/poses are explicitly protected.
+
+Only redundant defaults/editor references changed: owned mesh material defaults
+now match the active appearance, hidden slots use a neutral material, skeleton
+and animation/BlendSpace previews use owned meshes, and disabled capsule-shadow
+asset links are empty. Visible materials, mesh geometry, retarget pose data,
+physics profiles and weapon grips were preserved. Thirty-four assets with
+outside referencers remain; they are shared with template/project content.
+The current audit has no further removable character package.
+
+Restore archived inputs before using historical generation scripts. Ordinary
+play and saved-asset verification need no restoration. The private rollback
+archive contains removed files and pre-change versions of modified files, with
+SHA-256 verification; see CHARACTER_CLEANUP_RESULT.json and REPOSITORY_CLEANUP.md.

@@ -1,4 +1,5 @@
 #include "ERCorpse.h"
+#include "Components/PoseableMeshComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/SceneComponent.h"
 #include "EngineUtils.h"
@@ -39,6 +40,7 @@ void UERCorpseMeshComponent::FinalizeBoneTransform()
 
 AERCorpse::AERCorpse()
 {
+    PrimaryActorTick.bCanEverTick = true; PrimaryActorTick.TickGroup = TG_PostPhysics;
     bReplicates = true; bAlwaysRelevant = true;
     SetRootComponent(CreateDefaultSubobject<USceneComponent>(TEXT("Root")));
     Body = CreateDefaultSubobject<UERCorpseMeshComponent>(TEXT("Body"));
@@ -86,16 +88,57 @@ void AERCorpse::BeginPlay()
         Older.Sort([](const AERCorpse& A, const AERCorpse& B) { return A.GetGameTimeSinceCreation() > B.GetGameTimeSinceCreation(); });
         while (Older.Num() >= 12) { Older[0]->Destroy(); Older.RemoveAt(0); }
     }
+    if (Appearance.bCopyPhysicsPoseForRendering)
+    {
+        PoseBody=NewObject<UPoseableMeshComponent>(this);
+        AddInstanceComponent(PoseBody);
+        PoseBody->SetSkinnedAssetAndUpdate(Appearance.Mesh);
+        PoseBody->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+        PoseBody->RegisterComponent();
+        PoseBody->AttachToComponent(Body, FAttachmentTransformRules::KeepWorldTransform);
+        PoseBody->bUseAttachParentBound = true;
+        PoseBody->SetWorldTransform(Body->GetComponentTransform());
+        PoseBody->SetForcedLOD(1);
+        for(int32 I=0;I<Appearance.Materials.Num();++I)PoseBody->SetMaterial(I,Appearance.Materials[I]);
+        for(int32 LOD=0;LOD<Appearance.Mesh->GetLODNum();++LOD)for(int32 Slot=0;Slot<Appearance.Materials.Num();++Slot)
+            PoseBody->ShowMaterialSection(Slot,INDEX_NONE,!Appearance.HiddenMaterialSlots.Contains(Slot),LOD);
+        for(FName Bone:Appearance.HiddenBones)PoseBody->HideBoneByName(Bone,EPhysBodyOp::PBO_None);
+        Body->SetVisibility(false,false);
+    }
+    else SetActorTickEnabled(false);
     UE_LOG(LogTemp, Display, TEXT("ER_CORPSE_CREATED team=%d physics=%d mesh=%s"), static_cast<int32>(Team), Body->IsSimulatingPhysics(), *GetPathNameSafe(Body->GetSkeletalMeshAsset()));
+}
+void AERCorpse::Tick(float DeltaSeconds)
+{
+    Super::Tick(DeltaSeconds);
+    if(!PoseBody)return;
+    PoseBody->SetWorldTransform(Body->GetComponentTransform());
+    const auto& Ref=Body->GetSkeletalMeshAsset()->GetRefSkeleton();
+    const auto& Pose=Body->GetComponentSpaceTransforms();
+    // Copy component-space physics results, not the original animation's local
+    // transforms. Updating once in a batch avoids per-bone pose allocations.
+    PoseBody->BoneSpaceTransforms.SetNumUninitialized(Pose.Num());
+    for (int32 B=0; B<Pose.Num(); ++B)
+    {
+        const int32 Parent=Ref.GetParentIndex(B);
+        PoseBody->BoneSpaceTransforms[B]=Parent==INDEX_NONE ? Pose[B] : Pose[B].GetRelativeTransform(Pose[Parent]);
+    }
+    PoseBody->MarkRefreshTransformDirty();
+    PoseBody->RefreshBoneTransforms();
+    if (bFinishPosePending)
+    {
+        PoseBody->SetComponentTickEnabled(false);
+        SetActorTickEnabled(false);
+    }
 }
 void AERCorpse::Settle()
 {
     Body->SetAllPhysicsLinearVelocity(FVector::ZeroVector);
     Body->SetAllPhysicsAngularVelocityInDegrees(FVector::ZeroVector);
     Body->PutAllRigidBodiesToSleep();
-    // The timer runs before the final physics pose is published. Freeze only
-    // after the next post-physics finalize, not midway through that frame.
+    // Capture one final post-physics visual pose before freezing both components.
     if (auto* CorpseMesh = Cast<UERCorpseMeshComponent>(Body)) CorpseMesh->FreezeAfterPhysicsPose();
+    bFinishPosePending = true;
     UE_LOG(LogTemp, Display, TEXT("ER_CORPSE_SETTLED pelvis=%s"), *Body->GetSocketLocation(TEXT("pelvis")).ToString());
 }
 bool AERCorpse::HasValidRagdollPose() const
@@ -141,6 +184,12 @@ bool AERCorpse::HasValidRagdollPose() const
                 return false;
             }
         }
+    if (Appearance.bCopyPhysicsPoseForRendering)
+    {
+        if (!PoseBody || PoseBody->GetSkinnedAsset()!=Appearance.Mesh || PoseBody->GetCollisionEnabled()!=ECollisionEnabled::NoCollision) return false;
+        for (FName Bone : {FName("pelvis"),FName("head"),FName("hand_l"),FName("hand_r"),FName("foot_l"),FName("foot_r")})
+            if (!PoseBody->GetBoneTransform(PoseBody->GetBoneIndex(Bone)).Equals(Body->GetBoneTransform(Body->GetBoneIndex(Bone)),.1f)) return false;
+    }
     return true;
 }
 void AERCorpse::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

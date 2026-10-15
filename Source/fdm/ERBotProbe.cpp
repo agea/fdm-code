@@ -35,7 +35,9 @@ void AERBotProbe::Tick(float DeltaTime)
 #if !UE_BUILD_SHIPPING
     if (FParse::Param(FCommandLine::Get(), TEXT("ERTargetSkinsProbe")))
     {
-        if (GetWorld()->GetTimeSeconds() < (HasAuthority() ? 20.f : 5.f)) return;
+        // A cold client may spend most of the old 20s window loading the full
+        // skin catalog. Leave time for its replicated-mesh check before exit.
+        if (GetWorld()->GetTimeSeconds() < (HasAuthority() ? 35.f : 5.f)) return;
         int32 AlphaMask = 0, OmegaMask = 0, Count = 0;
         bool bValid = true;
         for (TActorIterator<AERCharacter> It(GetWorld()); It; ++It)
@@ -53,7 +55,7 @@ void AERBotProbe::Tick(float DeltaTime)
                 else bValid = false;
             }
         }
-        bValid &= Count == 2 * ERSkins::Count && AlphaMask == 31 && OmegaMask == 31;
+        bValid &= Count == 2 * ERSkins::Count && AlphaMask == (1 << ERSkins::Count) - 1 && OmegaMask == (1 << ERSkins::Count) - 1;
         if (!HasAuthority() && (!bValid || bReplicaSeen)) return;
         if (HasAuthority()) bValid &= GetWorld()->GetAuthGameMode<AERGameMode>()->GetNumPlayers() == 2;
         UE_LOG(LogTemp,Display,TEXT("ER_TARGET_SKINS_%s side=%s count=%d alpha=%d omega=%d"),

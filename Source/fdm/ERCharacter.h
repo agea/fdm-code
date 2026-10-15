@@ -32,6 +32,8 @@ public:
     static bool SetMercenaryAnimationSkeleton(class UAnimSequence* Animation, class USkeletalMesh* TargetMesh);
     UFUNCTION(BlueprintCallable, Category="First person|Editor")
     static bool PrepareFirstPersonSkeleton(class USkeleton* Skeleton, class USkeletalMesh* PreviewMesh);
+    UFUNCTION(BlueprintCallable, Category="Eclipse Recoil|Editor")
+    static bool PrepareTeamSkeleton(class USkeleton* Skeleton, class USkeletalMesh* PreviewMesh);
     UFUNCTION(BlueprintCallable, Category="Assets|Editor")
     static bool ReplaceOwnedAssetReferences(class UObject* Asset, const TArray<class UObject*>& Sources, const TArray<class UObject*>& Replacements);
     UFUNCTION(BlueprintCallable, Category="Assets|Editor")

@@ -2,10 +2,16 @@
 Run in Unreal after compiling. Originals and existing retargeted animations are preserved.
 """
 from pathlib import Path
+import runpy
 import unreal as ue
+labels = runpy.run_path(str(Path(__file__).with_name('character_catalog.py')))['NAMES']
 
 # Share idempotent asset/material utilities without running the original retarget job.
 exec(Path(__file__).with_name('setup_team_characters.py').read_text().split('manny = load(')[0])
+for source in ['/Game/ParagonTwinblast/Characters/Heroes/TwinBlast/Skins/Tier2/ActionMovie/Meshes/TwinBlast_ActionHero',
+               '/Game/ParagonDrongo/Characters/Heroes/Drongo/Meshes/Drongo_GDC']:
+    if not assets.does_asset_exist(source):
+        raise RuntimeError('Historical skin sources were archived after approval. Restore the private cleanup archive before rebuilding; do not regenerate the approved skins.')
 manny = load('/Game/Characters/Mannequins/Meshes/SKM_Manny_Simple')
 character = ue.get_default_object(assets.load_blueprint_class('/Game/EclipseRecoil/Core/BP_ERCharacter'))
 gear_folder = root + '/Gear'
@@ -64,8 +70,11 @@ def skin_material(original, folder, team, slot_name):
 
 for team, choices in specs.items():
     base = character.get_editor_property(team.lower()+'_appearance')
+    # Preserve the appended Phase/Belica catalog on a base-skin rebuild.
+    extra_skins = list(character.get_editor_property(team.lower()+'_skins'))[5:]
     skins[team] = []
     for index, (label, key, source_path, parts, tint) in enumerate(choices):
+        label = labels[team][index]
         folder = root+'/'+team+'/Skins/'+key
         assets.make_directory(folder)
         source = load(source_path)
@@ -137,6 +146,7 @@ for team, choices in specs.items():
             attachments=attachments,scale=scale,feet_offset=-92.5-foot_z*scale).items(): appearance.set_editor_property(attr,value)
         skins[team].append(appearance)
         ue.log('ER_SKIN_READY team=%s index=%d mesh=%s gear=%s'%(team,index,mesh.get_name(),parts))
+    skins[team].extend(extra_skins)
 
 for path in ['/Game/EclipseRecoil/Core/BP_ERCharacter','/Game/EclipseRecoil/Core/BP_ERTrainingTarget','/Game/EclipseRecoil/Core/BP_ERCorpse']:
     bp=load(path);cdo=ue.get_default_object(bp.generated_class())

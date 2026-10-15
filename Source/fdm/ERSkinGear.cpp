@@ -21,7 +21,7 @@ FERAppearanceAttachment AERCorpse::MakeFieldAttachment(UStaticMesh* Gear, UMater
     return Part;
 }
 
-bool AERCorpse::BuildFieldGear(UStaticMesh* Mesh, bool bHelmet)
+bool AERCorpse::BuildFieldGear(UStaticMesh* Mesh, bool bHelmet, bool bOutwardFacing)
 {
 #if WITH_EDITOR
     if (!Mesh || !Mesh->GetPathName().StartsWith(TEXT("/Game/EclipseRecoil/Characters/Teams/"))) return false;
@@ -35,6 +35,10 @@ bool AERCorpse::BuildFieldGear(UStaticMesh* Mesh, bool bHelmet)
         TArray<FVertexInstanceID> Instances;
         const FVector Normal = FVector::CrossProduct(B-A, C-A).GetSafeNormal();
         const FVector Tangent = (B-A).GetSafeNormal();
+        // Unreal's front face uses clockwise winding. Keep the outward normals
+        // but reverse the generated polygon for newly fitted closed silhouettes.
+        // Opt in so existing saved/shared gear remains unchanged.
+        if (bOutwardFacing) Swap(B, C);
         int32 UVIndex = 0;
         for (const FVector Point : {A,B,C})
         {

@@ -7,7 +7,7 @@ it never imports the old Content history or LFS objects.
 
 | Private repository | Checkout | Contents |
 | --- | --- | --- |
-| agea/fdm-assets-characters | Assets/characters | Twinblast, Drongo, mannequin reference, owned team skins, FPS rigs/poses and character animation |
+| agea/fdm-assets-characters | Assets/characters | Twinblast, Drongo, Phase, Lt. Belica, mannequin reference, owned team skins, FPS rigs/poses and character animation |
 | agea/fdm-assets-weapons | Assets/weapons | Arsenal, weapon data/Blueprints, shot audio, smoke/explosion effects and original import sources |
 | agea/fdm-assets-maps | Assets/maps | Edited maps, external actors/objects, prototype geometry, common Core Blueprint defaults, input and template UI/Blueprints |
 
@@ -39,7 +39,7 @@ python3 scripts/setup-assets.py --check
 ```
 
 The script initializes the exact submodule commits recorded by the code
-repository, downloads LFS content and creates 22 directory links below ignored
+repository, downloads LFS content and creates 26 directory links below ignored
 Content and SourceAssets. macOS/Linux use relative symlinks; Windows uses
 directory junctions. No Unreal asset is renamed and every /Game package path
 is preserved. Existing content or unexpected links cause an error, as do
@@ -103,3 +103,9 @@ A fresh anonymous code clone and authenticated download of all three asset
 repositories passed: 1,336 verified file hashes, LFS fsck and 22 mounts.
 The split checkout passed Mac Editor compilation, network skin/shot tests
 and the ten-skin FPS Metal gallery. See TEST_RESULTS.md and REPOSITORY_SPLIT.json.
+
+15 October: Phase/Belica add two character mounts (26 total). Following user
+approval of the twenty final skins, unused character originals/demo/retarget
+assets were removed through Unreal. Required vendor dependencies and owned
+derivatives remain private at unchanged /Game paths. Restore archived authoring
+inputs only for a historical rebuild; see CHARACTER_CLEANUP_RESULT.json.

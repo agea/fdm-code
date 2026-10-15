@@ -52,7 +52,9 @@ bool AERCharacter::DeleteUnloadedParagonPackages(const TArray<FString>& Packages
     for (const FString& Name : Packages)
     {
         if (!FPackageName::IsValidLongPackageName(Name) ||
-            !(Name.StartsWith(TEXT("/Game/ParagonTwinblast/")) || Name.StartsWith(TEXT("/Game/ParagonDrongo/")))) return false;
+            !(Name.StartsWith(TEXT("/Game/ParagonTwinblast/")) || Name.StartsWith(TEXT("/Game/ParagonDrongo/")) ||
+              Name.StartsWith(TEXT("/Game/ParagonPhase/")) || Name.StartsWith(TEXT("/Game/ParagonLtBelica/")) ||
+              Name.StartsWith(TEXT("/Game/EclipseRecoil/Characters/")) || Name.StartsWith(TEXT("/Game/Characters/")))) return false;
         if (FindPackage(nullptr, *Name))
         { UE_LOG(LogTemp, Error, TEXT("ER_PACKAGE_PRUNE loaded_package=%s"), *Name); return false; }
         FString Filename;
@@ -78,6 +80,30 @@ bool AERCharacter::DeleteUnloadedParagonPackages(const TArray<FString>& Packages
         Registry.PackageDeleted(CreatePackage(*Pair.Key.ToString()));
         if (++Removed % 100 == 0) UE_LOG(LogTemp, Display, TEXT("ER_PACKAGE_PRUNE_PROGRESS removed=%d total=%d"), Removed, Files.Num());
     }
+    return true;
+#else
+    return false;
+#endif
+}
+
+bool AERCharacter::PrepareTeamSkeleton(USkeleton* Skeleton, USkeletalMesh* PreviewMesh)
+{
+#if WITH_EDITOR
+    if (!Skeleton || !PreviewMesh || PreviewMesh->GetSkeleton() != Skeleton ||
+        !Skeleton->GetPathName().StartsWith(TEXT("/Game/EclipseRecoil/Characters/Teams/")) ||
+        !PreviewMesh->GetPathName().StartsWith(TEXT("/Game/EclipseRecoil/Characters/Teams/"))) return false;
+    Skeleton->Modify();
+    const auto Compatible = Skeleton->GetCompatibleSkeletons();
+    for (const auto& Other : Compatible)
+        if (Other.ToSoftObjectPath().ToString().StartsWith(TEXT("/Game/Paragon")))
+            Skeleton->RemoveCompatibleSkeleton(Other);
+    // Preserve retarget pose data and translation modes. Only replace the
+    // editor's source mesh link; runtime animation transforms stay unchanged.
+    for (auto& Pair : Skeleton->AnimRetargetSources)
+        if (Pair.Value.SourceReferenceMesh.ToSoftObjectPath().ToString().StartsWith(TEXT("/Game/Paragon")))
+            Pair.Value.SourceReferenceMesh = PreviewMesh;
+    Skeleton->SetPreviewMesh(PreviewMesh);
+    Skeleton->MarkPackageDirty();
     return true;
 #else
     return false;
@@ -186,6 +212,7 @@ bool AERCharacter::BuildFirstPersonForearms(USkeletalMesh* Destination, USkeleta
     Destination->SetSkeleton(FirstPersonRig->GetSkeleton());
     Destination->SetRefSkeleton(RigRef);
     Destination->SetPhysicsAsset(nullptr);
+    Destination->SetShadowPhysicsAsset(nullptr);
     Destination->SetPostProcessAnimBlueprint(FirstPersonRig->GetPostProcessAnimBlueprint());
     Destination->GetMeshClothingAssets().Empty();
     Destination->SetHasActiveClothingAssets(false);

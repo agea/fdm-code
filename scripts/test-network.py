@@ -16,7 +16,9 @@ group = parser.add_mutually_exclusive_group()
 group.add_argument('--shot-feedback', action='store_true', help='Check authorized shot feedback on host and remote client')
 group.add_argument('--accuracy', action='store_true', help='Check real spread, burst recovery and owner replication')
 parser.add_argument('--skins', action='store_true', help='Validate non-default cosmetics, RPC selection and corpse identity')
+parser.add_argument('--phase-belica', action='store_true', help='Exercise Belica/Phase selection, death and respawn over LAN')
 args = parser.parse_args()
+if args.phase_belica: args.skins = True
 
 project = Path(__file__).resolve().parents[1]
 engine = Path(os.environ.get("UE_ROOT", "/Users/Shared/Epic Games/UE_5.8"))
@@ -30,12 +32,13 @@ port = '17783' if args.accuracy else '17777'
 label = 'accuracy' if args.accuracy else 'network'
 probe = '-ERAccuracyProbe' if args.accuracy else '-ERNetworkProbe'
 if args.skins: common.append('-ERSkinProbe')
+if args.phase_belica: common.append('-ERPhaseBelicaProbe')
 processes = []
 handles = []
 try:
     host_log = (logs / (label + '-host.log')).open("w")
     handles.append(host_log)
-    host = subprocess.Popen(common + ["/Game/EclipseRecoil/Maps/L_Depot?listen?Name=Host" + ("?AlphaSkin=3?OmegaSkin=2" if args.skins else ""), '-port=' + port, probe], stdout=host_log, stderr=subprocess.STDOUT)
+    host = subprocess.Popen(common + ["/Game/EclipseRecoil/Maps/L_Depot?listen?Name=Host" + ("?AlphaSkin=8?OmegaSkin=7" if args.phase_belica else "?AlphaSkin=3?OmegaSkin=2" if args.skins else ""), '-port=' + port, probe], stdout=host_log, stderr=subprocess.STDOUT)
     processes.append(host)
     deadline = time.monotonic() + 45
     while time.monotonic() < deadline:
@@ -49,7 +52,7 @@ try:
         raise RuntimeError("Host did not listen within 45 seconds")
     client_log = (logs / (label + '-client.log')).open("w")
     handles.append(client_log)
-    client = subprocess.Popen(common + ['127.0.0.1:' + port + '?Name=Client' + ('?AlphaSkin=1?OmegaSkin=4' if args.skins else '')], stdout=client_log, stderr=subprocess.STDOUT)
+    client = subprocess.Popen(common + ['127.0.0.1:' + port + '?Name=Client' + ('?AlphaSkin=6?OmegaSkin=9' if args.phase_belica else '?AlphaSkin=1?OmegaSkin=4' if args.skins else '')], stdout=client_log, stderr=subprocess.STDOUT)
     processes.append(client)
     deadline = time.monotonic()+100
     while time.monotonic()<deadline and host.poll() is None:
@@ -83,7 +86,7 @@ try:
             ('damage_owner_audio_and_direction', any('ER_DAMAGE_FEEDBACK' in line and 'sound=1' in line and 'direction=' in line for line in remote.splitlines())),
             ('corpse_replicated_and_settled', 'ER_CORPSE_CREATED' in remote and 'physics=1' in remote and 'ER_CORPSE_SETTLED' in remote),
             ('team_mesh_animation_sections_replicated', 'ER_TEAM_CLIENT_PASS phase=2' in remote and 'ER_TEAM_CLIENT_FAIL' not in remote),
-            ('both_team_corpses_replicated', all(any('ER_CORPSE_CREATED' in line and 'mesh=' in line and mesh in line for line in remote.splitlines()) for mesh in ['SK_ER_Drongo_Omega','SK_ER_Twinblast_Alpha'])),
+            ('both_team_corpses_replicated', all(any('ER_CORPSE_CREATED' in line and 'mesh=' in line and mesh in line for line in remote.splitlines()) for mesh in (['SK_ER_Phase_Omega','SK_ER_Belica_Alpha'] if args.phase_belica else ['SK_ER_Drongo_Omega','SK_ER_Twinblast_Alpha']))),
         ]:
             print('ER_TEST_' + ('PASS' if passed else 'FAIL'), label)
             success = success and passed
