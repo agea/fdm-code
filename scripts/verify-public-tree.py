@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ROOT_FILES = {'fdm.uproject', 'README.md', 'AGENTS.md', '.gitignore', '.gitattributes',
               '.gitmodules', 'assets.json', 'ASSETS_REQUIRED.md', 'CODE_EXPORT.json'}
 EXTENSIONS = {'Source': {'.cpp', '.h', '.cs'}, 'Config': {'.ini'},
-              'scripts': {'.py', '.command', '.sh'}, 'docs': {'.md', '.txt', '.json'}}
+              'scripts': {'.py', '.command', '.sh'}, 'docs': {'.md', '.txt', '.json', '.csv'}}
 SUBMODULES = {'Assets/characters', 'Assets/weapons', 'Assets/maps'}
 
 
