@@ -237,6 +237,11 @@ void AERPlayerController::SetupInputComponent()
     InputComponent->BindKey(EKeys::Three, IE_Pressed, this, &AERPlayerController::SelectHE);
     InputComponent->BindKey(EKeys::Four, IE_Pressed, this, &AERPlayerController::SelectSmoke);
     InputComponent->BindKey(EKeys::Five, IE_Pressed, this, &AERPlayerController::SelectStun);
+    InputComponent->BindKey(EKeys::Six, IE_Pressed, this, &AERPlayerController::SelectSix);
+    InputComponent->BindKey(EKeys::Seven, IE_Pressed, this, &AERPlayerController::SelectSeven);
+    InputComponent->BindKey(EKeys::Eight, IE_Pressed, this, &AERPlayerController::SelectEight);
+    InputComponent->BindKey(EKeys::F, IE_Pressed, this, &AERPlayerController::SelectReferenceHE);
+    InputComponent->BindKey(EKeys::G, IE_Pressed, this, &AERPlayerController::SelectReferenceSmoke);
     InputComponent->BindKey(EKeys::MouseScrollUp, IE_Pressed, this, &AERPlayerController::NextWeapon);
     InputComponent->BindKey(EKeys::MouseScrollDown, IE_Pressed, this, &AERPlayerController::PreviousWeapon);
     InputComponent->BindKey(EKeys::RightMouseButton, IE_Pressed, this, &AERPlayerController::ZoomPressed);
@@ -355,6 +360,10 @@ void AERPlayerController::SelectSlot(int32 Slot)
     if (bMenuOpen) return;
     bZoomHeld = false;
     if (auto* C = Cast<AERCharacter>(GetPawn())) C->ServerSelectWeapon(Slot);
+}
+void AERPlayerController::SelectNumber(int32 Index)
+{
+    if (const auto* C = Cast<AERCharacter>(GetPawn()); C && (C->UsesReferenceArsenal() || Index < 5)) SelectSlot(Index);
 }
 void AERPlayerController::NextWeapon()
 {
@@ -586,7 +595,9 @@ void AERPlayerController::ShowMenu(bool bShow)
         GamePanel->AddSlot().AutoHeight().Padding(0,10)[FocusWidget.ToSharedRef()];
         GamePanel->AddSlot().AutoHeight().Padding(0,10)[Button(TEXT("TORNA AL MENU"), [GI]() { GI->ReturnToMenu(); return FReply::Handled(); })];
     }
-    if (!PrimaryOptions.IsEmpty())
+    const auto* MenuPawn=Cast<AERCharacter>(GetPawn());
+    const bool bReferenceMenu=MenuPawn ? MenuPawn->UsesReferenceArsenal() : bReferenceArsenalMenu;
+    if (!PrimaryOptions.IsEmpty() && !bReferenceMenu)
     {
         TSharedRef<SVerticalBox> Choices = SNew(SVerticalBox);
         for (int32 Index = 0; Index < FMath::Min(7, PrimaryOptions.Num()); ++Index)
@@ -606,6 +617,8 @@ void AERPlayerController::ShowMenu(bool bShow)
             .MenuContent()[Choices]];
         Panel->AddSlot().AutoHeight().Padding(0,5)[SNew(STextBlock).Text(FText::FromString(TEXT("1 Principale · 2 M1911 · 3 HE · 4 Fumo · 5 Stun\nRotella cambia arma · Tasto destro zoom"))).AutoWrapText(true)];
     }
+    else Panel->AddSlot().AutoHeight().Padding(0,8)[SNew(STextBlock).AutoWrapText(true).Text(FText::FromString(
+        TEXT("1 Coltello · 2 Pistola · 3 SMG · 4 Shotgun\n5 Fucile d'assalto · 6 Carabina · 7 Sniper · 8 Lanciagranate\nF Granata HE · G Fumogena\nRotella cambia arma · Tasto destro zoom")))];
     TSharedRef<SVerticalBox> DisplayChoices = SNew(SVerticalBox);
     for (int32 Percent : {50, 60, 70, 80, 90, 100})
     {
@@ -818,11 +831,11 @@ void AERHUD::DrawHUD()
         if (Movement->bProneWanted || Movement->IsProne()) Text(TEXT("PANCIA A TERRA  |  C / Ctrl per rialzarti"), 30, H-125, FLinearColor::White, 1.f);
         DrawLine(W/2-8,H/2,W/2-3,H/2,FLinearColor::White); DrawLine(W/2+3,H/2,W/2+8,H/2,FLinearColor::White);
         DrawLine(W/2,H/2-8,W/2,H/2-3,FLinearColor::White); DrawLine(W/2,H/2+3,W/2,H/2+8,FLinearColor::White);
-        Text(FString::Printf(TEXT("HP  %.0f"), Character->Health->Health), 30, H-65, FLinearColor(.4f,1,.7f), 2.f);
+        Text(FString::Printf(TEXT("HP  %.0f   AP  %.0f"), Character->Health->Health, Character->Health->Armor), 30, H-65, FLinearColor(.4f,1,.7f), 2.f);
         if (const auto* Weapon = Character->Weapon.Get())
         {
             Text(Weapon->bReloading ? TEXT("RICARICA...") : FString::Printf(TEXT("%02d / %02d    %s"),Weapon->MagazineAmmo,Weapon->ReserveAmmo,
-                Weapon->Data ? *Weapon->Data->DisplayName : TEXT("Rifle A")),W-280,H-65,FLinearColor::White,1.7f);
+                Weapon->Data ? *Weapon->Data->DisplayName : TEXT("Rifle A")),W-440,H-65,FLinearColor::White,1.4f);
             const int32 Capacity = Weapon->Data ? FMath::Clamp(Weapon->Data->MagazineSize, 1, 120) : 30;
             const int32 Remaining = FMath::Clamp(Weapon->MagazineAmmo, 0, Capacity);
             const float Scale = FMath::Clamp(H / 720.f, .65f, 2.f);

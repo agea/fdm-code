@@ -65,6 +65,7 @@ public:
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) TObjectPtr<class UInputAction> MenuAction;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) TObjectPtr<class UInputAction> WalkAction;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Arsenal") TArray<TObjectPtr<class UERWeaponData>> PrimaryOptions;
+    UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Arsenal") bool bReferenceArsenalMenu = false;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Team appearance") TSubclassOf<class AERCharacter> SkinCatalog;
     bool bZoomHeld = false;
     float FlashOpacity = 0;
@@ -139,11 +140,17 @@ private:
     void ScoreboardReleased();
     void MenuPressed();
     void SelectSlot(int32 Slot);
-    void SelectPrimary() { SelectSlot(0); }
-    void SelectSidearm() { SelectSlot(1); }
-    void SelectHE() { SelectSlot(2); }
-    void SelectSmoke() { SelectSlot(3); }
-    void SelectStun() { SelectSlot(4); }
+    void SelectNumber(int32 Index);
+    void SelectPrimary() { SelectNumber(0); }
+    void SelectSidearm() { SelectNumber(1); }
+    void SelectHE() { SelectNumber(2); }
+    void SelectSmoke() { SelectNumber(3); }
+    void SelectStun() { SelectNumber(4); }
+    void SelectSix() { SelectNumber(5); }
+    void SelectSeven() { SelectNumber(6); }
+    void SelectEight() { SelectNumber(7); }
+    void SelectReferenceHE() { SelectSlot(8); }
+    void SelectReferenceSmoke() { SelectSlot(9); }
     void NextWeapon();
     void PreviousWeapon();
     void ZoomPressed() { if (!bMenuOpen) bZoomHeld = true; }

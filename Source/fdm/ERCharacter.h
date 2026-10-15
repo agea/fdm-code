@@ -12,10 +12,11 @@ class FDM_API UERHealthComponent : public UActorComponent
 public:
     UERHealthComponent();
     UPROPERTY(Replicated, BlueprintReadOnly) float Health = 100;
+    UPROPERTY(Replicated, BlueprintReadOnly) float Armor = 0;
     UPROPERTY(ReplicatedUsing=OnRep_Dead, BlueprintReadOnly) bool bDead = false;
     UPROPERTY(Replicated, BlueprintReadOnly) double ProtectionEndServerTime = 0;
     bool IsProtected() const;
-    void ReceiveDamage(float Amount, AController* Killer);
+    float ReceiveDamage(float Amount, AController* Killer, float ArmorRatio = 2);
     UFUNCTION() void OnRep_Dead();
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 };
@@ -44,6 +45,8 @@ public:
     static FTransform GetWeaponReferenceBone(class USkeletalMesh* WeaponMesh, FName Bone);
     UFUNCTION(BlueprintCallable, Category="Arsenal|Editor")
     static bool AssignWeaponMaterial(class USkeletalMesh* WeaponMesh, class UMaterialInterface* Material);
+    UFUNCTION(BlueprintCallable, Category="Assets|Editor")
+    static bool AssignWeaponMaterials(class USkeletalMesh* WeaponMesh, const TArray<class UMaterialInterface*>& Materials);
     UFUNCTION(BlueprintCallable, Category="First person|Editor")
     static bool BuildFirstPersonForearms(class USkeletalMesh* Destination, class USkeletalMesh* SkinMesh,
         class USkeletalMesh* FirstPersonRig, const TArray<int32>& ExcludedMaterials, const TArray<FName>& ExcludedBones);
@@ -70,6 +73,8 @@ public:
     UPROPERTY(Replicated, BlueprintReadOnly) TObjectPtr<class AERWeapon> Weapon;
     UPROPERTY(Replicated) TArray<TObjectPtr<class AERWeapon>> Inventory;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Arsenal") TArray<TObjectPtr<class UERWeaponData>> Arsenal;
+    UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Arsenal") TArray<TObjectPtr<class UERWeaponData>> ReferenceArsenal;
+    bool UsesReferenceArsenal() const;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) TSubclassOf<class AERWeapon> WeaponClass;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Damage feedback") TObjectPtr<class USoundBase> HitSound;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Damage feedback") TObjectPtr<class USoundAttenuation> HitAttenuation;
@@ -107,6 +112,7 @@ public:
 private:
     bool bDeathVisualsApplied = false;
     UPROPERTY() TObjectPtr<class UERWeaponData> AppliedWeaponData;
+    bool bAppliedReloading = false;
     FVector FirstPersonBodyBaseLocation = FVector::ZeroVector;
     void UpdateWeaponPresentation();
     FVector LastHitDirection = FVector::ForwardVector;

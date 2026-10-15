@@ -1,0 +1,174 @@
+Pistols,Armor Ratio,Damage,RangeModifier,CycleTime,,"Req. Chest Hits
+@100U/2.54m","Req. Chest Hits
+@200U/5.08m","Req. Chest Hits
+@300U/7.62m","Req. Chest Hits
+@400U/10.16m","Req. Chest Hits
+@500U/12.7m","Req. Chest Hits
+@600U/15.24m","Req. Chest Hits
+@700U/17.78m","Req. Chest Hits
+@800U/20.32m","Req. Chest Hits
+@900U/22.86m","Req. Chest Hits
+@1000U/25.4m","Req. Chest Hits
+@100U/27.94m","Req. Chest Hits
+@1200U/30.48m","Req. Chest Hits
+@1300U/33.02m","Req. Chest Hits
+@1400U/35.56m","Req. Chest Hits
+@1500U/38.1m",,"Req. Chest Hits
+@2000U/50.8m","Req. Chest Hits
+@2500U/63.5m","Req. Chest Hits
+@3000U/76.2m",,"Time-to-Kill 
+@100U","Time-to-Kill 
+@300U","Time-to-Kill 
+@600U","Time-to-Kill 
+@1200U"
+deagle,1.864,53,0.85,0.23,,3,3,3,3,3,3,3,3,3,3,3,3,4,4,4,,4,5,6,,0.45,0.45,0.45,0.45
+revolver,1.864,86,0.94,0.50,,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,,2,2,2,,0.50,0.50,0.50,0.50
+elite,1.150,38,0.79,0.12,,5,6,6,6,6,7,7,7,7,8,8,9,9,9,10,,12,15,19,,0.48,0.60,0.72,0.96
+fiveseven,1.823,32,0.81,0.15,,4,4,4,5,5,5,5,5,6,6,6,6,6,7,7,,8,10,13,,0.45,0.45,0.60,0.75
+glock,0.940,30,0.85,0.15,,8,8,8,9,9,9,9,10,10,10,11,11,11,12,12,,14,16,19,,1.05,1.05,1.20,1.50
+hkp2000,1.010,35,0.91,0.17,,6,6,6,7,7,7,7,7,7,7,7,8,8,8,8,,9,10,10,,0.85,0.85,1.02,1.19
+usp_silencer,1.010,35,0.91,0.17,,6,6,6,7,7,7,7,7,7,7,7,8,8,8,8,,9,10,10,,0.85,0.85,1.02,1.19
+p250,1.280,38,0.90,0.15,,5,5,5,5,5,5,5,5,5,6,6,6,6,6,6,,7,7,8,,0.60,0.60,0.60,0.75
+cz75a,1.553,31,0.85,0.10,,5,5,5,5,5,6,6,6,6,6,6,7,7,7,7,,8,10,12,,0.40,0.40,0.50,0.60
+tec9,1.812,33,0.79,0.12,,4,4,4,5,5,5,5,5,6,6,6,6,7,7,7,,9,11,14,,0.36,0.36,0.48,0.60
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Shotguns,Armor Ratio,Damage,RangeModifier,CycleTime,,"Req. Chest Hits
+@100U/2.54m","Req. Chest Hits
+@200U/5.08m","Req. Chest Hits
+@300U/7.62m","Req. Chest Hits
+@400U/10.16m","Req. Chest Hits
+@500U/12.7m","Req. Chest Hits
+@600U/15.24m","Req. Chest Hits
+@700U/17.78m","Req. Chest Hits
+@800U/20.32m","Req. Chest Hits
+@900U/22.86m","Req. Chest Hits
+@1000U/25.4m","Req. Chest Hits
+@100U/27.94m","Req. Chest Hits
+@1200U/30.48m","Req. Chest Hits
+@1300U/33.02m","Req. Chest Hits
+@1400U/35.56m","Req. Chest Hits
+@1500U/38.1m",,,,,,"Time-to-Kill 
+@100U","Time-to-Kill 
+@300U","Time-to-Kill 
+@600U","Time-to-Kill 
+@1200U"
+mag7,1.500,30,0.45,0.85,,1,1,1,2,2,2,2,2,3,3,4,4,5,6,7,,,,,,Instant,Instant,0.85,2.55
+nova,1.000,26,0.70,0.88,,1,1,2,2,2,2,2,2,2,2,2,3,3,3,3,,,,,,Instant,0.88,0.88,1.76
+sawedoff,1.500,32,0.45,0.85,,1,1,1,1,2,2,2,2,3,3,4,4,5,5,6,,,,,,Instant,Instant,0.85,2.55
+xm1014,1.600,20,0.70,0.35,,2,2,2,2,2,2,2,2,2,3,3,3,3,3,4,,,,,,0.35,0.35,0.35,0.70
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+SMGs,Armor Ratio,Damage,RangeModifier,CycleTime,,"Req. Chest Hits
+@100U/2.54m","Req. Chest Hits
+@200U/5.08m","Req. Chest Hits
+@300U/7.62m","Req. Chest Hits
+@400U/10.16m","Req. Chest Hits
+@500U/12.7m","Req. Chest Hits
+@600U/15.24m","Req. Chest Hits
+@700U/17.78m","Req. Chest Hits
+@800U/20.32m","Req. Chest Hits
+@900U/22.86m","Req. Chest Hits
+@1000U/25.4m","Req. Chest Hits
+@100U/27.94m","Req. Chest Hits
+@1200U/30.48m","Req. Chest Hits
+@1300U/33.02m","Req. Chest Hits
+@1400U/35.56m","Req. Chest Hits
+@1500U/38.1m",,"Req. Chest Hits
+@2000U/50.8m","Req. Chest Hits
+@2500U/63.5m","Req. Chest Hits
+@3000U/76.2m",,"Time-to-Kill 
+@100U","Time-to-Kill 
+@300U","Time-to-Kill 
+@600U","Time-to-Kill 
+@1200U"
+bizon,1.260,27,0.80,0.08,,7,7,7,8,8,8,9,9,9,10,10,11,11,11,12,,15,18,23,,0.48,0.48,0.56,0.80
+mac10,1.150,29,0.80,0.08,,7,7,7,8,8,8,9,9,9,10,10,11,11,12,12,,15,19,23,,0.45,0.45,0.53,0.75
+mp7,1.250,30,0.87,0.08,,6,6,6,6,7,7,7,7,7,8,8,8,8,8,9,,10,11,13,,0.40,0.40,0.48,0.56
+mp5sd,1.250,28,0.87,0.08,,6,7,7,7,7,7,7,8,8,8,8,8,9,9,9,,10,12,14,,0.40,0.48,0.48,0.56
+mp9,1.200,26,0.87,0.07,,7,7,7,8,8,8,8,9,9,9,9,9,10,10,10,,12,13,15,,0.42,0.42,0.49,0.56
+p90,1.380,26,0.86,0.07,,6,6,7,7,7,7,7,8,8,8,8,9,9,9,9,,11,12,14,,0.35,0.42,0.42,0.56
+ump45,1.300,35,0.75,0.09,,5,5,6,6,6,7,7,7,8,8,9,9,10,10,11,,14,19,25,,0.36,0.45,0.54,0.72
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Automatic Rifles,Armor Ratio,Damage,RangeModifier,CycleTime,,"Req. Chest Hits
+@100U/2.54m","Req. Chest Hits
+@200U/5.08m","Req. Chest Hits
+@300U/7.62m","Req. Chest Hits
+@400U/10.16m","Req. Chest Hits
+@500U/12.7m","Req. Chest Hits
+@600U/15.24m","Req. Chest Hits
+@700U/17.78m","Req. Chest Hits
+@800U/20.32m","Req. Chest Hits
+@900U/22.86m","Req. Chest Hits
+@1000U/25.4m","Req. Chest Hits
+@100U/27.94m","Req. Chest Hits
+@1200U/30.48m","Req. Chest Hits
+@1300U/33.02m","Req. Chest Hits
+@1400U/35.56m","Req. Chest Hits
+@1500U/38.1m",,"Req. Chest Hits
+@2000U/50.8m","Req. Chest Hits
+@2500U/63.5m","Req. Chest Hits
+@3000U/76.2m",,"Time-to-Kill 
+@100U","Time-to-Kill 
+@300U","Time-to-Kill 
+@600U","Time-to-Kill 
+@1200U"
+ak47,1.550,36,0.98,0.10,,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,,4,4,5,,0.30,0.30,0.30,0.30
+aug,1.800,28,0.98,0.10,,4,5,5,5,5,5,5,5,5,5,5,5,5,5,5,,5,5,5,,0.30,0.40,0.40,0.40
+famas,1.400,30,0.96,0.09,,5,5,5,5,5,6,6,6,6,6,6,6,6,6,6,,6,6,7,,0.36,0.36,0.45,0.45
+galilar,1.550,30,0.98,0.09,,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,,5,5,5,,0.36,0.36,0.36,0.36
+m4a1,1.400,33,0.97,0.09,,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,,5,6,6,,0.36,0.36,0.36,0.36
+m4a1_silencer,1.400,38,0.94,0.10,,4,4,4,4,4,5,5,5,5,5,5,5,5,5,5,,5,6,6,,0.30,0.30,0.40,0.40
+sg556,2.000,30,0.98,0.11,,4,4,4,4,4,4,4,4,4,4,4,4,4,4,4,,4,4,4,,0.33,0.33,0.33,0.33
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+LMGs,Armor Ratio,Damage,RangeModifier,CycleTime,,"Req. Chest Hits
+@100U/2.54m","Req. Chest Hits
+@200U/5.08m","Req. Chest Hits
+@300U/7.62m","Req. Chest Hits
+@400U/10.16m","Req. Chest Hits
+@500U/12.7m","Req. Chest Hits
+@600U/15.24m","Req. Chest Hits
+@700U/17.78m","Req. Chest Hits
+@800U/20.32m","Req. Chest Hits
+@900U/22.86m","Req. Chest Hits
+@1000U/25.4m","Req. Chest Hits
+@100U/27.94m","Req. Chest Hits
+@1200U/30.48m","Req. Chest Hits
+@1300U/33.02m","Req. Chest Hits
+@1400U/35.56m","Req. Chest Hits
+@1500U/38.1m",,"Req. Chest Hits
+@2000U/50.8m","Req. Chest Hits
+@2500U/63.5m","Req. Chest Hits
+@3000U/76.2m",,"Time-to-Kill 
+@100U","Time-to-Kill 
+@300U","Time-to-Kill 
+@600U","Time-to-Kill 
+@1200U"
+m249,1.600,32,0.97,0.08,,4,4,4,5,5,5,5,5,5,5,5,5,5,5,5,,5,5,5,,0.24,0.24,0.32,0.32
+negev,1.420,35,0.97,0.08,,5,5,5,5,5,5,5,5,5,5,5,5,5,5,5,,5,5,5,,0.30,0.30,0.30,0.30
+,,,,,,,,,,,,,,,,,,,,,,,,,,,,,
+Sniper Rifles,Armor Ratio,Damage,RangeModifier,CycleTime,,"Req. Chest Hits
+@100U/2.54m","Req. Chest Hits
+@200U/5.08m","Req. Chest Hits
+@300U/7.62m","Req. Chest Hits
+@400U/10.16m","Req. Chest Hits
+@500U/12.7m","Req. Chest Hits
+@600U/15.24m","Req. Chest Hits
+@700U/17.78m","Req. Chest Hits
+@800U/20.32m","Req. Chest Hits
+@900U/22.86m","Req. Chest Hits
+@1000U/25.4m","Req. Chest Hits
+@100U/27.94m","Req. Chest Hits
+@1200U/30.48m","Req. Chest Hits
+@1300U/33.02m","Req. Chest Hits
+@1400U/35.56m","Req. Chest Hits
+@1500U/38.1m",,"Req. Chest Hits
+@2000U/50.8m","Req. Chest Hits
+@2500U/63.5m","Req. Chest Hits
+@3000U/76.2m",,"Time-to-Kill 
+@100U","Time-to-Kill 
+@300U","Time-to-Kill 
+@600U","Time-to-Kill 
+@1200U"
+awp,1.950,115,0.99,1.46,,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,,1,1,1,,Instant,Instant,Instant,Instant
+g3sg1,1.650,80,0.98,0.25,,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,,2,2,2,,0.25,0.25,0.25,0.25
+scar20,1.650,80,0.98,0.25,,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,,2,2,2,,0.25,0.25,0.25,0.25
+ssg08,1.700,88,0.98,1.25,,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,,2,2,2,,1.25,1.25,1.25,1.25

@@ -506,3 +506,33 @@ weapons, Git/LFS or other downloads implicitly. A verified private rollback arch
 and manifests are kept outside the project in the sibling `_backups` directory.
 Historical rebuild scripts require restoring archived inputs before generation;
 ordinary play and saved-asset verification require no originals restoration.
+
+## Requested Sketchfab arsenal (15 October)
+
+The latest weapon request supersedes the seven-primary/fixed-sidearm/no-melee
+baseline. Use docs/WEAPON_IMPORT.md and docs/WEAPONS_REFERENCE_EN.md, preserving
+the original attachment and worksheet snapshot in docs/references. Ten independent
+server-owned inventory slots use1..8/F/G: knife, pistol, SMG, shotgun, assault,
+carbine, sniper, Milkor, HE, smoke. Initial weapon is the assault rifle. The user
+specified AK-47 and SCAR statistics; the latter maps to scar20 in the sheet.
+Keep all nine archives, source metadata/provenance and derived FBX privately in
+weapons SourceAssets/SketchfabWeapons, runtime assets in Weapons/Sketchfab, and
+Blueprint references in the existing private maps mount. No Downloads runtime.
+
+Preserve server aim, spread, cover, per-weapon ammo/cooldown and cancellation.
+RangeModifier applies per1270cm; armor consumes half the prevented health damage
+using ArmorRatio/2, with correct depletion and protection guards. Starting AP100
+belongs to the new catalog; direct environmental damage and the legacy fixture
+retain their behavior. Melee is a bounded160cm first-hit server query. Milkor
+uses LaunchedHE with the source GL_slug1 geometry, gravity, impact detonation and
+fuse, never hitscan. Preserve enum values for the older payloads.
+
+The fitted FPS skin rig/poses remain independent. Bake source rigid mechanics
+and source root/wrist motion separately; retarget hands with bounded IK rather
+than replacing skin geometry. Keep original files, author credits and per-asset
+licenses (Milkor BY-NC); use Unreal to save/reimport generated packages. Source
+normal conventions and smoothness inversion matter. Run the native Weapons
+automation test, test-reference-weapons.py and --render, inspect all captures,
+verify saved asset bindings with verify_sketchfab_weapons.py, then retain
+network/accuracy/legacy-arsenal regressions. ERLegacyArsenal is the explicit server
+URL option for the older regression fixture, not the default gameplay catalog.

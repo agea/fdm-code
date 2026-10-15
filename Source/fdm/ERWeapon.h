@@ -6,7 +6,7 @@
 #include "ERWeapon.generated.h"
 
 UENUM(BlueprintType)
-enum class EERPayload : uint8 { Bullet, Rocket, HE, Smoke, Stun };
+enum class EERPayload : uint8 { Bullet, Rocket, HE, Smoke, Stun, Melee, LaunchedHE };
 
 UCLASS(BlueprintType)
 class FDM_API UERWeaponData : public UDataAsset
@@ -22,6 +22,11 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") FVector MuzzleOffset = FVector(0, 60, 0);
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") TObjectPtr<class UAnimSequence> IdleAnimation;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") TObjectPtr<class UAnimSequence> FireAnimation;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") TObjectPtr<class UAnimSequence> ReloadAnimation;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") TObjectPtr<class UAnimSequence> WeaponIdleAnimation;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") TObjectPtr<class UAnimSequence> WeaponFireAnimation;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") TObjectPtr<class UAnimSequence> WeaponReloadAnimation;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") TObjectPtr<class USkeletalMesh> ProjectileMesh;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") bool bOneHanded = false;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") float SoundPitch = 1;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) bool bAutomatic = true;
@@ -31,6 +36,8 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite) float FuseDuration = 2.5f;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) float ZoomFOV = 90;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) float Damage = 36;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Ballistics") float ArmorRatio = 2;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Ballistics") float RangeModifier = 1;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) float ShotInterval = 0.1f;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) int32 MagazineSize = 30;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) int32 InitialReserve = 90;

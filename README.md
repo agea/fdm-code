@@ -33,18 +33,24 @@ capacity and reload duration; ordinary depot ammo remains finite.
 
 Controls: WASD, mouse aim / left-click fire, Space jump / climb / respawn, Shift walk, double-tap W sprint (5s, then 10s recovery), hold Ctrl or C crouch,
 double-tap Ctrl or C prone (press again to rise),
-R reload, 1–5 or mouse wheel select weapon, right-click zoom, Tab scoreboard,
+R reload, 1–8 / F / G or mouse wheel select weapon, right-click zoom, Tab scoreboard,
 Esc menu. After dying, wait three seconds and press
 fire or jump again. The respawn press is consumed; release before firing.
 
-The Fab low-poly arsenal is imported into the project: AK74, M4, Uzi, Shotgun
-M4, M249, M107 and RPG7 as selectable primaries, with an M1911 sidearm and
-HE/smoke/stun slots. Choose the primary in the menu; changes apply on the next
-spawn. Ammo stays with each weapon. Source ZIP/FBX/TGA files are retained in
-`SourceAssets/LowPolyWeapons`; runtime assets are in `Content/EclipseRecoil/Weapons/LowPoly`.
-Smoke and explosion effects are provisional; smoke does not affect bot vision.
+The requested Sketchfab arsenal is the default: 1 knife, 2 pistol, 3 SMG,
+4 shotgun, 5 assault rifle, 6 carbine, 7 sniper, 8 Milkor grenade launcher,
+F HE and G smoke. All ten slots keep independent ammunition and cooldowns.
+The assault/carbine use the requested AK-47/SCAR-20 statistics. Server-owned
+armor starts at 100 AP and bullets lose damage over distance using the supplied
+worksheet. Source archives and credits are private in
+`SourceAssets/SketchfabWeapons`; runtime assets live in
+`Content/EclipseRecoil/Weapons/Sketchfab`. The original list, its English
+translation, source mappings and rebuild details are in
+[the weapon import notes](docs/WEAPON_IMPORT.md).
+The previous Fab arsenal remains available with `?ERLegacyArsenal=1` for its
+baseline regression fixture. Smoke does not affect bot vision.
 
-Each server-authorized shot now plays a short first-person firing animation,
+Each server-authorized gunshot now plays a short first-person firing animation,
 gentle cosmetic camera recoil, a muzzle flash and the template firing sound.
 Other players hear spatialized shots and see the world rifle's muzzle flash.
 The firing pose preserves both hand grips; camera recoil does not change aim.
@@ -165,7 +171,10 @@ Every second bullet shot ejects a small local dark casing with gravity and floor
 contact (three-second lifetime, maximum 32; ignores players and shot traces).
 `scripts/setup_hitscan_effects.py` builds owned Niagara effects
 and four transparent decal variants from the private BulletImpacts source atlas.
-Run `python3 scripts/test-arsenal.py` to check shotgun pellets and utility payloads.
+Run `python3 scripts/test-reference-weapons.py` for the current ten-slot catalog,
+actual client key bindings, reload, armor and physical Milkor projectile;
+add `--render` for Metal viewmodel captures. `python3 scripts/test-arsenal.py`
+retains the original catalog's shotgun/utility regression fixture.
 `-ERHitscanGallery` with `?ERBots=2?ERBotMode=Target` captures the four decal
 variants and a tracer sample in `Saved/Testing/Hitscan-Effects.png`; the gallery
 holds the sample for 350 ms for screenshot readback (ordinary tracers last about

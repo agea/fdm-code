@@ -123,14 +123,30 @@ void AERWeapon::TryFire()
     LastShotDirection = ShotRandom.VRandCone(LastShotAimDirection, FMath::DegreesToRadians(LastShotSpreadDegrees));
     FHitResult MuzzleHit;
     const bool bBlocked = GetWorld()->SweepSingleByChannel(MuzzleHit, Eye, IntendedMuzzle, FQuat::Identity, ECC_GameTraceChannel1, FCollisionShape::MakeSphere(3), Params);
-    --MagazineAmmo; NextAllowedShotTime = Now + Data->ShotInterval; Character->Health->ProtectionEndServerTime = 0;
+    if (Data->Payload != EERPayload::Melee) --MagazineAmmo;
+    NextAllowedShotTime = Now + Data->ShotInterval; Character->Health->ProtectionEndServerTime = 0;
     // Only an authorized shot changes burst buildup. Owners recover it against the server clock.
     BloomAtLastShot = FMath::Min(GetBloomDegrees() + Data->BloomPerShotDegrees, Data->MaxBloomDegrees);
     LastSpreadShotServerTime = Now;
     ForceNetUpdate();
     ++AuthorizedShotCount;
     LastShotTraceCount = 0;
-    if (Data->Payload == EERPayload::Bullet)
+    if (Data->Payload == EERPayload::Melee)
+    {
+        // Short, server-selected first-hit melee query; walls still block it.
+        FHitResult Hit;
+        LastShotTraceStart = Eye;
+        LastShotTraceEnd = Eye + Aim.Vector() * FMath::Clamp(Data->HitscanRange, 1.f, 180.f);
+        LastShotTraceCount = 1;
+        if (GetWorld()->LineTraceSingleByChannel(Hit, Eye, LastShotTraceEnd, ECC_GameTraceChannel1, Params))
+        {
+            LastShotTraceEnd = Hit.ImpactPoint;
+            UGameplayStatics::ApplyPointDamage(Hit.GetActor(), Data->Damage, Aim.Vector(), Hit,
+                Character->Controller, this, UDamageType::StaticClass());
+        }
+        Character->MulticastShot(Eye, LastShotTraceEnd, false);
+    }
+    else if (Data->Payload == EERPayload::Bullet)
     {
         const int32 PelletCount = FMath::Clamp(Data->Pellets, 1, 16);
         FVector FeedbackEnd = IntendedMuzzle;
@@ -181,7 +197,7 @@ void AERWeapon::TryFire()
         {
             Projectile->Damage = Data->Damage;
             Projectile->Payload = Data->Payload;
-            Projectile->ThrownMesh = Data->bOneHanded ? Data->Mesh : nullptr;
+            Projectile->ThrownMesh = Data->ProjectileMesh ? Data->ProjectileMesh : (Data->bOneHanded ? Data->Mesh : nullptr);
             Projectile->ExplosionRadius = Data->ExplosionRadius;
             Projectile->FuseDuration = Data->FuseDuration;
             Projectile->Movement->InitialSpeed = Data->ProjectileSpeed;
@@ -204,7 +220,7 @@ void AERWeapon::MulticastImpact_Implementation(FVector_NetQuantize Position, FVe
 }
 void AERWeapon::Reload()
 {
-    if (!CanFight() || bReloading || MagazineAmmo >= Data->MagazineSize) return;
+    if (!CanFight() || bReloading || MagazineAmmo >= Data->MagazineSize || Data->Payload == EERPayload::Melee) return;
     // Only authority enters CanFight; labs replenish reserve, retaining reload timing.
     if (GetWorld()->GetMapName().Contains(TEXT("Lab"))) ReserveAmmo = FMath::Max(ReserveAmmo, Data->MagazineSize);
     if (ReserveAmmo <= 0) return;
@@ -264,7 +280,7 @@ void AERProjectile::BeginPlay()
         Effect->SetMaterial(0, ExplosionMaterial);
         Effect->SetRelativeScale3D(FVector(.08f)); Effect->SetVisibility(true);
     }
-    if (Payload == EERPayload::HE || Payload == EERPayload::Smoke || Payload == EERPayload::Stun)
+    if (Payload == EERPayload::HE || Payload == EERPayload::Smoke || Payload == EERPayload::Stun || Payload == EERPayload::LaunchedHE)
     {
         Movement->ProjectileGravityScale = 1;
         Movement->bShouldBounce = true; Movement->Bounciness = .35f;
@@ -277,7 +293,7 @@ void AERProjectile::Hit(UPrimitiveComponent* Component, AActor* Other, UPrimitiv
 {
     if (!HasAuthority() || bImpacted || Other == GetInstigator() || Other == GetOwner()) return;
     if (Payload == EERPayload::HE || Payload == EERPayload::Smoke || Payload == EERPayload::Stun) return;
-    if (Payload == EERPayload::Rocket) { Detonate(); return; }
+    if (Payload == EERPayload::Rocket || Payload == EERPayload::LaunchedHE) { Detonate(); return; }
     const FVector ShotDirection = Movement->Velocity.GetSafeNormal();
     bImpacted = true; Movement->StopMovementImmediately(); Collision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     UGameplayStatics::ApplyPointDamage(Other, Damage, ShotDirection, Result, GetInstigatorController(), this, UDamageType::StaticClass());
@@ -307,7 +323,7 @@ void AERProjectile::Detonate()
         Query.AddIgnoredActor(Target);
         if (GetWorld()->LineTraceSingleByObjectType(Cover, Position + FVector::UpVector * 10.f, Target->Camera->GetComponentLocation(),
             FCollisionObjectQueryParams(ECC_WorldStatic), Query)) continue;
-        if (Payload == EERPayload::HE || Payload == EERPayload::Rocket)
+        if (Payload == EERPayload::HE || Payload == EERPayload::Rocket || Payload == EERPayload::LaunchedHE)
         {
             const FVector Direction = (Target->GetActorLocation()-Position).GetSafeNormal();
             const FHitResult AreaHit(Target,Target->GetCapsuleComponent(),Target->GetActorLocation(),-Direction);
@@ -323,7 +339,7 @@ void AERProjectile::Detonate()
     }
     // Player cover checks above see the intact walls. Block exposure is also
     // snapshotted before removal, including cover across multiple room actors.
-    if (Payload == EERPayload::HE || Payload == EERPayload::Rocket)
+    if (Payload == EERPayload::HE || Payload == EERPayload::Rocket || Payload == EERPayload::LaunchedHE)
         AERBlockRoom::ApplyWorldExplosion(GetWorld(), Position + FVector::UpVector * 10, ExplosionRadius, Damage, this);
     MulticastDetonate(Position, Payload);
     if (Payload==EERPayload::Smoke && SmokeCloudClass)
@@ -342,7 +358,7 @@ void AERProjectile::MulticastDetonate_Implementation(FVector_NetQuantize Positio
 {
     Visual->SetVisibility(false);
     if(Kind==EERPayload::Smoke && SmokeCloudClass) { Effect->SetVisibility(false); return; }
-    if (Kind == EERPayload::HE && GrenadeExplosionClass)
+    if ((Kind == EERPayload::HE || Kind == EERPayload::LaunchedHE) && GrenadeExplosionClass)
     {
         Effect->SetVisibility(false);
         if (GetNetMode() != NM_DedicatedServer)

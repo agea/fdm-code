@@ -15,7 +15,7 @@ processes=[];handles=[]
 try:
     hostlog=logs/'arsenal-host.log'; clientlog=logs/'arsenal-client.log'
     handles.append(hostlog.open('w'))
-    host=subprocess.Popen(common+['/Game/EclipseRecoil/Maps/L_Depot?listen?Primary=0','-port=17784','-ERArsenalProbe'],stdout=handles[-1],stderr=subprocess.STDOUT)
+    host=subprocess.Popen(common+['/Game/EclipseRecoil/Maps/L_Depot?listen?Primary=0?ERLegacyArsenal=1','-port=17784','-ERArsenalProbe'],stdout=handles[-1],stderr=subprocess.STDOUT)
     processes.append(host)
     deadline=time.monotonic()+45
     while 'listening on port 17784' not in hostlog.read_text(errors='replace'):

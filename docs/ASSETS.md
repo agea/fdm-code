@@ -610,3 +610,22 @@ Restore archived inputs before using historical generation scripts. Ordinary
 play and saved-asset verification need no restoration. The private rollback
 archive contains removed files and pre-change versions of modified files, with
 SHA-256 verification; see CHARACTER_CLEANUP_RESULT.json and REPOSITORY_CLEANUP.md.
+
+
+## Requested Sketchfab weapons — 15 October 2026
+
+Nine downloaded original-format model archives and their API metadata, author
+credits, license snapshots and SHA-256 receipts are preserved privately under
+weapons SourceAssets/SketchfabWeapons. The arsenal imports ten weapon meshes
+plus the Milkor GL_slug1 projectile, project-owned data/materials and authored
+mechanical animations. Source arm geometry remains archived; FPS hands use the
+existing fitted skin rig with adapted source motion. No character packages or
+existing low-poly assets are removed. Runtime packages use Weapons/Sketchfab;
+character/training-target/controller defaults remain in the existing maps mount.
+
+The original request and English translation are in docs/references/weapons.it.md
+and docs/WEAPONS_REFERENCE_EN.md. See WEAPON_IMPORT.md for model/statistic mappings,
+source frames, rebuild steps and the retained legacy catalog. The Milkor model
+is CC BY-NC; other per-asset terms and the grenade free-standard snapshot remain
+recorded with the original inputs. No public binary commit or asset publication
+is included. REFERENCE_WEAPON_RESULTS.json records the saved-asset audit.

@@ -23,7 +23,8 @@
         "SourceAssets/LowPolyWeapons",
         "SourceAssets/BombCrackGround",
         "SourceAssets/InteractiveSmoke",
-        "SourceAssets/BulletImpacts"
+        "SourceAssets/BulletImpacts",
+        "SourceAssets/SketchfabWeapons"
       ]
     },
     "maps": {

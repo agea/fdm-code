@@ -4,6 +4,7 @@
 #include "Engine/DamageEvents.h"
 #include "ERMatch.h"
 #include "ERWeapon.h"
+#include "ERWeaponBallistics.h"
 #include "ERMovement.h"
 #include "ERPlayerController.h"
 #include "Camera/CameraComponent.h"
@@ -80,13 +81,29 @@ FVector AERCharacter::GetWeaponMuzzleFromGeometry(USkeletalMesh* WeaponMesh)
 bool AERCharacter::AssignWeaponMaterial(USkeletalMesh* WeaponMesh, UMaterialInterface* Material)
 {
 #if WITH_EDITOR
-    if (!WeaponMesh || !Material || !WeaponMesh->GetPathName().StartsWith(TEXT("/Game/EclipseRecoil/Weapons/LowPoly/"))) return false;
+    if (!WeaponMesh || !Material || !WeaponMesh->GetPathName().StartsWith(TEXT("/Game/EclipseRecoil/Weapons/"))) return false;
     WeaponMesh->Modify();
     TArray<FSkeletalMaterial> Materials = WeaponMesh->GetMaterials();
     for (auto& Slot : Materials) Slot.MaterialInterface = Material;
     WeaponMesh->SetMaterials(Materials);
     WeaponMesh->PostEditChange();
     WeaponMesh->MarkPackageDirty();
+    return true;
+#else
+    return false;
+#endif
+}
+bool AERCharacter::AssignWeaponMaterials(USkeletalMesh* WeaponMesh, const TArray<UMaterialInterface*>& Interfaces)
+{
+#if WITH_EDITOR
+    if (!WeaponMesh || !WeaponMesh->GetPathName().StartsWith(TEXT("/Game/EclipseRecoil/Weapons/Sketchfab/")) || Interfaces.Num()!=WeaponMesh->GetMaterials().Num()) return false;
+    TArray<FSkeletalMaterial> Materials=WeaponMesh->GetMaterials();
+    for (int32 Index=0;Index<Materials.Num();++Index)
+    {
+        if (!Interfaces[Index]) return false;
+        Materials[Index].MaterialInterface=Interfaces[Index];
+    }
+    WeaponMesh->Modify();WeaponMesh->SetMaterials(Materials);WeaponMesh->PostEditChange();WeaponMesh->MarkPackageDirty();
     return true;
 #else
     return false;
@@ -114,11 +131,13 @@ bool UERHealthComponent::IsProtected() const
     const auto* State = GetWorld()->GetGameState<AERGameState>();
     return State && State->GetServerWorldTimeSeconds() < ProtectionEndServerTime;
 }
-void UERHealthComponent::ReceiveDamage(float Amount, AController* Killer)
+float UERHealthComponent::ReceiveDamage(float Amount, AController* Killer, float ArmorRatio)
 {
     auto* Character = Cast<AERCharacter>(GetOwner());
     auto* Mode = GetWorld()->GetAuthGameMode<AERGameMode>();
-    if (!Character || !Character->HasAuthority() || !Mode || !Mode->IsMatchInProgress() || bDead || IsProtected() || Amount <= 0) return;
+    if (!Character || !Character->HasAuthority() || !Mode || !Mode->IsMatchInProgress() || bDead || IsProtected() || Amount <= 0) return 0;
+    Amount = ERWeaponBallistics::AbsorbArmor(Amount, ArmorRatio, Armor);
+    const float Before = Health;
     Health = FMath::Clamp(Health - Amount, 0.f, 100.f);
     UE_LOG(LogTemp, Display, TEXT("ER_DAMAGE target=%s hp=%.0f"), *Character->GetName(), Health);
     if (Health <= 0)
@@ -128,12 +147,14 @@ void UERHealthComponent::ReceiveDamage(float Amount, AController* Killer)
         OnRep_Dead();
         Mode->RecordDeath(Character, Killer);
     }
+    return Before - Health;
 }
 void UERHealthComponent::OnRep_Dead() { if (bDead) if (auto* Character = Cast<AERCharacter>(GetOwner())) Character->ApplyDeathVisuals(); }
 void UERHealthComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
     DOREPLIFETIME(UERHealthComponent, Health); DOREPLIFETIME(UERHealthComponent, bDead); DOREPLIFETIME(UERHealthComponent, ProtectionEndServerTime);
+    DOREPLIFETIME(UERHealthComponent, Armor);
 }
 AERCharacter::AERCharacter(const FObjectInitializer& ObjectInitializer)
     : Super(ObjectInitializer.SetDefaultSubobjectClass<UERMovement>(ACharacter::CharacterMovementComponentName).SetDefaultSubobjectClass<UERPostureMesh>(ACharacter::MeshComponentName))
@@ -347,7 +368,7 @@ void AERCharacter::Tick(float DeltaTime)
     FirstPersonMuzzleFlash->SetVisibility(bFlash);
     WorldMuzzleFlash->SetVisibility(bFlash);
     CameraKick = Health->bDead || Movement->bHighClimb ? 0.f : FMath::FInterpTo(CameraKick, 0.f, DeltaTime, 22.f);
-    const bool bHideLeft = Movement->bHighClimb || (AppliedWeaponData && AppliedWeaponData->bOneHanded);
+    const bool bHideLeft = Movement->bHighClimb || (AppliedWeaponData && AppliedWeaponData->bOneHanded && !(Weapon && Weapon->bReloading));
     if (bLeftArmHidden != bHideLeft)
     {
         bLeftArmHidden = bHideLeft;
@@ -457,7 +478,20 @@ float AERCharacter::TakeDamage(float Damage, const FDamageEvent& Event, AControl
     FVector Direction = Killer && Killer->GetPawn() ? GetActorLocation() - Killer->GetPawn()->GetActorLocation() : FVector::ForwardVector;
     if (Event.IsOfType(FPointDamageEvent::ClassID)) Direction = static_cast<const FPointDamageEvent&>(Event).ShotDirection;
     LastHitDirection = Direction.GetSafeNormal();
-    Health->ReceiveDamage(Damage, Killer);
+    float Ratio = 2.f;
+    if (const auto* Gun = Cast<AERWeapon>(Causer); Gun && Gun->Data)
+    {
+        Ratio = Gun->Data->ArmorRatio;
+        if (Gun->Data->Payload == EERPayload::Bullet && Event.IsOfType(FPointDamageEvent::ClassID))
+        {
+            const auto& Point = static_cast<const FPointDamageEvent&>(Event);
+            Damage = ERWeaponBallistics::AtRange(Damage, Gun->Data->RangeModifier,
+                FVector::Distance(Gun->LastShotTraceStart, Point.HitInfo.ImpactPoint));
+        }
+    }
+    else if (const auto* Projectile = Cast<AERProjectile>(Causer); Projectile &&
+        (Projectile->Payload == EERPayload::HE || Projectile->Payload == EERPayload::LaunchedHE)) Ratio = 1.f;
+    Health->ReceiveDamage(Damage, Killer, Ratio);
     if (Before > Health->Health) ClientDamageFeedback(Before - Health->Health, LastHitDirection);
     return Before - Health->Health;
 }
@@ -504,21 +538,29 @@ void AERCharacter::ApplyDeathVisuals()
 void AERCharacter::ServerStartFire_Implementation() { if (!Health->bDead && Weapon && !Cast<UERMovement>(GetCharacterMovement())->bHighClimb) Weapon->StartFire(); }
 void AERCharacter::ServerStopFire_Implementation() { if (Weapon) Weapon->StopFire(); }
 void AERCharacter::ServerReload_Implementation() { if (!Health->bDead && Weapon && !Cast<UERMovement>(GetCharacterMovement())->bHighClimb) Weapon->Reload(); }
+bool AERCharacter::UsesReferenceArsenal() const
+{
+    // Both catalogs remain available for comparison and existing saved assets.
+    return HasAuthority() ? ReferenceArsenal.Num() == 10 && !GetWorld()->URL.HasOption(TEXT("ERLegacyArsenal")) : Inventory.Num() == 10;
+}
 void AERCharacter::InitializeLoadout(int32 Primary)
 {
     if (!HasAuthority() || Arsenal.Num() < 11 || !Inventory.IsEmpty()) return;
     if (Weapon) Weapon->Destroy();
-    for (int32 Index : {FMath::Clamp(Primary, 0, 6), 7, 8, 9, 10})
+    const bool bReference = UsesReferenceArsenal();
+    const TArray<int32> Indices = bReference ? TArray<int32>{0,1,2,3,4,5,6,7,8,9} : TArray<int32>{FMath::Clamp(Primary, 0, 6), 7, 8, 9, 10};
+    Health->Armor = bReference ? 100.f : 0.f;
+    for (int32 Index : Indices)
     {
         auto* Item = GetWorld()->SpawnActorDeferred<AERWeapon>(WeaponClass, GetActorTransform(), this, this,
             ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
         if (!Item) continue;
-        Item->Data = Arsenal[Index];
+        Item->Data = bReference ? ReferenceArsenal[Index] : Arsenal[Index];
         UGameplayStatics::FinishSpawningActor(Item, Item->GetActorTransform());
         Item->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
         Inventory.Add(Item);
     }
-    Weapon = Inventory.IsEmpty() ? nullptr : Inventory[0];
+    Weapon = Inventory.IsEmpty() ? nullptr : Inventory[bReference ? 4 : 0];
     ForceNetUpdate();
     UE_LOG(LogTemp, Display, TEXT("ER_LOADOUT_SPAWN primary=%d slots=%d"), Primary, Inventory.Num());
 }
@@ -550,8 +592,38 @@ FVector AERCharacter::GetRenderedMuzzle(bool bFirstPerson) const
 void AERCharacter::UpdateWeaponPresentation()
 {
     auto* Data = Weapon ? Weapon->Data.Get() : nullptr;
-    if (!Data || !Data->Mesh || Data == AppliedWeaponData) return;
+    if (!Data || !Data->Mesh) return;
+    if (Data == AppliedWeaponData)
+    {
+        if (!Weapon->bReloading)
+        {
+            for (auto* Component : {FirstPersonRifle.Get(), WorldRifle.Get()})
+                if (Data->WeaponIdleAnimation && !Component->IsPlaying()) Component->PlayAnimation(Data->WeaponIdleAnimation, true);
+            if (Data->IdleAnimation && !FirstPersonBody->IsPlaying()) FirstPersonBody->PlayAnimation(Data->IdleAnimation, true);
+        }
+        if (bAppliedReloading != Weapon->bReloading)
+        {
+            bAppliedReloading = Weapon->bReloading;
+            for (auto* Component : {FirstPersonRifle.Get(), WorldRifle.Get()})
+            {
+                UAnimSequence* Clip = bAppliedReloading ? Data->WeaponReloadAnimation.Get() : Data->WeaponIdleAnimation.Get();
+                if (Clip)
+                {
+                    Component->PlayAnimation(Clip, !bAppliedReloading);
+                    Component->SetPlayRate(bAppliedReloading ? Clip->GetPlayLength() / FMath::Max(.01f, Data->ReloadDuration) : 1.f);
+                }
+            }
+            UAnimSequence* Arms = bAppliedReloading ? Data->ReloadAnimation.Get() : Data->IdleAnimation.Get();
+            if (Arms)
+            {
+                FirstPersonBody->PlayAnimation(Arms, !bAppliedReloading);
+                FirstPersonBody->SetPlayRate(bAppliedReloading ? Arms->GetPlayLength() / FMath::Max(.01f, Data->ReloadDuration) : 1.f);
+            }
+        }
+        return;
+    }
     AppliedWeaponData = Data;
+    bAppliedReloading = false;
     FirstPersonBody->SetRelativeLocation(FirstPersonBodyBaseLocation + Data->ViewOffset);
     for (auto* Sight : {FirstPersonSight.Get(), WorldSight.Get()})
     { Sight->SetSkeletalMeshAsset(Data->SightMesh); Sight->SetRelativeTransform(Data->SightTransform); }
@@ -562,6 +634,7 @@ void AERCharacter::UpdateWeaponPresentation()
         Component->SetRelativeTransform(Data->GripTransform);
         Component->SetAnimationMode(EAnimationMode::AnimationSingleNode);
         Component->SetAnimation(nullptr);
+        if (Data->WeaponIdleAnimation) Component->PlayAnimation(Data->WeaponIdleAnimation, true);
     }
     if (Data->IdleAnimation) FirstPersonBody->PlayAnimation(Data->IdleAnimation, true);
     if (auto* PC = Cast<AERPlayerController>(Controller)) PC->bZoomHeld = false;
@@ -574,6 +647,12 @@ void AERCharacter::MulticastShot_Implementation(FVector_NetQuantize Start, FVect
     if (GetNetMode() == NM_DedicatedServer || Health->bDead || Cast<UERMovement>(GetCharacterMovement())->bHighClimb) return;
     const bool bFirstPerson = IsLocallyControlled() && Controller && Controller->IsPlayerController();
     const auto* Data = Weapon ? Weapon->Data.Get() : nullptr;
+    if (Data && Data->WeaponFireAnimation)
+        for (auto* Component : {FirstPersonRifle.Get(), WorldRifle.Get()})
+        {
+            Component->PlayAnimation(Data->WeaponFireAnimation, false);
+            Component->SetPlayRate(FMath::Max(1.f, Data->WeaponFireAnimation->GetPlayLength() / FMath::Max(.01f, Data->ShotInterval)));
+        }
     if(Data && Data->Payload==EERPayload::Bullet)
         for(TActorIterator<AERSmokeCloud> It(GetWorld());It;++It) It->AddShot(Start,End);
     if (bTracer && Data && Data->Payload == EERPayload::Bullet)
@@ -590,18 +669,20 @@ void AERCharacter::MulticastShot_Implementation(FVector_NetQuantize Start, FVect
     }
     const auto* Animation = Data && Data->Mesh ? Data->FireAnimation.Get() : FirstPersonFireAnimation.Get();
     const float Pitch = Data ? Data->SoundPitch : 1.f;
+    const bool bGunshot = !Data || Data->Payload == EERPayload::Bullet || Data->Payload == EERPayload::Rocket || Data->Payload == EERPayload::LaunchedHE;
     if (bFirstPerson)
     {
         // Animate the body and its socket-attached rifle together. Both hands keep their grip.
         if (Animation)
         {
             FirstPersonBody->PlayAnimation(const_cast<UAnimSequence*>(Animation), false);
+            FirstPersonBody->SetPlayRate(Data && Data->WeaponFireAnimation ? FMath::Max(1.f,Animation->GetPlayLength()/FMath::Max(.01f,Data->ShotInterval)) : 1.f);
             if (auto* Instance = FirstPersonBody->GetSingleNodeInstance()) Instance->SetPosition(0.f, false);
         }
-        CameraKick = FMath::Min(CameraKick + .35f, .65f);
-        if (FireSound) UGameplayStatics::PlaySound2D(this, FireSound, .35f, Pitch);
+        if (bGunshot) CameraKick = FMath::Min(CameraKick + .35f, .65f);
+        if (FireSound && bGunshot) UGameplayStatics::PlaySound2D(this, FireSound, .35f, Pitch);
     }
-    else if (FireSound)
+    else if (FireSound && bGunshot)
     {
         UGameplayStatics::PlaySoundAtLocation(this, FireSound, GetVisualMuzzle(false),
             .6f, Pitch, 0.f, FireAttenuation);

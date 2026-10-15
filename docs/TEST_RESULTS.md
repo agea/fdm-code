@@ -2115,3 +2115,47 @@ character-cleanup-{build,final-build,delete,delete-final}.log e Saved/Testing/
 character-cleanup-{final-verify,graphics-report,final-galleries-report,network-report}.log.
 La riduzione dichiarata riguarda i file attivi del progetto; il backup privato
 esterno occupa spazio. Nessun cook/packaging, benchmark o pubblicazione eseguito.
+
+
+## Requested Sketchfab arsenal — 15 October 2026
+
+- Real Mac arm64 Editor compilation succeeded on UE5.8.3. The imported Italian
+  request, English reference and downloaded worksheet snapshot are retained.
+- Native `EclipseRecoil.Weapons.ReferenceBallistics`: Success, including Source
+  distance units, compounded attenuation, armor depletion and full penetration.
+- `test-reference-weapons.py`: PASS,38 server checks, all10 owning-client key
+  selections observed on the server and all10 remote model observations. Includes
+  six shotgun pellets/one shell, timed reload/reserve transfer, holster cancel,
+  non-consuming short knife query, model-derived physical launcher projectile and
+  an actual AK-47 hit matching the worksheet's distance/armor formula.
+- `test-reference-weapons.py --render`: PASS,45 server checks and17 fresh Metal
+  captures (ten idle viewmodels plus seven actual mid-reload poses). The rendered
+  AR15/SMG direction and grip corrections use fresh V2 skeleton/clip packages;
+  Interchange's mesh-only reimport had retained older animation packages. All17
+  final captures were inspected in Saved/Testing/ReferenceWeapons. The fitted
+  hand retarget clamps some reaches; this does not certify authored hand/finger
+  contact throughout every animation frame. No full-body/world reload retarget
+  or grenade-set throw animation is claimed.
+- `test-network.py --shot-feedback`: PASS on the explicit original-arsenal
+  fixture, including combat, death, respawn, corpse/team replication and feedback.
+- `test-arsenal.py`: PASS on the legacy fixture, including primary selection
+  at respawn, shotgun pellets, physical rockets, HE/smoke/stun fuses, replicated
+  debris/smoke, shot carving, wheel gating and effect cleanup.
+- `test-network.py --accuracy`: PASS with the new default catalog;15 logged
+  server/owner checks cover real spread, burst recovery, rejected empty shots and
+  replicated owner state.
+- Saved-asset audit: PASS, nine original ZIP SHA-256 receipts, ten data bindings,
+  fitted FPS skeleton compatibility, weapon clip skeletons, mechanical reload
+  motion and blueprint catalog references. Receipt: REFERENCE_WEAPON_RESULTS.json.
+  Includes first-generation private derivatives retained for comparison; active
+  catalog geometry is ten viewmodels plus the source GL_slug1 projectile.
+- `setup-assets.py --check`: PASS,27 mounts and no unresolved LFS pointers.
+
+The native automation log contains UE's built-in startup error-test messages
+before the requested test; its actual ReferenceBallistics result is Success.
+The initial graphical run encountered first-equip shader stalls; the final
+probe waits for the owning client's actual equip/capture acknowledgment and
+shader completion. Ordinary gameplay keeps its existing resolution policy;
+the gallery alone fixes primary resolution to100%. These captures are visual
+checks, not a performance benchmark. Existing character material-usage warnings
+were observed while loading the unchanged skin packages.

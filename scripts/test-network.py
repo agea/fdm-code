@@ -38,7 +38,10 @@ handles = []
 try:
     host_log = (logs / (label + '-host.log')).open("w")
     handles.append(host_log)
-    host = subprocess.Popen(common + ["/Game/EclipseRecoil/Maps/L_Depot?listen?Name=Host" + ("?AlphaSkin=8?OmegaSkin=7" if args.phase_belica else "?AlphaSkin=3?OmegaSkin=2" if args.skins else ""), '-port=' + port, probe], stdout=host_log, stderr=subprocess.STDOUT)
+    # Preserve the original 36-damage/no-armor fixture for its exact HP checks;
+    # the current catalog is covered separately by test-reference-weapons.py.
+    baseline = '' if args.accuracy else '?ERLegacyArsenal=1'
+    host = subprocess.Popen(common + ["/Game/EclipseRecoil/Maps/L_Depot?listen?Name=Host" + baseline + ("?AlphaSkin=8?OmegaSkin=7" if args.phase_belica else "?AlphaSkin=3?OmegaSkin=2" if args.skins else ""), '-port=' + port, probe], stdout=host_log, stderr=subprocess.STDOUT)
     processes.append(host)
     deadline = time.monotonic() + 45
     while time.monotonic() < deadline:

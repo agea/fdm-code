@@ -1,0 +1,113 @@
+{
+  "passed": true,
+  "failures": [],
+  "original_archives": 9,
+  "catalog_slots": 10,
+  "asset_counts": {
+    "AnimSequence": 76,
+    "ERWeaponData": 10,
+    "Material": 26,
+    "SkeletalMesh": 19,
+    "Skeleton": 19,
+    "Texture2D": 69
+  },
+  "weapons": [
+    {
+      "key": "Knife",
+      "mesh": "/Game/EclipseRecoil/Weapons/Sketchfab/Knife/V2/SK_Knife.SK_Knife",
+      "material_slots": 1,
+      "clips": [
+        "Fire",
+        "Idle",
+        "Source"
+      ]
+    },
+    {
+      "key": "Pistol",
+      "mesh": "/Game/EclipseRecoil/Weapons/Sketchfab/Pistol/V2/SK_Pistol.SK_Pistol",
+      "material_slots": 1,
+      "clips": [
+        "Fire",
+        "Idle",
+        "Reload",
+        "Source"
+      ]
+    },
+    {
+      "key": "SMG",
+      "mesh": "/Game/EclipseRecoil/Weapons/Sketchfab/SMG/V2/SK_SMG.SK_SMG",
+      "material_slots": 2,
+      "clips": [
+        "Fire",
+        "Idle",
+        "Reload"
+      ]
+    },
+    {
+      "key": "Shotgun",
+      "mesh": "/Game/EclipseRecoil/Weapons/Sketchfab/Shotgun/V2/SK_Shotgun.SK_Shotgun",
+      "material_slots": 1,
+      "clips": [
+        "Fire",
+        "Idle",
+        "Reload",
+        "Source"
+      ]
+    },
+    {
+      "key": "Assault",
+      "mesh": "/Game/EclipseRecoil/Weapons/Sketchfab/Assault/V2/SK_Assault.SK_Assault",
+      "material_slots": 1,
+      "clips": [
+        "Fire",
+        "Idle",
+        "Reload"
+      ]
+    },
+    {
+      "key": "Carbine",
+      "mesh": "/Game/EclipseRecoil/Weapons/Sketchfab/Carbine/V2/SK_Carbine.SK_Carbine",
+      "material_slots": 2,
+      "clips": [
+        "Fire",
+        "Idle",
+        "Reload",
+        "Source"
+      ]
+    },
+    {
+      "key": "Sniper",
+      "mesh": "/Game/EclipseRecoil/Weapons/Sketchfab/Sniper/V2/SK_Sniper.SK_Sniper",
+      "material_slots": 3,
+      "clips": [
+        "Fire",
+        "Idle",
+        "Reload",
+        "Source"
+      ]
+    },
+    {
+      "key": "Launcher",
+      "mesh": "/Game/EclipseRecoil/Weapons/Sketchfab/Launcher/V2/SK_Launcher.SK_Launcher",
+      "material_slots": 13,
+      "clips": [
+        "Fire",
+        "Idle",
+        "Reload",
+        "Source"
+      ]
+    },
+    {
+      "key": "HE",
+      "mesh": "/Game/EclipseRecoil/Weapons/Sketchfab/HE/SK_HE.SK_HE",
+      "material_slots": 1,
+      "clips": []
+    },
+    {
+      "key": "Smoke",
+      "mesh": "/Game/EclipseRecoil/Weapons/Sketchfab/Smoke/SK_Smoke.SK_Smoke",
+      "material_slots": 1,
+      "clips": []
+    }
+  ]
+}

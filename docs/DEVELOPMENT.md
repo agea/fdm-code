@@ -1499,3 +1499,20 @@ Il primo test bersagli aveva una corsa temporale: l'host usciva a 20s, meno di 5
 dopo il join del client a freddo. La sola finestra del probe esplicito passa a 35s;
 nessuna attesa aggiunta alle partite normali. La successiva esecuzione LAN passa
 su host e client. Esiti e limiti in TEST_RESULTS.md e CHARACTER_CLEANUP_RESULT.json.
+
+
+## Armi Sketchfab — richiesta del 15 ottobre 2026
+
+Importato l'elenco `weapons.md`, conservato integralmente in
+`references/weapons.it.md` e tradotto in `WEAPONS_REFERENCE_EN.md`. La richiesta
+aggiorna il precedente arsenale Fab: dieci slot disponibili, tasti1..8/F/G e
+fucile d'assalto iniziale. Scelta esplicita successiva: statistiche AK-47 e SCAR;
+la riga SCAR disponibile è scar20. La geometria rimane quella dei modelli linkati.
+
+Originali, metadati/licenze, ricevute SHA-256 e derivati Blender sono nel mount
+privato weapons; mesh, materiali, animazioni e dati in Weapons/Sketchfab. Le
+mani mantengono il rig e le skin esistenti, con adattamento IK delle traiettorie
+originali. Aggiunti armatura AP100, attenuazione di distanza, coltello breve e
+Milkor con proiettile fisico ricavato dal modello. `ERLegacyArsenal=1` conserva
+la fixture precedente per le regressioni. Dettagli, valori non presenti nel
+foglio e limiti del retarget sono espliciti in `WEAPON_IMPORT.md`.

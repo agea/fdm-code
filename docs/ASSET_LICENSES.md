@@ -105,3 +105,17 @@ previously documented private MOUT_Arabian selection and CC0 procedural library.
 The user's reference plan and doorway photograph are retained privately as
 reference/provenance only. No Source2 model/texture or external media copy is
 added to public code; no publication or new license review is claimed.
+
+
+## Sketchfab arsenal acquired 15 October 2026
+
+The nine model URLs in WEAPONS_REFERENCE_EN.md were downloaded in original
+format through the owner's existing Sketchfab session for this local project.
+Metadata and exact license objects are retained per model in the private weapons
+SourceAssets/SketchfabWeapons tree, with archive hashes and authors' underlying
+credit links. Seven listings report CC BY4.0; the Milkor composite reports
+CC BY-NC4.0 (weapon JaumWF, arms/animation DJMaesen, uploader user77), and the
+grenade set reports Sketchfab free standard terms. Keep each model's own terms;
+this acquisition does not imply a blanket public or commercial clearance.
+Derived skeletal FBX, weapon packages and fitted hand-animation adaptations
+remain private with their source provenance. See WEAPON_IMPORT.md.

@@ -13,6 +13,7 @@
 #include "ERMovementProbe.h"
 #include "ERAccuracyProbe.h"
 #include "ERArsenalProbe.h"
+#include "ERReferenceWeaponProbe.h"
 #include "ERBlockLabProbe.h"
 #include "ERProceduralMap.h"
 #include "ERProceduralProbe.h"
@@ -162,6 +163,7 @@ void AERGameMode::BeginPlay()
     if (FParse::Param(FCommandLine::Get(),TEXT("ERBotMotionProbe"))) GetWorld()->SpawnActor<AERBotMotionProbe>();
     if (FParse::Param(FCommandLine::Get(), TEXT("ERBotProbe")) || FParse::Param(FCommandLine::Get(), TEXT("ERTargetSkinsProbe"))) GetWorld()->SpawnActor<AERBotProbe>();
     if (FParse::Param(FCommandLine::Get(), TEXT("ERAccuracyProbe"))) GetWorld()->SpawnActor<AERAccuracyProbe>();
+    if (FParse::Param(FCommandLine::Get(), TEXT("ERReferenceWeaponProbe"))) GetWorld()->SpawnActor<AERReferenceWeaponProbe>();
     if (FParse::Param(FCommandLine::Get(), TEXT("ERArsenalProbe")) || FParse::Param(FCommandLine::Get(), TEXT("ERArsenalGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERHitscanGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERGrenadeGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERSmokeGallery")))
         GetWorld()->SpawnActor<AERArsenalProbe>();
 #endif
