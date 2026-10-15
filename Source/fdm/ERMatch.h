@@ -74,6 +74,10 @@ private:
     EERTeam NextTieTeam = EERTeam::Alpha;
     int32 DesiredBots = 0;
     bool bStationaryBots = false;
+    bool bMovementBots = false;
+    bool bConfiguredBots = false;
+    int32 AlphaBotCount = 0;
+    int32 OmegaBotCount = 0;
     TArray<double> PendingHumanSlots;
     UPROPERTY() TArray<TObjectPtr<class AERBotController>> TestBots;
     FTimerHandle MatchTimer;

@@ -1015,3 +1015,398 @@ apparire l'origine lontana dalla canna. Resta la sfumatura trasversale.
 con controllo della cadenza. -ERTracerAudit registra velocità, età del POV,
 origine/endpoint e distanza dalla punta. Il campione della gallery può
 durare 350 ms per il readback; i colpi ordinari mantengono 20 ms.
+
+
+## Distruzione procedurale — 14 ottobre 2026
+
+Richiesta attuale: importare ECLIPSE_RECOIL_PROCEDURAL_DESTRUCTION.md e iniziare
+la prima implementazione in **fdm-code**, preservando il gioco originale.
+La specifica è conservata integralmente in docs/; il suo testo operativo non
+sostituisce l'ambito concordato. Progetto e modulo rimangono fdm / UE 5.8.3.
+
+Prima fase: laboratorio standalone L_DestructionLab con interno 5×5×3 m,
+pavimento indistruttibile e 504 blocchi logici, HP/materiali configurabili.
+Core in ERBlockWorld/ERBlockRoom; ISM per chunk/materiale e mapping bidirezionale
+ricostruito solo sul gruppo interessato. Arma/controlli esistenti riusati,
+comandi console per danno, distruzione e rigenerazione; menu/HUD del laboratorio.
+La partita si avvia con un solo giocatore esclusivamente in questa mappa standalone.
+
+Replicazione e distruzione LAN rinviate: le mutazioni richiedono authority e
+NM_Standalone; nessun RPC per danni arbitrari. Non implementati penetrazione,
+esplosioni ai blocchi, crolli, stanze procedurali multiple o late join.
+Preparazione del repository già presente: .uproject, build Editor, ignore cache
+e separazione/LFS asset privati; nessun upgrade o nuovo progetto richiesto.
+Vedere PROCEDURAL_DESTRUCTION.md e gli esiti reali in TEST_RESULTS.md.
+
+
+## Milestone 2 — penetrazione ed esplosioni ai blocchi, 14 ottobre 2026
+
+L'utente ha chiesto di proseguire dopo il primo laboratorio. Implementata la
+seconda fase nel medesimo fdm-code/UE 5.8.3, sempre standalone.
+
+ERBlockCombat calcola l'uscita dal volume orientato/scalato e prosegue il
+colpo con energia residua, senza ignorare interi ISM. La resistenza, il danno
+ai blocchi e alle esplosioni sono parametri di DA_ER_BlockMaterials; BlockShot
+nel data asset arma espone energia, limite attraversamenti e angolo minimo.
+Il danno a un bersaglio dietro usa l'energia rimasta. Il cartongesso può
+restare solido dopo un colpo che lo attraversa; la breccia richiede HP esauriti.
+
+Le esplosioni cercano nei bucket spaziali logici, attenuano per distanza dal
+volume e tracciano una superficie esposta per il riparo. Tutti i candidati di
+tutte le stanze sono valutati prima di applicare danni: un muro di cemento
+abbattuto non lascia passare retroattivamente la stessa esplosione. Eventi
+aggregati per ID e ricostruzione una sola volta di ogni gruppo interessato.
+Integrati HE e razzi fisici del gioco; nessun effetto di smoke/stun sui blocchi.
+
+Tre bersagli propri (cubi Epic e testo HP) dietro cartongesso/mattoni/cemento,
+comandi ERBlockShot e ERBlockExplosion, indicazioni HUD. Tre decal circolari
+procedurali proprie e il piccolo Niagara d'impatto già esistente; esplosione
+cosmetica già presente, senza nuove simulazioni Chaos o suoni dedicati. Tutti
+i nuovi binari appartengono al mount privato maps. Migrazione dei soli campi
+nuovi una volta tramite metadata ERBlockCombatVersion=2; HP/materiali/art
+esistenti preservati. Nessuna mappa originale rigenerata.
+
+Le armi in mappe normali/LAN mantengono il primo impatto; l'ostruzione della
+canna resta conclusiva anche nel laboratorio. Per i giocatori, i controlli
+di riparo HE avvengono prima della rimozione dei blocchi. Nessun RPC nuovo.
+Limiti: riparo a singolo campione, nessuna onda che aggira gli ostacoli,
+penetrazione solo hitscan, massimo 16 attraversamenti, nessuna replica blocchi,
+crollo o layout multistanza. Esiti reali in TEST_RESULTS.md.
+
+
+## 14 ottobre 2026 — texture e Milestone 3
+
+Richiesta: importare lo ZIP fornito e procedere con il piano procedurale.
+Originali verificati (84 SHA256), ZIP/manifest/crediti nel submodule privato maps;
+nuovo mount SourceAssets/ProceduralTextures. Importer Unreal preserva gli asset
+esistenti, seleziona 41 mappe separate colore/DX/rough/AO/metal e crea dieci
+superfici a proiezione world-space continua. Vetro traslucido parametrico separato.
+Le superfici del catalogo cambiano; HP, energia, occlusione e FX rimangono quelli M2.
+
+Generatore limitato a un piano: 6–10 stanze in due file con dimensioni/materiali/
+finestre da FRandomStream, corridoio centrale e rami dedicati. Pareti ritagliate
+alle aperture, ritorni agli angoli senza sovrapposizioni, pavimenti/soffitti ISM.
+Un unico AERProceduralMap estende AERBlockRoom e carica lo storage validato;
+nessun sistema di distruzione parallelo. L_ProceduralLab riusa GameMode/personaggio/
+armi/input. Seed iniziale da proprietà/travel/flag e ERMapGenerate seed stanze;
+rigenerazione ricolloca il giocatore, respawn calcolato dalla stessa configurazione.
+
+Finestre vuote, vetro e materiali legno/pietra/metallo pronti solo come libreria
+visiva. Nessuna replica, crollo, packaging o pubblicazione in questa fase.
+Topologia centrale intenzionalmente semplice: il seed varia la geometria e
+i materiali; packing libero e varianti di grafo restano estensioni future.
+Validazione effettiva e misure in TEST_RESULTS.md.
+
+Basamento asfaltato indistruttibile sotto le lastre interne (superficie a -20cm),
+con bordo esterno percorribile dopo una breccia. Le superfici si toccano senza
+sovrapporre volumi. PlayerStart mobili nel solo laboratorio procedurale: i
+PlayerStart statici salvati impedivano la prima ricollocazione runtime. Luci
+di riempimento calibrate a 3 e migrazione una tantum per preservare modifiche future.
+
+
+## 14 ottobre 2026 — Milestone 4 stabilità/ottimizzazione
+
+Profiler con tempi CPU per storage/grouping, clear/remove/add ISM e mapping;
+query spaziale con bucket/esaminati/candidati; esplosione distinta in query,
+copertura e mutazione. ERBlockStats espone tempi, memoria tracciata, RSS del
+processo, corpi ISM ed effetti. Scope per Unreal Insights e runner CSV ripetibile.
+Baseline misurata prima di cambiare l'algoritmo: 54 cicli di piano da dieci stanze,
+seed42/7919 e chunk200/400/800. I batch da256 costavano circa44ms a chunk400.
+
+Aggiornamento selettivo tramite handle nativi persistenti FPrimitiveInstanceId:
+si rimuovono solo le istanze morte, si ricavano gli indici superstiti dall'engine,
+nessuna ipotesi sugli swap e nessuna ricreazione dei corpi superstiti. Generazione
+in batch, lookup hash chunk/materiale e componente/gruppo, conteggio chunk cached,
+eliminata la copia dei record nel layout. Full rebuild resta solo generazione/
+recupero di handle invalidati esternamente, su ISM runtime (mai HISM/Editor).
+
+Batch256 sceso a1,821ms median a chunk400 (baseline43,901ms); single p95
+1,211→0,032ms; memoria esclusiva tracciata5,676→3,779MiB. Chunk400 confermato:
+chunk200 passa da93 a420 gruppi e genera più lentamente; chunk800 aumenta
+il mapping di una rimozione singola. Nessun cambio ai blocchi50x20x25 o alle
+regole danno/collisione/replica. Scope M4 standalone; crolli e rete successivi.
+
+Test stress: 18 cicli automatici con rimozione del 90% e trace su tutti i
+superstiti, più 54 cicli per run nativo/Metal con rimozione completa e GC.
+Raffica reale di 30 colpi, limiti 0/24/hard64 per decal/Niagara e 8 burst,
+culling per distanza; rigenerazione ed EndPlay ripuliscono effetti posseduti.
+Nessun asset binario aggiunto/modificato per M4. Misure, metodologia e limiti
+in DESTRUCTION_BENCHMARK.json; risultati effettivi in TEST_RESULTS.md.
+
+
+## Milestone 5 — crolli controllati (14 ottobre 2026)
+
+Implementato `FERBlockSupportGraph`: adiacenza geometrica tra facce, ancoraggi
+alla base locale Z=0 o espliciti/indistruttibili, flood delle parti sostenute e
+componenti isolate. Connessioni laterali sostengono architravi; spigoli/vertici
+non trasmettono supporto. Il grafo attraversa chunk/materiali e copre lo stesso
+actor della stanza o del piano procedurale. È un modello di connettività per
+un piano, senza calcolo dei carichi; soffitti/pavimenti restano statici.
+
+Rimozioni schedulano un timer da 50 ms con massimo un callback per frame; il
+lavoro prosegue a passi, coalescendo danni intervenuti senza ricominciare a ogni
+colpo. Default 4096 unità/1,5 ms per flood, 128 distacchi e quattro detriti per
+callback. `Detached` resta nello storage con ID/HP, ma esce da ISM, collisioni,
+query e danno; contatori separati dai blocchi distrutti direttamente.
+
+`AERBlockDebris` è temporaneo: riutilizza mesh/materiale, simula solo un campione
+con Chaos (32 actor globali default, hard64; spawn4/hard8 per callback), collide
+solo con WorldStatic e non modifica player/proiettili/copertura. Simulazione
+spenta a due secondi, scadenza a otto/hard20. Nessun actor/tick dinamico permanente
+per ogni blocco. Regenerate/EndPlay eliminano detriti posseduti e timer.
+I blocchi eccedenti il campione sono comunque rimossi: nessun resto sospeso.
+
+Il laboratorio espone `ERBlockCollapseDemo`, che isola nove blocchi nella parete
+sud, e statistiche di distacco/supporto/detriti in HUD e `ERBlockStats`. La
+configurazione Collapse è esposta sull'actor. Restano authority/NM_Standalone;
+replica, late join, più piani e ulteriori materiali appartengono alla M6.
+
+Nuovi test `StructuralSupport` e `CollapseAndIdentity`; suite totale otto casi.
+Il probe `--collapse` usa la partita salvata con fisica reale, include vita e
+pulizia, cap globali tra due stanze e collasso completo di dieci stanze; la
+variante `--render` usa Metal e salva immagini. Esiti/misure effettivi in
+TEST_RESULTS.md e receipt COLLAPSE_BENCHMARK.json. Il receipt M4 resta storico.
+
+## Milestone 6 — replica e ampliamento mappe (15 ottobre 2026)
+
+Implementata authority anche nelle partite LAN dei laboratori. Colpi autorizzati,
+perforazioni, esplosioni e supporto strutturale usano la stessa pipeline del
+server; nessun RPC client per imporre BlockID/danno. Le mutazioni debug sono
+riservate all'authority. Le mappe ordinarie e le relative armi mantengono la
+pipeline precedente.
+
+Replica: descriptor protocol6 con epoch/seed/config/layout fingerprint e
+manifest versioni, più actor senza tick da128 record con HP/stato assoluti.
+Questo mantiene ogni canale piccolo anche per late join dopo rimozione completa
+(137 pagine per17.427 blocchi nel test a tre piani). Il client ricostruisce dal
+seed, confronta geometria/IDs/profili/mesh collision GUID e applica la transazione
+solo quando tutte le versioni corrispondono. Epoch precedenti ignorate, snapshot
+invalidi rifiutati prima della mutazione. Il caricamento iniziale sospende movimento
+locale/server fino all'ack dell'epoch sul controller posseduto; i teleport del
+server usano la correzione nativa del movimento. I delta successivi conservano
+la precedente collisione coerente fino al commit.
+
+Nuovi piani1..3: stesso algoritmo per piano con seed offset, wall ID globali,
+slab condiviso tra pavimento superiore/soffitto inferiore, ultimo soffitto opzionale,
+scale statiche larghe150cm (alzata<=20/pedata30) e ritorno in corsia separata.
+La base superiore è ancorata alla slab; nessun modello dei carichi. Limite50k
+record e branch>=250 per l'edificio. Più actor di mondo indipendenti/streaming,
+packing arbitrario, NavMesh dinamica e crollo dei solai restano esclusi.
+
+Sette profili: legno60HP, pietra200, metallo400 e vetro8 oltre ai tre originali.
+M6 assegna i materiali opachi per stanza, i vetri sottili alle finestre se richiesti.
+La migrazione additiva setup_procedural_multiplayer.py ha aggiunto quattro righe
+riusando wood_planks/stone_wall_02/rusty_metal_04/M_ER_Glass; nessun nuovo download.
+Rerun verificato con added0/filled0 e SHA del catalogo uasset invariato. HP/art
+preesistenti restano; bootstrap/import ora tollerano sette profili senza modificarli.
+
+Menu **OSPITA EDIFICIO PROCEDURALE LAN** (due piani, sei stanze/piano, nuovi materiali,
+vetro), join dalla casella IP, opzioni MapSeed/MapRooms/MapFloors/MapMaterials/MapGlass.
+Console authority `ERMapGenerate 42 6 3`; terzo argomento omesso conserva i piani.
+Snapshot di Detached replica la rimozione, non i detriti: questi restano locali,
+limitati/query-free e non vengono riprodotti per late join. Impatti piccoli sono
+multicast non affidabili con epoch/budget/culling. Statistiche includono epoch,
+versione, pagine/readiness e buffer posseduti, esclusi heap actor/canali e GPU.
+
+Undici automation test e probe LAN con host listen, client iniziale, client tardivo
+post-crollo e ulteriore client tardivo post-rimozione completa. Verifica hash di
+stato completo, collisioni campionate e mapping, fuoco client reale, attraversamento
+brecce, salita/discesa di due piani, tre epoch e delta delle esplosioni. Varianti
+loss3%/lag40ms e Metal. Esiti reali e limiti in TEST_RESULTS.md.
+
+## Launcher unico — 15 ottobre 2026
+
+Avvio tramite `scripts/play.command`; modalità, laboratori e dimensioni si scelgono
+dal menu. Rimossi i launcher play separati. La finestra iniziale usa il 70%
+di larghezza e altezza dello schermo: i punti AppKit vengono convertiti in pixel
+con backingScaleFactor per Unreal high-DPI, evitando il precedente 35% su Retina.
+La misura è passata all’avvio, prima di mostrare il menu; nessun resize al menu.
+
+## Menu e sessioni — 15 ottobre 2026
+
+Menu a tre colonne con scorrimento indipendente: partita, personaggio/armi,
+impostazioni video e mouse. Locale/server/client condividono un unico avvio;
+client sceglie nome, squadra e aspetto, mentre mappa e bot restano del server.
+Locale/server consentono 0–10 bot Alpha e 0–10 Omega, fermi, solo movimento
+o movimento/sparo. Budget bot esplicito separato dai quattro slot umani;
+le vecchie opzioni ERBots dei collaudi mantengono il loro budget storico.
+Il launcher forza MULTIHOME=0.0.0.0. La partita parte con un solo umano anche
+su listen server; non attende più entrambe le squadre. Nei tre laboratori le
+ricariche rinnovano la riserva lato autorità, mantenendo durata e capacità.
+La scelta di squadra è validata dal server (solo Alpha/Omega).
+
+
+## Template da mappa community — 15 ottobre 2026
+
+Analizzato l'archivio Workshop526448928 con il parser Source già esistente,
+letto senza cambiare il progetto csgopen: contiene de_killhouse.bsp, BSP21,
+1584 brush,95 prop statici e20 spawn. Misure/aree materiali/prop/coordinate e
+hash di provenienza salvati privatamente in SourceAssets/MapTemplates.
+Adattamento proprio41x79m: bunker in compensato, tramezzi sfalsati, casse,
+coperture basse, container cavi fissi e torre centrale con scala a20cm.
+
+Nuovo UERMapTemplate configurabile come data asset, selezionato da LayoutConfig;
+il generatore precedente resta invariato quando non è assegnato. Volumi di
+assemblaggio con offset di gruppo deterministici limitati al reticolo50cm,
+nessun file esterno letto a runtime. Venti spawn originali XY/orientamento
+(conteggio20: dieci per squadra), trasformazione Source(X,-Y,Z)*2,54cm e
+altezza100cm per la capsula. Parti distruttibili Wood/Concrete nel catalogo
+proprio; involucro/container/piattaforma in ISM fissi con materiali PBR esistenti.
+
+Mappa separata L_Killhouse e DA_Killhouse sotto Art/MapTemplates, salvati da
+Unreal nel submodule privato maps. Menu locale/LAN include Killhouse procedurale;
+MapSeed e console ERMapGenerate cambiano il seed. RoomCount ignorato per i
+template, un solo piano. Descriptor replica il riferimento al template;
+fingerprint esteso alle geometrie fisse, mesh/collision GUID, revisioni e spawn.
+Late join/danni/epoch riusano il protocollo esistente, nessun RPC mutazione client.
+
+FactoryEnvironmentCollect era in download: su richiesta dell'utente si procede
+con i sostituti, lasciando FixedMesh per la sostituzione artistica successiva.
+Nessuna mesh/texture Valve copiata, nessuna licenza community presunta verificata.
+Dettagli, limiti dell'adattamento e procedura per altri template in MAP_TEMPLATES.md.
+
+
+## Killhouse bilanciata e Factory — 15 ottobre 2026
+
+La precisazione dell'utente e la schermata della mappa originale aggiornano il
+layout: ingresso delle basi dal retro, finestre verso il campo, scala interna,
+foro nel solaio e tetto praticabile con parapetti. Basi speculari per rotazione
+180°, incluse scale, finestre, copertura e spawn. Il vincolo di bilanciamento
+prevale sulla conservazione esatta dei vecchi spawn Omega: Alpha resta nel
+riferimento originale, Omega deriva dalla stessa trasformazione del layout.
+
+HalfTurn è il default dei nuovi template. Ogni gruppo viene campionato una volta
+e duplicato tramite rotazione, incluse le celle parziali dei blocchi. Nessuna
+randomizzazione indipendente delle due squadre. I pannelli esterni usano un
+reticolo centrato per evitare piccole differenze di arrotondamento fra i lati.
+I laboratori precedenti rimangono fixture di collaudo.
+
+Arena più piena con pareti basse e ritorni a L, casse, container, serbatoi e
+barili, tutti accoppiati. Torre con accesso da entrambe le estremità. Selezione
+Factory caricata con Unreal dal progetto UE5.6 fornito: migrazione di dipendenze
+in scratch isolato, rename/save via Unreal nel namespace privato
+EclipseRecoil/Art/FactoryEnvironment e successiva migrazione in maps.
+Nessun pacchetto sorgente Factory salvato. Il catalogo distruttibile e le sue
+superfici/proprietà restano identici; solo le parti fisse ricevono mesh/materiali
+Factory. Le mesh visuali non hanno query collision; volumi box di progetto
+mantengono scale, copertura e piattaforme coerenti fra server e client.
+
+Asset upgrade revision2 con hash del manifest, validazione nativa di103 seed distinti e
+conservazione degli edit successivi. Tutte le modifiche binarie via Unreal.
+
+
+## Killhouse con composizioni variabili — 15 ottobre 2026
+
+La nuova richiesta estende la variabilità oltre gli offset: arena36..48x70..90m,
+basi10..14x8,5..10,5m con posizione/altezza variabili e caratteristiche conservate.
+Quattro-sei moduli per metà (otto-dodici complessivi), selezionati fra stanze
+attraversabili con due porte e finestre laterali, muri a L/U fissi o distruttibili,
+pareti sfalsate, container, serbatoi/barili e cataste di legno. Varia anche la
+piattaforma centrale; accesso bilaterale conservato. Tutte le scelte sono
+accoppiate per rotazione180°, incluse celle dei blocchi, materiali e spawn.
+
+Il difetto della schermata derivava dal fitting di piattaforme/griglie Factory
+complesse nei volumi di solaio/gradino: la collisione box copriva vuoti visibili
+e dettagli stirati. Tetti, pianerottoli e gradini diventano box solidi visibili
+con lo stesso volume di collisione e superficie Metal esistente. WalkableSurface
+impedisce di sostituirli con mesh dettagliate aperte. Parapetti lungo i bordi e
+protezione laterale del vano scala; solo il vano previsto resta aperto.
+
+Ricetta Variation nel data asset, con palette Factory già importata; nessun nuovo
+asset vendor. Layout.ArenaSize guida involucro, pavimento, digest e pattuglia.
+Spazi di circolazione riservati prima degli ostacoli, celle separate e validazione
+di sovrapposizioni, limiti, spawn e segmenti completi di percorso. Le basi e le
+scale espongono metadati per test fisici indipendenti da coordinate fisse.
+Nuovo seed per ogni avvio Killhouse dal menu; console/travel restano riproducibili.
+Migrazione esplicita revision3 attraverso Unreal, candidato staccato validato
+su516 seed prima del salvataggio; hash di mappa/catalogo conservati e marker
+separato per preservare gli edit successivi. Riferimento revision2 conservato
+come costruzione authored quando Variation è disabilitata, con fix superfici.
+
+
+## Arrampicata sui parapetti Killhouse — 15 ottobre 2026
+
+Il probe verticale dell'arrampicata cercava a raggio+55cm davanti al personaggio:
+superava completamente i parapetti spessi20cm e non ne trovava la sommità. Ora
+parte2cm oltre la faccia colpita, campiona a intervalli limitati il piano continuo
+e trova il bordo con tre raffinamenti. Sui piani stretti sceglie un appoggio
+interno; sui blocchi ampi conserva la precedente distanza di arrivo. Restano
+limite150cm, requisito Spazio oltre80cm, capsula intera libera, movimento swept
+e replica attraverso saved moves. Altezza del salto e geometria/materiali delle
+basi invariati. Nuovo test reale host/client sui quattro lati di entrambe le basi
+tramite il normale binding Spazio e input di avanzamento.
+
+
+## Bot solo movimento dimostrativi — 15 ottobre 2026
+
+Estesa la modalità esistente Solo movimento: salti ordinari periodici,
+accovacciamento in cammino, pausa da proni, strisciamento e ritorno in piedi.
+Ciclo22 secondi sfalsato per controller; usa Jump/Crouch e gli intenti del normale
+UERMovement, senza teletrasporti o animazioni fittizie. In postura eretta i bot
+provano anche l'arrampicata; dopo una traversata sostano brevemente sull'appoggio.
+Una ricerca locale ogni2 secondi usa al massimo12 direzioni entro7m e sceglie
+ostacoli30..150cm con percorso della capsula libero e suolo campionato all'approccio.
+I bot non usano altri personaggi come obiettivi della ricerca. Le posture non
+interrompono una traversata in corso; una risalita bloccata da soffitto torna a
+muoversi lentamente invece di attendere per sempre.
+
+Il comportamento è server-authoritative, riusa replica/posture/skin esistenti e
+azzera gli intenti al respawn. Solo movimento continua a non sparare; Fermi e
+Movimento e sparo mantengono il loro ramo precedente. Nessuna mappa o risorsa
+binaria nuova: per osservare altezze diverse si può usare il Laboratorio movimento
+esistente. Nuovo probe con due bot veri: si limita a collocare il test davanti ai
+blocchi80/140cm, poi osserva le decisioni normali e il modello dal client remoto.
+
+
+## Dust Mirror urban/desert — 15 ottobre 2026
+
+La richiesta usa Workshop3117367319 come riferimento per un template, con
+priorità all'incrocio su due livelli e alle porte strette. La mappa CS2 annidata
+è completa (561 file,15 spawn per squadra), a differenza dei precedenti
+placeholder. Geometria esportata per analisi locale con Source2Viewer20.1;
+nessuna mesh/texture CS2 entra negli asset Unreal.
+
+Nuovo DA_DustMirror/L_DustMirror, selezionabile nel menu locale/LAN e con seed
+nuovo per sessione. Adattamento simmetrico60x80m: passaggio sopra/sotto, catwalk
+a320cm, luce inferiore290cm, scale20cm e quattro varchi110cm. Geometria critica
+fissa; offset procedurali delle coperture accoppiati per rotazione180°.
+Non è la ricostruzione completa di DustII e non varia ancora la composizione
+come Killhouse. Catalogo distruttibile e altre mappe preservati.
+
+Muri/ante/pavimento da MOUT_Arabian, selezione27 pacchetti con migrazione Unreal
+attraverso scratch isolato e namespace privato Art/ArabianEnvironment. Nessuna
+parte industriale Factory. Primo controllo fisico ha rilevato un parapetto
+che chiudeva l'arrivo delle scale: revisione2 apre le due bocche delle scale,
+con controllo fisico e test del personaggio dedicati.
+
+
+## Dust town revision3 — vicoli, cortili ed edifici
+
+La piantina allegata dall'utente sostituisce l'arena precedente: schema
+macro asimmetrico con T a sud, CT a nord, cortili B/A a ovest/est, Mid, tunnel B,
+lungo e Short_A sopra CT_A. Il vincolo HalfTurn resta a Killhouse. La ricetta
+Town nel data asset campiona proporzioni dell'area, deformazioni condivise degli
+assi, larghezze delle vie, altezze e sagome degli isolati. Gli edifici sono il
+complemento dell'unione di strade/cortili; i seed cambiano quindi la disposizione
+urbana intera, mantenendo i collegamenti del riferimento.
+
+Passaggio su due livelli invariato nella funzione: Short_A a320cm, luce CT290cm,
+scale20cm alle estremità. Tre portali ad arco con ante curve di legno naturale
+socchiuse20..30gradi e varchi110..130cm, come la seconda foto. Mesh di progetto
+importate tramite Unreal; volumi delle ante ruotati, collisione dell'arco a
+segmenti, decorazioni senza collisione. Palette/materiali salvati privatamente;
+catalogo distruttibile e Killhouse preservati. Native metadati di strade, scale,
+porte e incrocio guidano test fisici e probe, senza le vecchie coordinate fisse.
+
+
+## Dust town revisione4 — dimensioni ridotte e ante opposte
+
+Richiesta successiva: area66..75x73..84m, circa13% in meno per lato, mantenendo
+pianta indicativa e quote dell'incrocio. Le due ante ora ruotano rispettivamente
+verso interno/esterno: proiezione frontale sovrapposta24cm, nessuna visuale
+rettilinea a quota occhi, passaggio diagonale110..130cm. Percorsi di strade e
+pattuglia inseriscono lo stesso breve zigzag, percorso anche dal probe reale.
+La migrazione setup_dust_town_compact.py preserva palette e materiali esistenti;
+validazione515 seed prima del salvataggio. Collisioni ruotate controllate nel
+riferimento locale di ogni volume; punti di pattuglia Town con raggio10cm per
+evitare tagli delle curve, valore standard90cm nelle altre mappe.

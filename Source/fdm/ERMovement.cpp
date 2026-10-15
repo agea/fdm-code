@@ -102,10 +102,35 @@ bool UERMovement::FindLedge(FVector& Destination, float& Height) const
     // A short wall feeler prevents mounting distant blocks or ordinary stairs.
     if (!GetWorld()->LineTraceSingleByChannel(Wall, Feet + FVector(0,0,35), Feet + FVector(0,0,35) + Forward*(Radius+25), ECC_Visibility, Params)) return false;
     if (FMath::Abs(Wall.ImpactNormal.Z) > .2f) return false;
-    const FVector Ahead = Feet + Forward*(Radius+55);
-    if (!GetWorld()->LineTraceSingleByChannel(Top, Ahead + FVector(0,0,150), Ahead + FVector(0,0,30.1f), ECC_Visibility, Params) || !IsWalkable(Top)) return false;
+    auto SampleTop = [&](float Along,FHitResult& Hit)
+    {
+        const FVector P=Feet+Forward*Along;
+        return GetWorld()->LineTraceSingleByChannel(Hit,P+FVector(0,0,150),P+FVector(0,0,30.1f),ECC_Visibility,Params) && IsWalkable(Hit);
+    };
+    // Start just inside the face. A fixed probe55cm beyond it skips thin
+    // parapets completely, even when they have a valid walkable top.
+    const float Near=FVector::DotProduct(Wall.ImpactPoint-Feet,Forward)+2,Preferred=Radius+55;
+    if(!SampleTop(Near,Top))return false;
     Height = Top.ImpactPoint.Z - Feet.Z;
     if (Height <= 30 || Height > 150 || (Height > 80 && !bClimbHeld) || (IsFalling() && !bClimbHeld)) return false;
+    // Keep the old landing distance on broad obstacles. On a narrow top,
+    // stop at its first edge and land inside the supported strip. Sampling
+    // the interval also prevents choosing a different platform across a gap.
+    float Landing=Near,Last=Near;
+    const int32 Samples=FMath::Clamp(FMath::CeilToInt((Preferred-Near)/8),1,16);
+    for(int32 I=1;I<=Samples;++I)
+    {
+        const float Along=FMath::Lerp(Near,Preferred,float(I)/Samples);FHitResult Candidate;
+        if(SampleTop(Along,Candidate) && FMath::Abs(Candidate.ImpactPoint.Z-Top.ImpactPoint.Z)<2.5f){Last=Landing=Along;continue;}
+        float Edge=Along;
+        for(int32 Refine=0;Refine<3;++Refine)
+        {
+            const float Mid=(Last+Edge)*.5f;
+            if(SampleTop(Mid,Candidate) && FMath::Abs(Candidate.ImpactPoint.Z-Top.ImpactPoint.Z)<2.5f)Last=Mid;else Edge=Mid;
+        }
+        Landing=(Near+Last)*.5f;break;
+    }
+    const FVector Ahead=Feet+Forward*Landing;
     Destination = FVector(Ahead.X, Ahead.Y, Top.ImpactPoint.Z + Half + 2.4f);
     // Test the full standing body, including ceiling clearance, before moving.
     return !GetWorld()->OverlapBlockingTestByChannel(Destination, FQuat::Identity, UpdatedComponent->GetCollisionObjectType(), FCollisionShape::MakeCapsule(Radius,Half), Params);

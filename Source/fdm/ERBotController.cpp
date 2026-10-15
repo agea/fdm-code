@@ -2,6 +2,7 @@
 #include "ERCharacter.h"
 #include "ERMatch.h"
 #include "ERWeapon.h"
+#include "ERMovement.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "EngineUtils.h"
@@ -25,6 +26,16 @@ void AERBotController::ResetLife()
     bAwaitingRespawn = false; RespawnAllowedAt = 0;
     Target.Reset(); NextPerceptionAt = NextBurstAt = BurstEndsAt = 0;
     NextProgressCheckAt = GetWorld()->GetTimeSeconds() + 2;
+    MotionEpoch=GetWorld()->GetTimeSeconds();
+    const float Stagger=MovementPhaseOffset;
+    MotionEpoch-=Stagger;NextDemoJump=GetWorld()->GetTimeSeconds()+3+Stagger;
+    JumpReleaseAt=ObstacleUntil=MotionPauseUntil=0;NextObstacleSearch=GetWorld()->GetTimeSeconds()+2;
+    ObstacleSearch=MotionPosture=0;PosturePauseUntil=0;SawMotionTraversal=false;
+    if(auto* C=Cast<AERCharacter>(GetPawn()))
+    {
+        auto* M=Cast<UERMovement>(C->GetCharacterMovement());
+        M->bClimbHeld=M->bProneWanted=false;C->UnCrouch();C->StopJumping();
+    }
     if (GetPawn()) LastProgressPosition = GetPawn()->GetActorLocation();
 }
 void AERBotController::OnPossess(APawn* Pawn)
@@ -59,10 +70,22 @@ bool AERBotController::HasSight(AERCharacter* Other) const
 }
 void AERBotController::Patrol(AERCharacter* Character, float DeltaTime)
 {
-    if (Route.IsEmpty()) return;
+    if (Route.IsEmpty())
+    {
+        // Labs may have no authored route: steer locally and turn when blocked.
+        if (GetWorld()->GetTimeSeconds() >= NextProgressCheckAt)
+        {
+            if (FVector::DistSquared2D(LastProgressPosition, Character->GetActorLocation()) < FMath::Square(30.f))
+                SetControlRotation(GetControlRotation()+FRotator(0,90,0));
+            LastProgressPosition=Character->GetActorLocation(); NextProgressCheckAt=GetWorld()->GetTimeSeconds()+1;
+        }
+        Character->AddMovementInput(GetControlRotation().Vector());
+        Character->SetActorRotation(FRotator(0,GetControlRotation().Yaw,0));
+        return;
+    }
     FVector Direction = Route[RoutePosition]->GetActorLocation() - Character->GetActorLocation();
     Direction.Z = 0;
-    if (Direction.SizeSquared() < FMath::Square(90.f))
+    if (Direction.SizeSquared() < FMath::Square(FMath::Clamp(Route[RoutePosition]->AcceptanceRadius,5.f,90.f)))
     {
         RoutePosition = (RoutePosition + RouteDirection + Route.Num()) % Route.Num();
         Direction = Route[RoutePosition]->GetActorLocation() - Character->GetActorLocation(); Direction.Z = 0;
@@ -100,6 +123,7 @@ void AERBotController::Tick(float DeltaTime)
     {
         Weapon->StopFire(); Character->GetCharacterMovement()->StopMovementImmediately(); Target.Reset(); return;
     }
+    if (bMovementOnly) { Weapon->StopFire(); Target.Reset(); MovementDemo(Character, DeltaTime); return; }
     if (Weapon->MagazineAmmo == 0 || (!Target.IsValid() && Weapon->MagazineAmmo < 10)) Character->ServerReload();
     if (Now >= NextPerceptionAt)
     {

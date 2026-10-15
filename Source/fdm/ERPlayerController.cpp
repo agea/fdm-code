@@ -5,6 +5,11 @@
 #include "ERMovement.h"
 #include "ERMatch.h"
 #include "ERWeapon.h"
+#include "ERBlockRoom.h"
+#include "ERBlockNetworkProbe.h"
+#include "ERBlockTarget.h"
+#include "ERProceduralMap.h"
+#include "EngineUtils.h"
 #include "Camera/CameraComponent.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Components/CapsuleComponent.h"
@@ -98,6 +103,19 @@ void UERGameInstance::SetMouseAcceleration(float Value)
     MouseAcceleration = FMath::Clamp(Value, 0.f, 1.f);
     GConfig->SetFloat(TEXT("EclipseRecoil.Input"), TEXT("MouseAcceleration"), MouseAcceleration, GGameUserSettingsIni);
 }
+void UERGameInstance::StartSession()
+{
+    if (SessionMode == 2) { Join(ServerAddress); return; }
+    LastError.Empty();
+    const TCHAR* Maps[] = {TEXT("L_Depot"), TEXT("L_MovementLab"), TEXT("L_DestructionLab"), TEXT("L_ProceduralLab"), TEXT("L_Killhouse"), TEXT("L_DustMirror")};
+    const TCHAR* Behaviors[] = {TEXT("Target"), TEXT("Movement"), TEXT("Patrol")};
+    FString Options = SessionMode == 1 ? TEXT("listen?Name=") : TEXT("Name=");
+    Options += AERGameMode::SanitizeName(LocalName);
+    Options += FString::Printf(TEXT("?Primary=%d?AlphaSkin=%d?OmegaSkin=%d?Team=%d?ERAlphaBots=%d?EROmegaBots=%d?ERBotMode=%s"),
+        PrimaryWeapon, AlphaSkin, OmegaSkin, FMath::Clamp(PlayerTeam,0,1), FMath::Clamp(AlphaBots,0,10), FMath::Clamp(OmegaBots,0,10), Behaviors[FMath::Clamp(BotBehavior,0,2)]);
+    if(MapChoice==4 || MapChoice==5)Options+=FString::Printf(TEXT("?MapSeed=%d"),FMath::Rand());
+    UGameplayStatics::OpenLevel(GetWorld(), FName(*FString::Printf(TEXT("/Game/EclipseRecoil/Maps/%s"), Maps[FMath::Clamp(MapChoice,0,5)])), true, Options);
+}
 void UERGameInstance::Host(int32 BotCount, bool bStationaryTarget)
 {
     LastError.Empty();
@@ -132,7 +150,7 @@ bool UERGameInstance::Join(const FString& RawAddress)
     if (APlayerController* PC = GetFirstLocalPlayerController())
     {
         LastError = TEXT("Connessione in corso...");
-        PC->ClientTravel(Address + TEXT("?Name=") + AERGameMode::SanitizeName(LocalName) + FString::Printf(TEXT("?Primary=%d?AlphaSkin=%d?OmegaSkin=%d"), PrimaryWeapon, AlphaSkin, OmegaSkin), TRAVEL_Absolute); return true;
+        PC->ClientTravel(Address + TEXT("?Name=") + AERGameMode::SanitizeName(LocalName) + FString::Printf(TEXT("?Primary=%d?AlphaSkin=%d?OmegaSkin=%d?Team=%d"), PrimaryWeapon, AlphaSkin, OmegaSkin, FMath::Clamp(PlayerTeam,0,1)), TRAVEL_Absolute); return true;
     }
     LastError = TEXT("Giocatore locale non disponibile."); return false;
 }
@@ -173,6 +191,7 @@ void AERPlayerController::BeginPlay()
 void AERPlayerController::PlayerTick(float DeltaTime)
 {
     Super::PlayerTick(DeltaTime);
+    UpdateBlockMapLoading();
     FlashOpacity = FMath::Max(0.f, FlashOpacity - DeltaTime * .35f);
     if (IsLocalController()) UpdateRenderResolution();
     if (IsLocalController() && DeltaTime > 0)
@@ -488,6 +507,12 @@ void AERPlayerController::ShowMenu(bool bShow)
         return SNew(SButton).ContentPadding(FMargin(16,12)).OnClicked_Lambda(MoveTemp(Action))[SNew(STextBlock).Text(FText::FromString(Label)).Justification(ETextJustify::Center)];
     };
     TSharedRef<SVerticalBox> Panel = SNew(SVerticalBox);
+    TSharedRef<SVerticalBox> GamePanel = SNew(SVerticalBox);
+    TSharedRef<SVerticalBox> SetupPanel = SNew(SVerticalBox);
+    auto Heading = [](const TCHAR* Text) { return SNew(STextBlock).Text(FText::FromString(Text)).Font(FCoreStyle::GetDefaultFontStyle("Bold",22)); };
+    GamePanel->AddSlot().AutoHeight().Padding(0,0,0,12)[Heading(TEXT("PARTITA"))];
+    Panel->AddSlot().AutoHeight().Padding(0,0,0,12)[Heading(TEXT("PERSONAGGIO E ARMI"))];
+    SetupPanel->AddSlot().AutoHeight().Padding(0,0,0,12)[Heading(TEXT("IMPOSTAZIONI"))];
     TSharedPtr<SWidget> FocusWidget;
     Panel->AddSlot().AutoHeight().Padding(0,0,0,10)[SNew(STextBlock).Text(FText::FromString(TEXT("ECLIPSE RECOIL"))).Font(FCoreStyle::GetDefaultFontStyle("Bold",30))];
     Panel->AddSlot().AutoHeight().Padding(0,0,0,20)[SNew(STextBlock).Text(FText::FromString(TEXT("ALPHA / OMEGA     •     TEAM DEATHMATCH")))];
@@ -520,24 +545,46 @@ void AERPlayerController::ShowMenu(bool bShow)
             .MenuContent()[SkinChoices]];
     }
     Panel->AddSlot().AutoHeight().Padding(0,5)[SNew(STextBlock).AutoWrapText(true)
-        .Text(FText::FromString(bMain ? TEXT("Scegli un aspetto per ogni squadra. Il team viene assegnato automaticamente.") : TEXT("Le modifiche al personaggio si applicano dalla prossima nascita.")))];
+        .Text(FText::FromString(bMain ? TEXT("Scegli un aspetto per ogni squadra e la squadra con cui giocare.") : TEXT("Le modifiche al personaggio si applicano dalla prossima nascita.")))];
     if (bMain)
     {
-        Panel->AddSlot().AutoHeight().Padding(0,5)[SNew(STextBlock).Text(FText::FromString(TEXT("Nome giocatore")))];
-        Panel->AddSlot().AutoHeight().Padding(0,5)[SAssignNew(NameBox, SEditableTextBox).Text(FText::FromString(GI->LocalName))];
+        auto Choice = [Button](TSharedRef<SVerticalBox> Parent, const TCHAR* Title, TArray<FString> Labels, int32* Value, TFunction<bool()> Enabled)
+        {
+            Parent->AddSlot().AutoHeight().Padding(0,8,0,4)[SNew(STextBlock).Text(FText::FromString(Title))];
+            TSharedRef<SVerticalBox> Items = SNew(SVerticalBox);
+            for (int32 I=0; I<Labels.Num(); ++I)
+                Items->AddSlot().AutoHeight()[Button(Labels[I], [Value,I]() { *Value=I; FSlateApplication::Get().DismissAllMenus(); return FReply::Handled(); })];
+            Parent->AddSlot().AutoHeight()[SNew(SComboButton).IsEnabled_Lambda(MoveTemp(Enabled))
+                .ButtonContent()[SNew(STextBlock).Text_Lambda([Labels,Value]() { return FText::FromString(Labels[FMath::Clamp(*Value,0,Labels.Num()-1)]); })]
+                .MenuContent()[Items]];
+        };
+        auto Always = []() { return true; };
+        auto OwnGame = [GI]() { return GI->SessionMode != 2; };
+        GamePanel->AddSlot().AutoHeight()[SNew(STextBlock).Text(FText::FromString(TEXT("Nome giocatore")))];
+        GamePanel->AddSlot().AutoHeight().Padding(0,4)[SAssignNew(NameBox, SEditableTextBox).Text(FText::FromString(GI->LocalName))];
         FocusWidget = NameBox;
-        Panel->AddSlot().AutoHeight().Padding(0,10)[Button(TEXT("OSPITA PARTITA LAN"), [this, GI]() { GI->LocalName = NameBox->GetText().ToString(); GI->Host(); return FReply::Handled(); })];
-        Panel->AddSlot().AutoHeight().Padding(0,5)[Button(TEXT("ALLENAMENTO CONTRO BOT"), [this, GI]() { GI->LocalName = NameBox->GetText().ToString(); GI->Host(1); return FReply::Handled(); })];
-        Panel->AddSlot().AutoHeight().Padding(0,5)[Button(TEXT("BERSAGLI FERMI · 5 ALPHA / 5 OMEGA"), [this, GI]() { GI->LocalName = NameBox->GetText().ToString(); GI->Host(2 * ERSkins::Count,true); return FReply::Handled(); })];
-        Panel->AddSlot().AutoHeight().Padding(0,5)[Button(TEXT("LABORATORIO MOVIMENTO"), [this, GI]() { GI->LocalName = NameBox->GetText().ToString(); GI->GetWorld()->ServerTravel(TEXT("/Game/EclipseRecoil/Maps/L_MovementLab?listen?Name=") + AERGameMode::SanitizeName(GI->LocalName) + FString::Printf(TEXT("?Primary=%d?AlphaSkin=%d?OmegaSkin=%d"), GI->PrimaryWeapon, GI->AlphaSkin, GI->OmegaSkin)); return FReply::Handled(); })];
-        Panel->AddSlot().AutoHeight().Padding(0,5)[SAssignNew(AddressBox, SEditableTextBox).Text(FText::FromString(TEXT("127.0.0.1:7777"))).HintText(FText::FromString(TEXT("IP dell'host")))];
-        Panel->AddSlot().AutoHeight().Padding(0,10)[Button(TEXT("CONNETTI"), [this, GI]() { GI->LocalName = NameBox->GetText().ToString(); GI->Join(AddressBox->GetText().ToString()); return FReply::Handled(); })];
+        Choice(GamePanel,TEXT("Connessione"),{TEXT("Locale"),TEXT("Crea server e gioca"),TEXT("Connettiti come client")},&GI->SessionMode,Always);
+        Choice(GamePanel,TEXT("Mappa / laboratorio"),{TEXT("Deposito"),TEXT("Laboratorio movimento"),TEXT("Laboratorio distruzione"),TEXT("Piano procedurale"),TEXT("Killhouse procedurale"),TEXT("Dust Mirror procedurale")},&GI->MapChoice,OwnGame);
+        Choice(GamePanel,TEXT("La tua squadra"),{TEXT("Alpha"),TEXT("Omega")},&GI->PlayerTeam,Always);
+        TArray<FString> Counts; for (int32 I=0; I<=10; ++I) Counts.Add(FString::FromInt(I));
+        Choice(GamePanel,TEXT("Bot Alpha"),Counts,&GI->AlphaBots,OwnGame);
+        Choice(GamePanel,TEXT("Bot Omega"),Counts,&GI->OmegaBots,OwnGame);
+        Choice(GamePanel,TEXT("Comportamento bot"),{TEXT("Fermi"),TEXT("Solo movimento"),TEXT("Movimento e sparo")},&GI->BotBehavior,OwnGame);
+        GamePanel->AddSlot().AutoHeight().Padding(0,10)[SNew(STextBlock).AutoWrapText(true).Text_Lambda([GI]() {
+            return FText::FromString(GI->SessionMode==2 ? TEXT("Mappa e bot sono decisi dal server.") : GI->SessionMode==1 ? TEXT("Server in ascolto su tutte le interfacce · porta 7777. La partita inizia anche con un solo giocatore.") : TEXT("Partita locale. Nei laboratori puoi ricaricare senza esaurire le riserve."));
+        })];
+        GamePanel->AddSlot().AutoHeight().Padding(0,4)[SAssignNew(AddressBox, SEditableTextBox)
+            .IsEnabled_Lambda([GI]() { return GI->SessionMode==2; })
+            .Text(FText::FromString(GI->ServerAddress)).HintText(FText::FromString(TEXT("IP server:porta")))];
+        GamePanel->AddSlot().AutoHeight().Padding(0,12)[SNew(SButton).ContentPadding(FMargin(16,12))
+            .OnClicked_Lambda([this,GI]() { GI->LocalName=NameBox->GetText().ToString(); GI->ServerAddress=AddressBox->GetText().ToString(); GI->StartSession(); return FReply::Handled(); })
+            [SNew(STextBlock).Text_Lambda([GI]() { return FText::FromString(GI->SessionMode==2 ? TEXT("CONNETTI") : TEXT("AVVIA PARTITA")); })]];
     }
     else
     {
         FocusWidget = Button(TEXT("RIPRENDI"), [this]() { ShowMenu(false); return FReply::Handled(); });
-        Panel->AddSlot().AutoHeight().Padding(0,10)[FocusWidget.ToSharedRef()];
-        Panel->AddSlot().AutoHeight().Padding(0,10)[Button(TEXT("TORNA AL MENU"), [GI]() { GI->ReturnToMenu(); return FReply::Handled(); })];
+        GamePanel->AddSlot().AutoHeight().Padding(0,10)[FocusWidget.ToSharedRef()];
+        GamePanel->AddSlot().AutoHeight().Padding(0,10)[Button(TEXT("TORNA AL MENU"), [GI]() { GI->ReturnToMenu(); return FReply::Handled(); })];
     }
     if (!PrimaryOptions.IsEmpty())
     {
@@ -565,46 +612,160 @@ void AERPlayerController::ShowMenu(bool bShow)
         const FString Label = Percent == 100 ? TEXT("Schermo intero") : FString::Printf(TEXT("Finestra %d%%"), Percent);
         DisplayChoices->AddSlot().AutoHeight()[Button(Label, [this, Percent]() { ApplyDisplaySize(Percent); return FReply::Handled(); })];
     }
-    Panel->AddSlot().AutoHeight().Padding(0,10,0,5)[SNew(STextBlock).Text(FText::FromString(TEXT("Dimensione finestra / schermo")))];
-    Panel->AddSlot().AutoHeight().Padding(0,5)[SAssignNew(DisplaySizeSelector, SComboButton)
+    SetupPanel->AddSlot().AutoHeight().Padding(0,10,0,5)[SNew(STextBlock).Text(FText::FromString(TEXT("Dimensione finestra / schermo")))];
+    SetupPanel->AddSlot().AutoHeight().Padding(0,5)[SAssignNew(DisplaySizeSelector, SComboButton)
         .ButtonContent()[SNew(STextBlock).Text_Lambda([this]() { return GetDisplaySizeText(); })]
         .MenuContent()[DisplayChoices]];
-    Panel->AddSlot().AutoHeight().Padding(0,8,0,3)[SNew(STextBlock)
+    SetupPanel->AddSlot().AutoHeight().Padding(0,8,0,3)[SNew(STextBlock)
         .Text(FText::FromString(TEXT("Risoluzione 3D automatica · obiettivo 60+ FPS"))).AutoWrapText(true)];
-    Panel->AddSlot().AutoHeight().Padding(0,5)[Button(TEXT("REIMPOSTA RISOLUZIONE AUTOMATICA"), [this]() {
+    SetupPanel->AddSlot().AutoHeight().Padding(0,5)[Button(TEXT("REIMPOSTA RISOLUZIONE AUTOMATICA"), [this]() {
         ResetRenderResolution(); return FReply::Handled();
     })];
-    Panel->AddSlot().AutoHeight().Padding(0,12,0,5)[SNew(STextBlock).Text_Lambda([GI]() {
+    SetupPanel->AddSlot().AutoHeight().Padding(0,12,0,5)[SNew(STextBlock).Text_Lambda([GI]() {
         return FText::FromString(FString::Printf(TEXT("Sensibilità mouse · %d%%"), FMath::RoundToInt(GI->GetMouseSensitivity() * 100.f)));
     })];
-    Panel->AddSlot().AutoHeight().Padding(0,5)[SNew(SSlider)
+    SetupPanel->AddSlot().AutoHeight().Padding(0,5)[SNew(SSlider)
         .Value_Lambda([GI]() { return GI->GetMouseSensitivity(); })
         .StepSize(.01f)
         .OnValueChanged_Lambda([GI](float Value) { GI->SetMouseSensitivity(Value); })
         .OnMouseCaptureEnd_Lambda([GI]() { GI->SaveMouseSensitivity(); })
         .OnControllerCaptureEnd_Lambda([GI]() { GI->SaveMouseSensitivity(); })];
-    Panel->AddSlot().AutoHeight().Padding(0,12,0,5)[SNew(STextBlock).Text_Lambda([GI]() {
+    SetupPanel->AddSlot().AutoHeight().Padding(0,12,0,5)[SNew(STextBlock).Text_Lambda([GI]() {
         return FText::FromString(FString::Printf(TEXT("Accelerazione mouse · %d%%"), FMath::RoundToInt(GI->GetMouseAcceleration() * 100.f)));
     })];
-    Panel->AddSlot().AutoHeight().Padding(0,5)[SNew(SSlider)
+    SetupPanel->AddSlot().AutoHeight().Padding(0,5)[SNew(SSlider)
         .Value_Lambda([GI]() { return GI->GetMouseAcceleration(); })
         .StepSize(.01f)
         .OnValueChanged_Lambda([GI](float Value) { GI->SetMouseAcceleration(Value); })
         .OnMouseCaptureEnd_Lambda([GI]() { GI->SaveMouseSensitivity(); })
         .OnControllerCaptureEnd_Lambda([GI]() { GI->SaveMouseSensitivity(); })];
-    Panel->AddSlot().AutoHeight().Padding(0,3)[SNew(STextBlock)
+    SetupPanel->AddSlot().AutoHeight().Padding(0,3)[SNew(STextBlock)
         .Text(FText::FromString(TEXT("Movimenti lenti precisi, movimenti rapidi più ampi. 0% = risposta uniforme."))).AutoWrapText(true)];
-    Panel->AddSlot().AutoHeight().Padding(0,15)[SNew(STextBlock).Text_Lambda([GI]() { return FText::FromString(GI->LastError); }).AutoWrapText(true).ColorAndOpacity(FLinearColor(1,.6f,.25f))];
-    Panel->AddSlot().AutoHeight().Padding(0,10)[SNew(STextBlock).Text(FText::FromString(TEXT("WASD  Movimento     Mouse  Mira / Fuoco\nShift  Cammina     Spazio  Salto / Arrampicata / Respawn     Ctrl / C  Accovacciati\nDoppio W  Sprint (5 s / recupero 10 s)     Doppio Ctrl / C  Pancia a terra\nR  Ricarica     Tab  Classifica     Esc  Menu"))).AutoWrapText(true)];
-    MenuWidget = SNew(SBorder).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
-        .BorderBackgroundColor(FLinearColor(.015f,.025f,.045f,.96f)).HAlign(HAlign_Center).VAlign(VAlign_Center)
-        [SNew(SBox).WidthOverride(470).MaxDesiredHeight_Lambda([this]() {
-            const auto* Viewport = GetWorld()->GetGameViewport()->Viewport;
-            return Viewport ? FMath::Max(200.f, float(Viewport->GetSizeXY().Y) - 48.f) : 600.f;
-        })[SNew(SScrollBox) + SScrollBox::Slot()[Panel]]];
+    SetupPanel->AddSlot().AutoHeight().Padding(0,15)[SNew(STextBlock).Text_Lambda([GI]() { return FText::FromString(GI->LastError); }).AutoWrapText(true).ColorAndOpacity(FLinearColor(1,.6f,.25f))];
+    SetupPanel->AddSlot().AutoHeight().Padding(0,10)[SNew(STextBlock).Text(FText::FromString(TEXT("WASD  Movimento     Mouse  Mira / Fuoco\nShift  Cammina     Spazio  Salto / Arrampicata / Respawn     Ctrl / C  Accovacciati\nDoppio W  Sprint (5 s / recupero 10 s)     Doppio Ctrl / C  Pancia a terra\nR  Ricarica     Tab  Classifica     Esc  Menu"))).AutoWrapText(true)];
+    auto Column = [](TSharedRef<SVerticalBox> Content) -> TSharedRef<SWidget>
+    {
+        return SNew(SBorder).Padding(20).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
+            .BorderBackgroundColor(FLinearColor(.035f,.055f,.08f,1))
+            [SNew(SScrollBox) + SScrollBox::Slot()[Content]];
+    };
+    MenuWidget = SNew(SBorder).Padding(24).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
+        .BorderBackgroundColor(FLinearColor(.015f,.025f,.045f,.96f))
+        [SNew(SHorizontalBox)
+            + SHorizontalBox::Slot().FillWidth(1.1f).Padding(0,0,8,0)[Column(GamePanel)]
+            + SHorizontalBox::Slot().FillWidth(1).Padding(8,0)[Column(Panel)]
+            + SHorizontalBox::Slot().FillWidth(1).Padding(8,0,0,0)[Column(SetupPanel)]];
     GetWorld()->GetGameViewport()->AddViewportWidgetContent(MenuWidget.ToSharedRef(), 20);
     // GameAndUI lets Esc reach Enhanced Input while the menu owns the mouse.
     SetInputMode(FInputModeGameAndUI().SetWidgetToFocus(FocusWidget).SetHideCursorDuringCapture(false));
+}
+void AERPlayerController::ERBlockDamage(float Amount)
+{
+#if !UE_BUILD_SHIPPING
+    if (!HasAuthority() || !GetPawn()) return;
+    FVector Eye; FRotator Aim;
+    GetPawn()->GetActorEyesViewPoint(Eye, Aim);
+    if (auto* Character = Cast<AERCharacter>(GetPawn())) Eye = Character->Camera->GetComponentLocation();
+    FHitResult Hit;
+    FCollisionQueryParams Params(SCENE_QUERY_STAT(ERBlockDebug), false, GetPawn());
+    if (GetWorld()->LineTraceSingleByChannel(Hit, Eye, Eye + Aim.Vector() * 10000, ECC_GameTraceChannel1, Params))
+        if (auto* Room = Cast<AERBlockRoom>(Hit.GetActor()))
+        {
+            FERBlockId Id;
+            if (Room->ResolveHit(Hit, Id)) Room->ApplyBlockDamage(Id, Amount);
+        }
+#endif
+}
+void AERPlayerController::ERBlockDestroy()
+{
+    ERBlockDamage(TNumericLimits<float>::Max());
+}
+void AERPlayerController::ERBlockStats()
+{
+#if !UE_BUILD_SHIPPING
+    for (TActorIterator<AERBlockRoom> It(GetWorld()); It; ++It)
+    {
+        const auto M=It->GetMemoryProfile();const auto& G=It->GenerationProfile;const auto& U=It->UpdateProfile;
+        UE_LOG(LogTemp,Display,TEXT("ER_BLOCK_PROFILE %s logical=%.3fms grouping=%.3fms clear=%.3fms add=%.3fms mapping=%.3fms update_clear=%.3fms update_add=%.3fms uploaded=%d tracked=%.2fMiB resident=%.2fMiB bodies=%d decals=%d emitters=%d bursts=%d support_bytes=%llu support_build=%.3fms support_peak=%.3fms support_steps=%d unsupported=%d components=%d net_epoch=%u net_sequence=%u net_pages=%d net_ready=%d net_bytes=%llu"),
+            *It->GetStatistics(),G.LogicalMs,G.GroupingMs,G.ClearMs,G.AddMs,G.MappingMs,U.ClearMs,U.AddMs,U.Uploaded,double(M.TrackedBytes())/1048576,double(M.ResidentBytes)/1048576,M.CollisionBodies,M.Decals,M.Emitters,M.Bursts,uint64(M.SupportBytes),It->GetSupportBuildMs(),It->PeakSupportMs,It->SupportSteps,It->LastUnsupported,It->LastUnsupportedComponents,It->GetMapEpoch(),It->GetMapSequence(),It->GetNetworkPageCount(),It->IsMapReady(),uint64(M.NetworkBytes));
+    }
+#endif
+}
+void AERPlayerController::ERBlockRegenerate()
+{
+#if !UE_BUILD_SHIPPING
+    if (!HasAuthority()) return;
+    for (TActorIterator<AERBlockRoom> It(GetWorld()); It; ++It)
+    {
+        if (!It->Regenerate()) continue;
+        if (GetPawn())
+        {
+            GetPawn()->SetActorLocation(It->GetSpawnLocation(), false, nullptr, ETeleportType::TeleportPhysics);
+            GetPawn()->GetMovementComponent()->StopMovementImmediately();
+        }
+    }
+    for (TActorIterator<AERBlockTarget> It(GetWorld()); It; ++It) It->ResetHealth();
+#endif
+}
+void AERPlayerController::ERMapGenerate(int32 Seed, int32 Rooms, int32 Floors)
+{
+#if !UE_BUILD_SHIPPING
+    if (!HasAuthority()) return;
+    for (TActorIterator<AERProceduralMap> It(GetWorld()); It; ++It)
+    {
+        const FERProceduralConfig Previous = It->LayoutConfig;
+        It->LayoutConfig.Seed = Seed; It->LayoutConfig.RoomCount = Rooms;
+        if(Floors!=0)It->LayoutConfig.Floors=Floors;
+        if (!It->Regenerate())
+        {
+            It->LayoutConfig = Previous;
+            UE_LOG(LogTemp, Warning, TEXT("ER_MAP_REJECTED invalid config or block budget; previous layout preserved"));
+            continue;
+        }
+        if (GetPawn())
+        {
+            const auto* State=GetPlayerState<AERPlayerState>();
+            const auto& Starts=State && State->Team==EERTeam::Omega ? It->GetLayout().OmegaSpawns:It->GetLayout().AlphaSpawns;
+            const FVector Spawn=Starts.IsEmpty() ? It->GetSpawnLocation():It->GetActorTransform().TransformPosition(Starts[0].GetLocation());
+            GetPawn()->SetActorLocation(Spawn, false, nullptr, ETeleportType::TeleportPhysics);
+            GetPawn()->GetMovementComponent()->StopMovementImmediately();
+        }
+    }
+#endif
+}
+void AERPlayerController::ERBlockShot(float Energy, float Damage)
+{
+#if !UE_BUILD_SHIPPING
+    if (!HasAuthority() || !GetPawn()) return;
+    FVector Eye; FRotator Aim;
+    GetPawn()->GetActorEyesViewPoint(Eye, Aim);
+    if (auto* Character = Cast<AERCharacter>(GetPawn())) Eye = Character->Camera->GetComponentLocation();
+    FHitResult Hit;
+    FCollisionQueryParams Query(SCENE_QUERY_STAT(ERBlockDebugShot), false, GetPawn());
+    if (GetWorld()->LineTraceSingleByChannel(Hit, Eye, Eye + Aim.Vector() * 10000, ECC_GameTraceChannel1, Query))
+    {
+        FERBlockShotSettings Settings; Settings.Energy = Energy;
+        ERBlockCombat::ContinueShot(GetWorld(), Hit, Eye, Aim.Vector(), 10000, Damage, Settings, Query, this, GetPawn());
+    }
+#endif
+}
+void AERPlayerController::ERBlockExplosion(float Radius, float Damage)
+{
+#if !UE_BUILD_SHIPPING
+    if (!HasAuthority() || !GetPawn()) return;
+    FVector Eye; FRotator Aim;
+    GetPawn()->GetActorEyesViewPoint(Eye, Aim);
+    if (auto* Character = Cast<AERCharacter>(GetPawn())) Eye = Character->Camera->GetComponentLocation();
+    FHitResult Hit;
+    FCollisionQueryParams Query(SCENE_QUERY_STAT(ERBlockDebugBlast), false, GetPawn());
+    if (GetWorld()->LineTraceSingleByChannel(Hit, Eye, Eye + Aim.Vector() * 10000, ECC_GameTraceChannel1, Query))
+        if (auto* Room = Cast<AERBlockRoom>(Hit.GetActor()))
+        {
+            const FVector Origin = Hit.ImpactPoint + Hit.ImpactNormal * 10;
+            const auto Result = AERBlockRoom::ApplyWorldExplosion(GetWorld(), Origin, Radius, Damage, GetPawn());
+            if (Result.Damaged > 0) Room->SpawnExplosionEffect(Origin);
+        }
+#endif
 }
 void AERHUD::DrawHUD()
 {
@@ -618,6 +779,16 @@ void AERHUD::DrawHUD()
     auto* GS = GetWorld()->GetGameState<AERGameState>(); if (!GS) return;
     const float W = Canvas->SizeX, H = Canvas->SizeY;
     auto Text = [this](const FString& Value, float X, float Y, FLinearColor Color = FLinearColor::White, float Scale = 1.3f) { DrawText(Value, Color, X, Y, nullptr, Scale); };
+    for (TActorIterator<AERBlockRoom> It(GetWorld()); It; ++It)
+    {
+        if(PC->IsBlockMapLoading())Text(TEXT("Sincronizzazione della mappa..."),30,83,FLinearColor::Yellow,1);
+        if(const auto* Map=Cast<AERProceduralMap>(*It))if(Map->LayoutConfig.TemplateAsset && !FParse::Param(FCommandLine::Get(),TEXT("ERBlockDebug")))continue;
+        Text(TEXT("LAB DISTRUZIONE | ERBlockShot 100 10 / ERBlockExplosion 250 180 / ERBlockCollapseDemo"), 30, 105, FLinearColor::Yellow, 1);
+        if (const auto* Map=Cast<AERProceduralMap>(*It)) Text(Map->LayoutConfig.TemplateAsset ? TEXT("ERMapGenerate 42 8 1 | seed del template"):TEXT("ERMapGenerate 42 6 3 | seed / stanze 6..10 / piani 1..3"), 30, 185, FLinearColor::Yellow, 1);
+        Text(It->GetStatistics(), 30, 125, FLinearColor::White, .9f);
+        Text(TEXT("Ultimo blocco: ") + It->LastHit, 30, 145, FLinearColor::White, 1);
+        Text(It->LastCombat, 30, 165, FLinearColor::White, 1);
+    }
     const bool bLab = GetWorld()->GetMapName().Contains(TEXT("L_MovementLab"));
     const auto* Character = Cast<AERCharacter>(PC->GetPawn());
     DrawRect(FLinearColor(0.01f,0.02f,0.04f,.8f), W/2-220, 15, 440, 70);
@@ -734,4 +905,76 @@ void AERHUD::DrawHUD()
             Text(FString::Printf(TEXT("%-10s    %-24s   %d     %d     %d"), State->Team == EERTeam::Alpha ? TEXT("Alpha") : TEXT("Omega"),*State->GetPlayerName(), State->Kills, State->Deaths, State->TeamKills),W/2-320,Y); Y += 36;
         }
     }
+}
+
+void AERPlayerController::ERBlockCollapseDemo()
+{
+#if !UE_BUILD_SHIPPING
+    if (!HasAuthority()) return;
+    TActorIterator<AERBlockRoom> It(GetWorld());
+    if (It)
+    {
+        TArray<FERBlockDamageRequest> Ring;
+        for (int32 C=3;C<=7;++C) for (int32 R=5;R<=9;++R)
+            if (C==3 || C==7 || R==5 || R==9) if (It->BlockWorld->Find({0,C,R})) Ring.Add({{0,C,R},0,true});
+        It->ApplyDamageBatch(Ring);
+    }
+#endif
+}
+
+void UERGameInstance::HostProcedural()
+{
+    LastError.Empty();
+    GetWorld()->ServerTravel(TEXT("/Game/EclipseRecoil/Maps/L_ProceduralLab?listen?MapFloors=2?MapRooms=6?MapMaterials=1?MapGlass=1?MapSeed=42?Name=")+AERGameMode::SanitizeName(LocalName)+FString::Printf(TEXT("?Primary=%d?AlphaSkin=%d?OmegaSkin=%d"),PrimaryWeapon,AlphaSkin,OmegaSkin));
+}
+void AERPlayerController::OnPossess(APawn* Pawn)
+{
+    Super::OnPossess(Pawn);
+    TActorIterator<AERBlockRoom> Room(GetWorld());if(Room)HoldForBlockMap(*Room);
+}
+void AERPlayerController::HoldForBlockMap(AERBlockRoom* Room,bool Reposition)
+{
+    if(!HasAuthority() || !Room || GetNetMode()==NM_Standalone)return;
+    auto* C=Cast<AERCharacter>(GetPawn());if(!C)return;
+    if(Reposition)
+    {
+        FVector P=Room->GetSpawnLocation();
+        const auto* PS=GetPlayerState<AERPlayerState>();
+        if(auto* Map=Cast<AERProceduralMap>(Room))if(PS && PS->Team==EERTeam::Omega)P=Map->GetActorTransform().TransformPosition(Map->GetLayout().Routes.Last()[0]);
+        P.X+=(PS && (PS->GetPlayerId()/2)%2 ? -80:80);C->TeleportTo(P,FRotator::ZeroRotator);
+        C->GetCharacterMovement()->StopMovementImmediately();
+        if(IsLocalController() && !C->Health->bDead)C->GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+        C->GetCharacterMovement()->ForceClientAdjustment();
+    }
+    if(!IsLocalController() && AcknowledgedBlockEpoch!=Room->GetMapEpoch())C->GetCharacterMovement()->SetMovementMode(MOVE_None);
+}
+void AERPlayerController::ServerBlockMapReady_Implementation(AERBlockRoom* Room,uint32 Epoch)
+{
+    if(!Room || !Room->CanMutateBlocks() || Epoch==0 || Room->GetMapEpoch()!=Epoch)return;
+    AcknowledgedBlockEpoch=Epoch;
+    if(auto* C=Cast<AERCharacter>(GetPawn()))if(!C->Health->bDead){C->GetCharacterMovement()->SetMovementMode(MOVE_Walking);C->GetCharacterMovement()->ForceClientAdjustment();}
+    UE_LOG(LogTemp,Display,TEXT("ER_BLOCK_NET_PLAYER_READY name=%s epoch=%u"),*GetPlayerState<AERPlayerState>()->GetPlayerName(),Epoch);
+}
+void AERPlayerController::UpdateBlockMapLoading()
+{
+    if(!IsLocalController() || GetNetMode()!=NM_Client)return;
+    TActorIterator<AERBlockRoom> Room(GetWorld());
+    const bool Lab=GetWorld()->GetMapName().Contains(TEXT("L_ProceduralLab")) || GetWorld()->GetMapName().Contains(TEXT("L_DestructionLab")) || GetWorld()->GetMapName().Contains(TEXT("L_Killhouse")) || GetWorld()->GetMapName().Contains(TEXT("L_DustMirror"));
+    const bool Loading=Room ? !Room->IsMapReady():Lab;
+    if(Loading!=bBlockMapLoading)
+    {
+        bBlockMapLoading=Loading;SetIgnoreMoveInput(Loading);
+        if(auto* C=Cast<AERCharacter>(GetPawn()))C->GetCharacterMovement()->SetComponentTickEnabled(!Loading);
+    }
+    // A pawn can arrive after the loading gate was already entered.
+    if(Loading)if(auto* C=Cast<AERCharacter>(GetPawn()))C->GetCharacterMovement()->SetComponentTickEnabled(false);
+    if(Room && !Loading && GetPawn() && AcknowledgedBlockEpoch!=Room->GetMapEpoch())
+    {AcknowledgedBlockEpoch=Room->GetMapEpoch();if(auto* C=Cast<AERCharacter>(GetPawn()))C->GetCharacterMovement()->SetComponentTickEnabled(true);ServerBlockMapReady(*Room,AcknowledgedBlockEpoch);}
+}
+
+void AERPlayerController::ServerBlockProbeReport_Implementation(AERBlockNetworkProbe* Probe,int32 Stage,uint32 Epoch,uint32 Sequence,uint32 Digest,bool Passed)
+{
+#if !UE_BUILD_SHIPPING
+    if(FParse::Param(FCommandLine::Get(),TEXT("ERBlockNetworkProbe")) && Probe && Probe->GetWorld()==GetWorld())Probe->ReceiveReport(this,Stage,Epoch,Sequence,Digest,Passed);
+#endif
 }

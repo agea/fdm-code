@@ -16,6 +16,15 @@ public:
     virtual void Init() override;
     virtual void Shutdown() override;
     void Host(int32 BotCount = 0, bool bStationaryTarget = false);
+    void HostProcedural();
+    void StartSession();
+    int32 SessionMode = 0; // local, listen server, client
+    int32 MapChoice = 0;
+    int32 PlayerTeam = 0;
+    int32 AlphaBots = 0;
+    int32 OmegaBots = 1;
+    int32 BotBehavior = 0; // stationary, movement, combat
+    FString ServerAddress = TEXT("127.0.0.1:7777");
     bool Join(const FString& Address);
     void ReturnToMenu();
     static bool IsValidAddress(const FString& Address);
@@ -63,6 +72,10 @@ public:
     bool bMenuOpen = false;
     virtual void BeginPlay() override;
     virtual void PlayerTick(float DeltaTime) override;
+    virtual void OnPossess(APawn* Pawn) override;
+    void HoldForBlockMap(class AERBlockRoom* Room,bool Reposition=false);
+    UFUNCTION(Server,Reliable) void ServerBlockProbeReport(class AERBlockNetworkProbe* Probe,int32 Stage,uint32 Epoch,uint32 Sequence,uint32 Digest,bool Passed);
+    UFUNCTION(Server,Reliable) void ServerBlockMapReady(class AERBlockRoom* Room,uint32 Epoch);
     virtual void SetupInputComponent() override;
     virtual void EndPlay(const EEndPlayReason::Type Reason) override;
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
@@ -72,9 +85,21 @@ public:
     UFUNCTION(Server, Reliable) void ServerSetSkins(int32 Alpha, int32 Omega);
     UFUNCTION(Client, Reliable) void ClientFlash(float Strength);
     bool IsMenuLevel() const;
+    bool IsBlockMapLoading() const {return bBlockMapLoading;}
     void ShowMenu(bool bShow);
     void ScrollWeapon(int32 Direction);
+    UFUNCTION(Exec) void ERBlockDamage(float Amount = 25);
+    UFUNCTION(Exec) void ERBlockDestroy();
+    UFUNCTION(Exec) void ERBlockRegenerate();
+    UFUNCTION(Exec) void ERBlockStats();
+    UFUNCTION(Exec) void ERBlockCollapseDemo();
+    UFUNCTION(Exec) void ERMapGenerate(int32 Seed = 42, int32 Rooms = 8, int32 Floors = 0);
+    UFUNCTION(Exec) void ERBlockShot(float Energy = 100, float Damage = 10);
+    UFUNCTION(Exec) void ERBlockExplosion(float Radius = 250, float Damage = 180);
 private:
+    uint32 AcknowledgedBlockEpoch=0;
+    bool bBlockMapLoading=false;
+    void UpdateBlockMapLoading();
     double LastForwardTap = -1;
     double LastCrouchTap = -1;
     TWeakObjectPtr<APawn> GesturePawn;

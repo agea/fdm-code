@@ -369,3 +369,180 @@ MeshDescription e fix_weapon_muzzles.py. Nessuna modifica alle mesh Fab,
 agli skeleton o alle pose dei grip. Nel solo M_ER_Tracer rimossa la
 sfumatura longitudinale che nascondeva l'inizio del segmento; colore,
 luminosità e sfumatura trasversale conservati.
+
+
+## Laboratorio distruzione — 14 ottobre 2026
+
+Nuova mappa propria /Game/EclipseRecoil/Maps/L_DestructionLab, tre materiali
+M_ER_Block_{Drywall,Brick,Concrete} e DA_ER_BlockMaterials in Art/Destruction,
+generati via Unreal da scripts/setup_destruction_lab.py. Salvati nel mount
+privato Assets/maps; nessun asset binario aggiunto al codice pubblico.
+Pareti runtime ISM da /Engine/BasicShapes/Cube; pavimento statico con la stessa
+mesh. Riutilizzati GameMode, personaggio, armi e input del progetto.
+Nessun asset Fab aggiuntivo, detrito o plugin di distruzione importato.
+
+
+## Milestone 2 distruzione — 14 ottobre 2026
+
+In Art/Destruction: M_ER_BlockImpact_{Drywall,Brick,Concrete}, tre materiali
+decal creati da espressioni proprie via Unreal, senza nuove texture esterne.
+DA_ER_BlockMaterials riceve nuovi parametri di gameplay e riferimenti ai
+materiali/decal e all'esistente Effects/Shots/NS_ER_Impact.
+L_DestructionLab aggiunge tre ERBlockTarget (Cube Epic + TextRender HP) e un
+riferimento a Effects/Grenade/BP_ERGrenadeExplosion già presente per FX debug.
+Tutti gli asset nuovi/modificati rimangono in Assets/maps; gli asset riusati
+di armi/effetti restano nei loro percorsi privati e non sono modificati.
+Nessun nuovo pacchetto Fab, mesh, texture sorgente o audio importato.
+
+
+## Texture PBR e piano procedurale — 14 ottobre 2026
+
+ZIP 2K originale e 84 file verificati nel mount SourceAssets/ProceduralTextures
+(Assets/maps); inventario e provenienza in PROCEDURAL_TEXTURES.md. Materiali
+PBR in Art/ProceduralTextures, normali DX, tiling continuo in centimetri, nessuna
+displacement geometrica. Surface del catalogo sostituite senza cambiare HP/danni/FX.
+Nuova L_ProceduralLab con generatore nativo runtime, pavimenti piastrelle/legno e
+controsoffitto OfficeCeiling001. Vetro parametrico dedicato in libreria; finestre
+M3 vuote. Legno assi, pietra e metallo pronti come superfici, senza nuovi
+profili balistici; asfalto sul basamento esterno indistruttibile. Tutte le modifiche binarie sono effettuate esclusivamente via Unreal.
+
+
+## Milestone 4 — 14 ottobre 2026
+
+Nessun nuovo asset binario o modifica artistica. Ottimizzazioni native runtime
+ISM/identità, profiler e stress runner; riusate le mappe/materiali/FX privati
+già presenti. CSV/log/trace Unreal Insights in Saved/Testing ignorati dal codice;
+ricevuta aggregata del benchmark in docs/DESTRUCTION_BENCHMARK.json.
+
+### Milestone 6 material bindings (15 October)
+
+`DA_ER_BlockMaterials` now binds Wood to existing
+`M_ER_PBR_wood_planks`, Stone to `M_ER_PBR_stone_wall_02`, Metal to
+`M_ER_PBR_rusty_metal_04`, and Glass to `M_ER_Glass` in Art/ProceduralTextures.
+The additive Unreal migration adds missing profiles/fills unset surfaces while
+preserving original and artist-edited data. Seven gameplay profiles; no new
+texture download or source archive, geometry/model import, or new map package.
+Stairs, floor slabs and panes are generated from the existing normalized engine
+cube at runtime. Catalog save remains in the private maps asset mount.
+
+### Menu/session update — 15 October 2026
+
+Session configuration, team bot counts and laboratory reload reserve are native
+code changes only. No `.uasset`/`.umap` or licensed source asset was modified.
+
+
+### Killhouse procedural template — 15 October 2026
+
+New private assets created/saved through Unreal:
+`EclipseRecoil/Art/MapTemplates/DA_Killhouse.uasset` and
+`EclipseRecoil/Maps/L_Killhouse.umap`. Reference analysis and authored construction
+JSON plus provenance notes are in maps `SourceAssets/MapTemplates`.
+
+Runtime art reuses Engine/BasicShapes/Cube, existing Wood/Concrete/Metal catalog
+surfaces, `M_ER_PBR_concrete_wall_006` for the arena floor and
+`M_ER_PBR_rusty_metal_04` for the shell/ceiling. Weapon/FX/team assets are reused
+unchanged. No CS:GO models or textures and no Factory vendor packages imported.
+Industrial mesh substitution is deferred while the user's pack downloads.
+The public code adds a reusable data-asset schema, bounded template generator,
+read-only analyzer, additive Unreal setup and verification scripts.
+
+
+### Factory fixed geometry and balanced Killhouse — 15 October 2026
+
+The supplied `FactoryEnvironmentCollect` project contains8.7GB of content.
+A selected dependency closure was migrated/renamed/saved through Unreal into
+private maps `Content/EclipseRecoil/Art/FactoryEnvironment`:15 root meshes,
+70 packages including materials/functions/textures,546,899,871 bytes. Selection,
+inspection and migration receipts live in private SourceAssets/FactoryEnvironment.
+
+The current template uses solid metal panels for the modular shed and roof,
+metal beams/columns, platform decks, grill treads, platform pillars, whole cargo
+containers, water containers and barrels. The foundation keeps the project PBR
+surface. Legacy trial selections remain in the same private library; no licensed
+asset enters the public code tree. Project Wood/Concrete destruction surfaces
+and combat data are unchanged. The screenshot supplied by the user is preserved
+privately in SourceAssets/MapTemplates/killhouse_reference.png for provenance.
+
+DA_Killhouse revision2 and L_Killhouse were saved via Unreal. Spawn symmetry,
+rear-access bases, internal stairs/open roof wells, parapets and denser paired
+cover are authored in the private construction manifest. Vendor art stays on
+fixed geometry; the reusable schema prevents it on destructible records.
+
+
+### Killhouse solid surfaces and variation recipe — 15 October 2026
+
+Revision3 saves only DA_Killhouse through Unreal. Private construction recipe:
+SourceAssets/MapTemplates/killhouse_variations.json; migration receipt:
+SourceAssets/FactoryEnvironment/variation_upgrade.json. No additional vendor
+packages imported. Factory dependencies remain shared across seeds/maps.
+Walkable base/tower roofs and treads now use Engine/BasicShapes/Cube with the
+existing project Metal surface, preserving visible/collision continuity. Factory
+platform/grill meshes remain in the private library and are no longer stretched
+into walkable slabs. Fixed cargo/tanks/barrels/beams/columns/guards and modular
+shed panels reuse the imported palette. The destruction catalog/materials and
+L_Killhouse package retain their pre-migration hashes.
+
+
+### Narrow-parapet traversal correction — 15 October 2026
+
+Native movement and opt-in probes only; no `.umap`, `.uasset`, Factory asset or
+material catalog changes. The existing100cm-high,20cm-thick parapets now supply
+a supported assisted-climb landing through the generic ledge detector.
+
+
+### Movement-only bot demonstrations — 15 October 2026
+
+Native controller/probe changes only. Reuses the normal team meshes, jump/vault
+movement and procedural prone/posture presentation. No binary asset or map edited;
+the existing L_MovementLab provides the traversal integration-test fixtures.
+
+
+### Dust Mirror / MOUT_Arabian — 15 October 2026
+
+Private maps now contain DA_DustMirror and L_DustMirror, plus
+Art/ArabianEnvironment (27 packages: three selected village/door meshes, the
+stone-floor material and their material/texture closure). Source is the
+user-imported MOUT_Arabian folder in FactoryEnvironmentCollect. The dependency
+closure was staged and renamed/saved with Unreal; original source packages were
+not modified. SourceAssets/ArabianEnvironment/migration_receipt.json records
+paths, hashes and bytes. SourceAssets/MapTemplates/dust_mirror_{analysis,template}.json
+records Source2 provenance and the authored procedural assembly. The original
+project destruction catalog is unchanged. Detailed reconstruction/limits and
+verification commands are in MAP_TEMPLATES.md.
+
+The four imported Substance material instances have missing parents.
+setup_arabian_materials.py reconstructs four owned world-aligned PBR parents
+from their supplied color/normal/roughness/AO/metallic textures and reparents
+only private copies. The final closure has31 packages (27 vendor plus4 owned);
+source vendor materials remain untouched. The migration receipt hashes describe
+the initial migration, before this explicit PBR repair. pbr_repair.json records
+the material adaptation.
+
+
+### Dust town revision3 and wooden gates — 15 October 2026
+
+The private MapTemplates/DustTown folder adds three project-authored static
+meshes (curved arch surround, left/right curved timber leaf) imported from
+explicitly triangulated OBJ sources, plus five owned town materials (plaster,
+paving, roof, iron and natural timber). They reuse the existing supplied
+MOUT_Arabian and CC0 procedural texture libraries; no new vendor pack or Source2
+render asset is imported. Runtime uses solid matching slabs, rotated wooden
+collision planks and visual-only facade hardware. Reference images, recipe,
+source hashes and art receipt remain in private SourceAssets/MapTemplates/DustTown.
+DA_DustMirror revision3 stores the town graph/palette. L_DustMirror retains its
+lighting/gameplay and adds the complete outer patrol circuit. Shared destruction
+material catalog and Killhouse maps/template are unchanged.
+
+
+Dust town revision4 changes DA_DustMirror's sampled dimensions and saves42
+patrol actors in L_DustMirror. Existing owned arch/leaves/materials are reused
+unchanged: opposite swings and diagonal passage are native transforms. The
+explicit compact migration retains recipe/protected-package hashes in private
+SourceAssets/MapTemplates/DustTown/compact_migration.json.
+
+
+User-approved storage cleanup,15 October2026: completed Factory/Arabian scratch
+projects and Source2 Dust analysis exports removed from Saved; active private
+art/maps preserved. The duplicate texture ZIP was removed while all88 extracted
+source files and provenance remain. Belica and Phase are explicitly reserved
+for future character imports and must not be pruned. See REPOSITORY_CLEANUP.md.

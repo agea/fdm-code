@@ -1,0 +1,585 @@
+{
+  "date": "2026-10-15",
+  "timezone": "Europe/Rome",
+  "engine": "UE5.8.3 CL58210709",
+  "platform": "Mac arm64, Apple M2 Pro, 32 GiB RAM, macOS27.0.1",
+  "protocol": 6,
+  "limits": {
+    "logical_records": 50000,
+    "records_per_page": 128,
+    "maximum_pages": 391,
+    "floors": 3,
+    "rooms_per_floor": [
+      6,
+      10
+    ],
+    "minimum_multifloor_branch_cm": 250,
+    "stair_rise_max_cm": 20,
+    "stair_run_cm": 30,
+    "stair_width_cm": 150,
+    "global_debris_hard": 64
+  },
+  "method": "Real local listen server + initial remote, remote joining after damage/collapse, and third dense-snapshot late remote after complete wall removal. Four human slots. All remotes compare full HP/state digest, sampled actual UE collision every13 records and all native ISM mappings. The initial remote uses owned server weapon RPCs, walks through a replicated breach, and walks up/down two storeys with actual authoritative character movement. Three generation epochs then explosion state/collision parity. Eleven automated native tests separately check geometry and reversed/future/invalid snapshot transactions. No packaging/publication; no bandwidth/FPS/platform guarantee. Local simultaneous Unreal processes share CPU/GPU/memory. Incoming loss/lag is confirmed in each remote log. Network buffer counters describe owned arrays/maps only; actor/channel, shared/engine and GPU heaps are excluded. M4/M5 receipts are historical.",
+  "validation": [
+    {
+      "case": "automation",
+      "exit_code": 0,
+      "seconds": 23.35,
+      "command": [
+        "python3",
+        "scripts/test-destruction.py"
+      ]
+    },
+    {
+      "case": "network-loss",
+      "exit_code": 0,
+      "seconds": 115.67,
+      "command": [
+        "python3",
+        "scripts/test-destruction-network.py",
+        "--loss"
+      ]
+    },
+    {
+      "case": "network-metal",
+      "exit_code": 0,
+      "seconds": 134.72,
+      "command": [
+        "python3",
+        "scripts/test-destruction-network.py",
+        "--render"
+      ]
+    },
+    {
+      "case": "combat",
+      "exit_code": 0,
+      "seconds": 20.88,
+      "command": [
+        "python3",
+        "scripts/test-destruction.py",
+        "--combat"
+      ]
+    },
+    {
+      "case": "combat-metal",
+      "exit_code": 0,
+      "seconds": 24.42,
+      "command": [
+        "python3",
+        "scripts/test-destruction.py",
+        "--combat",
+        "--render"
+      ]
+    },
+    {
+      "case": "procedural",
+      "exit_code": 0,
+      "seconds": 30.07,
+      "command": [
+        "python3",
+        "scripts/test-destruction.py",
+        "--procedural",
+        "--render"
+      ]
+    },
+    {
+      "case": "collapse-metal",
+      "exit_code": 0,
+      "seconds": 37.75,
+      "command": [
+        "python3",
+        "scripts/test-destruction.py",
+        "--collapse",
+        "--render"
+      ]
+    },
+    {
+      "case": "stress-metal",
+      "exit_code": 0,
+      "seconds": 33.21,
+      "command": [
+        "python3",
+        "scripts/test-destruction-stress.py",
+        "--render",
+        "--trace",
+        "--label",
+        "m6"
+      ]
+    },
+    {
+      "case": "network-existing",
+      "exit_code": 0,
+      "seconds": 64.98,
+      "command": [
+        "python3",
+        "scripts/test-network.py",
+        "--shot-feedback"
+      ]
+    },
+    {
+      "case": "accuracy",
+      "exit_code": 0,
+      "seconds": 35.62,
+      "command": [
+        "python3",
+        "scripts/test-network.py",
+        "--accuracy"
+      ]
+    },
+    {
+      "case": "arsenal",
+      "exit_code": 0,
+      "seconds": 50.71,
+      "command": [
+        "python3",
+        "scripts/test-arsenal.py"
+      ]
+    }
+  ],
+  "network_runs": [
+    {
+      "result": "PASS",
+      "render": false,
+      "packet_loss": true,
+      "participants": 4,
+      "logs": {
+        "host": "destruction-network-loss-host.log",
+        "initial": "destruction-network-loss-initial.log",
+        "late": "destruction-network-loss-late.log",
+        "dense": "destruction-network-loss-dense.log"
+      },
+      "method": "Listen host, initial remote, late remote after destruction/collapse, then dense late remote after complete wall removal; all remote clients verify full state digest and sampled real collision plus native mappings. Initial remote fires via owned pawn RPC and walks breach/stairs using real replicated character movement.",
+      "generations": [
+        {
+          "epoch": 1,
+          "blocks": 11529,
+          "pages": 91,
+          "layout": 3312458958
+        },
+        {
+          "epoch": 2,
+          "blocks": 17427,
+          "pages": 137,
+          "layout": 1861362659
+        },
+        {
+          "epoch": 3,
+          "blocks": 17427,
+          "pages": 137,
+          "layout": 1861362659
+        }
+      ],
+      "reports": [
+        {
+          "name": "Initial",
+          "stage": 1,
+          "valid": true,
+          "epoch": 1,
+          "sequence": 2,
+          "digest": 3872438974
+        },
+        {
+          "name": "Initial",
+          "stage": 2,
+          "valid": true,
+          "epoch": 1,
+          "sequence": 5,
+          "digest": 2881942045
+        },
+        {
+          "name": "Initial",
+          "stage": 3,
+          "valid": true,
+          "epoch": 1,
+          "sequence": 5,
+          "digest": 2881942045
+        },
+        {
+          "name": "Initial",
+          "stage": 5,
+          "valid": true,
+          "epoch": 1,
+          "sequence": 7,
+          "digest": 243091564
+        },
+        {
+          "name": "Late",
+          "stage": 5,
+          "valid": true,
+          "epoch": 1,
+          "sequence": 7,
+          "digest": 243091564
+        },
+        {
+          "name": "Late",
+          "stage": 6,
+          "valid": true,
+          "epoch": 2,
+          "sequence": 1,
+          "digest": 2169956480
+        },
+        {
+          "name": "Initial",
+          "stage": 6,
+          "valid": true,
+          "epoch": 2,
+          "sequence": 1,
+          "digest": 2169956480
+        },
+        {
+          "name": "Initial",
+          "stage": 7,
+          "valid": true,
+          "epoch": 2,
+          "sequence": 1,
+          "digest": 2169956480
+        },
+        {
+          "name": "Initial",
+          "stage": 8,
+          "valid": true,
+          "epoch": 2,
+          "sequence": 1,
+          "digest": 2169956480
+        },
+        {
+          "name": "Initial",
+          "stage": 9,
+          "valid": true,
+          "epoch": 2,
+          "sequence": 2,
+          "digest": 49892644
+        },
+        {
+          "name": "Late",
+          "stage": 9,
+          "valid": true,
+          "epoch": 2,
+          "sequence": 2,
+          "digest": 49892644
+        },
+        {
+          "name": "Dense",
+          "stage": 9,
+          "valid": true,
+          "epoch": 2,
+          "sequence": 2,
+          "digest": 49892644
+        },
+        {
+          "name": "Initial",
+          "stage": 10,
+          "valid": true,
+          "epoch": 3,
+          "sequence": 1,
+          "digest": 2169956480
+        },
+        {
+          "name": "Dense",
+          "stage": 10,
+          "valid": true,
+          "epoch": 3,
+          "sequence": 1,
+          "digest": 2169956480
+        },
+        {
+          "name": "Late",
+          "stage": 10,
+          "valid": true,
+          "epoch": 3,
+          "sequence": 1,
+          "digest": 2169956480
+        },
+        {
+          "name": "Dense",
+          "stage": 12,
+          "valid": true,
+          "epoch": 3,
+          "sequence": 2,
+          "digest": 4002039683
+        },
+        {
+          "name": "Initial",
+          "stage": 12,
+          "valid": true,
+          "epoch": 3,
+          "sequence": 2,
+          "digest": 4002039683
+        },
+        {
+          "name": "Late",
+          "stage": 12,
+          "valid": true,
+          "epoch": 3,
+          "sequence": 2,
+          "digest": 4002039683
+        }
+      ],
+      "log_sha256": {
+        "host": "aaaaad7615bb8786ad06a80ccb1a35ab8eddd578a8433477dd5ca02cf894ac8a",
+        "initial": "e2ed5bf98844bc5a046c899443b64d3f0d9430ff351309d3b4bafdf945753118",
+        "late": "ec38b5930d6e8217c7fce97cd80947146b0f857b12abf3f38cee0622a87602cb",
+        "dense": "1199e980c5751f234c86de850f1db23fde300faae7f8368bca08e2285b93adeb"
+      }
+    },
+    {
+      "result": "PASS",
+      "render": true,
+      "packet_loss": false,
+      "participants": 4,
+      "logs": {
+        "host": "destruction-network-metal-host.log",
+        "initial": "destruction-network-metal-initial.log",
+        "late": "destruction-network-metal-late.log",
+        "dense": "destruction-network-metal-dense.log"
+      },
+      "method": "Listen host, initial remote, late remote after destruction/collapse, then dense late remote after complete wall removal; all remote clients verify full state digest and sampled real collision plus native mappings. Initial remote fires via owned pawn RPC and walks breach/stairs using real replicated character movement.",
+      "generations": [
+        {
+          "epoch": 1,
+          "blocks": 11529,
+          "pages": 91,
+          "layout": 3312458958
+        },
+        {
+          "epoch": 2,
+          "blocks": 17427,
+          "pages": 137,
+          "layout": 1861362659
+        },
+        {
+          "epoch": 3,
+          "blocks": 17427,
+          "pages": 137,
+          "layout": 1861362659
+        }
+      ],
+      "reports": [
+        {
+          "name": "Initial",
+          "stage": 1,
+          "valid": true,
+          "epoch": 1,
+          "sequence": 2,
+          "digest": 3872438974
+        },
+        {
+          "name": "Initial",
+          "stage": 2,
+          "valid": true,
+          "epoch": 1,
+          "sequence": 5,
+          "digest": 1342561233
+        },
+        {
+          "name": "Initial",
+          "stage": 3,
+          "valid": true,
+          "epoch": 1,
+          "sequence": 5,
+          "digest": 1342561233
+        },
+        {
+          "name": "Initial",
+          "stage": 5,
+          "valid": true,
+          "epoch": 1,
+          "sequence": 7,
+          "digest": 101269408
+        },
+        {
+          "name": "Late",
+          "stage": 5,
+          "valid": true,
+          "epoch": 1,
+          "sequence": 7,
+          "digest": 101269408
+        },
+        {
+          "name": "Late",
+          "stage": 6,
+          "valid": true,
+          "epoch": 2,
+          "sequence": 1,
+          "digest": 2169956480
+        },
+        {
+          "name": "Initial",
+          "stage": 6,
+          "valid": true,
+          "epoch": 2,
+          "sequence": 1,
+          "digest": 2169956480
+        },
+        {
+          "name": "Initial",
+          "stage": 7,
+          "valid": true,
+          "epoch": 2,
+          "sequence": 1,
+          "digest": 2169956480
+        },
+        {
+          "name": "Initial",
+          "stage": 8,
+          "valid": true,
+          "epoch": 2,
+          "sequence": 1,
+          "digest": 2169956480
+        },
+        {
+          "name": "Initial",
+          "stage": 9,
+          "valid": true,
+          "epoch": 2,
+          "sequence": 2,
+          "digest": 49892644
+        },
+        {
+          "name": "Late",
+          "stage": 9,
+          "valid": true,
+          "epoch": 2,
+          "sequence": 2,
+          "digest": 49892644
+        },
+        {
+          "name": "Dense",
+          "stage": 9,
+          "valid": true,
+          "epoch": 2,
+          "sequence": 2,
+          "digest": 49892644
+        },
+        {
+          "name": "Initial",
+          "stage": 10,
+          "valid": true,
+          "epoch": 3,
+          "sequence": 1,
+          "digest": 2169956480
+        },
+        {
+          "name": "Dense",
+          "stage": 10,
+          "valid": true,
+          "epoch": 3,
+          "sequence": 1,
+          "digest": 2169956480
+        },
+        {
+          "name": "Late",
+          "stage": 10,
+          "valid": true,
+          "epoch": 3,
+          "sequence": 1,
+          "digest": 2169956480
+        },
+        {
+          "name": "Dense",
+          "stage": 12,
+          "valid": true,
+          "epoch": 3,
+          "sequence": 2,
+          "digest": 4002039683
+        },
+        {
+          "name": "Late",
+          "stage": 12,
+          "valid": true,
+          "epoch": 3,
+          "sequence": 2,
+          "digest": 4002039683
+        },
+        {
+          "name": "Initial",
+          "stage": 12,
+          "valid": true,
+          "epoch": 3,
+          "sequence": 2,
+          "digest": 4002039683
+        }
+      ],
+      "log_sha256": {
+        "host": "c0108a00eea58a3ff1568515ea3844aff6bbd358689a6375eca09c7f6997c610",
+        "initial": "2f67df0792d3a0e1f300ffdb483e7f1d6407e2b6bedc32926a73417e7f0a0d3d",
+        "late": "5b3985515b9ee2aac4cdd8e18cc3e0326f5cfc41bf96b11aad6d13d2d1956b99",
+        "dense": "9ec7d7537cd9c6af89668549cd027e9b2d3c3de6de4df98f6e34559fdf678b02"
+      }
+    }
+  ],
+  "standalone_stress": {
+    "cycles": 54,
+    "csv_rows": 2544,
+    "rhi": "Metal",
+    "chunk_cm": 400,
+    "seeds": [
+      42,
+      7919
+    ],
+    "samples_per_seed_chunk": 8,
+    "warmups_per_seed_chunk": 1,
+    "method": "Existing single-floor standalone workload with zero network page actors; CPU synchronous calls, excluding deferred physics/render/GPU. Same floor-generation/damage paths, real weapon/FX/lifecycle checks. Not a multiplayer cost benchmark.",
+    "operations": {
+      "generation": {
+        "n": 16,
+        "median_ms": 52.656103,
+        "p95_ms": 54.17067,
+        "median_tracked_mib": 4.093914
+      },
+      "single": {
+        "n": 256,
+        "median_ms": 0.015959,
+        "p95_ms": 0.032373
+      },
+      "batch256": {
+        "n": 16,
+        "median_ms": 1.718603,
+        "p95_ms": 1.819499
+      },
+      "explosion250": {
+        "n": 16,
+        "median_ms": 0.446666,
+        "p95_ms": 0.566375
+      },
+      "query250": {
+        "n": 512,
+        "median_ms": 0.006251,
+        "p95_ms": 0.009585
+      }
+    },
+    "csv": "destruction-benchmark-m6-metal.csv",
+    "csv_sha256": "178ae48ed768d80d59c2fee63eb90514a3f3ca1fff07f7a998458052272638db",
+    "trace": "destruction-benchmark-m6-metal.utrace"
+  },
+  "image": {
+    "file": "Procedural-Multifloor.png",
+    "sha256": "dd993561253b344bfde7006225d32db24ac3ff6c6dff4601d2f751525a91adc3",
+    "inspection": "Three levels and existing PBR surfaces visible; image inspected. HUD showed12 FPS /85.4ms and dynamic scene803x452 inside1280x720 output during the simultaneous local host/clients run. This is a transient shared-machine capture, not representative isolated game performance or an FPS guarantee."
+  },
+  "catalog": {
+    "file": "Assets/maps/Content/EclipseRecoil/Art/Destruction/DA_ER_BlockMaterials.uasset",
+    "sha256": "88ad4b5875c772a2c39ccacdbb3ed037ba8ad4e6ab3bdee4bc92b76cba9fee03",
+    "added_profiles": 4,
+    "total_profiles": 7,
+    "idempotent_rerun": "added0/filled0; binary SHA unchanged; previous gameplay/art preserved"
+  },
+  "source_sha256": {
+    "Source/fdm/ERBlockRoom.cpp": "c9da1c89c59c6470da502f2f4802dc22a21c1f26890c9d792c6c92d3103d1f30",
+    "Source/fdm/ERBlockRoom.h": "921c48825c08abee7097e0206f8b4d1d918421b8d3ed4e196567ea297b2ab5c0",
+    "Source/fdm/ERBlockWorld.cpp": "3485bec6794bd36dec7832b194a8b4fd4ab02741509f8d5edde82da9b72c7655",
+    "Source/fdm/ERBlockWorld.h": "cfe2ea899f080b3afab6643afae381204953253a0bf4e362cec500904ab2fc10",
+    "Source/fdm/ERBlockNetPage.cpp": "a54b852bd1571b40efaa2db6171d6ac04dbe1d2f1b4932cd103c34e9a8512e04",
+    "Source/fdm/ERBlockNetPage.h": "c241272922a3eb6f2c3727990444dec2609f4d485f74e2583518622ea3823138",
+    "Source/fdm/ERProceduralMap.cpp": "303498842a95e7d48b60fd368dd187541d29ccc9a07d8e8f42e24055b738ebbc",
+    "Source/fdm/ERProceduralMap.h": "b2f84c8d3ff90823dc0485603a4d4f9def0ba3611544bd858e41b8efe8da0bab",
+    "Source/fdm/ERProceduralConfig.h": "c13af04066b3461f854ee6a4cdddb350782a7d35b1721bb0937b0a5f16290997",
+    "Source/fdm/ERBlockNetworkProbe.cpp": "0d0dcb8d0d13fad865d7032700e1a41af555f51761f63e216be7e0264b52ffb4",
+    "Source/fdm/ERBlockNetworkTests.cpp": "f29c41815347266976dfa48fa0413e730489347346cb478451ce4650afa6a36a",
+    "Source/fdm/ERProceduralExpansionTests.cpp": "bec062ae74d65d36142e666c72fca09eb7cec4c219db675da645724aa0be69c3",
+    "Source/fdm/ERPlayerController.cpp": "7f37746e2cb0de0286db2839441180ac87d7242965a4b89373dc2529847795af",
+    "Source/fdm/ERBlockCombat.cpp": "cdef6a903491ecafc4ec8e9a1c60d73748b3c3ec1bcf0a5ade1f84fa6285c073",
+    "Source/fdm/ERBlockDebris.cpp": "122212b079b8b09dc0dc67cbdb2e7bdbeaa5087e46e11952da971f81340da277",
+    "Source/fdm/ERWeapon.cpp": "f5e21ce3cbdfdaa557571f63919685115b1a192a777e12f33b4e68f2893ca0ef"
+  }
+}

@@ -55,3 +55,53 @@ references, but keeping the whole Content tree private initially avoids mixing
 them with restricted derivatives.
 
 No repository visibility, remote permissions or uploads were changed.
+
+
+## CC0 procedural texture sources — 14 October 2026
+
+The user-provided 2K ZIP adds ten CC0 downloadable texture sets from Poly Haven
+and ambientCG. Source pages, full manifest hashes, private archive location and
+import transformations are recorded in [the texture inventory](PROCEDURAL_TEXTURES.md).
+Verified against [Poly Haven](https://polyhaven.com/license) and
+[ambientCG](https://docs.ambientcg.com/license/). Original texture files and Unreal
+packages remain in the private maps submodule under the existing asset split.
+
+15 October M6: Wood/Stone/Metal combat surfaces reuse the previously documented
+CC0 procedural texture library; Glass reuses the project-authored material.
+Procedural stairs/slabs/panes reuse Unreal's normalized engine cube. No new
+external art provenance or redistribution scope was introduced; modified
+catalog binaries remain private under the existing maps asset ownership.
+
+
+## Factory Environment Collection source — 15 October 2026
+
+The user supplied the completed local FactoryEnvironmentCollect project and
+explicitly authorized its industrial assets for fixed Killhouse geometry.
+Its source project records UE5.6; the selected packages were migrated with the
+installed UE5.8.3 Editor into the existing private maps submodule. Local source,
+selected dependency closure and fitted runtime uses are documented in
+SourceAssets/FactoryEnvironment and ASSETS.md. The acquisition receipt/license
+variant was not inspected during this integration. All vendor originals and
+derivatives remain private; no public asset publication or license clearance
+is inferred. The project's CC0 procedural destruction materials are retained.
+
+
+## MOUT_Arabian reference art — 15 October 2026
+
+The user explicitly authorized using the urban/desert assets imported into
+FactoryEnvironmentCollect for the Dust-inspired template. A27-package selected
+closure remains in the existing private maps submodule under
+Art/ArabianEnvironment, with provenance and SHA256 receipt in private
+SourceAssets/ArabianEnvironment. Acquisition/license terms were not inspected
+during integration; no publication or license clearance is inferred.
+Workshop3117367319 Source2 resources are read-only reference data and local
+ignored analysis exports; their meshes/textures are not imported into Unreal.
+Existing project destruction materials and gameplay profiles remain unchanged.
+
+
+Dust town revision3: the owned arch/curved door OBJ sources and five town
+material graphs were authored for this project. Texture references reuse the
+previously documented private MOUT_Arabian selection and CC0 procedural library.
+The user's reference plan and doorway photograph are retained privately as
+reference/provenance only. No Source2 model/texture or external media copy is
+added to public code; no publication or new license review is claimed.

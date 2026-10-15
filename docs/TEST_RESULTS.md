@@ -1252,3 +1252,753 @@ cosmetica. Python py_compile e git diff --check **PASS**.
 
 Python py_compile dei tre generatori modificati e git diff --check **PASS**.
 Qualità audio non verificata (nosound); nessun benchmark prestazioni.
+
+
+## Distruzione a blocchi, Milestone 1 — 14 ottobre 2026
+
+Progetto corretto: /Users/agea/git/fdm/fdm-code/fdm.uproject; modulo fdm;
+UE 5.8.3 CL 58210709, Editor Mac Development arm64, Apple M2 Pro.
+Specifica importata integralmente in docs/ECLIPSE_RECOIL_PROCEDURAL_DESTRUCTION.md
+(cmp con il file Downloads **PASS**). Nessuna modifica al gioco Red Eclipse.
+
+- Build Editor **Succeeded**, Saved/Testing/destruction-build.log. Corrette
+  durante la compilazione tre incompatibilità C++ (TObjectPtr.Get, infinity
+  della libreria standard e loop iterator con break incondizionato). Restano
+  gli avvisi preesistenti di deprecazione Niagara; nessun errore finale.
+- Generazione tramite Unreal **PASS**, destruction-assets.log. Salvati una
+  nuova mappa L_DestructionLab, tre materiali e DA_ER_BlockMaterials nel mount
+  privato Assets/maps. Seconda esecuzione preserva geometria/materiali e
+  configura soltanto la luce di riempimento gestita. Prima creazione: quattro
+  errori Asset Registry dovuti a load di asset ancora assenti, poi creati e
+  salvati correttamente; il generatore ora controlla l'esistenza prima del load
+  e l'ultima esecuzione non riporta questi errori.
+- Automation **PASS**, destruction-automation.log e destruction-report/index.json:
+  **2 succeeded, 0 failed, 0 not run**. Storage: determinismo stanza/ID, HP
+  differenti per tre materiali, nessuna sovrapposizione iniziale agli angoli,
+  rifiuto dimensioni/danno invalido e limite allocazione. CollisionAndIdentity:
+  veri ISM e scena Chaos, rimozione di tutti i 504 blocchi in ordine casuale
+  seedato, trace/ID dei superstiti corretti, assenza di collisione ai blocchi
+  rimossi, capsula 34×92,5 cm fermata prima e libera dopo l'abbattimento,
+  pavimento ancora solido; cinque rigenerazioni senza componenti/istanze duplicate.
+- Sessione standalone nullrhi **PASS**, destruction-game.log:
+  ER_BLOCK_PROBE_COMPLETE result=PASS. Dieci controlli: spawn sostenuto, match
+  per un giocatore, comandi console danno/distruzione, blocco adiacente corretto,
+  sparo autorizzato con consumo munizioni, movimento del personaggio reale,
+  muro integro bloccante, breccia 150×200 cm percorribile e rigenerazione con
+  ritorno sicuro al centro. Il probe usa la mappa e il BP_ERCharacter reali.
+- Metal 1280×720 **PASS**, destruction-gallery.log, stesso probe gameplay.
+  Destruction-Blocks.png e Destruction-Breach.png ispezionate: rimozioni visibili,
+  breccia continua e pavimento conservato. Tarata la sola luce di riempimento
+  della nuova mappa: 2500 sovraesponeva la stanza, intensità finale 12 rende
+  leggibili i tre materiali con il launcher a GI bassa. Nessun default rendering
+  globale modificato. Immagini/log sotto Saved/Testing. Non verificata la qualità
+  audio (nosound) né la sensazione di input umano.
+- Regressione due peer LAN su loopback, test-network.py --shot-feedback:
+  **PASS** nell'esecuzione isolata, destruction-network.log e network-{host,client}.log;
+  ER_NETWORK_PROBE_COMPLETE result=PASS, 43 eventi feedback per peer,
+  controlli danno/munizioni/cadenza/ricarica/respawn/copertura/corpi superati.
+  La prima esecuzione insieme alla gallery Metal aveva **FAIL** nei tre controlli
+  temporali dello svuotamento caricatore/feedback (clip non vuoto a 4,2 s);
+  conservata in destruction-network-concurrent{,-host,-client}.log. Ripetuta
+  senza processi grafici, con lo stesso codice e senza allentare gli assert: PASS.
+  Questo verifica una regressione del gioco esistente, non la replica dei blocchi.
+- Python py_compile dei due nuovi script, zsh -n del launcher e git diff --check
+  **PASS**. Nessun commit/push, cook, pacchetto o pubblicazione effettuato.
+
+Misure indicative della singola stanza: 504 blocchi, 4 chunk, 7 ISM; nella
+gallery finale generazione 2,59 ms e un aggiornamento campionato 0,21 ms.
+Comprendono lavoro sincrono di istanze/collisioni; non sono benchmark FPS o
+misure complete dei costi asincroni del rendering/physics.
+
+Milestone 0 soddisfatta dall'infrastruttura UE esistente; implementazione e
+verifiche automatiche/grafiche della Milestone 1 completate. Restano collaudo
+umano con mouse/tastiera e profiling prolungato. Distruzione abilitata solo
+in NM_Standalone con authority: multiplayer/late join non implementati.
+Milestone 2 (penetrazione ed esplosioni ai blocchi) non iniziata.
+
+
+## Milestone 2 — penetrazione ed esplosioni ai blocchi, 14 ottobre 2026
+
+Stesso fdm-code, UE 5.8.3 CL 58210709, Editor Mac Development arm64/M2 Pro.
+
+- Build Editor **Succeeded**, Saved/Testing/destruction-m2-build.log.
+- Automation **PASS**: Storage, CollisionAndIdentity e BallisticsAndExplosion,
+  destruction-automation.log / destruction-m2-automation-summary.log.
+  Report destruction-report/index.json: 2 succeeded + 1 succeededWithWarnings,
+  0 failed, 0 notRun. L'unico warning riguarda DestroyActor del mondo temporaneo
+  senza WorldContext della fixture; le verifiche di gioco/collisione passano.
+- BallisticsAndExplosion usa scene fisiche/trace reali: cartongesso attraversato
+  senza rimuovere il blocco, HP 30→25 e bersaglio 500→491,5 con colpo 10/energia 100;
+  energia residua 85. Mattoni/cemento fermano 100; energia 200 attraversa il mattone
+  e lascia il bersaglio a 496. Verificati spessore normale/obliquo/scalato, uscita
+  da dentro il volume, distanza che finisce nel muro, angolo radente, limite di
+  attraversamenti, ricerca spaziale vicino alla faccia e aggregazione duplicati.
+- Esplosione automatica di test: 104 candidati, 98 rimossi, solo 2 gruppi
+  ricostruiti; capsula piena attraversa la breccia, pavimento conservato.
+  Test a due stanze: 106 candidati coperti; cemento esposto distrutto ma
+  cartongesso dietro protetto dalla stessa esplosione, colpito da quella seguente.
+  Prima versione **FAIL** su ampiezza/passaggio della breccia: le tracce ai centri
+  facevano schermare i blocchi della stessa parete. Corretto il campionamento
+  sulla faccia esposta; i test passano senza ridurre le verifiche. Primo log
+  conservato in destruction-m2-self-occlusion.log.
+- Script Unreal **PASS**, destruction-m2-assets.log: migrati una volta i soli
+  nuovi campi del catalogo, creati tre materiali decal propri e tre bersagli,
+  salvata soltanto L_DestructionLab nel mount maps. Art/HP/geometria precedenti
+  preservati; nessun nuovo asset Fab o binario nel codice pubblico.
+- Standalone --combat nullrhi **PASS**, destruction-game-combat.log:
+  otto controlli gameplay, ER_BLOCK_PROBE_COMPLETE result=PASS. Colpo debug
+  e vera cartuccia raggiungono il bersaglio dietro cartongesso ancora solido;
+  mattoni/cemento bloccano l'energia normale; esplosione console crea breccia
+  percorsa dal vero personaggio; una HE fisica con miccia rimuove 72 blocchi
+  aggiornando due gruppi; rigenerazione ripristina pareti e bersagli a 500 HP.
+- Metal 1280×720 --combat --render **PASS**, destruction-gallery-combat.log.
+  Destruction-Penetration.png / Destruction-Explosion.png ispezionate: 504
+  istanze ancora vive dopo penetrazione (blocco HP 7, bersaglio 460,9 dopo il
+  colpo debug e il colpo arma), poi 116 blocchi rimossi dall'esplosione console
+  con due aggiornamenti di gruppo e passaggio libero. Nessun errore shader
+  dei nuovi materiali nel log. Tempi campionati: generazione circa 2,5 ms,
+  aggiornamento dell'esplosione circa 0,45 ms. Non sono benchmark FPS o costi
+  asincroni completi. Non verificata la qualità audio (nosound).
+- Vecchia sonda --game Milestone 1 **PASS**, destruction-game.log, dieci
+  controlli. Il test di sparo prepara il blocco a 1 HP per verificare una
+  distruzione reale con il nuovo danno ridotto del cartongesso.
+- LAN --shot-feedback **PASS**, destruction-m2-network.log: danni, copertura,
+  cadenza minima, munizioni, ricarica, morte/respawn, mesh, corpi e feedback.
+  Primo tentativo **FAIL** nei tre assert di fine caricatore: un colpo ancora
+  pendente dopo 4,2 s. La sola sonda ora attende ammo=0 con timeout 8 s; tutti
+  gli assert esatti su eventi/munizioni/cadenza restano. Nessuna regola arma
+  cambiata. Primo log conservato in destruction-m2-network-timing{,-host}.log.
+- LAN --accuracy **PASS**, destruction-m2-accuracy.log: cone reali, postura,
+  movimento, raffica/recupero e dati owner replicati.
+- LAN test-arsenal.py **PASS**, destruction-m2-arsenal.log: pallini, selezione
+  slot, munizioni/respawn, HE/smoke/stun, FX locali/remoti, cleanup e carve remoto.
+  Nel primo tentativo il probe host aveva PASS, ma il wrapper falliva il solo
+  marker remoto smoke: letto una sola volta al cambio fase 9. La sola sonda
+  ora osserva l'evento fino al cleanup (ancora FAIL se manca); evento remoto
+  events=1 realmente osservato nel nuovo log. Log precedente in
+  destruction-m2-arsenal-timing{,-client}.log. Nessuna modifica al fumo runtime.
+- Python py_compile, zsh -n e git diff --check **PASS**. Spec originale ancora
+  identica al file importato (cmp PASS). Nessun commit, push, cook o packaging.
+
+Milestone 2 implementata e verificata localmente. Limiti: standalone, riparo
+a un campione, nessuna onda di esplosione che aggira i muri; penetrazione
+hitscan limitata a 16 attraversamenti. Usare scala uniforme sugli attori
+stanza e configurare le dimensioni tramite Config. Restano taratura umana,
+profiling prolungato, generazione di più stanze (Milestone 3) e replica blocchi.
+
+
+## 14 ottobre 2026 — libreria PBR e Milestone 3
+
+Unreal 5.8.3, Mac arm64 M2 Pro 32GB; nessun cook/packaging/pubblicazione.
+Build Editor **Succeeded**, destruction-m3-build.log. Tutti i sette run finali
+sono terminati con codice 0; riepilogo in Saved/Testing/destruction-m3-validation.json.
+
+- ZIP originale **PASS**: dieci set, 84 file del manifest verificati SHA256/byte
+  prima dell'estrazione. Archivio conservato con hash
+  7858347e98cd15adc774709c9769c239e8c5fa2f515cec573b556bce90409360.
+- Import Unreal **PASS**, destruction-m3-textures.log: 41 texture, dieci materiali
+  PBR e un vetro parametrico. Catalogo aggiornato solo nelle Surface; sorgenti
+  originali/ZIP/manifest/crediti nel mount privato maps.
+- Audit Unreal in sola lettura **PASS**, destruction-m3-assets-audit.log:
+  tutte le texture 2048×2048, colore sRGB, normali DX con compressione normal-map,
+  maschere lineari; hash/provenienza presenti. Graph PBR con texture e collegamenti
+  BaseColor/Normal/Roughness, world-space normal abilitato; vetro traslucido,
+  catalogo e L_ProceduralLab salvati. L'audit legge le espressioni del graph: i
+  resource shader GetUsedTextures non sono disponibili con NullRHI.
+- Automation **PASS**, destruction-m3-automation-summary.log /
+  destruction-automation.log: Storage, CollisionAndIdentity,
+  BallisticsAndExplosion, ProceduralLayout e ProceduralCollision. Report:
+  **4 succeeded + 1 succeededWithWarnings, 0 failed, 0 notRun**. Il warning
+  ereditato è DestroyActor in una fixture temporanea senza WorldContext.
+- ProceduralLayout verifica 25 combinazioni (6–10 stanze × seed 0,1,42,7919,-17):
+  ripetibilità BlockID/transform/materiale, diversità dei seed, assenza di ID/
+  volumi duplicati, numero di aperture/percorsi e limiti di configurazione.
+  Verificate anche stanze minime, corridoio/rami minimi e porte da 100/200 cm.
+- ProceduralCollision usa Chaos reale con seed 42,1,7919: capsule 34/92,5 cm
+  attraversano ogni percorso stanza→ramo→hall e tutto il corridoio centrale.
+  Trace su tutte le porte/finestre, spawn libero, 120 rimozioni casuali per seed
+  con identità/assenza di collisione, tre rigenerazioni senza duplicare componenti,
+  pavimento conservato e rigenerazione invalida che preserva le istanze vive.
+  Ai raccordi a T il test usa il lato esposto: un raggio avviato dentro il blocco
+  perpendicolare deve correttamente colpire quel vicino.
+- Standalone --procedural **PASS**, destruction-m3-game-summary.log /
+  destruction-game-procedural.log: dodici controlli con personaggio/arma reali.
+  Spawn a (0,625,94,65), passaggio attraverso entrambe le porte, cambio console
+  seed7919/10 stanze, arma che rimuove il blocco mirato, esplosione batch e
+  camminata nella breccia fino all'asfalto, richiesta invalida preservata e reset.
+  PlayerStart mobili risolvono il precedente spawn iniziale fermo alla posizione
+  salvata: i PlayerStart statici impedivano lo spostamento runtime.
+- Metal 1280×720 --procedural --render **PASS**, destruction-m3-render-summary.log
+  / destruction-gallery-procedural.log. Procedural-Room.png,
+  Procedural-Corridor.png e Procedural-Breach.png ispezionate: texture continue,
+  aperture pulite, soffitti/pavimenti presenti, basamento asfaltato visibile dopo
+  la breccia. Ridotto il fill del laboratorio da 20 a 3 per leggere meglio PBR.
+  Nessun errore shader dei nuovi materiali; non verificato l'audio (nosound).
+- Campioni Metal finali, senza claim FPS: seed42/8 stanze = 8.018 blocchi,
+  66 chunk, 78 gruppi, generazione 37,29 ms; seed7919/10 stanze = 10.075 blocchi,
+  70 chunk, 94 gruppi, generazione 54,82 ms e rigenerazione 54,17 ms.
+  Un blocco rimosso: 0,49 ms / un gruppo; esplosione: 124 candidati, 115 rimossi,
+  due gruppi aggiornati, LastUpdate 0,91 ms. LastUpdate copre mutazione/ISM/
+  collisioni sincrone, esclude query/occlusione/FX e costi asincroni successivi.
+- Laboratorio M2 --combat **PASS**, destruction-m3-combat-summary.log:
+  penetrazione/bersagli, resistenza dei materiali, breccia percorsa, vera HE
+  con miccia e rigenerazione. Le texture nuove non modificano le regole di danno.
+- LAN --shot-feedback **PASS**, destruction-m3-network-summary.log:
+  munizioni/cadenza/ricarica, danni/copertura, morte/respawn/corpi, asset e
+  feedback host/remoto. Nessuna generazione o distruzione blocchi in LAN.
+- LAN --accuracy **PASS**, destruction-m3-accuracy-summary.log:
+  postura/movimento/coni reali, raffica/recupero e dati owner replicati.
+- LAN test-arsenal.py **PASS**, destruction-m3-arsenal-summary.log:
+  selezione slot/ammo/respawn, HE/smoke/stun, effetti host/remoto e carve del fumo.
+- setup-assets.py --check **PASS**: 24 mount, nessun puntatore LFS irrisolto.
+  Python py_compile, zsh -n, git diff --check pubblico e privato **PASS**.
+
+Milestone 3 implementata e verificata localmente. Layout su due file con
+corridoio comune; varianti di packing/grafo, vetri fisici, nuovi profili
+balistici e replica dei blocchi restano estensioni successive. Nessun commit
+o push eseguito; tutti i binari/sorgenti texture sono nel submodule privato maps.
+
+
+## 14 ottobre 2026 — Milestone 4: stabilità e profiling
+
+UE 5.8.3 CL58210709, Mac arm64 M2 Pro / 32GB / macOS27.
+Implementazione e verifica locali, nessun nuovo asset binario, commit/push,
+cook o packaging. Profiling dettagliato e ricevuta in DESTRUCTION_BENCHMARK.json;
+confronto e metodologia pubblicati nel README.
+
+- Build base/ottimizzata **Succeeded**, destruction-m4-baseline-build.log e
+  destruction-m4-build.log. Warning deprecazioni Niagara già presenti.
+- Automation **PASS**: Storage, CollisionAndIdentity, BallisticsAndExplosion,
+  ProceduralLayout, ProceduralCollision e StressAndBatchedIdentity. Log
+  destruction-m4-automation-summary.log / destruction-automation.log; report:
+  **5 succeeded + 1 succeededWithWarnings, 0 failed, 0 notRun**. Warning ereditato
+  della fixture WorldContext temporanea; nessun errore del sistema blocchi.
+- Stress automatico **PASS**, ER_BLOCK_STRESS_AUTOMATION cycles=18:
+  dieci stanze, chunk200/400/800, sei seed per chunk. Rimozione del90% con
+  richieste triplicate: esattamente gli ID unici e un update per gruppo sporco,
+  zero upload dei superstiti. Trace su ogni superstite dopo gli swap, campioni
+  dei volumi rimossi privi di collisione, handle nativi/mapping coerenti.
+  Rigenerazioni identiche ripristinano corpi/allocazioni esclusive e non
+  accumulano componenti; GC dopo ogni ciclo.
+- Benchmark base **PASS**, destruction-m4-baseline-summary.log /
+  destruction-benchmark-baseline-nullrhi.{log,csv}: sei casi,54cicli includendo
+  sei warmup esclusi,2.544 righe misurate. Algoritmo precedente full-group
+  ClearInstances/AddInstance per superstite, con la stessa strumentazione.
+- Benchmark ottimizzato NullRHI **PASS**, destruction-m4-optimized-summary.log /
+  destruction-benchmark-optimized-nullrhi.{log,csv}: stessi54cicli e2.544righe.
+  Ogni ciclo:16rimozioni singole, batch256 con duplicati,32query verificate
+  contro riferimento lineare dei blocchi vivi, esplosione250/2400, distruzione
+  completa, trace in tutti i9.907/10.075volumi precedenti, pavimento/capsula
+  conservati, verifica corpi eGC. Oltre539mila rimozioni per run, nessuna
+  collisione fantasma, handle recovery o crash.
+- Dopo il benchmark: raffica vera da30cartucce **PASS**,9blocchi rimossi nel
+  run senza rendering; nessun FX cosmetico creato con NullRHI.
+- Benchmark/stress Metal **PASS**, destruction-m4-metal-summary.log /
+  destruction-benchmark-optimized-metal.{log,csv}, stessi54cicli e2.544righe.
+  Raffica vera30colpi,10blocchi rimossi; Destruction-Stress-Burst.png ispezionata:
+  foro visibile e coerente, texture superstiti continue. Finestra1280×720 con
+  dynamic resolution attiva: questa prova non certifica FPS o rendering3D nativo.
+- FX Metal **PASS**: budget0/24/1000 con200spawn ciascuno, ogni spawn controllato
+  contro il clamp0..64. Emettitori/decal reali creati; campione massimo64/64.
+  Impatti lontani respinti;32richieste di esplosione producono al massimo8burst
+  (otto realmente attivi). Rigenerazione azzera gli effetti posseduti. EndPlay
+  distrugge burst e dis-registra i nuovi componenti decal/Niagara effettivi,
+  senza limitarsi a svuotare le weak reference.
+- Trace Unreal Insights **creata**, destruction-benchmark-optimized-metal.utrace
+  (circa17MiB), canali CPU/frame/bookmark. Scope native di generazione,
+  remove/group, query, batch, penetrazione ed esplosione. Nessuna analisi
+  manuale completa GPU/heap o profiling prolungato dichiarato.
+- Risultati pooled dei due seed, chunk400: single p95 **1,211→0,032ms**,
+  batch256 mediana **43,901→1,821ms**, generazione **45,318→43,470ms**,
+  query250 p95 **0,0115→0,0101ms**, esplosione250 mediana **1,243→0,516ms**,
+  memoria tracciata **5,676→3,779MiB**. In Metal: single p950,038ms,
+  batch256 mediana1,858ms, generazione48,289ms. Non si confronta CPU NullRHI
+  prima con Metal dopo; le due tabelle sono distinte.
+- Tempi: wall time delle chiamate sul game thread, incluse operazioni fisiche
+  sincrone in ISM; esclusi verifica, GC, logging/CSV, snapshot memoria, thread
+  render/GPU e fisica differita. Clear/remove/add non sono puro tempo Chaos.
+  TrackedBytes = allocazioni logiche/layout/mapping più report esclusivi UE
+  degli ISM (pareti/pavimenti/soffitti); escluse risorse condivise, heap totali
+  e memoria GPU. I body count riguardano questi ISM, non il basamento non-ISM.
+  RSS del processo registrata separatamente, nessun assert di uguaglianza su
+  cache/pool engine. Warmup e percentili/count sono riportati nella ricevuta.
+- Regressioni tutte **PASS**, destruction-m4-regression.json (sette codici0):
+  --game del laboratorio M1 (dieci controlli), --combat, --combat --render,
+  --procedural --render (dodici controlli), LAN --shot-feedback, --accuracy
+  e test-arsenal.py. Log summary destruction-m4-{room,combat,combat-metal,
+  procedural-metal,network,accuracy,arsenal}-summary.log. Verificati
+  penetrazione, bersagli, HE con miccia, breccia percorsa, reset, dati owner,
+  ammo/cadenza, morte/respawn/corpi, feedback e smoke carve remoto.
+- Python py_compile e git diff --check **PASS**; 24mount privati verificati
+  senza puntatori LFS irrisolti. Specifica importata preservata.
+
+Default chunk400/blocco50×20×25 conservati: chunk200 aumenta i gruppi circa
+93→420 e il costo di generazione; chunk800 aumenta il mapping di un update
+singolo. Le ottimizzazioni non cambiano danni/materiali/occlusione o l'authority.
+Milestone4 completata; sistema ancora standalone, crolli/replica successivi.
+
+
+## Milestone 5 — supporti e detriti Chaos (14 ottobre 2026)
+
+Build Mac arm64 Development riuscita su UE5.8.3 CL58210709. Nuovi test
+`StructuralSupport` e `CollapseAndIdentity`; suite finale: otto successi,
+zero fallimenti/non eseguiti (report: sei senza warning, due con warning per
+DestroyActor nei mondi fixture senza world context). Il probe della partita
+salvata non usa questi mondi temporanei. Warning di deprecazione preesistenti
+nel codice Niagara/forearms nella build funzionale; build finale del probe
+compila e collega senza nuovi warning.
+
+| Verifica | Esito osservato |
+|---|---|
+| Grafo | Contatti di faccia, esclusione spigoli/vertici, architrave collegato lateralmente, ancoraggi espliciti/indistruttibili, corner clip e rigetto rotazioni non assiali: PASS |
+| Distacco | Anello distrutto di 16 blocchi: nove isolati staccati, resto ancorato conservato, nessuna collisione/query/danno sulle parti staccate, mapping nativo valido a ogni lotto: PASS |
+| Danno durante il job | Rimozione aggiuntiva durante il flood: completamento e secondo controllo della revisione senza starvation: PASS |
+| Budget | Limiti di lavoro/distacco configurati e hard, cap hard64 globali e hard8 spawn tra due stanze, overflow senza blocchi sospesi: PASS |
+| Fisica effettiva | Nove detriti selezionati (rimozione4/spawn4 per passo nel fixture) cadono con Chaos; player/proiettili ignorati; fisica disattivata e actor scaduti: PASS |
+| Frame lenti | Intervallo reale a 5 FPS, poi ritorno a60: almeno un delta>100 ms e massimo un callback di supporto per frame, NullRHI e Metal: PASS |
+| Pulizia | Regenerate ripristina storage/ISM/supporti e cancella timer/detriti; EndPlay elimina i propri detriti; pavimento preservato: PASS |
+| Piano intero | Seed7919, dieci stanze, 10.075 blocchi: eliminati827 alla base, staccati9.248 superiori, zero istanze muro residue, budget default rispettato: PASS |
+| Regressioni | Stanza, combattimento NullRHI/Metal, piano procedurale Metal, LAN con shot-feedback, accuracy e arsenal: tutti exit0 |
+| Stress M4 con M5 | Due seed×tre chunk×nove cicli=54, NullRHI e Metal: identità/collisioni, 30 colpi reali, FX/culling, rigenerazione/EndPlay: PASS |
+| Profiling finale | Stesso stress Metal da54 cicli e2.544 righe; subtotali logical/layout/mapping/ISM/support sommano esattamente al tracked; trace salvata: PASS |
+
+Misure sullo stesso Mac M2 Pro/32 GiB, chunk400 e blocchi50×20×25 cm. Collasso
+completo: 88 callback, support_bytes427.567. Un singolo run per RHI (nessun
+warmup escluso per il collasso); p95 riguarda i callback del run, non una
+popolazione di run indipendenti.
+
+| RHI | Costruzione grafo | Callback p95 | Callback max | Completamento |
+|---|---:|---:|---:|---:|
+| NullRHI | 6,733 ms | 0,512 ms | 0,630 ms | 4,424 s |
+| Metal | 6,763 ms | 0,680 ms | 0,851 ms | 4,430 s |
+
+Il timer CPU include traversal/inizializzazione, rimozioni ISM/mapping e spawn
+selettivo. Esclude integrazione differita Chaos, render thread e GPU; il tempo
+di completamento usa il clock del mondo. La deadline1,5 ms vale solo per il
+flood: ISM/spawn successivi hanno limiti di quantità, senza promessa di deadline
+complessiva. Non è una garanzia FPS o multipiattaforma; dynamic resolution resta
+attiva. `SupportBytes` misura array posseduti/weak reference, non heap totali
+Chaos/detriti, risorse condivise, bucket temporanei di build o memoria GPU.
+
+Stress Metal finale, pool dei due seed a chunk400: generazione mediana54,741 ms,
+rimozione singola p95 0,039 ms, batch256 mediana1,942 ms, tracked4,094 MiB,
+grafo iniziale mediano326.722 byte. Il workload distrugge tutti i blocchi nel
+callback prima del timer di supporto: queste misure descrivono i costi ordinari
+e il grafo in generazione, mentre il probe di collasso misura i distacchi.
+
+Durante l'ultima verifica del CSV è stato rilevato un probe nativo compilato
+prima dell'aggiunta delle colonne support/debris: i controlli del gioco erano
+PASS, ma il parser rifiutava lo schema precedente. Ricompilazione del probe e
+nuovo stress completo hanno confermato lo schema e tutti i subtotali; esito
+finale exit0. Diagnostica iniziale conservata nel runner schema, esiti finali
+in destruction-m5-final.json.
+
+Artefatti locali in Saved/Testing: destruction-automation.log e destruction-report/,
+destruction-game-collapse.log, destruction-gallery-collapse.log,
+Collapse-Before.png e Collapse-Falling.png (ispezionate: breccia e frammenti
+in caduta), destruction-m5-regression.json (nove exit0), destruction-m5-final.json,
+destruction-benchmark-m5-final-metal.csv / -summary.json / .utrace. Receipt
+pubblico [COLLAPSE_BENCHMARK.json](COLLAPSE_BENCHMARK.json) con metodo, limiti,
+metriche/hash sorgenti e CSV; DESTRUCTION_BENCHMARK.json conserva la M4.
+
+Limiti intenzionali: connettività alla base rigida locale, nessun calcolo di
+carichi; solo campione cosmetico di blocchi simulato, restante overflow rimosso;
+soffitti e pavimenti statici; shader world-position riapplica la texture durante
+il moto; rete/late join, più piani e materiali gameplay aggiuntivi restano M6.
+
+## Milestone 6 — replica, late join e tre piani (15 ottobre 2026)
+
+Build Mac arm64 Development su UE5.8.3 CL58210709: riuscita. Suite finale undici
+successi, zero fallimenti/non eseguiti: nove senza warning, due con gli stessi
+warning dei mondi fixture senza world context. Nuovi MultiFloorLayout,
+MultiFloorCollision e NetworkTransactions. Verificati seed per piano, sette
+materiali, ID distinti/pavimenti disgiunti, clearance capsule con step-up,
+ancoraggi superiori, pagine fuori ordine/future/parziali, transazioni atomiche,
+payload invalidi, mismatch protocollo e reset epoch. Gameplay precedente,
+identità/Chaos e18 cicli di stress automation restano PASS.
+
+Migrazione Unreal del catalogo: added4/filled0/total7; bindings Wood/Stone/Metal/
+Glass sulla libreria PBR esistente. Rerun added0/filled0/total7 e SHA della
+uasset invariato. Dati/art delle tre righe originarie preservati, nessuna nuova
+texture o modifica alla geometria salvata delle mappe.
+
+| Prova multiplayer effettiva | Esito |
+|---|---|
+| Server + primo client | Stessa geometria/HP/stato, mapping nativo completo e collisioni reali campionate: PASS |
+| Authority | Mutazione, rigenerazione ed esplosione dirette sul client rifiutate; suo RPC di fuoco posseduto consuma ammo e distrugge il blocco predisposto: PASS |
+| Breccia | Secondo colpo client attraverso la breccia colpisce host (HP100→64); client attraversa col movimento reale, conferma server: PASS |
+| Crollo | Authority rileva nove isolati; gli stessi stati Detached/collisioni sono applicati sui client: PASS |
+| Late join | Secondo remoto entra dopo danni/crollo e riceve lo stato corrente (nessun replay dei vecchi detriti): PASS |
+| Epoch | Rigenerazione da due a tre piani e successivo reset; snapshot vecchi esclusi, tutti i remoti ripristinano stato e collisioni: PASS |
+| Scale | Primo client sale e scende due piani usando la movement replication ordinaria; conferma server/client: PASS |
+| Snapshot denso | Ulteriore remoto entra dopo rimozione di tutte le17.427 parti di parete; stato completo applicato tramite137 pagine: PASS |
+| Esplosione finale | 146 candidati,5 coperti,141 danneggiati e53 rimossi; hash/HP/collisioni corrispondono su tutti i remoti: PASS |
+
+Due run finali indipendenti del probe esteso: NullRHI con3% incoming packet loss
++40ms incoming lag su ciascun remoto (valori confermati in tutti i log) e Metal
+su host/primo remoto. Entrambi completati PASS con host listen e tre remoti,
+quattro slot umani totali. In ogni run: epoch1 seed42/due piani/11.529 blocchi/
+91 pagine; epoch2 seed7919/tre piani/17.427 blocchi/137 pagine; epoch3 reset
+stesso layout. Dati di stato confrontati integralmente tramite digest; geometria
+verificata con mapping completo e trace reale ogni13 record. È una prova locale,
+non una certificazione su internet, dedicated server o piattaforme differenti.
+
+In Metal il client ha attraversato la breccia fino a Z74,650 (asfalto20cm sotto
+il pavimento), salito fino a Z734,650 e ridisceso a Z94,650. Percorsi e correzioni
+sono del CharacterMovement reale, non teleport di prova attraverso le scale.
+I teleport authority sono usati solo per predisporre gli scenari/reset. Durante
+lo sviluppo la capsula ha rilevato un ingresso troppo basso e un ritorno vicino
+alla scala superiore: corrette geometria/aperture. Il primo timeout LAN era la
+tolleranza5cm del test post-teleport: lo stato dei blocchi era già identico;
+correzione nativa e tolleranza20cm del probe hanno risolto l'attesa senza
+introdurre RPC client di posizione.
+
+Immagine Procedural-Multifloor.png ispezionata: tre livelli e superfici PBR
+visibili. Il capture ha mostrato12FPS/85,4ms e scena803×452 dinamica in output
+1280×720, con processi Unreal simultanei sulla stessa macchina. Questo carico
+condiviso e il dato istantaneo non stabiliscono le prestazioni di una partita
+isolata, né una promessa FPS. Non si dichiara una garanzia grafica o di banda.
+
+Tutti gli undici comandi finali exit0: automation, network-loss, network-metal,
+combat NullRHI, combat Metal, procedural Metal, collapse Metal, stress Metal,
+LAN precedente con shot-feedback, accuracy e arsenal. Collasso conserva le
+prove reali di gravità, cap globali, settle/scadenza e pulizia. Stress finale
+Metal:54 cicli, due seed×tre chunk×warmup+otto campioni,2.544 righe e trace;
+30 colpi reali, FX/culling, rigenerazione/EndPlay. Tutti i subtotali CSV includono
+ora network_bytes e sommano al tracked; essendo questo stress standalone, le
+pagine network non esistono e non misura il costo multiplayer.
+
+Stress standalone a chunk400, pool dei due seed: generazione mediana52,656 ms,
+rimozione singola p95 0,032 ms, batch256 mediana1,719 ms, query250 p95 0,010 ms,
+explosion250 mediana0,447 ms, tracked4,094 MiB. Timer CPU sincroni, esclusi
+Chaos differito/render/GPU; actor/canali e shared/GPU heap esclusi dalle
+allocazioni possedute. I receipt M4/M5 restano osservazioni storiche.
+
+Artefatti locali Saved/Testing: destruction-m6-build.log,
+destruction-m6-materials.log e -materials-rerun.log, destruction-report/,
+destruction-m6-validation.json (undici exit0), destruction-network-loss-*.log /
+-report.json e destruction-network-metal-*.log / -report.json, immagine dei tre
+piani, destruction-benchmark-m6-metal.csv / -summary.json / .utrace. Receipt
+pubblico [DESTRUCTION_NETWORK_RESULTS.json](DESTRUCTION_NETWORK_RESULTS.json)
+con protocolli/limiti, epoch/report dei peer, hash sorgenti/catalogo/CSV/log,
+metodo e limiti.
+
+Scope: un actor di mondo, max50k record e391 pagine, fino a tre piani con scale
+statiche e branch>=250. Verifica di connettività, senza calcolo dei carichi/crollo
+dei solai, streaming/packing arbitrario o NavMesh dinamica. I nuovi valori dei
+materiali sono tuning gameplay iniziale. Binaries privati; nessun packaging,
+commit o pubblicazione eseguiti in questa milestone.
+
+## Menu/sessioni — 15 ottobre 2026
+
+- Compilazione fdmEditor Mac Development arm64 riuscita.
+- Verifica grafica Metal del menu a tre colonne: partita, personaggio/armi,
+  impostazioni; finestra indicata al 70% (2419×1564 iniziale sul Retina 2×).
+- `python3 scripts/test-network.py`: PASS con host/client reali, incluse
+  ricariche finite nel deposito, danno, respawn, punteggi e replica personaggi.
+- `scripts/test-session.py` è il nuovo collaudo opt-in per avvio con un solo
+  umano, squadre esplicite, bot per squadra, movimento senza sparo, bind UDP
+  wildcard e tre ricariche consecutive da riserva zero nei laboratori.
+- Durante il collaudo corretto lo spawn attorno ai PlayerStart: la ricerca
+  del pavimento ignora i pawn e scarta appoggi con dislivello oltre 40cm.
+  Il timeout client del probe è 60s per consentire il caricamento Editor.
+
+Risultati conclusivi dei cinque scenari `test-session.py`: PASS (deposito
+locale con bersagli fermi; deposito listen con bot solo movimento; movimento,
+distruzione e procedurale listen con client reale). In ogni server verificato
+UDP wildcard su 0.0.0.0, avvio solo, team Omega host/Alpha client, 2 bot Alpha
+e 1 Omega. Nei tre laboratori riuscite tre ricariche consecutive da riserva
+azzerata. Bot fermi: spostamento 0cm; bot movimento: avanzamento osservato
+senza consumo del caricatore. `test-bots.py`: PASS Patrol e Target, inclusi
+sparo, copertura, ricarica, morte/respawn, fine/riavvio round e replica client.
+Gli spawn dei bot sono esclusi dal riposizionamento degli spawn umani procedurali.
+
+Ripetizione finale `test-session.py --map L_ProceduralLab`: PASS dopo la
+correzione dei punti di spawn individuali; build finale riuscita.
+
+
+## 15 October 2026 — Killhouse reference template
+
+- Read-only analysis of Workshop526448928 legacy ZIP: de_killhouse.bsp/BSP21,
+  1584 brushes,95 static props,20 team spawns; Source converter reused without
+  changes to the original csgopen checkout. Measurement/provenance JSON private.
+- Editor arm64 Development build: PASS. New DA_Killhouse and L_Killhouse saved
+  through Unreal in Assets/maps. Initial missing concrete-floor material fallback
+  was corrected to the existing concrete_wall_006 material; final setup is clean.
+- `python3 scripts/test-destruction.py`: PASS,12/12 including MapTemplate. Saved
+  template tested at seeds0/1/42/7919/-17/INT32_MAX: deterministic IDs/transforms,
+  unique records,20 physically clear supported spawns, circulation sweeps, real
+  hit identity/removal, stable component count on regeneration and invalid-data
+  rejection. Existing storage/combat/multifloor/network/support tests also pass.
+- `python3 scripts/test-map-template.py --render --network`: PASS. Actual Metal
+  host, initial remote and late remote after damage. Initial phases1/3/4 and late
+  phases3/4 match full state digests, native mappings and sampled static/logical
+  collision. Real pawn walks the side lane and climbs the watch platform stairs.
+  Authorized rifle shot plus exposed-face explosion remove25 logical blocks;
+  seed42→7919 resets damage and advances epoch1→2 coherently on both clients.
+  No blocks detached in this exposure; general collapse remains verified by the
+  existing automation suite. Original probe assumptions (single weakened cell
+  despite weapon spread, blast origin coplanar with a wall and too-short client
+  loading windows) were corrected before the successful run.
+- Inspected actual Metal captures: industrial shell, floor, bunker partitions,
+  containers, central stairs and overhead cutaway are visible. These show current
+  substitute geometry/PBR surfaces, not imported Factory meshes or measured FPS.
+- Existing regressions: `test-network.py`, `test-network.py --accuracy`,
+  `test-arsenal.py`: all PASS with actual local host/client processes.
+- Repeated setup: PASS, template/map preserved byte-for-byte; hashes and concise
+  receipt in MAP_TEMPLATE_RESULTS.json. Capture/log details in Saved/Testing.
+  No packet-loss run for this template, distribution or publication performed.
+
+- Final `python3 scripts/test-map-template.py --render` after the HUD polish:
+  PASS in standalone as well. Captures refreshed with the ordinary gameplay HUD;
+  `-ERBlockDebug` opts into template block diagnostics. Inspected Spawn/Breach/
+  Overview images; overhead cutaway hides only the ceiling for that debug capture.
+
+
+## 15 October2026 — Factory art and balanced Killhouse revision2
+
+- Source FactoryEnvironmentCollect completed:8.7GB content, UE5.6 source project.
+  Read-only bounds/material inspection; selected migration via an isolated
+  project, Unreal rename/save under private Art/FactoryEnvironment. Final closure
+  15 root meshes/70 packages/546,899,871 bytes. `verify_factory_assets.py`: PASS,
+  all70 packages load, dependency/material references resolve in the private
+  namespace or Engine. No source Factory package saved. Early rename-registry
+  dependency lag and stale staging conflicts were resolved with explicit closure
+  migration and a fresh selection-keyed staging project before final validation.
+- Mac Editor arm64 Development build: PASS. Template upgrade validates103
+  distinct seeds before save. DA_ER_BlockMaterials SHA256 remains
+  88ad4b5875c772a2c39ccacdbb3ed037ba8ad4e6ab3bdee4bc92b76cba9fee03.
+- `test-destruction.py`: PASS12/12. MapTemplate verifies paired logical/fixed
+  geometry and normalized spawns, deterministic IDs and exact damage-cell seams,
+  six representative physical seeds, clear circulation, rear door access,
+  field-facing firing windows, internal stairwell/headroom and walkable roof
+  exits on both bases. A first overly literal floating-point panel grid failed
+  pairing checks; centred generation corrected it before the final passing run.
+- `test-map-template.py --render --network`: PASS. Metal listen host, initial
+  peer and late peer agree on full state digests/mappings and sampled collision.
+  Actual pawn traverses the side lane, enters Alpha from the rear/climbs its roof,
+  then does the same for Omega, and climbs the central platform. Authorized shot
+  and exposed-face explosion remove17/3366 blocks; seed42→7919 advances epoch1→2
+  and restores the layout coherently. Initial phases1/3/4 and late phases3/4 PASS.
+- `test-map-template.py --render`: PASS in standalone too, exercising both bases
+  and central stairs with normal gameplay HUD. Inspected final Spawn, AlphaRoof,
+  OmegaRoof and Overview captures. Solid corrugated modules replace an early
+  open-frame selection for the shed. Overview is a deliberate roof cutaway;
+  ordinary gameplay has the fixed roof. Observed render frames are not an FPS
+  benchmark or guarantee. Fixed collision uses authored box approximations.
+- Existing `test-network.py`, `test-network.py --accuracy`, `test-arsenal.py`:
+  all PASS with real local host/client processes.
+- Repeated setup+asset verification: PASS. Template, map and destruction catalog
+  preserved byte-for-byte, including later art edits. Hashes in
+  Saved/Testing/factory-preservation-before.json. Current concise receipt is
+  MAP_TEMPLATE_RESULTS.json. No packet-loss run for this art revision, packaging,
+  public asset upload or license verification claimed.
+
+
+## 15 October 2026 — Killhouse revision3: solid surfaces and procedural composition
+
+- Editor arm64 Development build: PASS. DA_Killhouse revision3 saved through
+  Unreal after native validation of516 distinct seeds; map and material catalog
+  preserved. No additional vendor package imported.
+- `test-destruction.py`: PASS12/12. MapTemplate now samples512 composition seeds:
+  248 arena dimensions,450 module compositions,511 base frames/proportions, four
+  room counts,3052..7064 logical blocks. Six physical seeds verify symmetry,
+  deterministic IDs, clear spawns/full outer loop, standing room access, front
+  windows, stairs/roof exits and solid roof samples matching visible cube geometry.
+  Invalid range/open-art slab inputs reject atomically.
+- The first stair fixture incorrectly tested a capsule only7.5cm above each
+  30cm tread, intersecting the next riser during step-up. Use the existing lab's
+  extra20cm clearance for tread checks; real pawn movement remains unmodified.
+- `test-map-template.py --render --network`: PASS. Real pawn crosses both bases,
+  rear entrances and roofs, and the watch platform. Authorized shot/explosion
+  removes43 blocks. Initial phases1/3/4 and late phases3/4 match full state,
+  mappings and sampled collision. Seed42->7919 changes3750x7400 to3800x8700cm,
+  epoch1->2, and resets damage.
+- `test-map-template.py --gallery`: PASS. Three compositions rendered at7919,7,113;
+  final down-facing roof captures inspect solid decks/treads and guarded opening.
+  Actual captures inspected. No isolated FPS/CPU/GPU or memory guarantee inferred.
+- Existing `test-network.py`, `test-network.py --accuracy`, `test-arsenal.py`: PASS.
+- Read-only preservation rerun + `verify_factory_assets.py`: PASS70 packages;
+  template, map and destruction catalog hashes unchanged. Details/hashes in
+  MAP_TEMPLATE_RESULTS.json and Saved/Testing/variation-preservation.json.
+
+No packet-loss sweep, packaging or publication in this revision.
+
+
+## 15 October 2026 — Narrow Killhouse roof parapets
+
+- Editor arm64 Development build: PASS. FindLedge now samples near the contacted
+  face and follows a bounded continuous top interval. The100cm-high/20cm-thick
+  parapets receive a supported landing; broad obstacles retain the old distance.
+  Jump velocity,30/80/150cm thresholds, standing clearance, swept movement and
+  saved-move prediction remain unchanged. No asset binary modified.
+- `test-destruction.py`: PASS12/12. MapTemplate now checks48 ledge queries:
+  four sides x two bases x six seeds. Explicit climb input required, height
+  relative to roof verified and landing centre lies within the20cm top strip.
+- `test-parapets.py`: PASS16 server-verified cases (eight host/eight remote),
+  plus8 autonomous-client confirmations. Uses the ordinary Space input binding
+  and movement. Server only places the initial roof fixture; no target teleport.
+  Final feet settle102.1..102.2cm above the roof on all four sides of both bases.
+- The initial graphical run stopped when its viewport closed after three local
+  cases; its first mounted screenshot was inspected. A headless attempt found
+  the idle host occupying the final remote landing, correctly rejected by body
+  clearance. Park the host off the roof before remote trials; complete rerun PASS.
+- `test-movement.py`: PASS, including20 block heights, real remote80/150/200cm
+  traversal, jump envelope, ceiling rejection, posture/sprint and actual InputKey
+  bindings. `test-network.py --accuracy`: PASS on server and owner.
+- Map/template/catalog SHA256 match the revision3 preservation receipt exactly.
+  Detailed logs: Saved/Testing/parapet-{host,client}.log, parapet-report.json,
+  movement-{host,client}.log and accuracy-{host,client}.log.
+
+
+## 15 October 2026 — Movement-only bot demonstrations
+
+- Editor arm64 Development build: PASS. Server AI now requests ordinary jumps,
+  nearby obstacle traversal, crouch, prone, crawl and standing again. Posture
+  cycles last22s and use explicit roster offsets. Movement physics and assets
+  remain unchanged; traversal still obeys normal collision/height checks.
+- `test-bot-motion.py`: PASS with two real bots (one per team), listen server
+  and remote LAN observer in the existing MovementLab. Each bot independently
+  reached evidence mask127 on both peers: upward jump, actual traversal, full
+  crouch, prone capsule with horizontal visible world mesh, crawling, standing
+  after prone and mounting the80/140cm fixtures. No shots/ammo consumption.
+  Team appearance must be ready before observation and both bots ready at report.
+  Only initial test lives/positions are reset; subsequent actions use normal AI.
+- `test-bots.py`: PASS for Patrol/Target, including remote team appearance,
+  death/respawn and round restart. `test-session.py --map L_Depot`: PASS on the
+  final module for local stationary and movement listen sessions, bot movement,
+  no firing, roster and real remote join/team selection.
+- Verification is headless gameplay/replicated state and mesh-transform evidence;
+  no new rendered animation capture or NavMesh/pathfinding guarantee claimed.
+  Details: BOT_MOTION_RESULTS.json and Saved/Testing/bot-motion-{host,client}.log.
+
+
+## 15 October2026 — Dust Mirror desert reference template
+
+- Source2 analysis: Workshop3117367319 verified as Dust2(Mirror),561 entries
+  inside the nested main VPK,15 spawn entities/team. CRC-verified read, entity
+  export and geometry inspection with official Source2Viewer-CLI20.1. Original
+  CS2 materials are outside this Workshop package; no Source2 mesh/texture
+  imported into Unreal. Private analysis/assembly manifests retain provenance.
+- Selected MOUT_Arabian migration through Unreal:27 vendor packages, source
+  mount read-only, intermediate namespace rename/save and final private mount.
+  The imported Substance instances had missing parents: four owned PBR parents
+  rebuilt from their existing color/normal/roughness/AO/metallic maps. World
+  tiling and normal transforms follow the existing procedural material approach.
+  Final dependency/load verification: PASS31 packages, including all four parents.
+- Editor Mac arm64 Development build: PASS.515 candidate seeds validate before
+  save. The first physical test caught a continuous parapet blocking the stair
+  mouth; revision2 opens both opposing entrances. A test key also normalized
+  signed zero before the final symmetry check.
+- Destruction suite: PASS13/13. DustTemplate checks512 seed builds with cover
+  variation and six physical seeds, paired fixed geometry, clear starts, both
+  orthogonal crossing levels,320cm/0cm support, narrow gates that pass at centre
+  and block at their leaves, and both solid stairways/headroom. Existing
+  Killhouse, storage, combat, collision, support/collapse and network tests pass.
+- test-dust-template.py --render --network: PASS. Actual pawn passes both timber
+  gates, walks under the bridge, climbs the stairs and crosses the upper route.
+  An authorized real shot damages project wood; exposed-face explosion/collapse
+  preserves mappings. Seed42->7919 restores cover and advances epoch1->2. Initial
+  peer phases1/6/7 and late peer6/7 match full state digests and sampled collision.
+  The probe keeps snapshot phase independent from movement phase so an initial
+  peer can still verify after map loading. Geometry was final; subsequent PBR
+  parent repair changes appearance only.
+- Existing test-network.py, test-network.py --accuracy and test-arsenal.py: PASS.
+- Setup preservation: PASS. Repeated template, lighting and PBR migrations skip
+  completed versions; map/template/catalog/Killhouse hashes match saved receipt.
+  Destruction catalog SHA256 remains
+  88ad4b5875c772a2c39ccacdbb3ed037ba8ad4e6ab3bdee4bc92b76cba9fee03.
+- Limits: simplified balanced60x80m adaptation, not every original DustII route.
+  Seed variation currently changes paired cover offsets; crossing/gates and arena
+  dimensions are invariant. Fixed art collision is authored box approximation.
+  No performance benchmark, packaging, publication or acquisition-license review.
+
+- Final `test-dust-template.py --render` after PBR repair: PASS. Actual local
+  traversal/combat/seed reset repeats successfully. Inspected final Doors, Upper
+  and Overview captures: stone/wood/metal maps render instead of the parentless
+  material fallback; outdoor sky and light reach the procedural geometry.
+  Full-map exterior beyond the arena remains unbuilt. Summary receipt:
+  DUST_TEMPLATE_RESULTS.json; final private package hashes in
+  SourceAssets/ArabianEnvironment/final_manifest.json.
+
+
+### Dust town revision3 — 15 October2026
+
+- Replaces the earlier fixed symmetric arena with the user's reference-plan
+  town: seven named routes, six courts, solid building parcels, a bent Short A
+  crossing CT_A at320cm, and three inward-open timber gates under curved arches.
+- Editor Mac arm64 Development build: PASS. Setup validates515 candidate seeds.
+  Destruction automation:13/13 PASS. DustTemplate validates512 unique town plans,
+  202 arena proportions,42..46 parcels and seven variable street widths, plus
+  six physical seeds (0,1,42,7919,-17,INT_MAX). Tests cover full route capsule
+  sweeps, spawns, centre gate passage/blocked leaves, stairs and both levels.
+- `test-dust-template.py --render --network`: PASS. Actual pawn crosses all
+  three doors, walks CT under Short A, climbs and follows the complete bent
+  upper route to A, fires an authorized shot and causes exposed-face blast
+  damage/collapse. Seed42->7919 resets cover and advances epoch1->2. Initial
+  peer phases1/6/7 and late peer6/7 match state digests and sampled collision.
+  Digests:1=3896086461,6=1825454632,7=3603509753.
+- Existing ordinary LAN, accuracy and arsenal regressions: PASS.
+- One-time art migration adds three owned meshes and five town materials.
+  Final material-only projection repair connects all17 texture samples in four
+  owned PBR copies to the actual Unreal `UVs` input. Eight-package asset, bounds,
+  dependency and UV-connection verification: PASS. A new rendered gate capture
+  checks the final material repair; the earlier full gameplay/network run used
+  the same final geometry and gameplay, before this shader-only correction.
+- Completed setup reruns preserve artist changes. Protected Killhouse map and
+  template, Dust map/template and shared catalog hashes match the saved receipt;
+  the projection repair changes only the four owned town materials. Catalog SHA256:
+  88ad4b5875c772a2c39ccacdbb3ed037ba8ad4e6ab3bdee4bc92b76cba9fee03.
+- Limits: semantic adaptation of the supplied plan; seeds reshape geometry while
+  preserving its route graph. Buildings are solid closed parcels. Curved arch
+  collision uses24 strips and leaves use oriented plank proxies. No performance
+  benchmark or publication. Receipts/logs: `Saved/Testing/dust-town-*`,
+  `dust-network-metal-report.json`; summary: `DUST_TEMPLATE_RESULTS.json`.
+
+- Final `test-dust-template.py --render` after the town UV repair and the
+  probe's delayed gate capture: PASS. Actual three-gate traversal, lower route,
+  full bent upper route, authorized shot, blast/collapse and seed rebuild all
+  repeated successfully. Inspected final wooden-gate capture confirms vertical
+  timber grain, inward-open leaves, iron braces and the arched surround.
+
+
+### Dust town revision4 — compact plan and opposite-swing doors,15 October2026
+
+- Editor Mac arm64 Development builds: PASS. Compact migration validates515
+  candidate seeds before saving66..75x73..84m dimensions and42 patrol actors.
+  Approximately13% reduction per axis,24% less area at the range midpoints.
+- Destruction suite:13/13 PASS. DustTemplate:512 unique compact plans,187 arena
+  proportions,40..46 building parcels and seven sampled gate-street widths.
+  Six physical seeds verify all street routes, standing clearance/spawns, stairs,
+  crossing heights and the diagonal door passage in both directions. Nine
+  frontal standing-eye rays per door from each side are blocked, as is straight
+  frontal capsule motion. The safe six-point dogleg remains open.
+- Rendered host traversal passes all three opposite-swing gates, CT underpass,
+  complete bent Short A, authorized firing, blast/collapse and seed replacement.
+  Initial network attempt exposed a probe timing defect: the underpass sweep
+  hit the replicated host pawn while it was crossing. Environment checks now
+  explicitly ignore all pawns. The initial failure/report is retained in
+  Saved/Testing/dust-compact-first-{host,initial,network-report} files.
+- Ordinary LAN, accuracy and arsenal regressions: PASS.
+- All four completed setup scripts rerun without modifying13 protected packages
+  (town art, Dust map/template, Killhouse map/template and shared catalog).
+  Receipt: dust-compact-rerun.log, ER_DUST_COMPACT_RERUN_PASS.
+- Limits: same semantic reference-plan graph and closed building parcels;
+  static half-open doors with approximated plank/arch collision. No performance
+  benchmark or publication. Final network/bot outcome is recorded below.
+
+- Final `test-dust-template.py --render --network`: PASS after the probe fix.
+  Initial peer1/6/7 and late peer6/7 agree; digests1=3399067073,6=4238296378,
+  7=3855062917, epochs1->2. Rendered frontal capture shows overlapping timber
+  leaves, while the real pawn completes all three diagonal passages.
+
+- Bot integration: PASS for Patrol and Target modes, including team appearance,
+  remote health/death/score and round restart. Final capture-only change holds
+  the frontal view for one extra second and ignores live mouse look before
+  the probe starts its dogleg;
+  map geometry and gameplay are identical to the successful full LAN run.
+
+- Final capture-only preview: PASS, DUST_TOWN_VISUAL_CAPTURE_READY. Inspected
+  DustTown-OppositeSwingGates.png with fixed frontal view: opposite-swing timber
+  leaves hide the standing-eye sightline. This preview does not repeat the
+  completed full traversal/LAN test. Final source/asset diff checks: PASS.

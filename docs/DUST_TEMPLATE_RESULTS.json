@@ -1,0 +1,89 @@
+{
+  "date": "2026-10-15",
+  "template": "dust_mirror_desert",
+  "revision": 4,
+  "map": "L_DustMirror",
+  "result": "PASS",
+  "source_workshop": "3117367319",
+  "source_format": "Source2 nested VPK",
+  "source_entries": 561,
+  "source_spawns_per_team": 15,
+  "adaptation": "Compact reference-plan town, about13% smaller per axis, with opposite-swing timber gates that block frontal sight and admit diagonal passage.",
+  "invariants_cm": {
+    "upper_crossing": 320,
+    "underpass_clearance": 290,
+    "door_gap_range": [
+      110,
+      130
+    ],
+    "stair_rise": 20
+  },
+  "validation": {
+    "candidate_seeds": 515,
+    "automation": "13/13 PASS; 512 unique plans and six physical seeds",
+    "unique_arena_proportions": 187,
+    "building_count_range": [
+      40,
+      46
+    ],
+    "door_physics": "PASS in both directions; nine frontal eye rays per gate/side blocked, diagonal standing capsule clear",
+    "local_and_network_Metal": "PASS; three doglegs, CT underpass, full bent Short A, shot/blast, seed reset; initial1/6/7 and late6/7 state/collision match",
+    "ordinary_LAN": "PASS",
+    "accuracy": "PASS",
+    "arsenal": "PASS",
+    "setup_preservation": "PASS; all four completed scripts preserve13 package hashes",
+    "owned_town_art": "All eight packages unchanged from revision3",
+    "probe_fix": "Ignore pawns during environment collision checks; first initial failure was host walking into the sampled underpass",
+    "bots": "PASS; Patrol and Target integration with remote replication",
+    "final_visual": "PASS; stable frontal capture after final probe camera/input isolation"
+  },
+  "network_states": {
+    "1": 3399067073,
+    "6": 4238296378,
+    "7": 3855062917
+  },
+  "art": {
+    "migrated_vendor_packages": 27,
+    "owned_PBR_parents": 4,
+    "source": "user-imported MOUT_Arabian in FactoryEnvironmentCollect",
+    "missing_source_material_parents": "repaired only in private FDM copies with supplied baked textures",
+    "owned_town_meshes": 3,
+    "owned_town_materials": 5
+  },
+  "destruction_catalog_sha256": "88ad4b5875c772a2c39ccacdbb3ed037ba8ad4e6ab3bdee4bc92b76cba9fee03",
+  "captures": [
+    "DustTown-OppositeSwingGates.png",
+    "DustTown-WoodenGates.png",
+    "DustTown-Underpass.png",
+    "DustTown-ShortA.png",
+    "DustTown-Plan-42.png",
+    "DustTown-Plan-7919.png"
+  ],
+  "limits": [
+    "Semantic adaptation; route graph fixed while seeded geometry varies",
+    "Closed solid buildings, no enterable interiors",
+    "Authored arch-strip and oriented leaf-plank collision approximations",
+    "No FPS benchmark or publication"
+  ],
+  "arena_range_cm": {
+    "min": [
+      6600,
+      7300
+    ],
+    "max": [
+      7500,
+      8400
+    ]
+  },
+  "gates": {
+    "count": 3,
+    "swing": "one inward, one outward",
+    "frontal_overlap_cm": 24,
+    "sampled_diagonal_gap_cm": [
+      110,
+      130
+    ],
+    "passage_waypoints": 6,
+    "patrol_waypoint_acceptance_cm": 10
+  }
+}

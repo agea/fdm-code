@@ -2,6 +2,7 @@
 #include "CoreMinimal.h"
 #include "Engine/DataAsset.h"
 #include "GameFramework/Actor.h"
+#include "ERBlockCombat.h"
 #include "ERWeapon.generated.h"
 
 UENUM(BlueprintType)
@@ -37,6 +38,7 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite) float ProjectileSpeed = 30000;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) float ProjectileLife = 2;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Hitscan", meta=(ClampMin="1")) float HitscanRange = 60000;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Hitscan|Blocks") FERBlockShotSettings BlockShot;
     // Zero disables tracers; one shows every shot. Server selects cosmetic cadence.
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Hitscan", meta=(ClampMin="0")) int32 TracerEveryNShots = 3;
     // Cone half-angles in degrees. Movement and burst penalties are additive.

@@ -6,6 +6,7 @@
 #include "ERPlayerController.h"
 #include "ERGrenadeExplosion.h"
 #include "ERSmokeCloud.h"
+#include "ERBlockRoom.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "EngineUtils.h"
@@ -147,10 +148,25 @@ void AERWeapon::TryFire()
             }
             if (bHit)
             {
-                UGameplayStatics::ApplyPointDamage(Hit.GetActor(), Data->Damage, Direction, Hit,
-                    Character->Controller, this, UDamageType::StaticClass());
-                if (Hit.GetActor() && !Hit.GetActor()->IsA<APawn>())
-                    MulticastImpact(Hit.ImpactPoint, Hit.ImpactNormal, FMath::FRandRange(0.f, 360.f), uint8(FMath::RandRange(0, 3)));
+                auto* Room = Cast<AERBlockRoom>(Hit.GetActor());
+                if (!bBlocked && Room && Room->CanMutateBlocks())
+                {
+                    const auto Shot = ERBlockCombat::ContinueShot(GetWorld(), Hit, IntendedMuzzle, Direction, Data->HitscanRange,
+                        Data->Damage, Data->BlockShot, Params, Character->Controller, this);
+                    LastShotTraceCount += Shot.ExtraTraces;
+                    if (Pellet == 0) LastShotTraceEnd = FeedbackEnd = Shot.End;
+                    const auto& Terminal = Shot.TerminalHit;
+                    if (Terminal.bBlockingHit && Terminal.GetActor() && !Terminal.GetActor()->IsA<APawn>() && !Terminal.GetActor()->IsA<AERBlockRoom>())
+                        MulticastImpact(Terminal.ImpactPoint, Terminal.ImpactNormal, FMath::FRandRange(0.f, 360.f), uint8(FMath::RandRange(0, 3)));
+                }
+                else
+                {
+                    // Ordinary maps and blocked muzzles retain their first-hit behaviour.
+                    UGameplayStatics::ApplyPointDamage(Hit.GetActor(), Data->Damage, Direction, Hit,
+                        Character->Controller, this, UDamageType::StaticClass());
+                    if (Hit.GetActor() && !Hit.GetActor()->IsA<APawn>())
+                        MulticastImpact(Hit.ImpactPoint, Hit.ImpactNormal, FMath::FRandRange(0.f, 360.f), uint8(FMath::RandRange(0, 3)));
+                }
             }
         }
         const bool bTracer = Data->TracerEveryNShots > 0 && (AuthorizedShotCount - 1) % uint32(Data->TracerEveryNShots) == 0;
@@ -188,7 +204,10 @@ void AERWeapon::MulticastImpact_Implementation(FVector_NetQuantize Position, FVe
 }
 void AERWeapon::Reload()
 {
-    if (!CanFight() || bReloading || MagazineAmmo >= Data->MagazineSize || ReserveAmmo <= 0) return;
+    if (!CanFight() || bReloading || MagazineAmmo >= Data->MagazineSize) return;
+    // Only authority enters CanFight; labs replenish reserve, retaining reload timing.
+    if (GetWorld()->GetMapName().Contains(TEXT("Lab"))) ReserveAmmo = FMath::Max(ReserveAmmo, Data->MagazineSize);
+    if (ReserveAmmo <= 0) return;
     StopFire(); bReloading = true;
     GetWorldTimerManager().SetTimer(ReloadTimer, this, &AERWeapon::FinishReload, Data->ReloadDuration, false);
 }
@@ -302,6 +321,10 @@ void AERProjectile::Detonate()
                 PC->ClientFlash(Facing > .3f ? .9f : .3f);
             }
     }
+    // Player cover checks above see the intact walls. Block exposure is also
+    // snapshotted before removal, including cover across multiple room actors.
+    if (Payload == EERPayload::HE || Payload == EERPayload::Rocket)
+        AERBlockRoom::ApplyWorldExplosion(GetWorld(), Position + FVector::UpVector * 10, ExplosionRadius, Damage, this);
     MulticastDetonate(Position, Payload);
     if (Payload==EERPayload::Smoke && SmokeCloudClass)
     {

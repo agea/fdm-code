@@ -212,12 +212,19 @@ void AERArsenalProbe::Tick(float DeltaTime)
                 NextWheelPulse=GetWorld()->GetTimeSeconds()+.05;
             }
             if (Phase==8) PC->ScrollWeapon(-1);
-            if(Phase==9)
-                for(TActorIterator<AERSmokeCloud> It(GetWorld());It;++It)
-                    if(It->ShotInteractionCount>0) UE_LOG(LogTemp,Display,TEXT("ER_SMOKE_REMOTE_CUT events=%u"),It->ShotInteractionCount);
             UE_LOG(LogTemp, Display, TEXT("ER_ARSENAL_REMOTE phase=%d slots=%d name=%s mesh=%s ammo=%d"), Phase, C->Inventory.Num(),
                 *C->Weapon->Data->DisplayName, *GetNameSafe(C->FirstPersonRifle->GetSkeletalMeshAsset()), C->Weapon->MagazineAmmo);
         }
+        // Property phase updates and shot multicasts need not arrive together.
+        // Observe the actual remote event until cloud cleanup, not only on the
+        // first frame of phase 9. No event still fails the Python audit.
+        if (Phase >= 9 && !bRemoteSmokeCutLogged)
+            for (TActorIterator<AERSmokeCloud> It(GetWorld()); It; ++It)
+                if (It->ShotInteractionCount > 0)
+                {
+                    UE_LOG(LogTemp, Display, TEXT("ER_SMOKE_REMOTE_CUT events=%u"), It->ShotInteractionCount);
+                    bRemoteSmokeCutLogged = true;
+                }
         if (Phase==7 && GetWorld()->GetTimeSeconds()<WheelBurstEnd && GetWorld()->GetTimeSeconds()>=NextWheelPulse)
         {
             PC->ScrollWeapon(1);

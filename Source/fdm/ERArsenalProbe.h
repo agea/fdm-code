@@ -20,6 +20,7 @@ private:
     double BurstFrameTotal = 0, BurstFrameMax = 0;
     int32 BurstFrames = 0, BurstSlowFrames = 0;
     bool Failed = false;
+    bool bRemoteSmokeCutLogged = false;
     TWeakObjectPtr<class AERSpentCasing> GalleryCasing;
     FVector CasingOrigin = FVector::ZeroVector;
     int32 MotionAmmoBefore = 0;

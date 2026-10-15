@@ -155,8 +155,13 @@ void AERNetworkProbe::Tick(float DeltaTime)
             Check(C->Weapon->MagazineAmmo==29,TEXT("T06_rapid_rpc_presses_one_shot"));
             if (FParse::Param(FCommandLine::Get(), TEXT("ERShotAudit")))
                 Check(C->ShotFeedbackCount == ClientFeedbackBefore + 1, TEXT("Shot_rapid_requests_one_feedback"));
-            C->Weapon->MagazineAmmo=30; Advance(11,4.2f); break;
+            C->Weapon->MagazineAmmo=30; EmptyClipTimeout=GetWorld()->GetTimeSeconds()+8; Advance(11,4.2f); break;
         case 11:
+            // Timers fire on game frames. A low headless tick rate can leave
+            // the last round pending at 4.2s; wait for the observed empty clip,
+            // with a hard timeout. Exact ammo/feedback and cadence checks stay.
+            if (C->Weapon->MagazineAmmo > 0 && GetWorld()->GetTimeSeconds() < EmptyClipTimeout)
+            { Deadline = GetWorld()->GetTimeSeconds()+.05; return; }
             UE_LOG(LogTemp,Display,TEXT("ER_TEST_CLIP ammo=%d host_hp=%.0f"),C->Weapon->MagazineAmmo,H->Health->Health);
             Check(C->Weapon->MagazineAmmo==0 && H->Health->Health==64,TEXT("T07_empty_clip_30_shots"));
             if (FParse::Param(FCommandLine::Get(), TEXT("ERShotAudit")))

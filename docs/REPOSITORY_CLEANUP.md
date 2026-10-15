@@ -237,3 +237,49 @@ Content/SourceAssets sono collegamenti generati e ignorati. La struttura
 attuale e i comandi sono in [ASSET_SUBMODULES.md](ASSET_SUBMODULES.md), che
 sostituisce la precedente proposta di un solo submodule. Nessuna licenza
 open-source del codice è stata scelta implicitamente.
+
+
+## Audit locale15 ottobre2026 — nessuna cancellazione
+
+Il progetto misura13,513GiB allocati (circa14GB arrotondati). L'utente richiede
+di conservare integralmente `Content/ParagonLtBelica` e `Content/ParagonPhase`
+per importarle come personaggi:1,922+1,151=3,073GiB esclusi dalla pulizia,
+indipendentemente dall'attuale raggiungibilità runtime.
+
+Candidati verificati: copie scratch di migrazione Factory/Arabian1,712GiB;
+esportazioni/analisi Source2 Dust1,421GiB; compilazione Intermediate1,737GiB.
+Totale circa4,87GiB; senza svuotare la build, circa3,13GiB. Le ricevute delle
+migrazioni finali sono negli asset privati, il progetto Factory originale e
+i file Steam della mappa3117367319 esistono, e nessun collegamento del progetto
+punta dentro Saved. Conservare Config/Autosaves, ricevute/audit, asset attivi,
+sorgenti e Git/LFS. Intermediate viene ricreato con la prossima compilazione.
+
+Lo ZIP originale delle texture pesa740,5MiB e tutti gli88 file corrispondono
+agli estratti per dimensione eCRC32. È un originale versionato da considerare
+separatamente: lo spostamento esterno riduce la cartella ma non libera disco.
+
+`clean-project.py --profile logs screenshots cache build` eseguito soltanto
+in dry run:571 file/1893,86MiB; lo script attuale non comprende le directory
+scratch delle migrazioni né Source2DustMirror. Nessun `--apply` eseguito.
+Dettagli: `Saved/AssetAudit/storage-audit-2026-10-15.json`. Misure `du` locali,
+non dimensioni di un gioco distribuito o del repository remoto.
+
+
+## Pulizia eseguita15 ottobre2026 — autorizzazione successiva
+
+L'utente ha richiesto esplicitamente di eliminare le prime due categorie
+dell'audit e lo ZIP delle texture. Rimossi soltanto `Saved/FactoryMigration`,
+`Saved/FactoryMigration-6a59073f47c5`, `Saved/ArabianMigration`,
+`Saved/ArabianInspection`, `Saved/Source2DustMirror` e
+`Assets/maps/SourceAssets/ProceduralTextures/eclipse_recoil_textures_2K.zip`.
+
+Misura locale prima/dopo:13,513 ->9,658GiB, riduzione3,854GiB. Nessun progetto
+Unreal temporaneo risultava aperto. Prima della rimozione, tutti gli88 membri
+dello ZIP corrispondevano agli estratti per dimensione eCRC32.
+Confronto prima/dopo su5418 voci protette: nessuna modifica a file o link in
+Assets/Content (eccetto lo ZIP autorizzato), sorgenti, Config, Intermediate,
+Binaries, impostazioni e autosalvataggi. Belica/Phase preservate integralmente.
+Nessun prune Git/LFS, commit o push. La cancellazione dello ZIP risulta come
+rimozione locale nel submodule maps; gli estratti e il manifest restano presenti.
+Non riavviato Unreal e non ricompilato: nessun asset attivo o codice cambiato.
+Ricevuta: `Saved/AssetAudit/storage-cleanup-2026-10-15.json`.
