@@ -40,13 +40,19 @@ public:
     UFUNCTION(BlueprintCallable, Category="Assets|Editor")
     static bool DeleteUnloadedParagonPackages(const TArray<FString>& Packages);
     UFUNCTION(BlueprintCallable, Category="Arsenal|Editor")
-    static FVector GetWeaponMuzzleFromGeometry(class USkeletalMesh* WeaponMesh);
+    static FVector GetWeaponMuzzleFromGeometry(class USkeletalMesh* WeaponMesh, class UAnimSequence* Animation = nullptr);
     UFUNCTION(BlueprintCallable, Category="Arsenal|Editor")
     static FTransform GetWeaponReferenceBone(class USkeletalMesh* WeaponMesh, FName Bone);
     UFUNCTION(BlueprintCallable, Category="Arsenal|Editor")
     static bool AssignWeaponMaterial(class USkeletalMesh* WeaponMesh, class UMaterialInterface* Material);
     UFUNCTION(BlueprintCallable, Category="Assets|Editor")
     static bool AssignWeaponMaterials(class USkeletalMesh* WeaponMesh, const TArray<class UMaterialInterface*>& Materials);
+    UFUNCTION(BlueprintCallable, Category="Presentation|Editor")
+    static TArray<FVector> GetPresentationVertices(class USkeletalMesh* PresentationMesh, FName Bone);
+    UFUNCTION(BlueprintCallable, Category="Presentation|Editor")
+    static bool SetPalmContactSocket(class USkeletalMesh* PresentationMesh, FName Name, FName Bone, FTransform Transform);
+    UFUNCTION(BlueprintCallable, Category="Presentation|Editor")
+    static FVector GetWeaponSurfaceContact(class USkeletalMesh* WeaponMesh, FVector Start, FVector End, class UAnimSequence* Animation = nullptr);
     UFUNCTION(BlueprintCallable, Category="First person|Editor")
     static bool BuildFirstPersonForearms(class USkeletalMesh* Destination, class USkeletalMesh* SkinMesh,
         class USkeletalMesh* FirstPersonRig, const TArray<int32>& ExcludedMaterials, const TArray<FName>& ExcludedBones);

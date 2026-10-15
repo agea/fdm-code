@@ -1516,3 +1516,55 @@ originali. Aggiunti armatura AP100, attenuazione di distanza, coltello breve e
 Milkor con proiettile fisico ricavato dal modello. `ERLegacyArsenal=1` conserva
 la fixture precedente per le regressioni. Dettagli, valori non presenti nel
 foglio e limiti del retarget sono espliciti in `WEAPON_IMPORT.md`.
+
+Correzioni di presentazione del 15 ottobre: presa AR15 ricentrata e mano di
+supporto in terza persona adattata alla singola arma con IK dopo locomozione e
+prone. I bot fermi mostrano tutte le dieci armi in ordine casuale, conservando
+lo slot al respawn. Avambracci FPS più spessi sulle skin attuali. Gli idle
+meccanici sono pose fisse; Milkor senza ottica e con UV consolidati per materiale.
+Il retarget usa punti del palmo completi, scala coerente con l'arma e raggiunge
+i bersagli spostando la spalla nascosta invece di separare mano e caricatore.
+
+Secondo ritocco su nuove immagini: i vecchi HandGrip non coincidevano con la
+superficie visibile dei palmi. Aggiunti socket ER_Palm specifici alle quaranta
+mesh possedute, ricavati dai vertici della mano e dalle nocche, senza cambiare
+geometria o socket fisici. Cinque fucili usano contatti campionati sui triangoli
+deformati dell'idle e orientano il palmo contro l'astina; calcio arretrato di12cm.
+La pistola FPS ha un attacco dedicato al palmo e gomito abbassato verso il centro,
+con ricarica riferita al nuovo perno. Statistiche sniper esplicitamente verificate
+contro AWP: danno115, intervallo1,46s, ArmorRatio1,95 e RangeModifier0,99.
+
+L'utente rifiuta poi il braccio della pistola troppo verticale e il nuovo angolo.
+Ripristinata la posa precedente di braccio/polso e la rotazione dell'arma dal
+vecchio HandGrip, mantenendo il contatto misurato del palmo. Offset FPS avvicinato
+di6cm alla camera per mostrare meno avambraccio; rigenerate le relative clip.
+
+Ulteriore ritocco richiesto: pistola inclinata di più, in basso a destra, con
+punta riferita all'AR15. Posa rilassata conservata; inclinazione camera
+(-3 pitch,-10 yaw,-7 roll), punta a40cm contro74,8cm dell'AR15 e leggermente
+sotto/destra nella proiezione. Impugnatura affondata di3,5mm nel palmo; tre
+falangi del pollice adattate al lato opposto del calcio conservando le lunghezze.
+La posa del pollice segue anche sparo e ricarica. Dati in pistol-presentation.json.
+
+Il confronto nel gioco ha rilevato la scala assoluta1 dell'arma, distinta dalla
+scala0,5 della mano. Corretti contatto, geometria del pollice e retarget della
+sola pistola con le dimensioni reali e il nuovo riferimento inclinato; il test
+grafico verifica ora anche i contatti e la proiezione effettivi durante il gioco.
+
+L'utente approva la presa e chiede un lieve avanzamento e la canna allineata al
+mirino centrale. Profondità della punta40->44cm; eliminati pitch/yaw aggiuntivi,
+conservando il roll laterale-7°. Asse della canna parallelo alla linea centrale
+della camera, senza modificare mira o dispersione del server. Thumb fit e clip
+rigenerati nello stesso riferimento, mantenendo il contatto nel palmo.
+
+Il successivo screenshot di riferimento del viewer definisce l'inquadratura
+desiderata: impugnatura verticale, pistola compatta in basso a destra e poco
+avambraccio. Rimosso il roll laterale, profondità punta46cm e centro della
+canna proiettato circa a(58,2%,64,25%) in16:9, con mirino anteriore più alto.
+Questo riferimento sostituisce il precedente vincolo sotto/destra della punta
+AR15. Per riprodurre anche la prospettiva della canna, la rotazione converge
+dal centro della volata al raggio centrale della camera a150cm, senza roll.
+Presa, pollice e convergenza restano verificati geometricamente. Mira, origine
+autoritativa dei colpi e dispersione restano quelli del server.
+Contatto di palmo/pollice alzato di5cm sul calcio, per avvolgere l'impugnatura
+come nel riferimento; rigenerate idle, sparo e ricarica con il nuovo attacco.

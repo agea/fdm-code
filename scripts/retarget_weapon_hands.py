@@ -43,7 +43,7 @@ def source_rotation(matrix):
     q=[0,0,0,0];q[i]=s/4;q[j]=(r[i][j]+r[j][i])/s;q[k]=(r[i][k]+r[k][i])/s;q[3]=(r[k][j]-r[j][k])/s
     return tuple(q)
 
-def retarget(idle,destination,motion,fps,one_handed=False):
+def retarget(idle,destination,motion,fps,one_handed=False,right_socket='HandGrip_R',weapon_origin=None,weapon_scale=None,motion_basis=(0,0,0,1)):
     # The existing fitted pose uses a 30Hz compression target. Resample onto
     # that exact grid; half samples at 60Hz can assert in UE's compressor.
     output_fps=30
@@ -59,40 +59,55 @@ def retarget(idle,destination,motion,fps,one_handed=False):
     for side in ['r','l']:
         names=['upperarm_'+side,'lowerarm_'+side,'hand_'+side]
         bones=[ue.AnimPoseExtensions.get_bone_pose(initial,n,ue.AnimPoseSpaces.WORLD) for n in names]
-        socket=ue.AnimPoseExtensions.get_socket_pose(initial,'HandGrip_'+side.upper(),ue.AnimPoseSpaces.WORLD)
+        socket=ue.AnimPoseExtensions.get_socket_pose(initial,right_socket if side=='r' else 'HandGrip_L',ue.AnimPoseSpaces.WORLD)
         hand_rotation=quat(bones[2].rotation)
         arms[side]=dict(names=names,bones=bones,position=xyz(socket.translation),rotation=quat(socket.rotation),
             offset=rotate(inverse(hand_rotation),sub(xyz(socket.translation),xyz(bones[2].translation))),
             socket_rotation=qmul(inverse(hand_rotation),quat(socket.rotation)))
     tracks={name:[] for name in bone_names}
-    clamps=0
+    origin=weapon_origin or arms['r']['position']
+    origin_offset=sub(origin,arms['r']['position'])
+    actual_scale=arms['r']['bones'][2].scale3d.x if weapon_scale is None else weapon_scale
+    motion_rotation=lambda matrix:qmul(qmul(motion_basis,source_rotation(matrix)),inverse(motion_basis))
+    motion_position=lambda p:mul(rotate(motion_basis,source_position(p)),actual_scale)
+    clamps=0;max_contact_error=0
     for frame in motion:
         pose=ue.AnimPoseExtensions.get_anim_pose_at_time(idle,0,options)
         for side,arm in arms.items():
             bones=arm['bones'];shoulder,elbow,hand=[xyz(b.translation) for b in bones]
+            original_shoulder=shoulder
             root=frame['root']
             delta=frame.get('hands',{}).get(side)
-            movement=source_position([root[i][3] for i in range(3)]) if side=='r' or not delta else source_position(delta['position'])
+            movement=motion_position([root[i][3] for i in range(3)])
+            movement=add(movement,sub(origin_offset,rotate(motion_rotation(root),origin_offset)))
             matrix=root if side=='r' or not delta else delta['delta']
-            grip=add(arm['position'],movement)
-            grip_rotation=qmul(source_rotation(matrix),arm['rotation'])
+            if side=='l' and delta and 'grip' in delta:
+                grip=add(origin,motion_position(delta['grip']))
+            else:grip=add(arm['position'],movement)
+            grip_rotation=qmul(motion_rotation(matrix),arm['rotation'])
             rotation=qmul(grip_rotation,inverse(arm['socket_rotation']))
             target=sub(grip,rotate(rotation,arm['offset']))
             upper=length(sub(elbow,shoulder));lower=length(sub(hand,elbow))
             distance=length(sub(target,shoulder));direction=unit(sub(target,shoulder))
             bounded=max(abs(upper-lower)+.1,min(upper+lower-.1,distance))
-            if abs(bounded-distance)>.01:clamps+=1
-            target=add(shoulder,mul(direction,bounded));distance=bounded
+            if abs(bounded-distance)>.01:
+                # Upper-arm geometry is excluded from FPS meshes. Translate
+                # its hidden shoulder rather than breaking magazine contact.
+                shoulder=add(shoulder,mul(direction,distance-bounded));clamps+=1
+            distance=bounded
             pole=(-35,10,130) if side=='r' else (35,30,140)
+            if side=='r' and right_socket=='ER_Palm_R':pole=elbow
             pole_direction=sub(pole,shoulder)
             bend=unit(sub(pole_direction,mul(direction,dot(pole_direction,direction))))
             along=(upper*upper-lower*lower+distance*distance)/(2*distance)
             height=math.sqrt(max(0,upper*upper-along*along))
             target_elbow=add(add(shoulder,mul(direction,along)),mul(bend,height))
-            rotations=[qmul(from_to(sub(elbow,shoulder),sub(target_elbow,shoulder)),quat(bones[0].rotation)),
+            rotations=[qmul(from_to(sub(elbow,original_shoulder),sub(target_elbow,shoulder)),quat(bones[0].rotation)),
                        qmul(from_to(sub(hand,elbow),sub(target,target_elbow)),quat(bones[1].rotation)),rotation]
             for name,position,rotation,bone in zip(arm['names'],[shoulder,target_elbow,target],rotations,bones):
                 pose=ue.AnimPoseExtensions.set_bone_pose(pose,transform(position,rotation,xyz(bone.scale3d)),name,ue.AnimPoseSpaces.WORLD)
+            actual=ue.AnimPoseExtensions.get_socket_pose(pose,right_socket if side=='r' else 'HandGrip_L',ue.AnimPoseSpaces.WORLD)
+            max_contact_error=max(max_contact_error,length(sub(xyz(actual.translation),grip)))
         for name in bone_names:
             tracks[name].append(ue.AnimPoseExtensions.get_bone_pose(pose,name,ue.AnimPoseSpaces.LOCAL))
     controller=asset.get_editor_property('controller')
@@ -107,6 +122,7 @@ def retarget(idle,destination,motion,fps,one_handed=False):
                 raise RuntimeError('Hand track failed '+name)
     finally:controller.close_bracket(False)
     asset.set_editor_property('enable_root_motion',False)
+    if max_contact_error>.05:raise RuntimeError('Retargeted palm misses contact: '+str(max_contact_error)+' cm '+destination)
     if not ue.EditorAssetLibrary.save_loaded_asset(asset,only_if_is_dirty=False):raise RuntimeError('Cannot save '+destination)
-    ue.log('ER_REFERENCE_HANDS '+destination+' frames='+str(len(motion))+' reach_clamps='+str(clamps))
+    ue.log('ER_REFERENCE_HANDS '+destination+' frames='+str(len(motion))+' shoulder_reach_adjustments='+str(clamps)+' max_contact_error_cm='+str(max_contact_error))
     return asset

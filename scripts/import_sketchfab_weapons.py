@@ -18,7 +18,11 @@ assets=ue.EditorAssetLibrary
 tools=ue.AssetToolsHelpers.get_asset_tools()
 staging='-ERStageReferenceWeapons' in ue.SystemLibrary.get_command_line()
 reimport='-ERReimportReferenceWeapons' in ue.SystemLibrary.get_command_line()
+repair_materials='-ERRepairReferenceMaterials' in ue.SystemLibrary.get_command_line()
 retarget=runpy.run_path(str(project/'scripts/retarget_weapon_hands.py'))['retarget']
+palm_tools=runpy.run_path(str(project/'scripts/setup_palm_contacts.py'))
+pistol_tools=runpy.run_path(str(project/'scripts/fit_pistol_presentation.py'))
+palm_tools['setup']()
 selection=re.search(r'-ERReferenceOnly=([A-Za-z,]+)',ue.SystemLibrary.get_command_line())
 selected_keys=set(selection.group(1).split(',')) if selection else None
 previous_file=root/'import-report.json'
@@ -87,8 +91,9 @@ maps={
 def material(directory,key,files,suffix=''):
     name='M_'+key+suffix; path=folder+'/'+key+'/'+name
     result=ue.load_asset(path)
-    if result:return result
-    result=tools.create_asset(name,folder+'/'+key,ue.Material,ue.MaterialFactoryNew())
+    if result and not repair_materials:return result
+    if result:ue.MaterialEditingLibrary.delete_all_material_expressions(result)
+    else:result=tools.create_asset(name,folder+'/'+key,ue.Material,ue.MaterialFactoryNew())
     result.set_editor_property('used_with_skeletal_mesh',True)
     properties=[ue.MaterialProperty.MP_BASE_COLOR,ue.MaterialProperty.MP_NORMAL,ue.MaterialProperty.MP_ROUGHNESS,ue.MaterialProperty.MP_METALLIC]
     for index,(file,prop) in enumerate(zip(files,properties)):
@@ -99,7 +104,8 @@ def material(directory,key,files,suffix=''):
         elif index>1:sample.set_editor_property('sampler_type',ue.MaterialSamplerType.SAMPLERTYPE_MASKS)
         if (key=='Shotgun' or key=='Launcher') and index==2:
             invert=ue.MaterialEditingLibrary.create_material_expression(result,ue.MaterialExpressionOneMinus,-150,index*180)
-            ue.MaterialEditingLibrary.connect_material_expressions(sample,'R',invert,'Input')
+            if not ue.MaterialEditingLibrary.connect_material_expressions(sample,'R',invert,''):
+                raise RuntimeError('Cannot connect glossiness inversion '+name)
             ue.MaterialEditingLibrary.connect_material_property(invert,'',prop)
         else:ue.MaterialEditingLibrary.connect_material_property(sample,'RGB' if index<2 else 'R',prop)
     ue.MaterialEditingLibrary.recompile_material(result);save(result)
@@ -121,7 +127,9 @@ def glass(key):
     return result
 
 report=[];catalog=[]
-for profile in profiles:
+slots={profile['key']:index for index,profile in enumerate(profiles)}
+# The pistol framing uses the actual imported assault rifle as its reference.
+for profile in sorted(profiles,key=lambda item:item['key']!='Assault'):
     key=profile['key'];directory=next(root.glob(profile['prefix']+'*'))
     if selected_keys and key not in selected_keys:
         if key not in previous:raise RuntimeError('Partial import requires a complete existing catalog: '+key)
@@ -143,7 +151,8 @@ for profile in profiles:
         options.set_editor_property(prop,value)
     # Interchange mesh reimport preserves existing animation packages/reference
     # poses. These calibrated derivatives need a fresh skeleton and clip set.
-    model_folder=folder+'/'+key+('/V2' if key not in ('HE','Smoke') else '')
+    version='/V4' if key in ('Assault','SMG') else '/V3'
+    model_folder=folder+'/'+key+(version if key not in ('HE','Smoke') else '')
     mesh=import_file(root/manifest['fbx'],model_folder,'SK_'+key,options)
     files=maps.get(key)
     if not files:raise RuntimeError('Launcher material mapping must be supplied after original inspection')
@@ -177,14 +186,31 @@ for profile in profiles:
         if required not in clips:raise RuntimeError('Missing '+key+' '+required+' clips='+str(clips))
     legacy=ue.load_asset('/Game/EclipseRecoil/Weapons/LowPoly/DA_'+profile['legacy'])
     if not legacy:raise RuntimeError('Missing fitted legacy pose '+profile['legacy'])
+    motion=json.loads((directory/'derived'/('motion-'+key+'.json')).read_text())
+    hand_scale=.5 if profile.get('one') else .72
+    support=motion['support']
+    idle_path=folder+'/'+key+'/A_'+key+'_Hands_Idle'
+    pose_options={
+        'ER_POSE_SOURCE':'/Game/Characters/Mannequins/Anims/'+('Pistol/MF_Pistol_Idle_ADS' if profile.get('one') else 'Rifle/MF_Rifle_Idle_ADS'),
+        'ER_POSE_MESH':ue.load_asset('/Game/EclipseRecoil/Characters/Teams/Alpha/FirstPerson/SK_ER_Twinblast_Alpha_Officer_Forearms'),
+        'ER_POSE_DESTINATION':idle_path,'ER_POSE_HEIGHT_OFFSET':15,'ER_POSE_HAND_SCALE':hand_scale,
+        'ER_POSE_ARM_THICKNESS':.82 if profile.get('one') else .95,'ER_POSE_MANNY_GRIP_ORIENTATION':True,
+        'ER_POSE_LEFT_ELBOW_POLE':(0,30,125),
+        'ER_POSE_LEFT_GRIP_OFFSET':(support[1]*100*hand_scale,support[0]*100*hand_scale,support[2]*100*hand_scale)}
+    pistol_receipt={}
+    if key=='Pistol':pose_options.update(pistol_tools['pose_options'](mesh,clips.get('Idle'),pistol_receipt))
+    runpy.run_path(str(project/'scripts/create_rifle_pose.py'),init_globals=pose_options)
     data=ue.load_asset(folder+'/'+key+'/DA_'+key)
     if not data:
         factory=ue.DataAssetFactory();factory.set_editor_property('data_asset_class',ue.ERWeaponData)
         data=tools.create_asset('DA_'+key,folder+'/'+key,ue.ERWeaponData,factory)
-    settings=dict(display_name=profile['name'],mesh=mesh,idle_animation=legacy.get_editor_property('idle_animation'),
+    settings=dict(display_name=profile['name'],mesh=mesh,idle_animation=ue.load_asset(idle_path),
         fire_animation=legacy.get_editor_property('fire_animation'),one_handed=profile.get('one',False),
         weapon_idle_animation=clips.get('Idle'),weapon_fire_animation=clips.get('Fire'),weapon_reload_animation=clips.get('Reload'),
         grip_transform=ue.Transform(rotation=ue.Rotator(pitch=0,yaw=90,roll=0)),
+        first_person_palm_grip=key=='Pistol',first_person_grip_transform=ue.Transform(),
+        fit_support_hand=not profile.get('one',False),support_hand_offset=ue.Vector(support[0]*100,-support[1]*100,support[2]*100),
+        support_palm_rotation=ue.MathLibrary.make_rot_from_xz(ue.Vector(1,0,0),ue.Vector(0,1,0)) if key=='Launcher' else ue.Rotator(pitch=0,yaw=90,roll=0),
         muzzle_offset=ue.ERCharacter.get_weapon_muzzle_from_geometry(mesh),
         view_offset=legacy.get_editor_property('view_offset'),sound_pitch=legacy.get_editor_property('sound_pitch'),
         automatic=profile.get('auto',False),magazine_size=profile['ammo'],initial_reserve=profile['reserve'],
@@ -195,6 +221,11 @@ for profile in profiles:
         hitscan_range=profile.get('range',60000),range_modifier=1,explosion_radius=350,fuse_duration=2.5,
         projectile_speed=profile.get('speed',30000),projectile_life=8,bloom_per_shot_degrees=0 if profile.get('one') else .12)
     if profile.get('row'):settings.update(rows[profile['row']])
+    settings['support_surface_contacts']=palm_tools['surface_contacts'](mesh,key,settings['support_hand_offset'],clips.get('Idle')) if settings['fit_support_hand'] else []
+    if settings['support_surface_contacts']:settings['support_hand_offset']=settings['support_surface_contacts'][0]
+    right_socket='ER_Palm_R' if key=='Pistol' else 'HandGrip_R';weapon_origin=None
+    if key=='Pistol':
+        weapon_origin=pistol_tools['frame_settings'](settings,pose_options['ER_POSE_MESH'],pistol_receipt)
     if key=='Launcher':
         projectile_manifest=json.loads((directory/'derived/manifest-Projectile.json').read_text())
         projectile=import_file(root/projectile_manifest['fbx'],folder+'/Launcher/Projectile','SK_M32Projectile',options)
@@ -204,10 +235,17 @@ for profile in profiles:
     motion_file=directory/'derived'/('motion-'+key+'.json')
     if motion_file.exists() and key not in ('HE','Smoke'):
         motion=json.loads(motion_file.read_text())
+        fit_options=dict(weapon_scale=1.,motion_basis=pistol_tools['motion_basis']()) if key=='Pistol' else {}
         for label,property_name in [('Fire','fire_animation'),('Reload','reload_animation')]:
             if label in motion['clips']:
                 settings[property_name]=retarget(settings['idle_animation'],folder+'/'+key+'/A_'+key+'_Hands_'+label,
-                                                motion['clips'][label],motion['fps'],profile.get('one',False))
+                                                motion['clips'][label],motion['fps'],profile.get('one',False),right_socket,weapon_origin,
+                                                **fit_options)
+    if key in ('HE','Smoke'):
+        frames=[]
+        for weight in [0,1,.72,.4,.18,.05,0]:
+            frames.append(dict(root=[[1,0,0,-.018*weight],[0,1,0,0],[0,0,1,.003*weight],[0,0,0,1]]))
+        settings['fire_animation']=retarget(settings['idle_animation'],folder+'/'+key+'/A_'+key+'_Hands_Fire',frames,60,True)
     for prop,value in settings.items():data.set_editor_property(prop,value)
     save(data);catalog.append(data)
     report.append(dict(key=key,model=mesh.get_path_name(),data=data.get_path_name(),row=profile.get('row'),
@@ -215,6 +253,8 @@ for profile in profiles:
         source=manifest['source'],stats={k:settings[k] for k in ['damage','shot_interval','armor_ratio','range_modifier']}))
     ue.log('ER_REFERENCE_WEAPON '+json.dumps(report[-1]))
 
+catalog.sort(key=lambda data:slots[data.get_name().removeprefix('DA_')])
+report.sort(key=lambda item:slots[item['key']])
 if len(catalog)!=10 and not staging:raise RuntimeError('Incomplete catalog; keeping current loadout')
 if not staging:
     for path in ['/Game/EclipseRecoil/Core/BP_ERCharacter','/Game/EclipseRecoil/Core/BP_ERTrainingTarget']:

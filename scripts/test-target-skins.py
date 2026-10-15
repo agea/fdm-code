@@ -25,10 +25,10 @@ try:
     handle = client_log.open('w'); handles.append(handle)
     client = subprocess.Popen(common + ['127.0.0.1:17781?Name=Client', '-ERTargetSkinsProbe'], stdout=handle, stderr=subprocess.STDOUT)
     processes.append(client)
-    host.wait(timeout=70)
+    host.wait(timeout=150)
     for side, path in [('host', host_log), ('client', client_log)]:
         output = path.read_text(errors='replace')
-        marker = f'ER_TARGET_SKINS_PASS side={side} count=20 alpha=1023 omega=1023'
+        marker = f'ER_TARGET_SKINS_PASS side={side} count=20 alpha=1023 omega=1023 weapons=1023'
         if marker not in output or 'ER_TARGET_SKINS_FAIL' in output:
             raise RuntimeError(f'{side}: twenty stationary, armed, correct skin meshes were not verified')
         print(marker, flush=True)

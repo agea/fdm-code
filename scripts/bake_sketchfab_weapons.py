@@ -52,13 +52,15 @@ for key, prefix, gun_parent, scale, clips in models:
     original_objects = list(bpy.data.objects)
     rigs = [o for o in original_objects if o.type == 'ARMATURE']
     gun_objects = [o for o in original_objects if o.type == 'MESH' and 'arm' not in o.name.lower()]
+    if key == 'Launcher':
+        gun_objects = [o for o in gun_objects if o.name != 'GL_scope']
     if key in ('HE', 'Smoke', 'Projectile'):
         gun_objects = [bpy.data.objects[gun_parent]]
     if isinstance(clips['Idle'], str):
         rig = rigs[0]
         idle_action = next(a for a in bpy.data.actions if a.name.split('|')[-1] == clips['Idle'] and a.name.startswith(rig.name + '|'))
         rig.animation_data.action = idle_action
-    scene.frame_set(2 if key in ('Launcher','Projectile') else 1)
+    scene.frame_set(int(idle_action.frame_range[0]) if isinstance(clips['Idle'],str) else (2 if key in ('Launcher','Projectile') else 1))
     bpy.context.view_layer.update()
     # Source guns face -Y with Z up. Normalize the owned derivative to +X.
     orient = Matrix.Rotation(-math.pi / 2 if key=='Assault' else math.pi / 2, 4, 'Z')
@@ -79,6 +81,14 @@ for key, prefix, gun_parent, scale, clips in models:
         else:
             anchor = (rigs[0].matrix_world @ rigs[0].pose.bones[0].matrix).translation.copy()
     normalize = Matrix.Scale(scale, 4) @ orient @ Matrix.Translation(-anchor)
+    # The AR source root is beside the trigger, not in the pistol grip.
+    if key == 'Assault':
+        normalize = Matrix.Translation((.065, 0, .035)) @ normalize
+    # Grip centres in the normalized, full-size weapon frame (metres).
+    support = Vector(dict(Knife=(.06,0,0), Pistol=(-.02,0,-.025), SMG=(.19,0,-.015),
+        Shotgun=(.40,0,-.035), Assault=(.345,0,.065), Carbine=(.28,0,.015),
+        Sniper=(.25,0,-.015), Launcher=(.30,0,-.06), HE=(0,0,0), Smoke=(0,0,0),
+        Projectile=(0,0,0))[key])
     def source_root():
         if gun_parent:return bpy.data.objects[gun_parent].matrix_world.copy()
         rig=rigs[0]
@@ -119,6 +129,23 @@ for key, prefix, gun_parent, scale, clips in models:
         duplicate = bpy.data.objects.new(clean(obj.name), obj.data.copy())
         scene.collection.objects.link(duplicate)
         duplicate.data.transform(normalize @ obj.matrix_world)
+        if key in ('Launcher','Projectile'):
+            # The source mixes DiffuseUV and UVMap by material. Interchange can
+            # select the empty layer on the cylinder. Consolidate the populated
+            # layer for each material into a single, unambiguous UV0.
+            layers=list(duplicate.data.uv_layers)
+            scores={}
+            for poly in duplicate.data.polygons:
+                values=scores.setdefault(poly.material_index,[0.]*len(layers))
+                for i,layer in enumerate(layers):
+                    uv=[layer.data[j].uv for j in poly.loop_indices]
+                    values[i]+=sum((v-uv[0]).length for v in uv[1:])
+            selected={m:max(range(len(v)),key=lambda i:v[i]) for m,v in scores.items()}
+            coords={j:layers[selected[p.material_index]].data[j].uv.copy()
+                    for p in duplicate.data.polygons for j in p.loop_indices}
+            for layer in layers:duplicate.data.uv_layers.remove(layer)
+            uv=duplicate.data.uv_layers.new(name='WeaponUV')
+            for j,value in coords.items():uv.data[j].uv=value
         for material in duplicate.data.materials:
             if material and not material.name.startswith(key + '_'):
                 material.name = key + '_' + clean(material.name)
@@ -162,11 +189,35 @@ for key, prefix, gun_parent, scale, clips in models:
             for side,(rig,bone,idle) in wrists.items():
                 current=rigid_matrix(normalize @ rig.matrix_world @ rig.pose.bones[bone].matrix)
                 delta=current @ idle.inverted()
-                hands[side]=dict(delta=[list(row) for row in delta],position=list(current.translation-idle.translation))
+                # Rotate the wrist-to-palm offset with the source wrist. A
+                # translation delta alone slides the palm off a rotating mag.
+                contact = support if side=='l' else Vector((0,0,0))
+                palm=current @ idle.inverted() @ contact
+                hands[side]=dict(delta=[list(row) for row in delta],position=list(current.translation-idle.translation),grip=list(palm))
+            if key=='Assault' and label=='Reload':
+                # This source has gun bones but no hands. Follow its actual
+                # detachable magazine while held, with approach/release blends.
+                mag=transforms['B_Bone_004']
+                if not clip[:-1]:mag_idle=mag.copy()
+                t=(frame-start)/max(1,end-start)
+                weight=min(1,max(0,(t-.08)/.12),max(0,(.90-t)/.15))
+                contact=mag @ mag_idle.inverted() @ Vector((.155,0,-.045))
+                palm=motion @ support.lerp(contact,weight)
+                hands['l']=dict(delta=[list(row) for row in motion],grip=list(palm),position=list(palm-support))
             motion_clip.append(dict(root=[list(row) for row in motion],hands=hands))
+        if label=='Idle':
+            # A ready pose must never loop the first two firing frames.
+            clip=[clip[0],clip[0]];motion_clip=[motion_clip[0],motion_clip[0]]
         samples[label]=clip
         motions[label]=motion_clip
     baked.animation_data_create()
+    if round(source_fps)!=30:
+        # Interchange's default 30Hz grid must have an integral key count.
+        # Use the exact same nearest-frame resampling as the fitted hand rig.
+        for label,clip in samples.items():
+            last=max(1,round((len(clip)-1)*30/source_fps))
+            samples[label]=[clip[min(len(clip)-1,round(i*source_fps/30))] for i in range(last+1)]
+    scene.render.fps=30;scene.render.fps_base=1
     actions=[]
     for label, clip in samples.items():
         action=bpy.data.actions.new(key+'_'+label);baked.animation_data.action=action
@@ -187,7 +238,7 @@ for key, prefix, gun_parent, scale, clips in models:
     baked.select_set(True)
     for obj in outputs:obj.select_set(True)
     destination=directory/'derived';destination.mkdir(exist_ok=True)
-    (destination/('motion-'+key+'.json')).write_text(json.dumps(dict(fps=source_fps,clips=motions))+'\n')
+    (destination/('motion-'+key+'.json')).write_text(json.dumps(dict(fps=source_fps,support=list(support),clips=motions))+'\n')
     bpy.ops.export_scene.fbx(filepath=str(destination/('SK_'+key+'.fbx')),use_selection=True,
         object_types={'MESH','ARMATURE'},add_leaf_bones=False,bake_anim=True,
         bake_anim_use_all_actions=True,bake_anim_use_nla_strips=False,bake_anim_simplify_factor=0,

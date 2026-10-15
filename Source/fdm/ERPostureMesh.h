@@ -3,7 +3,7 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "ERPostureMesh.generated.h"
 
-// Procedural prone presentation layered over each team's existing rifle locomotion.
+// Procedural prone and weapon support-hand fitting over the team locomotion.
 UCLASS()
 class FDM_API UERPostureMesh : public USkeletalMeshComponent
 {

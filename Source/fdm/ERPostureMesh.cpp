@@ -2,6 +2,8 @@
 #include "ERCharacter.h"
 #include "ERMovement.h"
 #include "Engine/SkeletalMesh.h"
+#include "Engine/SkeletalMeshSocket.h"
+#include "ERWeapon.h"
 
 void UERPostureMesh::FinalizeBoneTransform()
 {
@@ -59,6 +61,68 @@ void UERPostureMesh::FinalizeBoneTransform()
                 Pose[Bone].SetLocation(Pivot + Head.RotateVector(Original[Bone].GetLocation() - Pivot));
                 Pose[Bone].SetRotation(Head * Original[Bone].GetRotation());
             }
+        }
+    }
+    const auto* Data=C && C->Weapon ? C->Weapon->Data.Get() : nullptr;
+    if (Mesh && Data && Data->bFitSupportHand)
+    {
+        const auto& Ref=Mesh->GetRefSkeleton();auto& Pose=GetEditableComponentSpaceTransforms();
+        const auto* Right=Mesh->FindSocket(TEXT("HandGrip_R"));
+        const auto* Surface=Data->SupportSurfaceContacts.IsEmpty() ? nullptr : Mesh->FindSocket(TEXT("ER_Palm_L"));
+        const auto* Left=Surface ? Surface : Mesh->FindSocket(TEXT("HandGrip_L"));
+        auto FitArm=[&](const TCHAR* UpperName,const TCHAR* LowerName,const TCHAR* HandName,FVector Target,FQuat Rotation)
+        {
+            const int32 Upper=Ref.FindBoneIndex(UpperName),Lower=Ref.FindBoneIndex(LowerName),Hand=Ref.FindBoneIndex(HandName);
+            if (!Pose.IsValidIndex(Upper) || !Pose.IsValidIndex(Lower) || !Pose.IsValidIndex(Hand)) return;
+            const TArray<FTransform> Original=Pose;
+            const FVector Shoulder=Pose[Upper].GetLocation(),Elbow=Pose[Lower].GetLocation(),Wrist=Pose[Hand].GetLocation();
+            const float A=FVector::Distance(Shoulder,Elbow),B=FVector::Distance(Elbow,Wrist);
+            const FVector Direction=(Target-Shoulder).GetSafeNormal();
+            const float D=FMath::Clamp(FVector::Distance(Shoulder,Target),FMath::Abs(A-B)+.1f,A+B-.1f);
+            FVector Bend=FVector::VectorPlaneProject(Elbow-Shoulder,Direction).GetSafeNormal();
+            if (Bend.IsNearlyZero()) Bend=FVector::VectorPlaneProject(-FVector::ZAxisVector,Direction).GetSafeNormal();
+            const float Along=(A*A-B*B+D*D)/(2.f*D);
+            const FVector NewElbow=Shoulder+Direction*Along+Bend*FMath::Sqrt(FMath::Max(0.f,A*A-Along*Along));
+            const FVector NewWrist=Shoulder+Direction*D;
+            FTransform NewUpper=Pose[Upper],NewLower=Pose[Lower],NewHand=Pose[Hand];
+            NewUpper.SetRotation(FQuat::FindBetweenNormals((Elbow-Shoulder).GetSafeNormal(),(NewElbow-Shoulder).GetSafeNormal())*NewUpper.GetRotation());
+            NewLower.SetRotation(FQuat::FindBetweenNormals((Wrist-Elbow).GetSafeNormal(),(NewWrist-NewElbow).GetSafeNormal())*NewLower.GetRotation());
+            NewLower.SetLocation(NewElbow);NewHand.SetLocation(NewWrist);NewHand.SetRotation(Rotation);
+            for (int32 Bone=Upper;Bone<Pose.Num();++Bone)
+            {
+                int32 Ancestor=Bone;
+                while (Ancestor!=INDEX_NONE && Ancestor!=Upper && Ancestor!=Lower && Ancestor!=Hand) Ancestor=Ref.GetParentIndex(Ancestor);
+                const FTransform* Replacement=Ancestor==Hand ? &NewHand : Ancestor==Lower ? &NewLower : Ancestor==Upper ? &NewUpper : nullptr;
+                if (Replacement) Pose[Bone]=Original[Bone].GetRelativeTransform(Original[Ancestor]) * *Replacement;
+            }
+        };
+        const int32 RightBone=Right ? Ref.FindBoneIndex(Right->BoneName) : INDEX_NONE;
+        const int32 Upper=Ref.FindBoneIndex(TEXT("upperarm_l")),Lower=Ref.FindBoneIndex(TEXT("lowerarm_l")),Hand=Ref.FindBoneIndex(TEXT("hand_l"));
+        if (Right && Left && Pose.IsValidIndex(RightBone) && Pose.IsValidIndex(Upper) && Pose.IsValidIndex(Lower) && Pose.IsValidIndex(Hand))
+        {
+            FTransform Weapon=Data->GripTransform * Right->GetSocketLocalTransform() * Pose[RightBone];
+            if (Surface)
+            {
+                // Seat the stock near the shoulder rather than holding the gun at full reach.
+                FitArm(TEXT("upperarm_r"),TEXT("lowerarm_r"),TEXT("hand_r"),Pose[RightBone].GetLocation()-Weapon.GetUnitAxis(EAxis::X)*12.f,Pose[RightBone].GetRotation());
+                Weapon=Data->GripTransform * Right->GetSocketLocalTransform() * Pose[RightBone];
+            }
+            const FQuat Rotation=Surface ? Weapon.GetRotation()*Data->SupportPalmRotation.Quaternion()*Left->GetSocketLocalTransform().GetRotation().Inverse() : Pose[Hand].GetRotation();
+            const FVector Offset=Rotation.RotateVector(Left->RelativeLocation*Pose[Hand].GetScale3D());
+            const FVector Shoulder=Pose[Upper].GetLocation();
+            const float Reach=FVector::Distance(Shoulder,Pose[Lower].GetLocation())+FVector::Distance(Pose[Lower].GetLocation(),Pose[Hand].GetLocation())-.1f;
+            FVector Target=Weapon.TransformPosition(Data->SupportHandOffset)-Offset;
+            if (Surface)
+            {
+                for (const FVector& Point : Data->SupportSurfaceContacts)
+                {
+                    Target=Weapon.TransformPosition(Point)-Offset;
+                    if (FVector::Distance(Shoulder,Target)<=Reach) break;
+                }
+            }
+            else for (float Slide=.25f;Slide<=10.f && FVector::Distance(Shoulder,Target)>Reach;Slide+=.25f)
+                Target=Weapon.TransformPosition(Data->SupportHandOffset-FVector(Slide,0,0))-Offset;
+            FitArm(TEXT("upperarm_l"),TEXT("lowerarm_l"),TEXT("hand_l"),Target,Rotation);
         }
     }
     Super::FinalizeBoneTransform();

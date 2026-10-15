@@ -629,3 +629,25 @@ source frames, rebuild steps and the retained legacy catalog. The Milkor model
 is CC BY-NC; other per-asset terms and the grenade free-standard snapshot remain
 recorded with the original inputs. No public binary commit or asset publication
 is included. REFERENCE_WEAPON_RESULTS.json records the saved-asset audit.
+
+Presentation revision: active gun derivatives are V3 (V4 for the 30 Hz AR15/SMG),
+with owned A_*_Hands_Idle/Fire/Reload clips in each weapon folder. The Milkor
+scope is excluded only from its derivative; source geometry and both UV layers
+remain archived. Runtime UV0 consolidates populated source layers per material.
+No source archive, legacy weapon or skin geometry was replaced or deleted.
+
+The subsequent palm correction adds only `ER_Palm_L/R` socket metadata to the
+twenty owned world meshes and twenty owned FPS meshes. Original HandGrip sockets
+remain. Private `palm-contact-report.json` records geometry-derived contact frames;
+weapon data stores sampled idle-deformed underside contacts and a dedicated FPS
+pistol attachment. The final pistol hand clips retain a relaxed arm,
+place the weapon in the lower right at closer depth than the assault, and
+fit the three thumb joints around the grip with3.5mm palm embed. Attachment and
+motion fitting use the weapon component's actual absolute scale1. The final
+supplied-image revision removes the earlier roll-7° cant, converges the bore
+on the central camera ray at150cm and sets muzzle depth46cm, at
+viewport(58.2%,64.25%) in16:9.
+The grip is upright, the palm/thumb contact sits5cm higher on the backstrap
+and little forearm appears. Its geometry
+targets are recorded privately in pistol-presentation.json. Character vertices,
+materials and source archives remain.

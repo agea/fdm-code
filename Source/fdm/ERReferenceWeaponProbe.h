@@ -24,6 +24,7 @@ private:
     bool Failed=false;
     bool bSlotObserved=false;
     bool bReloadIssued=false;
+    FVector PistolTipCamera=FVector::ZeroVector;
     void Check(bool Value, const FString& Label);
     void Advance(int32 Next,float Delay);
     void BeginCombatChecks();

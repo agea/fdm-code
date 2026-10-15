@@ -3,9 +3,9 @@
 The requested source list is preserved verbatim in
 [references/weapons.it.md](references/weapons.it.md), with an English translation
 in [WEAPONS_REFERENCE_EN.md](WEAPONS_REFERENCE_EN.md). The subsequent user choice
-is AK-47 statistics for the assault rifle and SCAR statistics for the carbine.
-The sheet identifies the latter as `scar20`. AWP is the retained sniper profile
-because the supplied list does not specify a sniper statistics row.
+is AK-47 statistics for the assault rifle, SCAR statistics for the carbine and
+AWP statistics for the sniper. The sheet identifies the carbine row as `scar20`.
+The later explicit AWP request confirms the previously retained sniper profile.
 
 ## Catalog and source statistics
 
@@ -77,10 +77,13 @@ gun-root motion from animated parts, preserves animated visibility scale and
 extracts the launcher's actual projectile mesh. Original source arms are not
 added to the player. `retarget_weapon_hands.py` transfers wrist/root trajectories
 onto the fitted FPS rig with bounded two-bone IK, retaining current skin meshes,
-finger poses, sockets and component framing. The fitted hands use a 30Hz sampling
-grid compatible with their existing Unreal compression target. Some source
-reaches are clamped to the fitted arm lengths; this is an adaptation rather than
-a lossless full-body retarget.
+finger poses (with the later fitted pistol thumb), sockets and component framing. The fitted hands use a 30Hz sampling
+grid compatible with their existing Unreal compression target. Wrist-to-palm
+offsets rotate with the wrist. The latest pistol retarget explicitly uses its
+actual absolute weapon scale1 and the new canted motion frame; other weapon
+adaptations retain their existing fitted trajectories. Out-of-reach poses translate the hidden FPS shoulder
+instead of separating the palm from its target; arm segment lengths are retained.
+This is an adaptation rather than a lossless full-body retarget.
 
 Pistol, SMG, shotgun, assault, carbine, sniper and Milkor have weapon and hand
 reload sequences; fire motion is also imported. Reload playback follows the
@@ -95,6 +98,48 @@ inverted for roughness. OpenGL normal maps flip green; explicitly named DirectX
 normals retain green. The Milkor keeps separate material regions and its source
 textures; imported texture output is capped to 2048 pixels per axis.
 
+The 15 October presentation revision freezes every mechanical idle bone at its
+ready pose. The fitted skin forearms use transverse scale .82 for one-handed
+weapons and .95 for rifles (formerly .5/.6); existing hand proportions and skin
+geometry remain. Each weapon has an owned fitted idle. World support arms use
+two-bone IK after locomotion/prone. The later anatomical correction measures
+each skin's actual palm surface from hand-weighted vertices and finger joints.
+`setup_palm_contacts.py` adds mesh-specific `ER_Palm_L/R` sockets to the twenty
+world and twenty FPS meshes; existing physical `HandGrip` sockets and geometry
+remain intact. Five rifles sample their idle-deformed underside triangles,
+choosing a reachable measured contact and orienting the palm against that surface.
+Their right arm retracts 12 cm to seat the stock. The Milkor retains its earlier
+support segment. Equipping invalidates a stationary mesh's cached pose.
+The pistol retains the relaxed arm pose after the user rejected the steep
+centered arm. The latest supplied viewer image supersedes the earlier assault-tip
+framing: the grip has no sideways roll and the bore converges on the central
+camera aim ray at150cm, reproducing the visible barrel perspective. This is
+cosmetic; server aim/spread remain unchanged. The muzzle is46cm from the
+camera (assault about74.8cm) and projects near(58.2%,64.25%) of a16:9 viewport,
+placing the front sight near60% height. This raises and slightly compacts the
+previous44cm pose while showing little forearm. The palm sits5cm higher on the
+backstrap than the earlier fit, with3.5mm handle embed. `fit_pistol_presentation.py` bends the three
+right-thumb joints around the backstrap toward the opposite grip surface,
+preserving phalanx lengths. Contact placement compensates for the half-scale
+hand socket and the rifle component's absolute scale1. These fitted thumb keys carry into fire/reload;
+other fingers retain their existing poses. Private `pistol-presentation.json`
+records framing and thumb geometry targets. The user's viewer screenshot is
+preserved without edits privately in
+`SourceAssets/SketchfabWeapons/References/pistol-viewer-2026-10-15.png`.
+The FPS instance retains fitted animation translations, including hidden-shoulder
+reload motion. World pistol
+attachment and authoritative aim are unchanged.
+The AR15 grip origin is calibrated to its pistol grip, and its handless source
+reload uses the actual animated magazine bone for the support palm trajectory.
+The Milkor derivative omits GL_scope and consolidates the populated source UV
+layer per material into UV0, including the drum and vertical grip.
+The repaired smoothness/glossiness graphs explicitly connect the OneMinus input;
+the rendered regression rejects weapon material compilation failures on Metal.
+
+Stationary exhibition bots draw all ten slots without replacement within each
+batch of ten, keeping the chosen slot on their controller through respawn.
+Patrol bots and the explicitly selected legacy fixture retain their loadouts.
+
 ## Rebuild and verification
 
 1. Download the original-format archives from the nine supplied listings using
@@ -106,10 +151,15 @@ textures; imported texture output is capped to 2048 pixels per axis.
 4. Compile the Editor module, then run `import_sketchfab_weapons.py` through
    Unreal's PythonScript commandlet. `-ERStageReferenceWeapons` saves prepared
    assets without activating the catalog. `-ERReimportReferenceWeapons` explicitly
-   reimports generated meshes; ordinary reruns preserve them. Interchange retains
+   reimports generated meshes; ordinary reruns preserve them.
+   `-ERRepairReferenceMaterials` explicitly rebuilds the owned material graphs.
+   Interchange retains
    existing animation packages/reference poses during mesh reimport: changed clip
    or grip normalization requires a new derivative namespace. The calibrated
-   gun/knife generation uses `V2`; the first generation remains for comparison.
+   gun/knife generation uses `V3`, with `V4` for AR15/SMG resampled from 24/60 Hz
+   onto the same 30 Hz grid as their hand clips. Earlier generations remain private.
+   Palm calibration runs before import and writes its private geometry receipt
+   to `SourceAssets/SketchfabWeapons/palm-contact-report.json`.
 5. Run `test-reference-weapons.py`, then `--render` for actual Metal captures.
    Existing `test-network.py --shot-feedback`, `test-network.py --accuracy` and
    `test-arsenal.py` cover the baseline combat/effects regressions.

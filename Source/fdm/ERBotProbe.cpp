@@ -13,6 +13,12 @@
 
 AERBotProbe::AERBotProbe() { bReplicates = true; bAlwaysRelevant = true; PrimaryActorTick.bCanEverTick = true; }
 void AERBotProbe::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const { Super::GetLifetimeReplicatedProps(OutLifetimeProps); DOREPLIFETIME(AERBotProbe,Phase); }
+void AERBotProbe::ServerConfirmTargetSkins_Implementation()
+{
+#if !UE_BUILD_SHIPPING
+    if (FParse::Param(FCommandLine::Get(),TEXT("ERTargetSkinsProbe"))) bTargetReplicaConfirmed=true;
+#endif
+}
 void AERBotProbe::Check(bool Value, const TCHAR* Label)
 {
     if (!Value) bFailed = true;
@@ -35,10 +41,13 @@ void AERBotProbe::Tick(float DeltaTime)
 #if !UE_BUILD_SHIPPING
     if (FParse::Param(FCommandLine::Get(), TEXT("ERTargetSkinsProbe")))
     {
-        // A cold client may spend most of the old 20s window loading the full
-        // skin catalog. Leave time for its replicated-mesh check before exit.
-        if (GetWorld()->GetTimeSeconds() < (HasAuthority() ? 35.f : 5.f)) return;
-        int32 AlphaMask = 0, OmegaMask = 0, Count = 0;
+        // Wait for actual client validation rather than a fixed host-side delay.
+        if (GetWorld()->GetTimeSeconds() < .5f) return;
+        if (HasAuthority())
+            for (FConstPlayerControllerIterator It=GetWorld()->GetPlayerControllerIterator(); It; ++It)
+                if (It->Get() && !It->Get()->IsLocalController()) SetOwner(It->Get());
+        int32 AlphaMask = 0, OmegaMask = 0, Count = 0, WeaponMask = 0, SupportCount = 0;
+        float ContactError=0;
         bool bValid = true;
         for (TActorIterator<AERCharacter> It(GetWorld()); It; ++It)
         {
@@ -47,7 +56,26 @@ void AERBotProbe::Tick(float DeltaTime)
             ++Count;
             bValid &= PS->ActiveSkin >= 0 && PS->ActiveSkin < ERSkins::Count &&
                 It->GetTeamAppearance().Matches(It->GetMesh()) && It->GetVelocity().Size() < 1.f &&
-                !It->Health->bDead && It->Weapon && It->Weapon->MagazineAmmo == 30;
+                !It->Health->bDead && It->Weapon && It->Weapon->Data &&
+                (!HasAuthority() || It->Weapon->MagazineAmmo == It->Weapon->Data->MagazineSize);
+            const int32 Slot=It->Inventory.IndexOfByKey(It->Weapon);
+            if (Slot>=0 && Slot<10) WeaponMask |= 1<<Slot;
+            if (It->Weapon && It->Weapon->Data && It->Weapon->Data->bFitSupportHand)
+            {
+                ++SupportCount;
+                const auto& WeaponTransform=It->WorldRifle->GetComponentTransform();
+                const FVector Front=WeaponTransform.TransformPosition(It->Weapon->Data->SupportHandOffset);
+                const FVector Rear=WeaponTransform.TransformPosition(It->Weapon->Data->SupportHandOffset-FVector(10,0,0));
+                const FVector Palm=It->GetMesh()->GetSocketLocation(It->Weapon->Data->SupportSurfaceContacts.IsEmpty() ? TEXT("HandGrip_L") : TEXT("ER_Palm_L"));
+                float Error=FVector::Distance(Palm,FMath::ClosestPointOnSegment(Palm,Front,Rear));
+                if (!It->Weapon->Data->SupportSurfaceContacts.IsEmpty())
+                {
+                    Error=UE_BIG_NUMBER;
+                    for (const FVector& Point : It->Weapon->Data->SupportSurfaceContacts)
+                        Error=FMath::Min(Error,float(FVector::Distance(Palm,WeaponTransform.TransformPosition(Point))));
+                }
+                ContactError=FMath::Max(ContactError,Error);
+            }
             if (PS->ActiveSkin >= 0 && PS->ActiveSkin < ERSkins::Count)
             {
                 if (PS->Team == EERTeam::Alpha) AlphaMask |= 1 << PS->ActiveSkin;
@@ -56,11 +84,24 @@ void AERBotProbe::Tick(float DeltaTime)
             }
         }
         bValid &= Count == 2 * ERSkins::Count && AlphaMask == (1 << ERSkins::Count) - 1 && OmegaMask == (1 << ERSkins::Count) - 1;
-        if (!HasAuthority() && (!bValid || bReplicaSeen)) return;
+        bValid &= WeaponMask == 1023 && SupportCount == 12 && ContactError<1.f;
+        if (!HasAuthority() && bReplicaSeen) return;
+        if (!HasAuthority() && !bValid)
+        {
+            if (GetWorld()->GetTimeSeconds()>Deadline)
+            {
+                UE_LOG(LogTemp,Display,TEXT("ER_TARGET_SKINS_WAIT count=%d alpha=%d omega=%d weapons=%d support=%d error=%.3f"),Count,AlphaMask,OmegaMask,WeaponMask,SupportCount,ContactError);
+                Deadline=GetWorld()->GetTimeSeconds()+2;
+            }
+            return;
+        }
+        if (HasAuthority() && !bTargetReplicaConfirmed && GetWorld()->GetTimeSeconds()<100) return;
         if (HasAuthority()) bValid &= GetWorld()->GetAuthGameMode<AERGameMode>()->GetNumPlayers() == 2;
-        UE_LOG(LogTemp,Display,TEXT("ER_TARGET_SKINS_%s side=%s count=%d alpha=%d omega=%d"),
-            bValid ? TEXT("PASS") : TEXT("FAIL"), HasAuthority() ? TEXT("host") : TEXT("client"), Count, AlphaMask, OmegaMask);
+        if (HasAuthority()) bValid &= bTargetReplicaConfirmed;
+        UE_LOG(LogTemp,Display,TEXT("ER_TARGET_SKINS_%s side=%s count=%d alpha=%d omega=%d weapons=%d"),
+            bValid ? TEXT("PASS") : TEXT("FAIL"), HasAuthority() ? TEXT("host") : TEXT("client"), Count, AlphaMask, OmegaMask, WeaponMask);
         bReplicaSeen = true;
+        if (!HasAuthority()) ServerConfirmTargetSkins();
         if (HasAuthority()) FPlatformMisc::RequestExitWithStatus(false, bValid ? 0 : 1);
         return;
     }

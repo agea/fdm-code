@@ -2159,3 +2159,147 @@ shader completion. Ordinary gameplay keeps its existing resolution policy;
 the gallery alone fixes primary resolution to100%. These captures are visual
 checks, not a performance benchmark. Existing character material-usage warnings
 were observed while loading the unchanged skin packages.
+
+## Weapon grip, idle and material correction — 15 October 2026
+
+- Editor arm64 Development build: PASS. No gameplay aim/camera/capsule changes.
+- `verify_sketchfab_weapons.py`: PASS. Every mechanical idle bone remains fixed;
+  fitted forearm transverse scales are .82/.95; all seven compressed hand reloads
+  reproduce their recalculated palm trajectories within 0.0001 cm at sampled keys.
+  These are palm-target checks, not proof of authored finger contact throughout.
+- `test-reference-weapons.py --render`: PASS, 51 server checks, all ten real
+  client key selections, six world support-hand contact checks, seven reloads,
+  actual armor/range damage and physical Milkor projectile. All 17 fresh Metal
+  captures were inspected in Saved/Testing/ReferenceWeapons. Milkor is textured
+  and has no scope; the shotgun now displays its supplied blue/wood material.
+  Active weapon materials compile successfully on Metal on both peers.
+- Native `EclipseRecoil.Weapons.ReferenceBallistics`: Success.
+- `test-target-skins.py`: PASS on host and client, 20 stationary targets, both
+  complete skin masks and all ten weapon slots. All 12 two-handed targets meet
+  the fore-end contact segment within 1 cm on both peers. Full ammo is checked on
+  the server; weapon ammo intentionally uses owner-only replication. The probe
+  now waits for the client's explicit validation instead of a fixed host delay.
+- `test-bots.py`: PASS for Patrol and Target on the explicit legacy fixture,
+  including replicated team meshes, firing/idle behavior, reload, death, respawn
+  and round restart. The new default exhibition catalog is covered separately
+  by the twenty-target test above.
+- `test-network.py --shot-feedback`: PASS on the legacy fixture.
+- `test-arsenal.py`: PASS on the legacy fixture, including payloads, fuses,
+  replicated HE/smoke, shot carving, selection and cleanup.
+- `test-network.py --accuracy`: PASS on the new default catalog, including real
+  spread, burst recovery, rejected empty shots and replicated owner state.
+  Final build/audit/automation logs and the regression receipt are retained in
+  Saved/Testing/weapon-presentation-*.
+
+The first render exposed missing OneMinus inputs in supplied glossiness-derived
+material graphs; those were repaired and the final graphical regression rejects
+any active weapon material compilation failure. Source 24/60 Hz gun clips are now
+resampled to the same 30 Hz grid as hands, avoiding Interchange's fractional-frame
+key-count ensure. Equipping refreshes stationary cached world poses. Shorter rigs
+can move their support palm along a 10 cm fore-end segment while retaining arm
+lengths. Fingers remain the fitted rig's existing poses. The static grenade set
+still has no authored throw animation.
+
+## Actual palm surfaces and centered pistol — 15 October 2026, later revision
+
+The user's follow-up screenshots showed that the earlier nominal HandGrip/segment
+checks did not establish contact with the visible palm. This revision measures
+each skin's palm geometry and raycasts the idle-deformed rifle triangles.
+
+- Final Mac arm64 Development Editor build: PASS.
+- `test-reference-weapons.py --render`: PASS. Eighteen fresh Metal captures,
+  including a separate Alpha pistol view, were inspected. The running FPS pose
+  now also checks that the pistol elbow is below the wrist and toward the center.
+  Five rifle support palms meet their sampled surfaces; Milkor retains its
+  previous support setup. All ten slots, seven reloads and combat checks pass.
+- Saved-asset audit: PASS. Forty owned world/FPS meshes have both palm sockets;
+  the saved pistol handle meets its palm attachment and the elbow is lower.
+  Compressed reload trajectories still pass. The sniper explicitly matches the
+  AWP row: damage115, interval1.46s, ArmorRatio1.95, RangeModifier0.99.
+- Native `EclipseRecoil.Weapons.ReferenceBallistics`: Success.
+
+An intermediate capture exposed runtime skeleton translation retargeting
+discarding the pistol's hidden-shoulder translation. The final FPS pistol
+instance retains the fitted animation translations; switching weapons restores
+the existing retarget behavior. The final screenshots verify this correction
+with both Alpha and Omega forearms. Finger poses remain those of the fitted rig;
+these checks do not certify authored finger contact throughout every frame.
+Logs and the final regression receipt are in Saved/Testing/weapon-palm-*.
+
+`test-target-skins.py`: PASS on host and client with20 stationary targets,
+both ten-skin masks and all ten weapon slots. All12 two-handed targets meet
+their configured surface/segment within1cm. Server-side full ammo and the
+non-owner ammo replication boundary remain intact.
+
+`test-network.py --accuracy`: PASS on an isolated unchanged rerun, including
+owner ammo/bloom replication. The first run failed
+`stopped_burst_recovers_gradually` during a slower host observation window;
+the other precision checks passed. Both attempts are retained in the regression
+receipt and weapon-palm-first-* logs. No spread/recovery gameplay setting was
+changed to obtain the rerun result.
+
+`test-network.py --shot-feedback` and `test-arsenal.py`: PASS on the explicit
+legacy fixture, including both feedback perspectives, damage/death/respawn,
+team corpses, payload fuses, replicated HE/smoke, carving and effect cleanup.
+
+## Pistol angle restored and closer framing — 15 October 2026, latest revision
+
+The user rejected the steep centered pistol arm. Restored the original fitted
+arm/wrist pose and previous weapon orientation, retaining measured palm contact.
+The pistol view offset moves6cm toward the camera. Rifle/world presentation
+and combat settings retain the previously tested behavior.
+
+- Editor arm64 build: PASS.
+- `test-reference-weapons.py --render`: PASS, including the relaxed running
+  forearm check, ten slot selections, seven reloads and combat checks. Inspected
+  fresh Alpha/Omega pistol idle captures and the pistol mid-reload capture.
+- `verify_sketchfab_weapons.py`: PASS, including previous weapon angle, measured
+  handle contact and compressed reload trajectories. No further gameplay changes.
+  Logs: Saved/Testing/weapon-pistol-relaxed-*.
+
+## Pistol cant, muzzle alignment and thumb grip — 15 October 2026
+
+- Editor arm64 build: PASS. The editor-only geometry query can measure an
+  evaluated idle pose; ordinary combat and source statistics are unchanged.
+- `test-reference-weapons.py --render`: PASS. Fresh Alpha/Omega pistol idle and
+  pistol reload captures inspected. Runtime checks pass for the3.5mm palm embed,
+  the thumb tip at the opposite grip surface and the relaxed forearm. Actual
+  projected muzzle positions at1280x720: pistol(755.5,485.6), assault(739.4,470.1).
+  Camera depths are40.0cm and74.8cm respectively. Ten slots, seven reloads and
+  the existing combat checks pass too.
+- `verify_sketchfab_weapons.py`: PASS, including actual absolute weapon scale,
+  new wrist angle, saved thumb fit, measured muzzle framing and compressed reload
+  trajectories in the new motion frame. Logs/receipt: Saved/Testing/weapon-pistol-thumb-*.
+
+The first comparison exposed an incorrect inherited-scale assumption in the
+offline fit: FPS hands are scaled while the rifle component retains absolute
+scale1. The final pistol attachment compensates its translation, and pistol
+retargeting uses actual weapon scale1 with the canted basis. The new runtime
+checks verify contacts against the real component transform, rather than only
+comparing offline targets. Other weapon trajectories retain their prior setup.
+
+## Pistol viewer reference — 15 October 2026, final image fit
+
+The user's20:06 viewer screenshot supersedes the earlier assault-tip framing.
+The final fit keeps an upright grip, a46cm muzzle depth and a lower-right
+screen anchor. Camera-relative pitch4.045°/yaw-4.149°/roll0° converge the barrel
+on the central aim ray at150cm; authoritative aiming and shot origin are unchanged.
+The palm and thumb now meet the upper grip5cm above the earlier contact height,
+keeping the3.5mm embed and original hand geometry/segment lengths.
+
+- Editor arm64 build: PASS (10.95s). Pistol-only Unreal import: PASS.
+- `test-reference-weapons.py --render`: PASS (106.0s), with18 fresh Metal
+  captures, ten slots, seven reloads and the existing server combat checks.
+  Runtime pistol muzzle projects to(744.96,462.60) at1280x720. Convergence,
+  zero roll, palm contact, thumb contact and relaxed forearm checks pass.
+  Inspected both Alpha/Omega pistol idle views and the pistol reload capture.
+- `verify_sketchfab_weapons.py`: PASS (24.4s), including compressed saved
+  pistol motion, source statistics, catalog bindings, forty palm-socket meshes
+  and original archive hashes. Python syntax and scoped diff whitespace: PASS.
+
+Logs/receipt: Saved/Testing/weapon-pistol-reference-*.
+Final preview: Saved/Testing/ReferenceWeapons/Pistol_Alpha_Reference.png.
+The private source reference is retained unchanged in
+SourceAssets/SketchfabWeapons/References/pistol-viewer-2026-10-15.png.
+This matches composition approximately using the existing skins' hand shapes;
+it does not replace their geometry with the viewer's glove.

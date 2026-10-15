@@ -18,6 +18,13 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") TObjectPtr<class USkeletalMesh> SightMesh;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") FTransform SightTransform;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") FTransform GripTransform;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") bool bFirstPersonPalmGrip = false;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") FTransform FirstPersonGripTransform;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") bool bFitSupportHand = false;
+    // Full-size weapon-local palm contact, before the socket attachment transform.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") FVector SupportHandOffset = FVector::ZeroVector;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") FRotator SupportPalmRotation = FRotator(0,90,0);
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") TArray<FVector> SupportSurfaceContacts;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") FVector ViewOffset = FVector::ZeroVector;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") FVector MuzzleOffset = FVector(0, 60, 0);
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") TObjectPtr<class UAnimSequence> IdleAnimation;

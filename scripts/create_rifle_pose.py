@@ -111,6 +111,7 @@ grips = {
     'r': ((-10, 25, 125), (0, 0, 0, 1), (-35, 10, 115)),
     'l': ((-10, 53.522, 128.003), multiply(inverse(original_right_grip), original_left_grip), (35, 25, 115)),
 }
+if 'ER_POSE_RIGHT_GRIP' in globals():grips['r']=globals()['ER_POSE_RIGHT_GRIP']
 if 'ER_POSE_LEFT_GRIP_OFFSET' in globals():
     offset = globals()['ER_POSE_LEFT_GRIP_OFFSET']
     p, r, pole = grips['l']
@@ -128,33 +129,44 @@ for side, (grip_position, grip_rotation, pole) in grips.items():
     bones = [get_bone(name) for name in names]
     shoulder, elbow, hand = [xyz(b.translation) for b in bones]
     hand_rotation = quat(bones[2].rotation)
-    socket = get_socket('HandGrip_' + side.upper())
+    socket_name=globals().get('ER_POSE_RIGHT_SOCKET','HandGrip_R') if side=='r' else 'HandGrip_L'
+    socket = get_socket(socket_name)
     socket_local_position = rotate(inverse(hand_rotation), sub(xyz(socket.translation), hand))
     socket_local_rotation = multiply(inverse(hand_rotation), quat(socket.rotation))
     target_rotation = multiply(grip_rotation, inverse(socket_local_rotation))
     target = sub(grip_position, rotate(target_rotation, socket_local_position))
     upper_length = math.dist(shoulder, elbow)
     lower_length = math.dist(elbow, hand)
-    distance = math.dist(shoulder, target)
-    if distance >= upper_length + lower_length or distance <= abs(upper_length - lower_length):
-        raise RuntimeError('Unreachable %s hand target: shoulder=%s target=%s lengths=%.3f/%.3f distance=%.3f' % (side, shoulder, target, upper_length, lower_length, distance))
-    direction = unit(sub(target, shoulder))
-    pole_direction = sub(pole, shoulder)
-    bend = unit(sub(pole_direction, scale(direction, dot(pole_direction, direction))))
-    along = (upper_length**2 - lower_length**2 + distance**2) / (2 * distance)
-    height = math.sqrt(max(0, upper_length**2 - along**2))
-    target_elbow = add(add(shoulder, scale(direction, along)), scale(bend, height))
+    source_upper = sub(elbow, shoulder)
+    if side=='r' and 'ER_POSE_RIGHT_ELBOW_TARGET' in globals():
+        # FPS contains forearms only. Move the hidden shoulder to preserve both
+        # segment lengths while choosing where the visible arm enters the view.
+        preferred = add(globals()['ER_POSE_RIGHT_ELBOW_TARGET'], (0,0,height_offset))
+        target_elbow = add(target, scale(unit(sub(preferred,target)),lower_length))
+        shoulder = sub(target_elbow,scale(unit(source_upper),upper_length))
+    else:
+        distance = math.dist(shoulder, target)
+        if distance >= upper_length + lower_length or distance <= abs(upper_length - lower_length):
+            raise RuntimeError('Unreachable %s hand target: shoulder=%s target=%s lengths=%.3f/%.3f distance=%.3f' % (side, shoulder, target, upper_length, lower_length, distance))
+        direction = unit(sub(target, shoulder))
+        pole_direction = sub(pole, shoulder)
+        bend = unit(sub(pole_direction, scale(direction, dot(pole_direction, direction))))
+        along = (upper_length**2 - lower_length**2 + distance**2) / (2 * distance)
+        height = math.sqrt(max(0, upper_length**2 - along**2))
+        target_elbow = add(add(shoulder, scale(direction, along)), scale(bend, height))
     if target_mesh:
         ue.log('ER_FPS_ARM side=%s elbow=%s wrist=%s hand_scale=%.2f' % (side, target_elbow, target, hand_scale))
-    upper_rotation = multiply(from_to(sub(elbow, shoulder), sub(target_elbow, shoulder)), quat(bones[0].rotation))
+    upper_rotation = multiply(from_to(source_upper, sub(target_elbow, shoulder)), quat(bones[0].rotation))
     lower_rotation = multiply(from_to(sub(hand, elbow), sub(target, target_elbow)), quat(bones[1].rotation))
     for name, position, rotation in zip(names, [shoulder, target_elbow, target], [upper_rotation, lower_rotation, target_rotation]):
         bone_scale = xyz(get_bone(name).scale3d)
         pose = ue.AnimPoseExtensions.set_bone_pose(pose, transform(position, rotation, bone_scale), name, ue.AnimPoseSpaces.WORLD)
-    actual = xyz(get_socket('HandGrip_' + side.upper()).translation)
+    actual = xyz(get_socket(socket_name).translation)
     if math.dist(actual, grip_position) > .01:
         raise RuntimeError('Hand grip alignment failed: ' + str(actual))
 
+if 'ER_POSE_FINALIZE' in globals():
+    pose=globals()['ER_POSE_FINALIZE'](pose,target_mesh)
 controller = asset.get_editor_property('controller')
 model = controller.get_model_interface()
 key_count = model.get_number_of_frames() + 1

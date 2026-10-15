@@ -27,6 +27,7 @@
 #if WITH_EDITOR
 #include "MeshDescription.h"
 #include "SkeletalMeshAttributes.h"
+#include "Animation/Skeleton.h"
 #endif
 
 bool AERCharacter::CopyTrainingGripSockets(USkeletalMesh* TargetMesh, USkeletalMesh* SourceMesh)
@@ -58,21 +59,114 @@ FTransform AERCharacter::GetWeaponReferenceBone(USkeletalMesh* WeaponMesh, FName
     while ((Index = Ref.GetParentIndex(Index)) != INDEX_NONE) Result *= Ref.GetRefBonePose()[Index];
     return Result;
 }
-FVector AERCharacter::GetWeaponMuzzleFromGeometry(USkeletalMesh* WeaponMesh)
+TArray<FVector> AERCharacter::GetPresentationVertices(USkeletalMesh* PresentationMesh, FName Bone)
+{
+    TArray<FVector> Result;
+#if WITH_EDITOR
+    if (!PresentationMesh) return Result;
+    FMeshDescription* Description=PresentationMesh->GetMeshDescription(0);
+    if (!Description) return Result;
+    FSkeletalMeshAttributes Attributes(*Description);
+    const auto Positions=Attributes.GetVertexPositions();
+    const auto Weights=Attributes.GetVertexSkinWeights();
+    int32 DescriptionBone=INDEX_NONE;
+    for (const FBoneID ID : Attributes.Bones().GetElementIDs())
+        if (Attributes.GetBoneNames()[ID]==Bone) DescriptionBone=ID.GetValue();
+    const FTransform Frame=Bone.IsNone() ? FTransform::Identity : GetWeaponReferenceBone(PresentationMesh,Bone);
+    for (const FVertexID Vertex : Description->Vertices().GetElementIDs())
+    {
+        bool Include=Bone.IsNone();
+        if (!Include) for (const auto Weight : Weights.Get(Vertex))
+            if (Weight.GetBoneIndex()==DescriptionBone && Weight.GetWeight()>.65f) Include=true;
+        if (Include) Result.Add(Frame.InverseTransformPosition(FVector(Positions[Vertex])));
+    }
+#endif
+    return Result;
+}
+bool AERCharacter::SetPalmContactSocket(USkeletalMesh* PresentationMesh, FName Name, FName Bone, FTransform Transform)
+{
+#if WITH_EDITOR
+    if (!PresentationMesh || !PresentationMesh->GetPathName().StartsWith(TEXT("/Game/EclipseRecoil/Characters/")) ||
+        (Name!=TEXT("ER_Palm_L") && Name!=TEXT("ER_Palm_R")) || PresentationMesh->GetRefSkeleton().FindBoneIndex(Bone)==INDEX_NONE) return false;
+    PresentationMesh->Modify();
+    auto* Socket=const_cast<USkeletalMeshSocket*>(PresentationMesh->FindSocket(Name));
+    if (!Socket) {Socket=NewObject<USkeletalMeshSocket>(PresentationMesh);Socket->SocketName=Name;PresentationMesh->AddSocket(Socket);}
+    Socket->BoneName=Bone;Socket->RelativeLocation=Transform.GetTranslation();Socket->RelativeRotation=Transform.Rotator();Socket->RelativeScale=FVector::OneVector;
+    PresentationMesh->RebuildSocketMap();PresentationMesh->MarkPackageDirty();return true;
+#else
+    return false;
+#endif
+}
+#if WITH_EDITOR
+namespace
+{
+TArray<FVector> PresentationVerticesAtIdle(USkeletalMesh* WeaponMesh,FMeshDescription* Description,UAnimSequence* Animation)
+{
+        FSkeletalMeshAttributes Attributes(*Description);
+        const auto Positions=Attributes.GetVertexPositions();
+        TArray<FVector> Deformed;Deformed.SetNum(Description->Vertices().GetArraySize());
+        const auto& Ref=WeaponMesh->GetRefSkeleton();
+        TArray<FTransform> Bind=Ref.GetRefBonePose(),Current=Bind;
+        for (int32 I=0;I<Bind.Num();++I)
+        {
+            if (Animation && Animation->GetSkeleton())
+            {
+                const int32 Index=Animation->GetSkeleton()->GetReferenceSkeleton().FindBoneIndex(Ref.GetBoneName(I));
+                if (Index!=INDEX_NONE) Animation->GetBoneTransform(Current[I],FSkeletonPoseBoneIndex(Index),FAnimExtractContext(0.0),false);
+            }
+            const int32 Parent=Ref.GetParentIndex(I);
+            if (Parent!=INDEX_NONE) {Bind[I]*=Bind[Parent];Current[I]*=Current[Parent];}
+        }
+        TArray<int32> Bones;Bones.Init(INDEX_NONE,Attributes.Bones().GetArraySize());
+        for (const FBoneID ID : Attributes.Bones().GetElementIDs()) Bones[ID.GetValue()]=Ref.FindBoneIndex(Attributes.GetBoneNames()[ID]);
+        const auto Weights=Attributes.GetVertexSkinWeights();
+        for (const FVertexID Vertex : Description->Vertices().GetElementIDs())
+        {
+            const FVector Position(Positions[Vertex]);FVector Point=FVector::ZeroVector;
+            if (Animation) for (const auto Weight : Weights.Get(Vertex))
+            {
+                const int32 Bone=Bones[Weight.GetBoneIndex()];
+                if (Bone!=INDEX_NONE) Point+=Current[Bone].TransformPosition(Bind[Bone].InverseTransformPosition(Position))*Weight.GetWeight();
+            }
+            Deformed[Vertex.GetValue()]=Animation ? Point : Position;
+        }
+        return Deformed;
+}
+}
+#endif
+FVector AERCharacter::GetWeaponSurfaceContact(USkeletalMesh* WeaponMesh, FVector Start, FVector End, UAnimSequence* Animation)
+{
+#if WITH_EDITOR
+    if (WeaponMesh) if (FMeshDescription* Description=WeaponMesh->GetMeshDescription(0))
+    {
+        const auto Deformed=PresentationVerticesAtIdle(WeaponMesh,Description,Animation);
+        FVector Best(UE_BIG_NUMBER);float Distance=UE_BIG_NUMBER;
+        for (const FTriangleID Triangle : Description->Triangles().GetElementIDs())
+        {
+            const auto Vertices=Description->GetTriangleVertices(Triangle);
+            FVector Point,Normal;
+            if (FMath::SegmentTriangleIntersection(Start,End,Deformed[Vertices[0].GetValue()],Deformed[Vertices[1].GetValue()],Deformed[Vertices[2].GetValue()],Point,Normal) &&
+                FVector::DistSquared(Start,Point)<Distance)
+            {Best=Point;Distance=FVector::DistSquared(Start,Point);}
+        }
+        return Best;
+    }
+#endif
+    return FVector(UE_BIG_NUMBER);
+}
+FVector AERCharacter::GetWeaponMuzzleFromGeometry(USkeletalMesh* WeaponMesh,UAnimSequence* Animation)
 {
 #if WITH_EDITOR
     if (!WeaponMesh) return FVector::ZeroVector;
     FMeshDescription* Description = WeaponMesh->GetMeshDescription(0);
     if (!Description || Description->Vertices().Num() == 0) return FVector::ZeroVector;
-    FSkeletalMeshAttributes Attributes(*Description);
-    const auto Positions = Attributes.GetVertexPositions();
-    float Front = -FLT_MAX;
-    for (const FVertexID Vertex : Description->Vertices().GetElementIDs()) Front = FMath::Max(Front, Positions[Vertex].X);
+    const auto Positions=PresentationVerticesAtIdle(WeaponMesh,Description,Animation);
+    double Front=-DBL_MAX;
+    for (const FVertexID Vertex : Description->Vertices().GetElementIDs()) Front=FMath::Max(Front,Positions[Vertex.GetValue()].X);
     FBox TipBounds(ForceInit);
-    // These supplied guns point +X. Center the final 4mm of actual geometry,
-    // including the barrel's real height, rather than assuming Y=Z=0.
+    // Include the evaluated ready pose when measuring visual framing.
     for (const FVertexID Vertex : Description->Vertices().GetElementIDs())
-        if (Positions[Vertex].X >= Front - .4f) TipBounds += FVector(Positions[Vertex]);
+        if (Positions[Vertex.GetValue()].X>=Front-.4) TipBounds+=Positions[Vertex.GetValue()];
     return FVector(Front, TipBounds.GetCenter().Y, TipBounds.GetCenter().Z);
 #else
     return FVector::ZeroVector;
@@ -114,7 +208,8 @@ bool AERCharacter::SetMercenaryAnimationSkeleton(UAnimSequence* Animation, USkel
 {
 #if WITH_EDITOR
     if (!Animation || !TargetMesh || !TargetMesh->GetSkeleton() ||
-        !Animation->GetPathName().StartsWith(TEXT("/Game/EclipseRecoil/Characters/"))) return false;
+        !(Animation->GetPathName().StartsWith(TEXT("/Game/EclipseRecoil/Characters/")) ||
+          Animation->GetPathName().StartsWith(TEXT("/Game/EclipseRecoil/Weapons/Sketchfab/")))) return false;
     Animation->Modify();
     if (Animation->GetSkeleton() != TargetMesh->GetSkeleton() && !Animation->ReplaceSkeleton(TargetMesh->GetSkeleton(), false)) return false;
     Animation->SetPreviewMesh(TargetMesh);
@@ -593,6 +688,10 @@ void AERCharacter::UpdateWeaponPresentation()
 {
     auto* Data = Weapon ? Weapon->Data.Get() : nullptr;
     if (!Data || !Data->Mesh) return;
+    // The fitted pistol animates its hidden shoulder to place the forearm.
+    // Skeleton translation retargeting would discard that authored movement.
+    if (auto* Instance=FirstPersonBody->GetSingleNodeInstance())
+        Instance->GetRequiredBones().SetDisableRetargeting(Data->bFirstPersonPalmGrip);
     if (Data == AppliedWeaponData)
     {
         if (!Weapon->bReloading)
@@ -624,6 +723,8 @@ void AERCharacter::UpdateWeaponPresentation()
     }
     AppliedWeaponData = Data;
     bAppliedReloading = false;
+    FirstPersonRifle->AttachToComponent(FirstPersonBody,FAttachmentTransformRules::KeepRelativeTransform,
+        Data->bFirstPersonPalmGrip ? TEXT("ER_Palm_R") : TEXT("HandGrip_R"));
     FirstPersonBody->SetRelativeLocation(FirstPersonBodyBaseLocation + Data->ViewOffset);
     for (auto* Sight : {FirstPersonSight.Get(), WorldSight.Get()})
     { Sight->SetSkeletalMeshAsset(Data->SightMesh); Sight->SetRelativeTransform(Data->SightTransform); }
@@ -631,12 +732,19 @@ void AERCharacter::UpdateWeaponPresentation()
     {
         Component->SetSkeletalMeshAsset(Data->Mesh);
         Component->EmptyOverrideMaterials();
-        Component->SetRelativeTransform(Data->GripTransform);
+        Component->SetRelativeTransform(Component==FirstPersonRifle && Data->bFirstPersonPalmGrip ? Data->FirstPersonGripTransform : Data->GripTransform);
         Component->SetAnimationMode(EAnimationMode::AnimationSingleNode);
         Component->SetAnimation(nullptr);
         if (Data->WeaponIdleAnimation) Component->PlayAnimation(Data->WeaponIdleAnimation, true);
     }
     if (Data->IdleAnimation) FirstPersonBody->PlayAnimation(Data->IdleAnimation, true);
+    if (Data->bFitSupportHand)
+    {
+        // A stationary/culled mesh can reuse its evaluated idle. Equipping a
+        // different support target must invalidate that presentation immediately.
+        GetMesh()->TickAnimation(0.f, false);
+        GetMesh()->RefreshBoneTransforms();
+    }
     if (auto* PC = Cast<AERPlayerController>(Controller)) PC->bZoomHeld = false;
     MuzzleFlashUntil = 0;
     UE_LOG(LogTemp, Display, TEXT("ER_WEAPON_MODEL name=%s mesh=%s"), *Data->DisplayName, *Data->Mesh->GetPathName());

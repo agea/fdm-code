@@ -4,17 +4,17 @@
   "original_archives": 9,
   "catalog_slots": 10,
   "asset_counts": {
-    "AnimSequence": 76,
+    "AnimSequence": 123,
     "ERWeaponData": 10,
     "Material": 26,
-    "SkeletalMesh": 19,
-    "Skeleton": 19,
+    "SkeletalMesh": 29,
+    "Skeleton": 29,
     "Texture2D": 69
   },
   "weapons": [
     {
       "key": "Knife",
-      "mesh": "/Game/EclipseRecoil/Weapons/Sketchfab/Knife/V2/SK_Knife.SK_Knife",
+      "mesh": "/Game/EclipseRecoil/Weapons/Sketchfab/Knife/V3/SK_Knife.SK_Knife",
       "material_slots": 1,
       "clips": [
         "Fire",
@@ -24,7 +24,7 @@
     },
     {
       "key": "Pistol",
-      "mesh": "/Game/EclipseRecoil/Weapons/Sketchfab/Pistol/V2/SK_Pistol.SK_Pistol",
+      "mesh": "/Game/EclipseRecoil/Weapons/Sketchfab/Pistol/V3/SK_Pistol.SK_Pistol",
       "material_slots": 1,
       "clips": [
         "Fire",
@@ -35,7 +35,7 @@
     },
     {
       "key": "SMG",
-      "mesh": "/Game/EclipseRecoil/Weapons/Sketchfab/SMG/V2/SK_SMG.SK_SMG",
+      "mesh": "/Game/EclipseRecoil/Weapons/Sketchfab/SMG/V4/SK_SMG.SK_SMG",
       "material_slots": 2,
       "clips": [
         "Fire",
@@ -45,7 +45,7 @@
     },
     {
       "key": "Shotgun",
-      "mesh": "/Game/EclipseRecoil/Weapons/Sketchfab/Shotgun/V2/SK_Shotgun.SK_Shotgun",
+      "mesh": "/Game/EclipseRecoil/Weapons/Sketchfab/Shotgun/V3/SK_Shotgun.SK_Shotgun",
       "material_slots": 1,
       "clips": [
         "Fire",
@@ -56,7 +56,7 @@
     },
     {
       "key": "Assault",
-      "mesh": "/Game/EclipseRecoil/Weapons/Sketchfab/Assault/V2/SK_Assault.SK_Assault",
+      "mesh": "/Game/EclipseRecoil/Weapons/Sketchfab/Assault/V4/SK_Assault.SK_Assault",
       "material_slots": 1,
       "clips": [
         "Fire",
@@ -66,7 +66,7 @@
     },
     {
       "key": "Carbine",
-      "mesh": "/Game/EclipseRecoil/Weapons/Sketchfab/Carbine/V2/SK_Carbine.SK_Carbine",
+      "mesh": "/Game/EclipseRecoil/Weapons/Sketchfab/Carbine/V3/SK_Carbine.SK_Carbine",
       "material_slots": 2,
       "clips": [
         "Fire",
@@ -77,7 +77,7 @@
     },
     {
       "key": "Sniper",
-      "mesh": "/Game/EclipseRecoil/Weapons/Sketchfab/Sniper/V2/SK_Sniper.SK_Sniper",
+      "mesh": "/Game/EclipseRecoil/Weapons/Sketchfab/Sniper/V3/SK_Sniper.SK_Sniper",
       "material_slots": 3,
       "clips": [
         "Fire",
@@ -88,8 +88,8 @@
     },
     {
       "key": "Launcher",
-      "mesh": "/Game/EclipseRecoil/Weapons/Sketchfab/Launcher/V2/SK_Launcher.SK_Launcher",
-      "material_slots": 13,
+      "mesh": "/Game/EclipseRecoil/Weapons/Sketchfab/Launcher/V3/SK_Launcher.SK_Launcher",
+      "material_slots": 11,
       "clips": [
         "Fire",
         "Idle",

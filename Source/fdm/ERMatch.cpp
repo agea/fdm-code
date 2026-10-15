@@ -107,6 +107,16 @@ void AERGameMode::FillBots()
         auto* State = Bot ? Bot->GetPlayerState<AERPlayerState>() : nullptr;
         if (!State) { if (Bot) Bot->Destroy(); break; }
         Bot->bTrainingTarget = bStationaryBots;
+        if (bStationaryBots)
+        {
+            // Draw without replacement within each exhibition batch. Keep the
+            // chosen slot on the controller so respawns never refill another gun.
+            TArray<int32> Available;
+            for (int32 Slot=0; Slot<10; ++Slot) Available.Add(Slot);
+            const int32 BatchStart=(TestBots.Num()/10)*10;
+            for (int32 I=BatchStart; I<TestBots.Num(); ++I) Available.Remove(TestBots[I]->TrainingWeaponSlot);
+            Bot->TrainingWeaponSlot=Available[FMath::RandHelper(Available.Num())];
+        }
         Bot->bMovementOnly = bMovementBots;
         Bot->MovementPhaseOffset=(TestBots.Num()%6)*.4f;
         State->SetIsABot(true);
@@ -324,7 +334,11 @@ void AERGameMode::RestartPlayer(AController* Player)
         RestartPlayerAtPlayerStart(Player, Start);
     }
     if (auto* Character = Cast<AERCharacter>(Player->GetPawn()))
+    {
         Character->InitializeLoadout(Player->GetPlayerState<AERPlayerState>()->PrimaryWeapon);
+        if (const auto* Bot=Cast<AERBotController>(Player); Bot && Bot->bTrainingTarget && Character->Inventory.Num()==10)
+            Character->ServerSelectWeapon(Bot->TrainingWeaponSlot);
+    }
 }
 UClass* AERGameMode::GetDefaultPawnClassForController_Implementation(AController* InController)
 {

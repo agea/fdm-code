@@ -10,6 +10,7 @@ class AERBotProbe : public AActor
     GENERATED_BODY()
 public:
     AERBotProbe();
+    UFUNCTION(Server, Reliable) void ServerConfirmTargetSkins();
     virtual void Tick(float DeltaTime) override;
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 private:
@@ -22,6 +23,7 @@ private:
     int32 AmmoBeforeWall = 0;
     bool bFailed = false, bTargetMode = false;
     bool bReplicaSeen = false, bReplicaDeathSeen = false;
+    bool bTargetReplicaConfirmed = false;
     void Check(bool Value, const TCHAR* Label);
     void Advance(int32 Next, double Delay);
     void PlacePlayers(bool bAcrossWall);

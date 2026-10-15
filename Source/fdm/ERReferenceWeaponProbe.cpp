@@ -24,7 +24,11 @@ void AERReferenceWeaponProbe::GetLifetimeReplicatedProps(TArray<FLifetimePropert
 void AERReferenceWeaponProbe::Check(bool Value,const FString& Label)
 {Failed|=!Value;UE_LOG(LogTemp,Display,TEXT("ER_REFERENCE_%s %s"),Value?TEXT("PASS"):TEXT("FAIL"),*Label);}
 void AERReferenceWeaponProbe::Advance(int32 Next,float Delay)
-{Phase=Next;Deadline=GetWorld()->GetTimeSeconds()+Delay;bSlotObserved=false;bReloadIssued=false;ForceNetUpdate();}
+{
+    Phase=Next;Deadline=GetWorld()->GetTimeSeconds()+Delay;bSlotObserved=false;bReloadIssued=false;
+    if(Next>=1 && Next<=10 && Host && Host->GetPawn())CastChecked<AERCharacter>(Host->GetPawn())->ServerSelectWeapon(Next-1);
+    ForceNetUpdate();
+}
 void AERReferenceWeaponProbe::ServerAcknowledgeSlot_Implementation(int32 RequestedPhase)
 {
 #if !UE_BUILD_SHIPPING
@@ -51,11 +55,14 @@ void AERReferenceWeaponProbe::Tick(float DeltaTime)
         auto* PC=Cast<AERPlayerController>(GetWorld()->GetFirstPlayerController());
         auto* C=PC?Cast<AERCharacter>(PC->GetPawn()):nullptr;
         if(!C || !C->Weapon || C->Inventory.Num()!=10)return;
+        if(Gallery)PC->SetControlRotation(FRotator(0,180,0));
         if(ClientPhase!=Phase)
         {
             ClientPhase=Phase;ClientChangedAt=GetWorld()->GetTimeSeconds();ReloadStartedAt=0;
             if(Gallery)
             {
+                PC->ResetIgnoreLookInput();PC->SetIgnoreLookInput(true);
+                PC->ResetIgnoreMoveInput();PC->SetIgnoreMoveInput(true);
                 if(auto* Variable=IConsoleManager::Get().FindConsoleVariable(TEXT("r.DynamicRes.OperationMode")))Variable->Set(0,ECVF_SetByCode);
                 if(auto* Variable=IConsoleManager::Get().FindConsoleVariable(TEXT("r.ScreenPercentage")))Variable->Set(100.f,ECVF_SetByCode);
             }
@@ -93,12 +100,13 @@ void AERReferenceWeaponProbe::Tick(float DeltaTime)
             if(auto* PC=Cast<AERPlayerController>(It->Get())){if(PC->IsLocalController())Host=PC;else Client=PC;}
         if(!Host || !Client || !Host->GetPawn() || !Client->GetPawn() || !GetWorld()->GetAuthGameMode<AERGameMode>()->IsMatchInProgress())return;
         SetOwner(Client);
+        if(Gallery){Host->ResetIgnoreLookInput();Host->SetIgnoreLookInput(true);Host->ResetIgnoreMoveInput();Host->SetIgnoreMoveInput(true);}
         auto* H=CastChecked<AERCharacter>(Host->GetPawn());auto* C=CastChecked<AERCharacter>(Client->GetPawn());
         Check(H->Inventory.Num()==10 && C->Inventory.Num()==10,TEXT("ten_independent_server_weapons"));
         if(H->Inventory.Num()!=10 || C->Inventory.Num()!=10){FPlatformMisc::RequestExitWithStatus(false,1);return;}
         Check(H->Health->Armor==100 && C->Health->Armor==100,TEXT("armor_initialized_on_server"));
-        H->TeleportTo(FVector(-1300,-1500,95),FRotator::ZeroRotator);C->TeleportTo(FVector(-700,-1500,95),FRotator(0,180,0));
-        Host->SetControlRotation(FRotator::ZeroRotator);Client->SetControlRotation(FRotator(0,180,0));
+        H->TeleportTo(FVector(Gallery?-850:-1300,-1500,95),FRotator(0,Gallery?45:0,0));C->TeleportTo(FVector(-700,-1500,95),FRotator(0,180,0));
+        Host->SetControlRotation(FRotator(0,Gallery?45:0,0));Client->SetControlRotation(FRotator(0,180,0));
         for(int32 I=0;I<10;++I)
         {
             auto* Data=H->Inventory[I]->Data.Get();
@@ -121,6 +129,77 @@ void AERReferenceWeaponProbe::Tick(float DeltaTime)
             bSlotObserved=true;Deadline=GetWorld()->GetTimeSeconds()+(Gallery?1.2f:.3f);return;
         }
         Check(C->Weapon==C->Inventory[Phase-1],FString::Printf(TEXT("remote_real_key_selects_slot_%d"),Phase-1));
+        if (Gallery && (Phase==2 || Phase==5) && CapturedPhase!=Phase)
+        {
+            CapturedPhase=Phase;
+            const FTransform Camera=H->Camera->GetComponentTransform();
+            const FVector TipCamera=Camera.InverseTransformPosition(H->GetVisualMuzzle(true));
+            FVector2D Screen;
+            Host->ProjectWorldLocationToScreen(H->GetRenderedMuzzle(true),Screen);
+            UE_LOG(LogTemp,Display,TEXT("ER_REFERENCE_FRAMING slot=%d tip_camera=%s screen=%s weapon=%s palm=%s"),Phase-1,
+                *TipCamera.ToString(),*Screen.ToString(),
+                *H->FirstPersonRifle->GetComponentTransform().GetRelativeTransform(Camera).ToString(),
+                *H->FirstPersonBody->GetSocketTransform(TEXT("ER_Palm_R"),RTS_Component).ToString());
+            if (Phase==2)
+            {
+            PistolTipCamera=TipCamera;
+            const FVector Bore=Camera.InverseTransformVectorNoScale(H->FirstPersonRifle->GetForwardVector());
+            const FVector Aim=TipCamera+Bore*((150.-TipCamera.X)/Bore.X);
+            Check(Bore.X>.98 && FVector2D(Aim.Y,Aim.Z).Size()<.01,
+                TEXT("runtime_pistol_bore_converges_with_center_aim_ray"));
+            Check(FMath::IsNearlyEqual(TipCamera.X,46.,.01) &&
+                FMath::Abs(TipCamera.Y/TipCamera.X-.164)<.001 &&
+                FMath::Abs(TipCamera.Z/TipCamera.X+.1603125)<.001,
+                TEXT("runtime_pistol_matches_supplied_reference_framing"));
+            Check(FMath::Abs(H->FirstPersonRifle->GetComponentRotation().Roll)<.001,
+                TEXT("runtime_pistol_upright_reference_grip"));
+#if WITH_EDITOR
+            const FTransform Gun=H->FirstPersonRifle->GetComponentTransform();
+            const FTransform Palm=H->FirstPersonBody->GetSocketTransform(TEXT("ER_Palm_R"));
+            const FVector Handle=AERCharacter::GetWeaponSurfaceContact(H->Weapon->Data->Mesh,FVector(-5,100,2),FVector(-5,-100,2),H->Weapon->Data->WeaponIdleAnimation);
+            Check(FVector::Distance(Gun.TransformPosition(Handle),Palm.GetLocation()-Palm.GetUnitAxis(EAxis::Z)*.35)<.05,TEXT("runtime_pistol_handle_seated_in_palm"));
+            auto ThumbPoints=AERCharacter::GetPresentationVertices(H->FirstPersonBody->GetSkeletalMeshAsset(),TEXT("thumb_03_r"));
+            ThumbPoints.Sort([](const FVector& A,const FVector& B){return A.SizeSquared()<B.SizeSquared();});
+            FVector ThumbLocal=FVector::ZeroVector;
+            const int32 Count=FMath::Max(3,ThumbPoints.Num()/10);
+            if(ThumbPoints.Num()>=Count)
+            {
+                for(int32 I=ThumbPoints.Num()-Count;I<ThumbPoints.Num();++I)ThumbLocal+=ThumbPoints[I]/Count;
+                const FVector Contact=AERCharacter::GetWeaponSurfaceContact(H->Weapon->Data->Mesh,FVector(-5,-100,4.2),FVector(-5,100,4.2),H->Weapon->Data->WeaponIdleAnimation)+FVector(0,-.35,0);
+                Check(FVector::Distance(H->FirstPersonBody->GetSocketTransform(TEXT("thumb_03_r")).TransformPosition(ThumbLocal),Gun.TransformPosition(Contact))<.05,TEXT("runtime_pistol_thumb_wraps_grip"));
+            }
+            else Check(false,TEXT("runtime_pistol_thumb_geometry_available"));
+#endif
+            const FVector Elbow=H->FirstPersonBody->GetBoneLocation(TEXT("lowerarm_r"),EBoneSpaces::ComponentSpace);
+            const FVector Wrist=H->FirstPersonBody->GetBoneLocation(TEXT("hand_r"),EBoneSpaces::ComponentSpace);
+            const FVector Forearm=Wrist-Elbow;
+            Check(FMath::Abs(Forearm.Z)<Forearm.Size2D(),TEXT("runtime_pistol_relaxed_forearm"));
+            FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir()/TEXT("Testing/ReferenceWeapons/Pistol_Alpha.png"),true,false);
+            Deadline=GetWorld()->GetTimeSeconds()+.25f;
+            return; // Render the current slot before Advance equips the next one.
+            }
+            else Check(PistolTipCamera.X<TipCamera.X,
+                TEXT("runtime_pistol_closer_than_assault"));
+        }
+        if(H->Weapon->Data->bFitSupportHand)
+        {
+            const FVector Contact=H->WorldRifle->GetComponentTransform().TransformPosition(H->Weapon->Data->SupportHandOffset);
+            const FVector RearContact=H->WorldRifle->GetComponentTransform().TransformPosition(H->Weapon->Data->SupportHandOffset-FVector(10,0,0));
+            const FVector Palm=H->GetMesh()->GetSocketLocation(H->Weapon->Data->SupportSurfaceContacts.IsEmpty() ? TEXT("HandGrip_L") : TEXT("ER_Palm_L"));
+            float Error=FVector::Distance(Palm,FMath::ClosestPointOnSegment(Palm,Contact,RearContact));
+            if (!H->Weapon->Data->SupportSurfaceContacts.IsEmpty())
+            {
+                Error=UE_BIG_NUMBER;
+                for (const FVector& Point : H->Weapon->Data->SupportSurfaceContacts)
+                    Error=FMath::Min(Error,float(FVector::Distance(Palm,H->WorldRifle->GetComponentTransform().TransformPosition(Point))));
+            }
+            UE_LOG(LogTemp,Display,TEXT("ER_WORLD_GRIP slot=%d error=%.3f contact=%s palm=%s right=%s gun=%s class=%s"),Phase-1,
+                Error,*Contact.ToString(),
+                *H->GetMesh()->GetSocketLocation(H->Weapon->Data->SupportSurfaceContacts.IsEmpty() ? TEXT("HandGrip_L") : TEXT("ER_Palm_L")).ToString(),*H->GetMesh()->GetSocketLocation(TEXT("HandGrip_R")).ToString(),
+                *H->WorldRifle->GetComponentLocation().ToString(),*H->GetMesh()->GetClass()->GetName());
+            Check(Error<1.f,
+                FString::Printf(TEXT("world_support_palm_contact_%d"),Phase-1));
+        }
         if(Phase<10){Advance(Phase+1,Gallery?2.f:.8f);return;}
         C->ServerSelectWeapon(-1);C->ServerSelectWeapon(10);
         Check(C->Weapon==C->Inventory[9],TEXT("invalid_slots_rejected"));

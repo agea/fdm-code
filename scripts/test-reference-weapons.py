@@ -16,6 +16,7 @@ logs=project/'Saved/Testing';logs.mkdir(parents=True,exist_ok=True)
 common=[str(editor),str(project/'fdm.uproject'),'-game','-nosound','-unattended','-NoSplash','-Multiprocess','-stdout','-FullStdOutLogOutput','-ExecCmds=t.MaxFPS 60']
 if not args.render:common.append('-nullrhi')
 else:common+=['-windowed','-ResX=1280','-ResY=720','-ERReferenceGallery']
+if args.render:common[common.index('-ExecCmds=t.MaxFPS 60')]='-ExecCmds=t.MaxFPS 60,r.DynamicRes.OperationMode 0,r.ScreenPercentage 100'
 tag='reference-weapons'+('-render' if args.render else '')
 processes=[];handles=[]
 try:
@@ -37,12 +38,18 @@ try:
     print('ER_REFERENCE_REMOTE_ALL_SLOTS',slots)
     success=host.returncode==0 and 'ER_REFERENCE_COMPLETE result=PASS' in server and 'ER_REFERENCE_FAIL' not in server and slots
     if args.render:
+        shader_errors=[line for text in [server,remote] for line in text.splitlines()
+                       if 'Weapons/Sketchfab/' in line and 'Failed to compile Material' in line]
+        print('ER_REFERENCE_METAL_WEAPON_SHADERS',not shader_errors);success &= not shader_errors
         captures=all((logs/'ReferenceWeapons'/('Slot_%02d.png'%i)).exists() and
                      (logs/'ReferenceWeapons'/('Slot_%02d.png'%i)).stat().st_mtime>=capture_started for i in range(10))
         print('ER_REFERENCE_METAL_CAPTURES',captures);success &= captures
         reloads=all((logs/'ReferenceWeapons'/('Reload_%02d.png'%i)).exists() and
                     (logs/'ReferenceWeapons'/('Reload_%02d.png'%i)).stat().st_mtime>=capture_started for i in range(1,8))
         print('ER_REFERENCE_RELOAD_CAPTURES',reloads);success &= reloads
+        alpha_pistol=logs/'ReferenceWeapons/Pistol_Alpha.png'
+        alpha_capture=alpha_pistol.exists() and alpha_pistol.stat().st_mtime>=capture_started
+        print('ER_REFERENCE_ALPHA_PISTOL_CAPTURE',alpha_capture);success &= alpha_capture
     raise SystemExit(0 if success else 1)
 finally:
     for process in processes:

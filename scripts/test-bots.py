@@ -20,7 +20,7 @@ def run_mode(mode, port):
     client_path = logs / ('bots-'+mode.lower()+'-client.log')
     try:
         handle = host_path.open('w'); handles.append(handle)
-        host = subprocess.Popen(common+[f'/Game/EclipseRecoil/Maps/L_Depot?listen?ERBots=1?ERBotMode={mode}?Name=Host',f'-port={port}','-ERBotProbe'],stdout=handle,stderr=subprocess.STDOUT)
+        host = subprocess.Popen(common+[f'/Game/EclipseRecoil/Maps/L_Depot?listen?ERLegacyArsenal=1?ERBots=1?ERBotMode={mode}?Name=Host',f'-port={port}','-ERBotProbe'],stdout=handle,stderr=subprocess.STDOUT)
         processes.append(host)
         deadline = time.monotonic()+45
         while time.monotonic()<deadline:
