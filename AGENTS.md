@@ -1,14 +1,21 @@
-# Eclipse Recoil Unreal development
+# Respawn & Rage Unreal development
 
-Use `docs/ECLIPSE_RECOIL_UNREAL_BASE.md` as the gameplay specification and
+Brand: **Respawn & Rage**. Tagline: **Serious guns. Questionable players**.
+The 15 October rebrand supersedes earlier project naming. Workspace:
+`/Users/agea/git/respawn-and-rage/core`; GitHub: `respawn-and-rage/core`
+and private `assets-characters`, `assets-weapons`, `assets-maps` repositories.
+The user authorized moving the active project and updating these repositories.
+
+
+Use `docs/GAMEPLAY_BASE.md` as the gameplay specification and
 `docs/DEVELOPMENT.md` for the user's current scope and implementation status.
 The user's current request takes precedence over the attached specification:
 work on a locally playable Unreal alternative; defer packaging, distribution,
 CI, external publication and standalone platform builds.
 
-14 October publication scope: the user explicitly authorized public agea/fdm-code
+14 October publication scope: the user explicitly authorized public respawn-and-rage/core
 and three private asset submodules (characters, weapons, maps), preserving the
-original private agea/fdm. See docs/ASSET_SUBMODULES.md. This supersedes the
+original private archive. See docs/ASSET_SUBMODULES.md. This supersedes the
 earlier publication deferral for these four repositories only. Keep licensed
 binary assets out of every public commit; do not choose a code license implicitly.
 Content/SourceAssets are generated mounts into Assets/*; edit/save via Unreal
@@ -16,7 +23,10 @@ at unchanged /Game paths, commit private assets first and then their gitlinks.
 Do not run old cleanup/migration commands against linked vendor folders without
 reviewing their new repository ownership.
 
-- Keep this existing UE 5.8.3 project (`fdm.uproject`, native module `fdm`).
+- Keep UE 5.8.3. The project is `RespawnAndRage.uproject`; build targets are
+  `RespawnAndRage` and `RespawnAndRageEditor`. Preserve the internal native
+  module `fdm`, `/Script/fdm`, `/Game/EclipseRecoil` and saved settings keys for
+  serialized asset/player-preference compatibility. Do not expose them as branding.
 - Do not modify the original game under `/Users/agea/git/csgopen/eclipse-recoil`.
 - Combat, ammo, teams, scoring, protection and respawn are server authoritative.
 - Point damage supplies server-authorized shot direction to owner hit feedback.
@@ -211,7 +221,8 @@ Preserve the 892-package current authoring/runtime closure and edited maps.
 DeleteUnloadedParagonPackages is an Editor-only, namespace-scoped package
 removal helper: require an archive receipt, no loaded packages and no outside
 referencers. Never treat runtime reachability alone as deletion approval.
-Local LFS storage is /Users/agea/git/fdm/_cache/lfs; no objects pruned.
+Local LFS storage is in the sibling `_cache/lfs-characters`, `_cache/lfs-weapons`
+and `_cache/lfs-maps` directories; no objects pruned.
 Backups/verification fixture moved to the sibling _backups directory.
 
 

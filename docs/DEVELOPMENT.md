@@ -1,19 +1,19 @@
-# Eclipse Recoil — sviluppo Unreal
+# Respawn & Rage — sviluppo Unreal
 
 ## Ambito concordato
 
-Richiesta del 12 ottobre 2026: partire dal progetto in `/Users/agea/git/fdm`,
+Richiesta del 12 ottobre 2026: partire dal progetto Unreal locale,
 realizzare una versione alternativa in Unreal e riuscire a eseguirla localmente.
-La guida originale è conservata in `ECLIPSE_RECOIL_UNREAL_BASE.md`.
+La guida originale è conservata in `GAMEPLAY_BASE.md`.
 Queste decisioni aggiornano la guida senza cancellarne i criteri di accettazione.
 
 - **B10–B12 rinviati:** niente packaging, distribuzione, CI, pubblicazione o ZIP.
 - La compilazione del modulo Editor serve esclusivamente a eseguire il C++ locale.
-- Progetto mantenuto: `fdm/fdm.uproject`; modulo `fdm`, titolo Eclipse Recoil.
+- Progetto mantenuto: `RespawnAndRage.uproject`; modulo `fdm`, titolo Respawn & Rage.
 - Unreal fissato a **5.8.3**. First Person Blueprint con variante Arena Shooter
   già creata dall'utente; aggiunto un modulo C++ senza sostituire il progetto.
 - Blueprint del template mantenuti come contenuti di riferimento. Le loro regole,
-  bot, pickup e armi aggiuntive non entrano nel GameMode Eclipse Recoil.
+  bot, pickup e armi aggiuntive non entrano nel GameMode Respawn & Rage.
 - `BP_ERCharacter`, `BP_ERGameMode`, `BP_ERPlayerController`, `BP_ERWeapon_Rifle`,
   `BP_ERProjectile`, `DA_Rifle_A`, Enhanced Input e mappe creati via script Editor.
 - Prima mappa: deposito simmetrico 56 × 36 m, blocco centrale, due corsie laterali,
@@ -246,7 +246,7 @@ Esiti e limiti delle prove sono registrati in `TEST_RESULTS.md`.
 
 ## Corona munizioni e dispersione reale — 13 ottobre 2026
 
-L'utente ha chiesto un indicatore simile al vecchio Eclipse Recoil, attorno
+L'utente ha chiesto un indicatore simile al vecchio Respawn & Rage, attorno
 al mirino, e ha scelto esplicitamente **dispersione reale**. Il riferimento
 è `drawclip` in `src/game/hud.cpp` del progetto originale: corona munizioni
 con glifi di dimensione fissa e raggio variabile. Il vecchio gioco è solo
@@ -777,7 +777,7 @@ si conserva il blend del motore e si ripristinano soltanto le parti nascoste.
 
 Rimossi anche i gruppi canister_pos e grenade_pos di Drongo in vivo/cadavere:
 la gallery mostrava un piccolo contenitore separato vicino ai piedi. Nessuna
-modifica alle granate, munizioni o slot dell'arsenale FDM.
+modifica alle granate, munizioni o slot dell'arsenale Respawn & Rage.
 
 
 ### 14 ottobre — avambracci della skin nella visuale FPS
@@ -874,9 +874,9 @@ bersagli e gallery Metal world/FPS passano dopo la rimozione effettiva.
 
 ## Separazione codice/asset · 14 ottobre 2026
 
-La scelta successiva dell’utente è un repository pubblico `agea/fdm-code`
+La scelta successiva dell’utente è un repository pubblico `respawn-and-rage/core`
 e tre submodule privati (personaggi, armi/effetti, mappe/Blueprint comuni).
-Il vecchio `agea/fdm` resta privato. I percorsi Unreal sono invariati;
+Il vecchio archivio privato originale resta privato. I percorsi Unreal sono invariati;
 Content/SourceAssets sono collegamenti generati e ignorati. La struttura
 attuale e i comandi sono in [ASSET_SUBMODULES.md](ASSET_SUBMODULES.md), che
 sostituisce la precedente proposta di un solo submodule. Nessuna licenza
@@ -1019,10 +1019,10 @@ durare 350 ms per il readback; i colpi ordinari mantengono 20 ms.
 
 ## Distruzione procedurale — 14 ottobre 2026
 
-Richiesta attuale: importare ECLIPSE_RECOIL_PROCEDURAL_DESTRUCTION.md e iniziare
-la prima implementazione in **fdm-code**, preservando il gioco originale.
+Richiesta attuale: importare PROCEDURAL_DESTRUCTION_SPEC.md e iniziare
+la prima implementazione in **core**, preservando il gioco originale.
 La specifica è conservata integralmente in docs/; il suo testo operativo non
-sostituisce l'ambito concordato. Progetto e modulo rimangono fdm / UE 5.8.3.
+sostituisce l'ambito concordato. Il modulo nativo resta `fdm` per compatibilità con gli asset / UE 5.8.3.
 
 Prima fase: laboratorio standalone L_DestructionLab con interno 5×5×3 m,
 pavimento indistruttibile e 504 blocchi logici, HP/materiali configurabili.
@@ -1042,7 +1042,7 @@ Vedere PROCEDURAL_DESTRUCTION.md e gli esiti reali in TEST_RESULTS.md.
 ## Milestone 2 — penetrazione ed esplosioni ai blocchi, 14 ottobre 2026
 
 L'utente ha chiesto di proseguire dopo il primo laboratorio. Implementata la
-seconda fase nel medesimo fdm-code/UE 5.8.3, sempre standalone.
+seconda fase nel medesimo core/UE 5.8.3, sempre standalone.
 
 ERBlockCombat calcola l'uscita dal volume orientato/scalato e prosegue il
 colpo con energia residua, senza ignorare interi ISM. La resistenza, il danno
@@ -1568,3 +1568,22 @@ Presa, pollice e convergenza restano verificati geometricamente. Mira, origine
 autoritativa dei colpi e dispersione restano quelli del server.
 Contatto di palmo/pollice alzato di5cm sul calcio, per avvolgere l'impugnatura
 come nel riferimento; rigenerate idle, sparo e ricarica con il nuovo attacco.
+
+
+## Respawn & Rage — 15 ottobre 2026
+
+Nome definitivo: **Respawn & Rage**. Sottotitolo: **Serious guns. Questionable players**.
+Il progetto attivo, i tre submoduli e le cache LFS sono stati trasferiti in
+`/Users/agea/git/respawn-and-rage`: codice in `core`, cache in `_cache/lfs-*`.
+Il prototipo precedente rimane separato, come richiesto dall'utente.
+GitHub usa `respawn-and-rage/core` e i tre repository privati `assets-characters`,
+`assets-weapons`, `assets-maps`; `.gitmodules` conserva URL relativi per SSH/HTTPS.
+
+Progetto `RespawnAndRage.uproject`, target `RespawnAndRage` e `RespawnAndRageEditor`;
+compilazione con `scripts/build-editor.command`, avvio con `scripts/play.command`.
+Nome e sottotitolo sono nel README, nei metadati Unreal e nel menu Slate.
+Il modulo nativo `fdm`, `/Script/fdm`, `/Game/EclipseRecoil` e le chiavi delle
+preferenze restano identificatori interni per preservare classi serializzate,
+Blueprint, mappe modificate e impostazioni. Non sono il marchio del gioco.
+I JSON di verifica storici mantengono i valori/percorsi originali come ricevute;
+non sono configurazione dei repository correnti. Nessuna modifica al gameplay.

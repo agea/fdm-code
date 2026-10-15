@@ -19,7 +19,7 @@ class CleanupTests(unittest.TestCase):
         self.root = Path(self.temp.name).resolve() / 'project'
         self.root.mkdir()
         subprocess.run(['git', 'init', '-q', str(self.root)], check=True)
-        for name in ('fdm.uproject', 'Content/keep.uasset', 'SourceAssets/keep.fbx',
+        for name in ('RespawnAndRage.uproject', 'Content/keep.uasset', 'SourceAssets/keep.fbx',
                      'Saved/Config/settings.ini', 'Saved/Autosaves/keep.umap',
                      'Saved/AssetAudit/report.json', 'Saved/Testing/test.log',
                      'Saved/Testing/reference.png', 'Intermediate/Build/generated.o'):

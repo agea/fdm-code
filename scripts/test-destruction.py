@@ -32,11 +32,11 @@ if args.procedural: label += '-procedural'
 if args.collapse: label += '-collapse'
 log = logs / (label + '.log')
 if game:
-    command = [str(editor), str(project / 'fdm.uproject'), '/Game/EclipseRecoil/Maps/' + ('L_ProceduralLab' if args.procedural else 'L_DestructionLab') + '?Primary=0',
+    command = [str(editor), str(project / 'RespawnAndRage.uproject'), '/Game/EclipseRecoil/Maps/' + ('L_ProceduralLab' if args.procedural else 'L_DestructionLab') + '?Primary=0',
                '-game', '-ERBlockCollapseProbe' if args.collapse else '-ERProceduralProbe' if args.procedural else '-ERBlockLabProbe', '-windowed', '-ResX=1280', '-ResY=720', '-ExecCmds=t.MaxFPS 60,sg.GlobalIlluminationQuality 0,sg.ReflectionQuality 0,sg.ShadowQuality 1'] + flags
     if args.combat: command.append('-ERBlockCombatProbe')
 else:
-    command = [str(editor), str(project / 'fdm.uproject'), '/Engine/Maps/Entry',
+    command = [str(editor), str(project / 'RespawnAndRage.uproject'), '/Engine/Maps/Entry',
                '-ExecCmds=Automation RunTests EclipseRecoil.Destruction', '-TestExit=Automation Test Queue Empty',
                '-ReportExportPath=' + str(logs / 'destruction-report')] + flags
 with log.open('w') as output:

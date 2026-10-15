@@ -1,15 +1,15 @@
 # Public code and private assets
 
-The current project lives in **agea/fdm-code** (public). The original
-**agea/fdm** repository remains private with its original history. The code
+The current project lives in **respawn-and-rage/core** (public). The original
+private archive repository remains private with its original history. The code
 repository starts with a fresh history containing text and three gitlinks;
 it never imports the old Content history or LFS objects.
 
 | Private repository | Checkout | Contents |
 | --- | --- | --- |
-| agea/fdm-assets-characters | Assets/characters | Twinblast, Drongo, Phase, Lt. Belica, mannequin reference, owned team skins, FPS rigs/poses and character animation |
-| agea/fdm-assets-weapons | Assets/weapons | Arsenal, weapon data/Blueprints, shot audio, smoke/explosion effects and original import sources |
-| agea/fdm-assets-maps | Assets/maps | Edited maps, external actors/objects, prototype geometry, common Core Blueprint defaults, input and template UI/Blueprints |
+| respawn-and-rage/assets-characters | Assets/characters | Twinblast, Drongo, Phase, Lt. Belica, mannequin reference, owned team skins, FPS rigs/poses and character animation |
+| respawn-and-rage/assets-weapons | Assets/weapons | Arsenal, weapon data/Blueprints, shot audio, smoke/explosion effects and original import sources |
+| respawn-and-rage/assets-maps | Assets/maps | Edited maps, external actors/objects, prototype geometry, common Core Blueprint defaults, input and template UI/Blueprints |
 
 These bundles are used together: Core Blueprint defaults reference both
 characters and weapons. The category split provides independent versioning,
@@ -21,14 +21,14 @@ their small animation folders, stays with maps to preserve each template tree.
 Anyone can clone/read the code without private repository access:
 
 ```sh
-git clone https://github.com/agea/fdm-code.git
-cd fdm-code
+git clone https://github.com/respawn-and-rage/core.git respawn-and-rage/core
+cd respawn-and-rage/core
 ```
 
 To run or rebuild content, Git LFS and access to all three private repositories
 are required. If your existing access uses SSH keys, clone with
-`git clone git@github.com:agea/fdm-code.git` instead, or set an existing
-clone origin with `git remote set-url origin git@github.com:agea/fdm-code.git`.
+`git clone git@github.com:respawn-and-rage/core.git respawn-and-rage/core` instead, or set an existing
+clone origin with `git remote set-url origin git@github.com:respawn-and-rage/core.git`.
 Relative URLs in .gitmodules inherit SSH or HTTPS from the parent
 clone; use your normal GitHub authentication. Do not put tokens in URLs/files.
 

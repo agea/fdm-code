@@ -339,7 +339,7 @@ Il processo è rimasto in esecuzione. I precedenti SIGABRT avvenivano durante
 la registrazione Cocoa dell'app nei tentativi di lancio ristretti, prima
 dell'inizializzazione del gioco. Gli errori `Viewport Size Mismatch` citati
 in precedenza appartenevano invece al browser Editor avviato senza progetto;
-non dimostrano la causa del rallentamento fullscreen di FDM.
+non dimostrano la causa del rallentamento fullscreen di Respawn & Rage.
 Limite: CUA ha selezionato il vecchio browser Editor e, dopo la sua chiusura,
 ha restituito `noWindowsAvailable`; il nuovo riavvio è verificato dai log e
 dal processo attivo, senza nuova verifica visiva del menu o della fluidità.
@@ -351,7 +351,7 @@ Launch Services fuori dal sandbox riuscito (`window-menu-play.log`), seguito da
 partita L_Depot con bersaglio fermo. Durante l'interazione della sessione, il log
 ha registrato applicazioni dal menu al 60% (3072×1728) e 80% (4096×2304), entrambe
 in finestra sul monitor 5120×2880; il processo è rimasto attivo. Il controllo CUA
-ha identificato la finestra Eclipse Recoil ma la cattura successiva ha restituito
+ha identificato la finestra Respawn & Rage ma la cattura successiva ha restituito
 `noWindowsAvailable`: nessuna nuova dichiarazione di verifica visiva o misurazione
 FPS. Il passaggio al 90% e allo schermo intero resta da provare nella sessione.
 Nessuna modifica a gameplay, replica o asset; nessuna suite di rete ripetuta.
@@ -457,7 +457,7 @@ movimento non certificata da questa osservazione. Nessun nuovo benchmark FPS.
 ## Risposta mouse progressiva — 13 ottobre 2026
 
 Build Editor finale **Succeeded** (`mouse-response-build.log`), diff whitespace
-superato. Test Unreal `FDM.Input.MouseResponse` **Success**
+superato. Test Unreal `Respawn & Rage.Input.MouseResponse` **Success**
 (`mouse-response-tests.log`): guadagni lento/rapido 0,75/1,8, curva monotona
 e limitata su velocità 0–4000 counts/s, stesso guadagno a 30/45/60/90/144 FPS,
 stesso risultato per direzioni di pari modulo, delta nullo senza movimento,
@@ -699,7 +699,7 @@ senza flag di galleria o misurazione. HE selezionabile col tasto 3.
 
 ## Fumogena / Bullet Interactive Smoke (13 ottobre)
 
-Progetto sorgente 5.3 migrato con AssetTools di Unreal in FDM 5.8.3.
+Progetto sorgente 5.3 migrato con AssetTools di Unreal in Respawn & Rage 5.8.3.
 NiagaraFluids presente nell'installazione Mac e attivato; undici package
 necessari importati, senza demo/maps. Asset propri creati con Unreal:
 NS_ER_InteractiveSmoke, BP_ERSmokeCloud, default aggiornato su BP_ERProjectile.
@@ -1011,7 +1011,7 @@ by moving data. Python syntax and git diff --check pass.
 
 ## 14 October 2026 — Code/asset submodule separation
 
-New checkout: `/Users/agea/git/fdm/fdm-code`. The original private repository
+New checkout: `/Users/agea/git/respawn-and-rage/core`. The original private repository
 and working tree remain available; no original remote history was rewritten.
 All 1,336 Content/SourceAssets files were copied into three independent private
 repositories and verified SHA-256 against the original tree. The public parent
@@ -1048,9 +1048,9 @@ A fresh remote clone will be checked after repository creation/upload.
 ## 14 October 2026 — GitHub publication and fresh clone
 
 The user confirmed creation/upload of all four repositories at action time.
-`agea/fdm-code` is public; `fdm-assets-characters`, `fdm-assets-weapons`,
-`fdm-assets-maps` are private. Each private main branch matches its pinned
-gitlink, including all LFS objects. The old `agea/fdm` remains private.
+`respawn-and-rage/core` is public; `assets-characters`, `assets-weapons`,
+`assets-maps` are private. Each private main branch matches its pinned
+gitlink, including all LFS objects. The old archivio privato originale remains private.
 
 - Anonymous GitHub API check: code HTTP **200**, private assets and old
   repository HTTP **404**. Private creation was also verified in the signed-in
@@ -1126,7 +1126,7 @@ aggiornati a questa esecuzione finale.
 
 ## Hitscan e quattro decal PNG — 14 ottobre 2026
 
-- Build `fdmEditor Mac Development`, arm64, UE 5.8.3: **Succeeded**.
+- Build `RespawnAndRageEditor Mac Development`, arm64, UE 5.8.3: **Succeeded**.
   `Saved/Testing/hitscan-build.log`. Nuovo helper Niagara Editor; le binding
   usano una API deprecata in 5.7 ancora supportata in 5.8 (warning, non errori).
 - Generazione tramite Unreal: `ER_HITSCAN_EFFECTS_SAVED`, asset Niagara,
@@ -1256,10 +1256,10 @@ Qualità audio non verificata (nosound); nessun benchmark prestazioni.
 
 ## Distruzione a blocchi, Milestone 1 — 14 ottobre 2026
 
-Progetto corretto: /Users/agea/git/fdm/fdm-code/fdm.uproject; modulo fdm;
+Progetto corretto: /Users/agea/git/respawn-and-rage/core/RespawnAndRage.uproject; modulo fdm;
 UE 5.8.3 CL 58210709, Editor Mac Development arm64, Apple M2 Pro.
-Specifica importata integralmente in docs/ECLIPSE_RECOIL_PROCEDURAL_DESTRUCTION.md
-(cmp con il file Downloads **PASS**). Nessuna modifica al gioco Red Eclipse.
+Specifica importata integralmente in docs/PROCEDURAL_DESTRUCTION_SPEC.md
+(cmp con il file Downloads **PASS**). Nessuna modifica al prototipo precedente.
 
 - Build Editor **Succeeded**, Saved/Testing/destruction-build.log. Corrette
   durante la compilazione tre incompatibilità C++ (TObjectPtr.Get, infinity
@@ -1319,7 +1319,7 @@ Milestone 2 (penetrazione ed esplosioni ai blocchi) non iniziata.
 
 ## Milestone 2 — penetrazione ed esplosioni ai blocchi, 14 ottobre 2026
 
-Stesso fdm-code, UE 5.8.3 CL 58210709, Editor Mac Development arm64/M2 Pro.
+Stesso core, UE 5.8.3 CL 58210709, Editor Mac Development arm64/M2 Pro.
 
 - Build Editor **Succeeded**, Saved/Testing/destruction-m2-build.log.
 - Automation **PASS**: Storage, CollisionAndIdentity e BallisticsAndExplosion,
@@ -1691,7 +1691,7 @@ commit o pubblicazione eseguiti in questa milestone.
 
 ## Menu/sessioni — 15 ottobre 2026
 
-- Compilazione fdmEditor Mac Development arm64 riuscita.
+- Compilazione RespawnAndRageEditor Mac Development arm64 riuscita.
 - Verifica grafica Metal del menu a tre colonne: partita, personaggio/armi,
   impostazioni; finestra indicata al 70% (2419×1564 iniziale sul Retina 2×).
 - `python3 scripts/test-network.py`: PASS con host/client reali, incluse
@@ -2011,7 +2011,7 @@ Originali completi conservati nel submodule privato characters, agli stessi
 percorsi /Game: SHA-256 dei 3.276 file originali invariati. `setup-assets.py
 --check`: 26 mount corretti, nessun puntatore LFS irrisolto.
 
-- Compilazione reale fdmEditor Mac Development arm64: **Succeeded**. Restano
+- Compilazione reale RespawnAndRageEditor Mac Development arm64: **Succeeded**. Restano
   avvisi di API deprecate già presenti in ERFirstPersonForearms/ERShotEffects;
   nessun errore di compilazione nel risultato finale.
 - Verifica Editor dei riferimenti Character/TrainingTarget/Corpse: dieci skin
@@ -2303,3 +2303,25 @@ The private source reference is retained unchanged in
 SourceAssets/SketchfabWeapons/References/pistol-viewer-2026-10-15.png.
 This matches composition approximately using the existing skins' hand shapes;
 it does not replace their geometry with the viewer's glove.
+
+
+## 15 ottobre 2026 — Respawn & Rage: trasferimento e nuovo nome
+
+- `scripts/build-editor.command`: **PASS**, target RespawnAndRageEditor, Mac
+  Development arm64, UE 5.8.3. Compilazione/link completati; presenti avvisi di
+  deprecazione Unreal nei preesistenti helper di mesh/Niagara.
+- `python3 -m unittest discover -s scripts/tests -v`: **15/15 PASS**.
+- `python3 scripts/setup-assets.py --check`: **PASS**, 27 mount e nessun
+  puntatore LFS irrisolto dopo il trasferimento del progetto e delle cache.
+- `python3 scripts/test-network.py --shot-feedback --skins`: **PASS** con due
+  processi Unreal effettivi. Verificati rete, danno, respawn, corpi, selezione
+  skin e asset/feedback di sparo per host e client. Output locale:
+  `Saved/Testing/rebrand-network-result.log`.
+- `zsh -n` sui tre launcher e `git diff --check`: **PASS**.
+- Avvio reale `scripts/play.command`: menu Metal e titolo finestra
+  **Respawn & Rage**, sottotitolo **Serious guns. Questionable players**
+  verificati visivamente. Cattura locale `Saved/Testing/RespawnAndRage-menu.png`.
+
+Le namespace interne delle classi e degli asset sono state mantenute per
+compatibilità; nessun package binario è stato rinominato o modificato.
+Il prototipo precedente resta nella sua cartella, con remote e contenuti invariati.

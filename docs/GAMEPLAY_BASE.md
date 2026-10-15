@@ -1,10 +1,10 @@
-# Eclipse Recoil — Guida al gioco base in Unreal Engine
+# Respawn & Rage — Guida al gioco base in Unreal Engine
 
 > **Aggiornamento dello sviluppo locale — 12 ottobre 2026:** questa è la specifica
 > importata. Le decisioni correnti sono in [DEVELOPMENT.md](DEVELOPMENT.md), gli
 > esiti reali in [TEST_RESULTS.md](TEST_RESULTS.md). Per richiesta dell'utente,
 > packaging, distribuzione e CI (B10–B12) sono rinviati. Il progetto esistente
-> `fdm.uproject` è stato mantenuto e convertito a Blueprint + modulo C++.
+> `RespawnAndRage.uproject` è stato mantenuto e convertito a Blueprint + modulo C++.
 > Le istruzioni persistenti per lo sviluppo sono in `../AGENTS.md`.
 > La prima visuale FPS è stata corretta e verificata nel deposito: attacco
 > `HandGrip_R`, posa statica adattata delle braccia e assi Python espliciti.
@@ -22,7 +22,7 @@
 
 ## 1. Obiettivo e uso del documento
 
-Realizzare **Eclipse Recoil in Unreal Engine come piccolo FPS Team Deathmatch**, con una mappa, due squadre, un fucile e partite tra 2–4 persone. Il risultato deve essere un pacchetto autonomo: un amico lo estrae, lo avvia senza Unreal Editor e si collega all'host nella stessa rete locale.
+Realizzare **Respawn & Rage in Unreal Engine come piccolo FPS Team Deathmatch**, con una mappa, due squadre, un fucile e partite tra 2–4 persone. Il risultato deve essere un pacchetto autonomo: un amico lo estrae, lo avvia senza Unreal Editor e si collega all'host nella stessa rete locale.
 
 Questa guida serve sia per lavorare personalmente nell'Editor sia come specifica da consegnare a Codex o a un altro sviluppatore. Le fasi richiedono codice C++ e collegamenti nell'Editor: scaricare un template o importare asset non realizza da solo il multiplayer.
 
@@ -34,15 +34,15 @@ Procedere nell'ordine delle fasi. Ogni fase indica cosa produrre e quando consid
 
 | Elemento | Stato |
 |---|---|
-| Progetto di partenza | Repository `agea/eclipse-recoil`, branch `develop`. |
+| Progetto attuale | Repository `respawn-and-rage/core`, branch `main`. |
 | Revisione usata per ricavare le regole | `c5e6fad873e4bbddf189c1be4ba555b916bacad5`. |
 | Unreal Engine | L'utente dichiara di averlo scaricato; versione e piattaforma di sviluppo da registrare. |
 | Asset | L'utente ne ha aggiunti alla libreria Fab; nomi, licenze e compatibilità dei singoli pacchetti non sono ancora verificati. |
-| Nuovo progetto | Nome proposto `EclipseRecoilUE`, titolo mostrato ai giocatori **Eclipse Recoil**. |
+| Nuovo progetto | Nome progetto `RespawnAndRage`, titolo mostrato ai giocatori **Respawn & Rage**. |
 | Prima piattaforma | Quella compilabile con il computer e gli strumenti disponibili; Windows se si dispone di Windows e della relativa toolchain. |
 | Verifiche Unreal | Da eseguire durante l'implementazione. Nessun esito positivo è presunto da questa guida. |
 
-Le regole dell'originale riportate sotto derivano dalla configurazione e dal codice della revisione indicata. Alcuni passaggi introduttivi della documentazione storica descrivono preset precedenti: in caso di differenze, fare riferimento ai file effettivi e ai vincoli correnti del progetto. [R1], [R2], [R3]
+Le regole dell'originale riportate sotto derivano dalla configurazione e dal codice della revisione indicata. Alcuni passaggi introduttivi della documentazione storica descrivono preset precedenti: in caso di differenze, fare riferimento ai file effettivi e ai vincoli correnti del progetto.
 
 ## 2. Specifica del primo prototipo
 
@@ -62,7 +62,7 @@ Le regole dell'originale riportate sotto derivano dalla configurazione e dal cod
 | Equipaggiamento | Nessun pickup, nessuna arma lasciata a terra e nessuna raccolta dai cadaveri. |
 | Bot e melee | Bot di collaudo opzionali approvati dall'utente; zero bot di default. Melee assente. |
 
-Queste regole sono ricavate dal preset TDM, dall'arsenale e dalla gestione di stato del gioco originale. Il gioco completo interrompe la protezione anche con altre azioni, fra cui lo zoom: non essendoci zoom, granate o obiettivi nel prototipo, qui viene implementato lo sparo. [R1], [R2], [R4]
+Queste regole sono ricavate dal preset TDM, dall'arsenale e dalla gestione di stato del gioco originale. Il gioco completo interrompe la protezione anche con altre azioni, fra cui lo zoom: non essendoci zoom, granate o obiettivi nel prototipo, qui viene implementato lo sparo.
 
 ### 2.2 Valori del fucile
 
@@ -81,7 +81,7 @@ Le statistiche iniziali riprendono l'AK-103 dell'originale, mentre il modello pu
 | Gravità del proiettile | Disabilitata | Semplificazione del prototipo. |
 | Rimbalzo, penetrazione, splash | Disabilitati | Primo impatto conclusivo. |
 
-Nell'originale il valore di danno 360 è moltiplicato per la scala globale 0,1, ottenendo 36 HP al torso; il moltiplicatore della testa è 4. La ricarica da 1.500 ms deriva dai valori dell'arma nello slot Zapper. Il danno uniforme scelto qui rinvia quindi la localizzazione dei colpi. [R1], [R2], [R5]
+Nell'originale il valore di danno 360 è moltiplicato per la scala globale 0,1, ottenendo 36 HP al torso; il moltiplicatore della testa è 4. La ricarica da 1.500 ms deriva dai valori dell'arma nello slot Zapper. Il danno uniforme scelto qui rinvia quindi la localizzazione dei colpi.
 
 **Non copiare direttamente la velocità `10000` del vecchio motore:** le sue unità non sono una conversione verificata in centimetri Unreal. Anche velocità del personaggio, salto, capsula e gradini vanno adattati alla nuova scala. Il valore di prova sopra è una scelta del port.
 
@@ -90,7 +90,7 @@ Nell'originale il valore di danno 360 è moltiplicato per la scala globale 0,1, 
 Queste decisioni rendono la prima implementazione finita e verificabile; non pretendono di riprodurre tutto il sistema originale.
 
 - Massimo **4 giocatori** nella prima configurazione; collaudo minimo con 2, poi 3–4.
-- Per semplificare questo primo MVP, accettare la richiesta di respawn soltanto dopo i 3 secondi. Gli input anticipati non vengono accodati. È una differenza intenzionale: nell'originale una richiesta anticipata valida può rimanere in attesa fino alla scadenza. [R6], [R8]
+- Per semplificare questo primo MVP, accettare la richiesta di respawn soltanto dopo i 3 secondi. Gli input anticipati non vengono accodati. È una differenza intenzionale: nell'originale una richiesta anticipata valida può rimanere in attesa fino alla scadenza.
 - **Listen server**: chi ospita gioca ed esegue anche il server.
 - Collegamento per IP nella LAN; nessuna ricerca automatica di partite.
 - Una mappa `L_Depot`, una mappa menu `L_MainMenu`.
@@ -103,13 +103,13 @@ Queste decisioni rendono la prima implementazione finita e verificabile; non pre
 - Nessun riequilibrio delle squadre a metà partita. Un nuovo ingresso usa il bilanciamento; una riconnessione conta come nuovo ingresso.
 - A fine partita, risultato visibile per 10 secondi e poi nuova partita nella stessa mappa.
 
-Il punteggio semplificato è una decisione nuova: il server originale contiene anche punti e penalità più articolati. [R6]
+Il punteggio semplificato è una decisione nuova: il server originale contiene anche punti e penalità più articolati.
 
 ### 2.4 Funzioni rinviate
 
 Arsenale completo, pistola secondaria, loadout, granate, ADS/zoom, danno differenziato per ossa, recoil e dispersione fedeli all'originale, danni da caduta, sprint separato, arrampicata avanzata, bot competitivi avanzati, conversione delle vecchie mappe, generazione procedurale durante la partita, dedicated server, matchmaking, Steam/EOS, account e compensazione avanzata della latenza.
 
-I danni da caduta e alcune delle altre funzioni esistono nell'originale: rinviarli è una differenza dichiarata del primo port. Una zona fuori mappa può comunque causare una morte ambientale per evitare personaggi bloccati. [R1], [R3]
+I danni da caduta e alcune delle altre funzioni esistono nell'originale: rinviarli è una differenza dichiarata del primo port. Una zona fuori mappa può comunque causare una morte ambientale per evitare personaggi bloccati.
 
 ## 3. Fase 0 — Preparare progetto, strumenti e asset
 
@@ -132,7 +132,7 @@ L'installazione del motore distribuita da Epic è sufficiente per questo client 
 
 1. Nel Project Browser scegliere **Games → First Person → C++**.
 2. Se è disponibile una scelta di variante, scegliere **None**. Le etichette possono cambiare con la versione.
-3. Salvare il progetto come `EclipseRecoilUE` in una cartella nuova.
+3. Salvare il progetto come `RespawnAndRage` in una cartella nuova.
 4. Aprire il progetto, compilare il template senza modifiche e avviare una prova locale.
 5. Conservare gli asset del template necessari al personaggio provvisorio.
 6. Non aggiungere subito il contenuto di tutti i pacchetti Fab: iniziare con il minimo.
@@ -207,7 +207,7 @@ Per la prima fase bastano un personaggio provvisorio, un fucile e materiali semp
 
 | Percorso | Contenuto |
 |---|---|
-| `Source/EclipseRecoilUE/` | Classi C++, separate in sottocartelle di gameplay, armi e UI se utile. |
+| `Source/fdm/` | Classi C++, separate in sottocartelle di gameplay, armi e UI se utile. |
 | `Content/EclipseRecoil/Core/` | Blueprint delle classi principali. |
 | `Content/EclipseRecoil/Characters/` | Configurazione dei personaggi e animazioni proprie. |
 | `Content/EclipseRecoil/Weapons/` | Blueprint arma, proiettile e dati. |
@@ -438,7 +438,7 @@ Il nuovo Pawn nasce con 100 HP e 30+90 munizioni; squadra e statistiche restano 
 
 **Consumare la pressione che ha richiesto il respawn:** il medesimo click non deve sparare con il nuovo Pawn e annullare subito la protezione. Richiedere rilascio e nuova pressione per la successiva azione di sparo o salto. La UI deve riagganciarsi al nuovo Pawn, evitando riferimenti persistenti al corpo morto.
 
-Se il giocatore esce, cancellare le attese e non creare un Pawn per un Controller non più valido. [R4]
+Se il giocatore esce, cancellare le attese e non creare un Pawn per un Controller non più valido.
 
 ### 8.3 Protezione
 
@@ -452,7 +452,7 @@ La protezione:
 - Non viene rimossa da un tentativo di fuoco che il server rifiuta.
 - Non viene rinnovata da una ricarica o da un aggiornamento grafico.
 
-Sparo e scadenza della protezione sono regole server; il countdown client è solo una visualizzazione. [R1], [R4]
+Sparo e scadenza della protezione sono regole server; il countdown client è solo una visualizzazione.
 
 ### 8.4 Fine partita
 
@@ -538,9 +538,9 @@ Unreal esegue fasi di build, cook, stage e package per ottenere l'applicazione s
 
 Nomi proposti:
 
-- `EclipseRecoil-0.1.0-Windows-x64.zip`
-- `EclipseRecoil-0.1.0-Mac-arm64.zip`, solo dopo una build e un test reali di quella destinazione.
-- `EclipseRecoil-0.1.0-Linux-x64.zip`, quando la relativa toolchain è stata predisposta.
+- `RespawnAndRage-0.1.0-Windows-x64.zip`
+- `RespawnAndRage-0.1.0-Mac-arm64.zip`, solo dopo una build e un test reali di quella destinazione.
+- `RespawnAndRage-0.1.0-Linux-x64.zip`, quando la relativa toolchain è stata predisposta.
 
 Ogni piattaforma richiede il proprio pacchetto. Per macOS considerare anche firma e distribuzione secondo le regole della piattaforma prima di una release ampia. Non dichiarare una piattaforma supportata soltanto perché Unreal la supporta in generale.
 
@@ -573,7 +573,7 @@ Su itch.io è possibile caricare gli aggiornamenti con butler; inizialmente è s
 
 Per GitHub si può tenere il progetto privato e, se desiderato, usare un repository pubblico separato per distribuire soltanto i pacchetti del gioco. Gli archivi automatici “Source code” non sono l'applicazione confezionata. [G3]
 
-Allegare una breve `README_PLAYER.txt`: requisiti verificati, avvio, controlli, istruzioni LAN, versione, crediti e problemi noti. Per continuare la convenzione del progetto originale, scrivere eventuali `README.md` e `AGENTS.md` del repository in inglese; questa guida operativa rimane in italiano. [R7]
+Allegare una breve `README_PLAYER.txt`: requisiti verificati, avvio, controlli, istruzioni LAN, versione, crediti e problemi noti. Per continuare la convenzione del progetto originale, scrivere eventuali `README.md` e `AGENTS.md` del repository in inglese; questa guida operativa rimane in italiano.
 
 **Fase completata quando:** un tester su un secondo computer senza Unreal Editor estrae il pacchetto, lo avvia e completa una partita LAN.
 
@@ -636,7 +636,7 @@ Non iniziare B09 come sostituto di B03–B08: completare prima il ciclo moviment
 
 Il testo seguente può accompagnare questo file quando si richiede l'implementazione. È un incarico proposto per un passaggio successivo, non un'azione già svolta.
 
-> Implementa il primo prototipo di Eclipse Recoil in un nuovo progetto Unreal seguendo `ECLIPSE_RECOIL_UNREAL_BASE.md`.
+> Implementa il primo prototipo di Respawn & Rage in un nuovo progetto Unreal seguendo `GAMEPLAY_BASE.md`.
 >
 > Usa la versione Unreal disponibile e registra ambiente e toolchain. Parti dal template First Person C++, con Blueprint per asset e UI. Segui il backlog B01–B10 in ordine e mantieni Alpha/Omega, 100 HP, friendly fire, un fucile a proiettili, 30+90 munizioni, 600 RPM, danno uniforme 36 e ricarica di 1,5 secondi.
 >
@@ -652,16 +652,11 @@ Il testo seguente può accompagnare questo file quando si richiede l'implementaz
 
 Fonti consultate per preparare la guida: documentazione ufficiale Epic/GitHub/itch.io e codice del progetto originale. Le pagine online possono cambiare: selezionare nella documentazione Epic la versione di Unreal effettivamente utilizzata. Le licenze da applicare sono quelle dei contenuti acquisiti, non un nome di licenza dedotto dal prezzo.
 
-### Progetto originale, revisione fissata
+### Progetto attuale
 
-- [R1 — Configurazione TDM][R1]
-- [R2 — Configurazione dell'arsenale][R2]
-- [R3 — Documentazione gameplay][R3]
-- [R4 — Stato del personaggio, respawn e protezione][R4]
-- [R5 — Valori predefiniti delle armi][R5]
-- [R6 — Gestione server e punteggi][R6]
-- [R7 — Vincoli e convenzioni del progetto][R7]
-- [R8 — Richiesta di respawn dal client originale][R8]
+Il codice Unreal attivo è in [respawn-and-rage/core](https://github.com/respawn-and-rage/core).
+Le regole iniziali riportate nella guida sono un riferimento storico;
+le decisioni correnti sono in [DEVELOPMENT.md](DEVELOPMENT.md).
 
 ### Unreal Engine
 
@@ -695,14 +690,6 @@ Fonti consultate per preparare la guida: documentazione ufficiale Epic/GitHub/it
 - [L3 — Creative Commons CC0][L3]
 - [L4 — Unreal Engine End User License Agreement][L4]
 
-[R1]: https://github.com/agea/eclipse-recoil/blob/c5e6fad873e4bbddf189c1be4ba555b916bacad5/config/csgopen/tdm.cfg
-[R2]: https://github.com/agea/eclipse-recoil/blob/c5e6fad873e4bbddf189c1be4ba555b916bacad5/config/csgopen/arsenal.cfg
-[R3]: https://github.com/agea/eclipse-recoil/blob/c5e6fad873e4bbddf189c1be4ba555b916bacad5/doc/csgopen/gameplay.md
-[R4]: https://github.com/agea/eclipse-recoil/blob/c5e6fad873e4bbddf189c1be4ba555b916bacad5/src/game/game.h
-[R5]: https://github.com/agea/eclipse-recoil/blob/c5e6fad873e4bbddf189c1be4ba555b916bacad5/src/game/weapons.h
-[R6]: https://github.com/agea/eclipse-recoil/blob/c5e6fad873e4bbddf189c1be4ba555b916bacad5/src/game/server.cpp
-[R7]: https://github.com/agea/eclipse-recoil/blob/c5e6fad873e4bbddf189c1be4ba555b916bacad5/AGENTS.md
-[R8]: https://github.com/agea/eclipse-recoil/blob/c5e6fad873e4bbddf189c1be4ba555b916bacad5/src/game/game.cpp
 [E1]: https://dev.epicgames.com/documentation/en-us/unreal-engine/first-person-template-in-unreal-engine
 [E2]: https://dev.epicgames.com/documentation/en-us/unreal-engine/multiplayer-programming-quick-start-for-unreal-engine
 [E3]: https://dev.epicgames.com/documentation/en-us/unreal-engine/game-mode-and-game-state-in-unreal-engine

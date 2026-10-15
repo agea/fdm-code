@@ -44,7 +44,7 @@ def analyze(source, converter):
                 'partitions':'project Wood/Concrete/Drywall destruction profiles; geometry inferred as authored assembly slots',
                 'cover':'cargo containers, crate/pallet stacks, barrels, bunker rooms and central tower; substitute meshes allowed',
                 'variation':'bounded group offsets on a 50cm grid; fixed spawn bands and side circulation lanes',
-                'gameplay':'existing FDM team deathmatch; original buy/bomb entities are evidence only',
+                'gameplay':'existing Respawn & Rage team deathmatch; original buy/bomb entities are evidence only',
                 'limits':'inspired procedural adaptation, not lossless BSP reconstruction; source models and textures not imported'}}
 
 if __name__ == '__main__':

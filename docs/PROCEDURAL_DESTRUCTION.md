@@ -1,8 +1,8 @@
-# Eclipse Recoil — procedural destruction laboratory
+# Respawn & Rage — procedural destruction laboratory
 
-Eclipse Recoil is a tactical multiplayer FPS. This procedural laboratory adds
+Respawn & Rage is a tactical multiplayer FPS. This procedural laboratory adds
 a logical block world with penetration and radial destruction to the existing UE 5.8.3 project and FPS controls.
-The imported design is [ECLIPSE_RECOIL_PROCEDURAL_DESTRUCTION.md](ECLIPSE_RECOIL_PROCEDURAL_DESTRUCTION.md).
+The imported design is [PROCEDURAL_DESTRUCTION_SPEC.md](PROCEDURAL_DESTRUCTION_SPEC.md).
 It is a design reference; current scope is Milestones 1–6. Seeded multi-room/multi-floor layouts reuse
 logical storage/combat, controlled collapse and authoritative replication.
 
@@ -21,7 +21,7 @@ installation; `UE_ROOT` can point to another installed UE 5.8.3):
 
 ```sh
 "/Users/Shared/Epic Games/UE_5.8/Engine/Binaries/Mac/UnrealEditor.app/Contents/MacOS/UnrealEditor" \
-  "$PWD/fdm.uproject" -run=pythonscript -script="$PWD/scripts/setup_destruction_lab.py" \
+  "$PWD/RespawnAndRage.uproject" -run=pythonscript -script="$PWD/scripts/setup_destruction_lab.py" \
   -nullrhi -nosound -unattended -NoSplash
 scripts/play.command
 ```
@@ -93,7 +93,7 @@ lab map through Unreal; reruns preserve existing geometry/materials and apply
 the managed fill-light defaults. The map reuses
 `BP_ERGameMode`, its character/controller and existing input. No Fab assets or
 commercial destruction plugins were added. Native source/docs/scripts live in
-fdm-code; binaries are generated under the existing private maps asset mount.
+core; binaries are generated under the existing private maps asset mount.
 No asset binary belongs in the public code repository. Existing cache/build
 ignores and private-asset LFS rules already cover this milestone.
 

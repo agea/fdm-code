@@ -12,7 +12,7 @@ label='template'+('-network' if args.network else '-game')+('-metal' if args.ren
 children=[];handles=[];paths={}
 def launch(role,url,render=False,extra=()):
  path=out/(label+'-'+role+'.log');paths[role]=path;f=path.open('w');handles.append(f)
- cmd=[str(exe),str(root/'fdm.uproject'),url,'-game','-nosound','-unattended','-NoSplash','-Multiprocess','-stdout','-FullStdOutLogOutput','-windowed','-ResX=1280','-ResY=720','-ExecCmds=t.MaxFPS 60,sg.GlobalIlluminationQuality 0,sg.ReflectionQuality 0,sg.ShadowQuality 1']+list(extra)
+ cmd=[str(exe),str(root/'RespawnAndRage.uproject'),url,'-game','-nosound','-unattended','-NoSplash','-Multiprocess','-stdout','-FullStdOutLogOutput','-windowed','-ResX=1280','-ResY=720','-ExecCmds=t.MaxFPS 60,sg.GlobalIlluminationQuality 0,sg.ReflectionQuality 0,sg.ShadowQuality 1']+list(extra)
  if not render:cmd.append('-nullrhi')
  process=subprocess.Popen(cmd,cwd=root,stdout=f,stderr=subprocess.STDOUT);children.append(process);return process
 def read(role):return paths[role].read_text(errors='replace')

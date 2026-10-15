@@ -523,7 +523,8 @@ void AERPlayerController::ShowMenu(bool bShow)
     Panel->AddSlot().AutoHeight().Padding(0,0,0,12)[Heading(TEXT("PERSONAGGIO E ARMI"))];
     SetupPanel->AddSlot().AutoHeight().Padding(0,0,0,12)[Heading(TEXT("IMPOSTAZIONI"))];
     TSharedPtr<SWidget> FocusWidget;
-    Panel->AddSlot().AutoHeight().Padding(0,0,0,10)[SNew(STextBlock).Text(FText::FromString(TEXT("ECLIPSE RECOIL"))).Font(FCoreStyle::GetDefaultFontStyle("Bold",30))];
+    Panel->AddSlot().AutoHeight().Padding(0,0,0,10)[SNew(STextBlock).Text(FText::FromString(TEXT("Respawn & Rage"))).Font(FCoreStyle::GetDefaultFontStyle("Bold",30))];
+    Panel->AddSlot().AutoHeight().Padding(0,0,0,10)[SNew(STextBlock).Text(FText::FromString(TEXT("Serious guns. Questionable players")))];
     Panel->AddSlot().AutoHeight().Padding(0,0,0,20)[SNew(STextBlock).Text(FText::FromString(TEXT("ALPHA / OMEGA     •     TEAM DEATHMATCH")))];
     const auto* Catalog = SkinCatalog ? SkinCatalog->GetDefaultObject<AERCharacter>() : nullptr;
     for (bool Alpha : {true, false})

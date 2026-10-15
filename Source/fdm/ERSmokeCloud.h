@@ -25,9 +25,9 @@ public:
     virtual void Tick(float DeltaSeconds) override;
     virtual void EndPlay(const EEndPlayReason::Type Reason) override;
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Props) const override;
-    UFUNCTION(BlueprintCallable, Category="Eclipse Recoil|Editor")
+    UFUNCTION(BlueprintCallable, Category="Respawn & Rage|Editor")
     static FString DescribeSmokeSource(class UBlueprint* Blueprint, UNiagaraSystem* SmokeSystem);
-    UFUNCTION(BlueprintCallable, Category="Eclipse Recoil|Editor")
+    UFUNCTION(BlueprintCallable, Category="Respawn & Rage|Editor")
     static bool PrepareOwnedSystem(UNiagaraSystem* SmokeSystem);
 private:
     struct FShotCut { FVector Position; double Until; };

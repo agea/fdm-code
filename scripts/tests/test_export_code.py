@@ -12,7 +12,7 @@ class CodeExportTests(unittest.TestCase):
     def test_export_excludes_assets_git_archives_and_symlinks(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory).resolve() / 'project'
-            for name in ('fdm.uproject', '.gitignore', 'Source/fdm/main.cpp', 'Config/DefaultEngine.ini',
+            for name in ('RespawnAndRage.uproject', '.gitignore', 'Source/fdm/main.cpp', 'Config/DefaultEngine.ini',
                          'Content/private.uasset', 'SourceAssets/private.fbx', '.git/secret',
                          'scripts/private.zip', 'docs/private.png'):
                 path = root / name
@@ -25,7 +25,7 @@ class CodeExportTests(unittest.TestCase):
             module.export(root, output)
             manifest = json.loads((output / 'CODE_EXPORT.json').read_text())
             self.assertEqual({f['path'] for f in manifest['files']},
-                             {'fdm.uproject', '.gitignore', 'Source/fdm/main.cpp', 'Config/DefaultEngine.ini'})
+                             {'RespawnAndRage.uproject', '.gitignore', 'Source/fdm/main.cpp', 'Config/DefaultEngine.ini'})
             self.assertIn('/Content/', (output / '.gitignore').read_text())
             self.assertNotIn('/Content/', (root / '.gitignore').read_text())
             self.assertFalse((output / '.git').exists())

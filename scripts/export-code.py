@@ -15,7 +15,7 @@ SUFFIXES = {
     'Source': {'.cpp', '.h', '.cs'}, 'Config': {'.ini'},
     'scripts': {'.py', '.command', '.sh'}, 'docs': {'.md', '.txt', '.json'},
 }
-ROOT_FILES = ('fdm.uproject', 'README.md', 'AGENTS.md', '.gitignore', '.gitattributes', 'assets.json', '.gitmodules')
+ROOT_FILES = ('RespawnAndRage.uproject', 'README.md', 'AGENTS.md', '.gitignore', '.gitattributes', 'assets.json', '.gitmodules')
 
 def source_files(root):
     files = [root / name for name in ROOT_FILES if (root / name).is_file() and not (root / name).is_symlink()]
@@ -45,7 +45,7 @@ def export(root, destination):
     (destination / 'CODE_EXPORT.json').write_text(json.dumps({'files': manifest, 'assets_included': False, 'git_history_included': False}, indent=2) + '\n')
     (destination / 'ASSETS_REQUIRED.md').write_text(
         '# Assets required\n\nThis export contains code/configuration only. It cannot run until the\n'
-        'matching private Content tree is restored beside fdm.uproject.\n'
+        'matching private Content tree is restored beside RespawnAndRage.uproject.\n'
         'SourceAssets are needed only for asset rebuilding. Preserve original\n'
         '/Game package paths; obtain licensed packs through their publishers.\n'
         'See docs/REPOSITORY_CLEANUP.md and docs/ASSET_LICENSES.md.\n'

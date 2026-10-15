@@ -1,4 +1,4 @@
-"""Create FDM-owned presentation assets for training targets and patrol bots.
+"""Create project-owned presentation assets for training targets and patrol bots.
 
 Preserves Fab originals, player appearance, template animation and edited maps.
 Run through Unreal's Python commandlet after compiling the Editor module.

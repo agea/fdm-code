@@ -1,21 +1,25 @@
-# Eclipse Recoil — Unreal local prototype
+# Respawn & Rage
 
-Unreal Engine **5.8.3**, macOS arm64. Existing First Person project with a native
-server-authoritative Team Deathmatch module. Packaging and distribution are deferred.
+**Serious guns. Questionable players**
 
-Code is public in **agea/fdm-code**; licensed content is held in three private
+A tactical multiplayer FPS for quick deathmatch sessions with friends, compact
+maps and server-authoritative gunplay. Built with Unreal Engine **5.8.3**;
+currently playable locally and over LAN through the macOS arm64 Editor runtime.
+Packaging and distribution are deferred.
+
+Code is public in **respawn-and-rage/core**; licensed content is held in three private
 submodules for characters, weapons and maps. A public code clone needs asset
 access before it can run. See [asset setup and editing](docs/ASSET_SUBMODULES.md).
 
 ```sh
-git clone https://github.com/agea/fdm-code.git
-cd fdm-code
+git clone https://github.com/respawn-and-rage/core.git respawn-and-rage/core
+cd respawn-and-rage/core
 git lfs install
 python3 scripts/setup-assets.py --init
 python3 scripts/setup-assets.py --check
 ```
 
-Open `fdm.uproject` with Unreal 5.8.3, or run `scripts/open-editor.command`.
+Open `RespawnAndRage.uproject` with Unreal 5.8.3, or run `scripts/open-editor.command`.
 Run `scripts/play.command` to play in a separate window using the Editor runtime.
 The first window, including the main menu, uses 70% of the main screen's width
 and height, accounting for Retina scaling (1280x720 fallback without a graphical
@@ -107,13 +111,23 @@ window, while the HUD keeps the window resolution. These are performance targets
 not measured guarantees. The menu offers 50–90% window sizes and fullscreen; the
 FPS overlay also shows the approximate internal 3D resolution.
 
-To compile the Editor module after C++ changes:
+The local workspace lives in `/Users/agea/git/respawn-and-rage/core`; its sibling
+`_cache` holds the private asset repositories’ Git LFS caches. Repository URLs
+and cloning instructions use the `respawn-and-rage` GitHub organization.
+
+To compile the Editor module after C++ changes, run `scripts/build-editor.command`
+or use the equivalent command:
 
 ```sh
 "/Users/Shared/Epic Games/UE_5.8/Engine/Build/BatchFiles/Mac/Build.sh" \
-  fdmEditor Mac Development -Project="$PWD/fdm.uproject" \
+  RespawnAndRageEditor Mac Development -Project="$PWD/RespawnAndRage.uproject" \
   -architecture=arm64 -NoHotReloadFromIDE
 ```
+
+The native `fdm` module, `/Script/fdm` classes, `/Game/EclipseRecoil` packages
+and saved settings keys remain internal compatibility identifiers. They preserve
+existing Blueprint references, edited maps and player preferences; the project,
+build targets and player-facing title use Respawn & Rage.
 
 `scripts/setup_editor.py` creates initial Blueprint/input/data/map assets inside
 Unreal. It preserves existing maps. Do not rerun it to overwrite manual art work.
@@ -229,7 +243,7 @@ The block-destruction prototype reuses this UE 5.8.3 project in a separate
 standalone 5×5×3 m room. Run `scripts/play.command` and choose
 **LABORATORIO DISTRUZIONE** in the main menu after generating the owned lab assets.
 See [setup, controls and implementation limits](docs/PROCEDURAL_DESTRUCTION.md).
-The imported [design reference](docs/ECLIPSE_RECOIL_PROCEDURAL_DESTRUCTION.md)
+The imported [design reference](docs/PROCEDURAL_DESTRUCTION_SPEC.md)
 includes later milestones. Penetration and occluded batch explosions are now
 implemented in standalone. Choose **PIANO PROCEDURALE** in the menu
 for 6–10 connected rooms generated from a seed.

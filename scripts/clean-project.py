@@ -74,8 +74,8 @@ def main():
     args = parser.parse_args()
     if args.older_than < 0:
         parser.error('--older-than must be non-negative')
-    if not (PROJECT / 'fdm.uproject').is_file():
-        raise RuntimeError('Expected fdm.uproject beside the scripts directory.')
+    if not (PROJECT / 'RespawnAndRage.uproject').is_file():
+        raise RuntimeError('Expected RespawnAndRage.uproject beside the scripts directory.')
     paths = generated_files(PROJECT, args.profile, args.older_than)
     tracked = tracked_paths(PROJECT)
     conflicts = [p for p in paths if p in tracked]

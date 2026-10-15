@@ -1,4 +1,4 @@
-Eclipse Recoil — local verification, 2026-10-12
+Respawn & Rage — local verification, 2026-10-12
 Unreal 5.8.3 / Mac Editor Development arm64 / Xcode 27
 Build.sh: Succeeded (actual output recorded in session)
 setup_editor.py: ER_SETUP_SUCCESS
@@ -107,7 +107,7 @@ bot-tests.log
 [2026.10.12-19.09.13:518][556]LogTemp: Display: ER_BOT_PROBE_COMPLETE result=PASS mode=Target
 [2026.10.12-19.08.49:517][  7]LogTemp: Display: ER_BOT_CLIENT_PASS pawn_team_health_replicated
 [2026.10.12-19.08.58:607][552]LogTemp: Display: ER_BOT_CLIENT_PASS bot_death_score_replicated
-BOT INTEGRATION PASS: both modes and remote-client replication. Logs: /Users/agea/git/fdm/fdm/Saved/Testing
+BOT INTEGRATION PASS: both modes and remote-client replication. Logs: /Users/agea/git/respawn-and-rage/core/Saved/Testing
 
 bot-network-regression.log
 [2026.10.12-19.08.10:647][563]LogTemp: Display: ER_TEST_PASS T03_balanced_teams

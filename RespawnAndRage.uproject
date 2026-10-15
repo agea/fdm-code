@@ -2,7 +2,7 @@
   "FileVersion": 3,
   "EngineAssociation": "5.8",
   "Category": "",
-  "Description": "Eclipse Recoil \u2014 local Unreal TDM prototype",
+  "Description": "Respawn & Rage — Serious guns. Questionable players",
   "Plugins": [
     {
       "Name": "NiagaraFluids",

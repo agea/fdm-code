@@ -16,7 +16,7 @@ destination.mkdir(parents=True)
 (destination / 'Saved/Testing').mkdir(parents=True)
 for folder in ('Config', 'Source', 'Binaries', 'scripts'):
     shutil.copytree(project / folder, destination / folder, ignore=shutil.ignore_patterns('__pycache__'))
-shutil.copy2(project / 'fdm.uproject', destination / 'fdm.uproject')
+shutil.copy2(project / 'RespawnAndRage.uproject', destination / 'RespawnAndRage.uproject')
 count = 0
 import runpy
 content_files = runpy.run_path(str(project / 'scripts/asset_files.py'))['content_files']
@@ -33,4 +33,4 @@ for path in content_files(project):
 assert not (destination / 'Content/Mercenary_Male_WaveforceStudio').exists()
 assert not (destination / 'Content/EclipseRecoil/Characters/Mercenary').exists()
 (destination / 'READ_ONLY_ASSETS.txt').write_text('Content is hardlinked. Run game/read-only verification only; never save/import/setup assets here.\n')
-print('ER_NO_MERCENARY_FIXTURE_READY assets=%d project=%s' % (count, destination / 'fdm.uproject'))
+print('ER_NO_MERCENARY_FIXTURE_READY assets=%d project=%s' % (count, destination / 'RespawnAndRage.uproject'))

@@ -19,7 +19,7 @@ public:
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> FlashMaterial;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) float BurstScale = .75f;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) float PlayRate = 1.5f;
-    UFUNCTION(BlueprintCallable, Category="Eclipse Recoil|Editor")
+    UFUNCTION(BlueprintCallable, Category="Respawn & Rage|Editor")
     static bool AssignDebrisMaterials(USkeletalMesh* Mesh, UMaterialInterface* Surface, UMaterialInterface* Side);
     static void PrecacheEffect(TSubclassOf<AERGrenadeExplosion> EffectClass);
     virtual void BeginPlay() override;

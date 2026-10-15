@@ -1,7 +1,7 @@
 using UnrealBuildTool;
-public class fdmEditorTarget : TargetRules
+public class RespawnAndRageEditorTarget : TargetRules
 {
-    public fdmEditorTarget(TargetInfo Target) : base(Target)
+    public RespawnAndRageEditorTarget(TargetInfo Target) : base(Target)
     {
         Type = TargetType.Editor;
         DefaultBuildSettings = BuildSettingsVersion.V7;

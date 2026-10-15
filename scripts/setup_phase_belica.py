@@ -1,6 +1,6 @@
 """Append five Belica Alpha and five Phase Omega appearances via Unreal.
 
-Run after building fdmEditor. The original ten stable indices and vendor assets
+Run after building RespawnAndRageEditor. The original ten stable indices and vendor assets
 are preserved. A completion marker prevents overwriting subsequent artist edits.
 """
 from pathlib import Path

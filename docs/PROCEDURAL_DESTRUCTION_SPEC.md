@@ -1,7 +1,7 @@
-# Eclipse Recoil — Mappe procedurali a blocchi e distruzione dinamica
+# Respawn & Rage — Mappe procedurali a blocchi e distruzione dinamica
 
 > **Destinatario:** OpenAI Codex (agente di sviluppo)
-> **Progetto:** Eclipse Recoil, porting/evoluzione verso Unreal Engine 5
+> **Progetto:** Respawn & Rage, porting/evoluzione verso Unreal Engine 5
 > **Documento:** specifica tecnica e piano di implementazione, versione iniziale
 > **Priorità:** realizzare **un prototipo funzionante e misurabile**, non una simulazione fisica completa.
 
@@ -9,7 +9,7 @@
 
 Agisci come sviluppatore Unreal Engine 5 C++ nel repository su cui stai lavorando.
 
-1. **Ispeziona prima il repository**: struttura, linguaggi, motore attuale, eventuale `.uproject`, moduli C++, asset, script di build, test, licenze e istruzioni già presenti (`AGENTS.md` inclusi). Non presumere che il vecchio Eclipse Recoil sia già un progetto Unreal.
+1. **Ispeziona prima il repository**: struttura, linguaggi, motore attuale, eventuale `.uproject`, moduli C++, asset, script di build, test, licenze e istruzioni già presenti (`AGENTS.md` inclusi). Non presumere che il vecchio Respawn & Rage sia già un progetto Unreal.
 2. Individua la versione di Unreal Engine effettivamente installata/richiesta dal progetto e **adatta API, Build.cs e plugin a quella versione**. Non effettuare upgrade arbitrari del motore.
 3. Se esiste già un progetto Unreal, integrati con esso preservando il gameplay funzionante. Se il repository contiene solo il gioco originale in un altro motore, realizza il prototipo Unreal **in una cartella/progetto separato**, secondo le convenzioni esistenti; non riscrivere o cancellare il codice originale.
 4. **Implementa codice ed esempi eseguibili**, non limitarti a descrivere la soluzione. Procedi per incrementi piccoli e verificabili; mantieni il progetto compilabile quando è disponibile la toolchain.
@@ -462,4 +462,4 @@ Verifica le API sulla versione Unreal effettiva del progetto; i link sotto punta
 - [Destruction Quick Start — Epic](https://dev.epicgames.com/documentation/en-us/unreal-engine/destruction-quick-start)
 - [Chaos Fields User Guide — Epic](https://dev.epicgames.com/documentation/en-us/unreal-engine/chaos-fields-user-guide-in-unreal-engine)
 
-**Nota sul repository:** riferimento comunicato dal committente: `https://github.com/agea/eclipse-recoil/tree/develop`. La struttura reale non è stata verificata durante la stesura: Codex deve basarsi sul repository locale effettivamente disponibile, non assumere dettagli non confermati.
+**Nota sul repository:** riferimento comunicato dal committente: `https://github.com/respawn-and-rage/core`. La struttura reale non è stata verificata durante la stesura: Codex deve basarsi sul repository locale effettivamente disponibile, non assumere dettagli non confermati.

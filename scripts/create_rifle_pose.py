@@ -170,7 +170,7 @@ if 'ER_POSE_FINALIZE' in globals():
 controller = asset.get_editor_property('controller')
 model = controller.get_model_interface()
 key_count = model.get_number_of_frames() + 1
-controller.open_bracket('Eclipse Recoil prototype hip-fire pose', False)
+controller.open_bracket('Respawn & Rage prototype hip-fire pose', False)
 try:
     for name in model.get_bone_track_names():
         if str(name) not in pose_bones:

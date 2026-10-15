@@ -14,7 +14,7 @@ root=Path(__file__).resolve().parents[1];out=root/'Saved/Testing';out.mkdir(pare
 engine=Path(os.environ.get('UE_ROOT','/Users/Shared/Epic Games/UE_5.8'))
 exe=engine/'Engine/Binaries/Mac/UnrealEditor.app/Contents/MacOS/UnrealEditor'
 label='destruction-network'+('-metal' if args.render else '-loss' if args.loss else '')
-common=[str(exe),str(root/'fdm.uproject'),'-game','-nosound','-unattended','-NoSplash','-Multiprocess','-stdout','-FullStdOutLogOutput','-windowed','-ResX=1280','-ResY=720']
+common=[str(exe),str(root/'RespawnAndRage.uproject'),'-game','-nosound','-unattended','-NoSplash','-Multiprocess','-stdout','-FullStdOutLogOutput','-windowed','-ResX=1280','-ResY=720']
 port='17786';children=[];handles=[];paths={}
 def launch(role,url,render=False,extra=None):
  path=out/(label+'-'+role+'.log');paths[role]=path;handle=path.open('w');handles.append(handle)

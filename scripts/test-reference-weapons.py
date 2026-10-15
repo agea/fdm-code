@@ -13,7 +13,7 @@ project=Path(__file__).resolve().parents[1]
 engine=Path(os.environ.get('UE_ROOT','/Users/Shared/Epic Games/UE_5.8'))
 editor=engine/'Engine/Binaries/Mac/UnrealEditor.app/Contents/MacOS/UnrealEditor'
 logs=project/'Saved/Testing';logs.mkdir(parents=True,exist_ok=True)
-common=[str(editor),str(project/'fdm.uproject'),'-game','-nosound','-unattended','-NoSplash','-Multiprocess','-stdout','-FullStdOutLogOutput','-ExecCmds=t.MaxFPS 60']
+common=[str(editor),str(project/'RespawnAndRage.uproject'),'-game','-nosound','-unattended','-NoSplash','-Multiprocess','-stdout','-FullStdOutLogOutput','-ExecCmds=t.MaxFPS 60']
 if not args.render:common.append('-nullrhi')
 else:common+=['-windowed','-ResX=1280','-ResY=720','-ERReferenceGallery']
 if args.render:common[common.index('-ExecCmds=t.MaxFPS 60')]='-ExecCmds=t.MaxFPS 60,r.DynamicRes.OperationMode 0,r.ScreenPercentage 100'

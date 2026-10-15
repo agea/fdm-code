@@ -2,7 +2,7 @@
 
 | Elemento | Valore verificato |
 |---|---|
-| Progetto | `/Users/agea/git/fdm/fdm/fdm.uproject` |
+| Progetto | `/Users/agea/git/respawn-and-rage/core/RespawnAndRage.uproject` |
 | Motore | Unreal Engine 5.8.3, Epic Launcher, CL 58210709 |
 | Percorso motore | `/Users/Shared/Epic Games/UE_5.8` |
 | Sistema | macOS 27.0.1, build 26A434 |

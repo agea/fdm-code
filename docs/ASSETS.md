@@ -5,7 +5,7 @@
 | Template First Person / Arena Shooter, Epic Games, UE 5.8.3 | Manny semplice, animazione rifle idle e locomozione rifle per gli avversari | `Content/Characters/Mannequins/`, `Content/Variant_Shooter/Anims/ABP_TP_Rifle` | Caricato dal progetto originale e dal prototipo; vista FPS verificata con Metal | Contenuto incluso nel template installato. Registrare le condizioni applicabili prima della condivisione dei sorgenti o distribuzione; nessuna pubblicazione effettuata |
 | Template Epic, UE 5.8.3 | Mesh skeletal del fucile | `Content/Weapons/Rifle/` | Caricata da Blueprint; orientamento FPS adattato | Stessa provenienza del template; non attribuita una licenza Fab per deduzione |
 | Engine Basic Shapes / Epic | Cube e Sphere per blocchi e indicatore team | `/Engine/BasicShapes/` | Collisioni e proiettili verificati in processi locali | Dipendenza dal motore installato |
-| Sviluppo Eclipse Recoil locale | Materiali, Blueprint, mappe e input creati dallo script | `Content/EclipseRecoil/` | Generati e salvati con Unreal Editor 5.8.3 | Contenuti propri del prototipo |
+| Sviluppo Respawn & Rage locale | Materiali, Blueprint, mappe e input creati dallo script | `Content/EclipseRecoil/` | Generati e salvati con Unreal Editor 5.8.3 | Contenuti propri del prototipo |
 | Adattamento locale del template Epic | Posa statica FPS con entrambe le mani allineate al fucile | `Content/EclipseRecoil/Characters/A_ER_Rifle_HipPose` | Salvata via Editor e verificata con Metal | Derivata da `MF_Rifle_Idle_ADS`; stessa provenienza e condizioni del template |
 
 Documentazione della provenienza del template:
@@ -55,7 +55,7 @@ rilievo leggero della cavità. Nessuna texture esterna; rigenerabile con
 `scripts/setup_bullet_impact.py`.
 
 Corona munizioni/dispersione: disegno Canvas nativo, senza nuovi asset raster,
-mesh o font. Il codice HUD del vecchio Eclipse Recoil è stato consultato
+mesh o font. Il codice HUD del vecchio Respawn & Rage è stato consultato
 come riferimento funzionale; nessuna texture del vecchio gioco è importata.
 I nuovi parametri di precisione appartengono a `UERWeaponData` / `DA_Rifle_A`.
 
@@ -191,7 +191,7 @@ autore/licenza non forniti nei file letti, nessuna pubblicazione effettuata.
 
 `scripts/migrate_interactive_smoke.py` esegue la migrazione Unreal del
 Blueprint principale e delle dipendenze: undici package in Content/InteractiveSmoke.
-Mappe, personaggi e impostazioni del progetto dimostrativo non sostituiscono FDM.
+Mappe, personaggi e impostazioni del progetto dimostrativo non sostituiscono Respawn & Rage.
 NiagaraFluids attivato nel progetto 5.8.3; modulo nativo dipende da Niagara.
 
 `scripts/setup_interactive_smoke.py` duplica NS_InterSmoke_Sim come
@@ -200,7 +200,7 @@ nei default di BP_ERProjectile. Griglia massima 40, dominio 600x600x400 cm,
 durata 12 s, colore originale grigio. L'interfaccia del volume genera render
 target gestiti per istanza, evitando la texture condivisa del Blueprint demo.
 Simulazione/renderers/materiali/texture dell'effetto originale preservati;
-inizializzazione e ciclo di vita adattati al networking nativo di FDM.
+inizializzazione e ciclo di vita adattati al networking nativo di Respawn & Rage.
 
 Il renderer MD_Volume richiede il pass volumetric fog: supporto creato soltanto
 a runtime durante le nubi, densità ambientale quasi nulla; nessuna mappa salvata
@@ -219,7 +219,7 @@ come riferimenti, ma non vengono usati per le morti.
 Skin/occhi/capelli originali conservati. Materiali di abbigliamento/equipaggiamento
 con texture e normali originali, desaturazione/tinta sobria, emissivo azzerato,
 metallic 0,05 e roughness 0,82. Armi incorporate Paragon nascoste; Drongo senza
-bazooka, boomerang, tubi della maschera e decorazioni d'osso. L'arsenale FDM
+bazooka, boomerang, tubi della maschera e decorazioni d'osso. L'arsenale Respawn & Rage
 rimane l'equipaggiamento visibile. Protesi e proporzioni stilizzate degli eroi
 non sono state rimodellate. FPS ancora mercenario con guanti oliva/marrone.
 
@@ -229,7 +229,7 @@ asset, pubblicazione né verifica delle condizioni di distribuzione dei pacchett
 
 Il ragdoll usa sempre LOD0; gli originali Paragon sono mantenuti. Drongo senza
 canister_pos e grenade_pos: accessori delle abilità originali che potevano
-restare fluttuanti dopo la caduta. Le granate dell'arsenale FDM sono separate.
+restare fluttuanti dopo la caduta. Le granate dell'arsenale Respawn & Rage sono separate.
 
 ### Varianti selezionabili — 14 ottobre
 
@@ -309,9 +309,9 @@ fuori dalla cartella progetto, senza cambio di licenza o upload cloud.
 
 ## Separazione codice/asset · 14 ottobre 2026
 
-La scelta successiva dell’utente è un repository pubblico `agea/fdm-code`
+La scelta successiva dell’utente è un repository pubblico `respawn-and-rage/core`
 e tre submodule privati (personaggi, armi/effetti, mappe/Blueprint comuni).
-Il vecchio `agea/fdm` resta privato. I percorsi Unreal sono invariati;
+Il vecchio archivio privato originale resta privato. I percorsi Unreal sono invariati;
 Content/SourceAssets sono collegamenti generati e ignorati. La struttura
 attuale e i comandi sono in [ASSET_SUBMODULES.md](ASSET_SUBMODULES.md), che
 sostituisce la precedente proposta di un solo submodule. Nessuna licenza

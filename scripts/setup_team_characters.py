@@ -1,6 +1,6 @@
 """Build owned Twinblast/Drongo appearances; never edit the Paragon packages.
 
-Run in Unreal Editor after compiling fdmEditor. Retarget the complete template
+Run in Unreal Editor after compiling RespawnAndRageEditor. Retarget the complete template
 rifle animation blueprint with its referenced locomotion assets for each rig.
 """
 import unreal as ue

@@ -8,7 +8,7 @@ args=parser.parse_args()
 root=Path(__file__).resolve().parents[1]
 exe=Path(os.environ.get('UE_ROOT','/Users/Shared/Epic Games/UE_5.8'))/'Engine/Binaries/Mac/UnrealEditor.app/Contents/MacOS/UnrealEditor'
 logs=root/'Saved/Testing'; logs.mkdir(parents=True,exist_ok=True)
-common=[str(exe),str(root/'fdm.uproject'),'-game','-nullrhi','-nosound','-unattended','-NoSplash','-Multiprocess','-stdout','-FullStdOutLogOutput','-ExecCmds=t.MaxFPS 60','-MULTIHOME=0.0.0.0']
+common=[str(exe),str(root/'RespawnAndRage.uproject'),'-game','-nullrhi','-nosound','-unattended','-NoSplash','-Multiprocess','-stdout','-FullStdOutLogOutput','-ExecCmds=t.MaxFPS 60','-MULTIHOME=0.0.0.0']
 for index,(map_name,behavior,server) in enumerate([('L_Depot','Target',False),('L_Depot','Movement',True),('L_MovementLab','Target',True),('L_DestructionLab','Target',True),('L_ProceduralLab','Target',True)]):
     if args.map and map_name!=args.map: continue
     port=17930+index

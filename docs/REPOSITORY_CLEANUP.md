@@ -15,7 +15,7 @@ distingue spazio locale, file necessari al gioco e materiali per ricostruirli.
   Build e Binaries funzionanti conservati per avviare subito il gioco.
 - Backup, copie pre-migrazione e fixture di verifica sono fuori dal progetto:
   `/Users/agea/git/fdm/_backups/2026-10-14-cleanup`.
-- Cache LFS: `/Users/agea/git/fdm/_cache/lfs`, **4.927 oggetti / 5,43 GiB**, tutti
+- Cache LFS: `/Users/agea/git/respawn-and-rage/_cache/lfs`, **4.927 oggetti / 5,43 GiB**, tutti
   verificati SHA-256. Nessun oggetto eliminato. Solo `lfs.storage` nella config
   locale Git è cambiata; i nuovi cloni usano la loro configurazione predefinita.
 
@@ -139,7 +139,7 @@ Ripetere l'audit con il modulo Editor compilato:
 
 ```sh
 "/Users/Shared/Epic Games/UE_5.8/Engine/Binaries/Mac/UnrealEditor.app/Contents/MacOS/UnrealEditor" \
-  "$PWD/fdm.uproject" -run=pythonscript -script="$PWD/scripts/audit-assets.py" \
+  "$PWD/RespawnAndRage.uproject" -run=pythonscript -script="$PWD/scripts/audit-assets.py" \
   -unattended -nullrhi -nosound -NoSplash
 ```
 
@@ -230,9 +230,9 @@ non richiede rinominare o migrare i package UE se si mantiene `Content/`.
 
 ## Separazione codice/asset · 14 ottobre 2026
 
-La scelta successiva dell’utente è un repository pubblico `agea/fdm-code`
+La scelta successiva dell’utente è un repository pubblico `respawn-and-rage/core`
 e tre submodule privati (personaggi, armi/effetti, mappe/Blueprint comuni).
-Il vecchio `agea/fdm` resta privato. I percorsi Unreal sono invariati;
+Il vecchio archivio privato originale resta privato. I percorsi Unreal sono invariati;
 Content/SourceAssets sono collegamenti generati e ignorati. La struttura
 attuale e i comandi sono in [ASSET_SUBMODULES.md](ASSET_SUBMODULES.md), che
 sostituisce la precedente proposta di un solo submodule. Nessuna licenza

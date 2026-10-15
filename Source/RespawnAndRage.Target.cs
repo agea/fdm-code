@@ -1,7 +1,7 @@
 using UnrealBuildTool;
-public class fdmTarget : TargetRules
+public class RespawnAndRageTarget : TargetRules
 {
-    public fdmTarget(TargetInfo Target) : base(Target)
+    public RespawnAndRageTarget(TargetInfo Target) : base(Target)
     {
         Type = TargetType.Game;
         DefaultBuildSettings = BuildSettingsVersion.V7;

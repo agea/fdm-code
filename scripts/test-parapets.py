@@ -10,7 +10,7 @@ p=argparse.ArgumentParser(description=__doc__);p.add_argument('--render',action=
 root=Path(__file__).resolve().parents[1];out=root/'Saved/Testing';out.mkdir(parents=True,exist_ok=True)
 engine=Path(os.environ.get('UE_ROOT','/Users/Shared/Epic Games/UE_5.8'));exe=engine/'Engine/Binaries/Mac/UnrealEditor.app/Contents/MacOS/UnrealEditor'
 children=[];handles=[]
-common=[str(exe),str(root/'fdm.uproject'),'-game','-nosound','-unattended','-NoSplash','-Multiprocess','-stdout','-FullStdOutLogOutput','-ERParapetProbe','-ExecCmds=t.MaxFPS 60,sg.GlobalIlluminationQuality 0,sg.ReflectionQuality 0,sg.ShadowQuality 1']
+common=[str(exe),str(root/'RespawnAndRage.uproject'),'-game','-nosound','-unattended','-NoSplash','-Multiprocess','-stdout','-FullStdOutLogOutput','-ERParapetProbe','-ExecCmds=t.MaxFPS 60,sg.GlobalIlluminationQuality 0,sg.ReflectionQuality 0,sg.ShadowQuality 1']
 def launch(role,url,extra):
  f=(out/('parapet-'+role+'.log')).open('w');handles.append(f)
  c=subprocess.Popen(common+[url]+extra,cwd=root,stdout=f,stderr=subprocess.STDOUT);children.append(c);return c

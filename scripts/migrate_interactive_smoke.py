@@ -5,7 +5,7 @@ from pathlib import Path
 import json
 import unreal as ue
 
-output = Path('/Users/agea/git/fdm/fdm/SourceAssets/InteractiveSmoke')
+output = Path('/Users/agea/git/respawn-and-rage/core/SourceAssets/InteractiveSmoke')
 output.mkdir(parents=True,exist_ok=True)
 registry = ue.AssetRegistryHelpers.get_asset_registry()
 registry.search_all_assets(True)
@@ -14,7 +14,7 @@ options = ue.MigrationOptions()
 options.set_editor_property('prompt',False)
 options.set_editor_property('ignore_dependencies',False)
 options.set_editor_property('asset_conflict',ue.AssetMigrationConflict.SKIP)
-ue.AssetToolsHelpers.get_asset_tools().migrate_packages([root],'/Users/agea/git/fdm/fdm/Content',options)
+ue.AssetToolsHelpers.get_asset_tools().migrate_packages([root],'/Users/agea/git/respawn-and-rage/core/Content',options)
 ue.log('ER_SMOKE_MIGRATION_DONE')
 
 bp=ue.load_asset(root)

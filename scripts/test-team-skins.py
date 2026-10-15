@@ -8,7 +8,7 @@ project=Path(__file__).resolve().parents[1]
 engine=Path(os.environ.get('UE_ROOT','/Users/Shared/Epic Games/UE_5.8'))
 editor=engine/'Engine/Binaries/Mac/UnrealEditor.app/Contents/MacOS/UnrealEditor'
 logs=project/'Saved/Testing'
-common=[str(editor),str(project/'fdm.uproject'),'/Game/EclipseRecoil/Maps/L_Depot?listen?Name=SkinReview',
+common=[str(editor),str(project/'RespawnAndRage.uproject'),'/Game/EclipseRecoil/Maps/L_Depot?listen?Name=SkinReview',
     '-game','-windowed','-ResX=1800','-ResY=1000','-NoSplash','-nosound','-stdout','-FullStdOutLogOutput','-ExecCmds=t.MaxFPS 60,sg.ShadowQuality 1']
 def run(label,flags,complete,passes):
     path=logs/(label+'.log')

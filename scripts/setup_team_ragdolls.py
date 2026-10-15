@@ -1,4 +1,4 @@
-"""Generate anatomical ragdolls only on FDM-owned character meshes/assets."""
+"""Generate anatomical ragdolls only on project-owned character meshes/assets."""
 import unreal as u
 
 assets=u.EditorAssetLibrary

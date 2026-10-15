@@ -29,7 +29,7 @@ logs=project/'Saved/Testing';logs.mkdir(parents=True,exist_ok=True)
 rhi='metal' if args.render else 'nullrhi'
 label='destruction-benchmark-'+args.label+'-'+rhi
 log=logs/(label+'.log'); raw=logs/(label+'.csv')
-command=[str(editor),str(project/'fdm.uproject'),'/Game/EclipseRecoil/Maps/L_ProceduralLab?Primary=0',
+command=[str(editor),str(project/'RespawnAndRage.uproject'),'/Game/EclipseRecoil/Maps/L_ProceduralLab?Primary=0',
  '-game','-ERBlockStressProbe','-ERBlockBenchmarkLabel='+args.label,'-ERBlockBenchmarkSamples='+str(args.samples),
  '-nosound','-unattended','-NoSplash','-Multiprocess','-stdout','-FullStdOutLogOutput','-windowed','-ResX=1280','-ResY=720',
  '-ExecCmds=t.MaxFPS 60,sg.GlobalIlluminationQuality 0,sg.ReflectionQuality 0,sg.ShadowQuality 1']

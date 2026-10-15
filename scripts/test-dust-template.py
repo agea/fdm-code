@@ -17,7 +17,7 @@ children, handles, paths = [], [], {}
 def launch(role, url, render=False, extra=()):
     paths[role] = out / (label + '-' + role + '.log')
     handle = paths[role].open('w'); handles.append(handle)
-    command = [str(exe), str(root / 'fdm.uproject'), url, '-game', '-ERDustTemplateProbe',
+    command = [str(exe), str(root / 'RespawnAndRage.uproject'), url, '-game', '-ERDustTemplateProbe',
                '-nosound', '-unattended', '-NoSplash', '-Multiprocess', '-stdout',
                '-FullStdOutLogOutput', '-windowed', '-ResX=1280', '-ResY=720',
                '-ExecCmds=t.MaxFPS 60,sg.GlobalIlluminationQuality 0,sg.ReflectionQuality 0,sg.ShadowQuality 1']
