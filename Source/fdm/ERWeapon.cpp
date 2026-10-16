@@ -73,8 +73,84 @@ float AERWeapon::GetBloomDegrees() const
     if (!Data || !GetWorld()) return 0;
     const auto* State = GetWorld()->GetGameState<AERGameState>();
     const double Now = State ? State->GetServerWorldTimeSeconds() : GetWorld()->GetTimeSeconds();
-    const float RecoveringTime = FMath::Max(0.f, float(Now - LastSpreadShotServerTime) - Data->BloomRecoveryDelay);
-    return FMath::Clamp(BloomAtLastShot - RecoveringTime * Data->BloomRecoveryDegreesPerSecond, 0.f, Data->MaxBloomDegrees);
+    const bool Low=HasOpticalScope() && ScopeLevel && IsPrecisionCrouched();
+    const float Delay=Low?FMath::Min(.025f,Data->BloomRecoveryDelay):Data->BloomRecoveryDelay;
+    const float RecoveringTime = FMath::Max(0.f, float(Now - LastSpreadShotServerTime) - Delay);
+    return FMath::Clamp(BloomAtLastShot - RecoveringTime * Data->BloomRecoveryDegreesPerSecond*(Low?4.f:1.f), 0.f, Data->MaxBloomDegrees);
+}
+void AERWeapon::ClearScope()
+{
+    if (!HasAuthority()) return;
+    ScopeLevel = 0; ForceNetUpdate();
+}
+void AERWeapon::ServerClearScope_Implementation() { ClearScope(); }
+void AERWeapon::ServerCycleScope_Implementation()
+{
+    const auto* C = Cast<AERCharacter>(GetOwner());
+    if (!CanFight() || !C || C->Weapon != this || bReloading || !Data->ScopeMode ||
+        Cast<UERMovement>(C->GetCharacterMovement())->bHighClimb) return;
+    ScopeLevel = (ScopeLevel + 1) % (HasOpticalScope() ? 3 : 2);
+    ScopeChangedServerTime = GetWorld()->GetTimeSeconds();
+    ForceNetUpdate();
+}
+bool AERWeapon::IsPrecisionCrouched() const
+{
+    const auto* C=Cast<AERCharacter>(GetOwner());
+    const auto* M=C?Cast<UERMovement>(C->GetCharacterMovement()):nullptr;
+    return M && !M->IsFalling() && (M->bWantsToCrouch || M->Locomotion.HalfHeight<=68.f || M->IsProne());
+}
+float AERWeapon::GetScopeRecoilMultiplier() const
+{
+    return HasOpticalScope() && ScopeLevel && IsPrecisionCrouched() ? .2f : 1.f;
+}
+void AERWeapon::UpdateScopeMotion()
+{
+    const auto* C=Cast<AERCharacter>(GetOwner());
+    if(!HasAuthority() || !C || !ScopeLevel || !HasOpticalScope() || IsPrecisionCrouched())return;
+    if(C->GetVelocity().Size2D()>5.f || C->GetCharacterMovement()->IsFalling())
+    {
+        const double Now=GetWorld()->GetTimeSeconds();
+        if(Now-LastScopeMotionServerTime>=.025)LastScopeMotionServerTime=Now;
+    }
+}
+float AERWeapon::GetScopeBlur() const
+{
+    if(!ScopeLevel)return 0;
+    if(HasOpticalScope() && Data->bUnscopeAfterShot && IsPrecisionCrouched())return GetScopeSettle();
+    return FMath::Max(GetScopeSettle(),FMath::Clamp(GetBloomDegrees()/1.5f,0.f,1.f));
+}
+float AERWeapon::GetScopeSettle() const
+{
+    if (!Data || !ScopeLevel) return 0;
+    const auto* GS = GetWorld()->GetGameState<AERGameState>();
+    const double Now = GS ? GS->GetServerWorldTimeSeconds() : GetWorld()->GetTimeSeconds();
+    const bool Low=HasOpticalScope() && IsPrecisionCrouched();
+    const auto* C=Cast<AERCharacter>(GetOwner());
+    const float Speed=C?C->GetVelocity().Size2D():0.f;
+    const bool Moving=C && (Speed>5.f || C->GetCharacterMovement()->IsFalling());
+    if(HasOpticalScope() && !Low && Moving)
+        return Data->bUnscopeAfterShot?1.f:FMath::Clamp(.35f+Speed/277.78f,.35f,1.f);
+    const double Start=Low?ScopeChangedServerTime:FMath::Max(ScopeChangedServerTime,LastScopeMotionServerTime);
+    const float Duration=Low?.025f:Data->ScopeSettleDuration;
+    return FMath::Clamp(1.f - float(Now-Start)/FMath::Max(.01f,Duration),0.f,1.f);
+}
+float AERWeapon::GetScopeFOV() const
+{
+    return ScopeLevel && Data ? (HasOpticalScope() ? (ScopeLevel == 1 ? 40.f : 10.f) : Data->ZoomFOV) : 90.f;
+}
+FVector AERWeapon::GetLaunchVelocity(const FVector& Direction) const
+{
+    if (!Data) return FVector::ZeroVector;
+    // Launcher sights indicate the target; the barrel gives the grenade a small lob.
+    FRotator LaunchAim=Direction.Rotation();
+    if(Data->Payload==EERPayload::LaunchedHE)
+        LaunchAim.Pitch=FMath::Clamp(LaunchAim.Pitch+6.f,-89.f,89.f);
+    FVector Velocity=LaunchAim.Vector()*Data->ProjectileSpeed;
+    const float Range=FMath::Clamp(Data->LaunchRangeMultiplier,1.f,2.f) *
+        (ScopeLevel ? FMath::Clamp(Data->ScopedLaunchRangeMultiplier,1.f,2.f) : 1.f);
+    // Horizontal range bonus preserves the gravity arc's vertical clock and original fuse.
+    Velocity.X*=Range;Velocity.Y*=Range;
+    return Velocity;
 }
 float AERWeapon::GetSpreadDegrees() const
 {
@@ -85,6 +161,15 @@ float AERWeapon::GetSpreadDegrees() const
     const float LowPosture = FMath::GetMappedRangeValueClamped(FVector2D(62.5f,92.5f), FVector2D(Data->CrouchSpreadMultiplier,1.f), Movement->Locomotion.HalfHeight);
     const float Posture = FMath::Lerp(LowPosture, Data->CrouchSpreadMultiplier * .65f, Movement->Locomotion.ProneBlend);
     const float Air = Character->GetCharacterMovement()->IsFalling() ? Data->AirborneSpreadDegrees : 0.f;
+    if (HasOpticalScope())
+    {
+        const float Base = ScopeLevel ? Data->NoScopeSpreadDegrees * GetScopeSettle() : Data->NoScopeSpreadDegrees;
+        const bool Low=ScopeLevel && IsPrecisionCrouched();
+        // Grounded crouch-walking with the bolt rifle has no movement/burst penalty.
+        if(Low && Data->bUnscopeAfterShot)return Base;
+        const float Motion=Low?.08f*SpeedFraction:Data->ScopedRunningSpreadDegrees*SpeedFraction*Posture;
+        return FMath::Clamp(Base + Motion + Air + GetBloomDegrees(),0.f,10.f);
+    }
     return FMath::Clamp((Data->StandingSpreadDegrees + Data->RunningSpreadDegrees * SpeedFraction) * Posture + Air + GetBloomDegrees(), 0.f, 10.f);
 }
 bool AERWeapon::CanFight() const
@@ -128,7 +213,7 @@ void AERWeapon::ArmGrenade()
     P->Damage=Data->Damage;P->ExplosionRadius=Data->ExplosionRadius;P->ExplosionInnerRadius=Data->ExplosionInnerRadius;
     P->BlastArmorRatio=ERWeaponBallistics::GrenadeArmorRatio(Data->ArmorRatio);
     P->FuseDuration=Data->FuseDuration;P->bHeld=true;
-    P->Movement->InitialSpeed=0;P->Movement->MaxSpeed=Data->ProjectileSpeed;P->Movement->Velocity=FVector::ZeroVector;
+    P->Movement->InitialSpeed=0;P->Movement->MaxSpeed=10000.f;P->Movement->Velocity=FVector::ZeroVector;
     CookedGrenade=P;bCookingGrenade=true;--MagazineAmmo;++AuthorizedShotCount;
     const double Now=GetWorld()->GetTimeSeconds();
     NextAllowedShotTime=Now+Data->ShotInterval;Character->Health->ProtectionEndServerTime=0;
@@ -152,7 +237,7 @@ void AERWeapon::ReleaseGrenade(bool bThrow)
                 // Physical overhead origin; a modest upward component creates
                 // the arm throw without changing camera/control rotation.
                 const FVector Direction=(Character->GetBaseAimRotation().Vector()+FVector(0,0,.35f)).GetSafeNormal();
-                Velocity=Direction*Data->ProjectileSpeed+Character->GetVelocity();
+                Velocity=GetLaunchVelocity(Direction)+Character->GetVelocity();
             }
             else Velocity=Character->GetVelocity()*.5f;
         }
@@ -194,7 +279,20 @@ void AERWeapon::TryFire()
     const FVector Far = Eye + Aim.Vector() * FMath::Max(1.f, Data->HitscanRange);
     const bool bViewHit = GetWorld()->LineTraceSingleByChannel(ViewHit, Eye, Far, ECC_GameTraceChannel1, Params);
     const FVector Target = bViewHit ? ViewHit.ImpactPoint : Far;
-    const FVector IntendedMuzzle = Eye + Aim.RotateVector(FVector(45, 12, -12));
+    FVector IntendedMuzzle = Eye + Aim.RotateVector(FVector(45, 12, -12));
+    if(Data->Payload==EERPayload::LaunchedHE && Character->GetIronAimBlend()>0)
+    {
+        // Use the raised rig in the authoritative aim frame, never a client camera
+        // cache (remote pawns have no local camera manager view on the server).
+        const FVector LocalMuzzle=Character->Camera->GetComponentTransform().InverseTransformPosition(Character->GetVisualMuzzle(true));
+        FMinimalViewInfo View;
+        View.Location=Eye;View.Rotation=Aim;
+        View.FOV=FMath::Lerp(90.f,Data->ZoomFOV,Character->GetIronAimBlend());
+        View.FirstPersonFOV=90.f;View.FirstPersonScale=.2f;
+        // Keep full projectile depth while matching the viewmodel's screen position.
+        const FVector RaisedMuzzle=View.TransformWorldToFirstPerson(Eye+Aim.RotateVector(LocalMuzzle),true);
+        IntendedMuzzle=FMath::Lerp(IntendedMuzzle,RaisedMuzzle,Character->GetIronAimBlend());
+    }
     LastShotAimDirection = (Target - IntendedMuzzle).GetSafeNormal();
     LastShotSpreadDegrees = GetSpreadDegrees();
     LastShotDirection = ShotRandom.VRandCone(LastShotAimDirection, FMath::DegreesToRadians(LastShotSpreadDegrees));
@@ -203,9 +301,12 @@ void AERWeapon::TryFire()
     if (Data->Payload != EERPayload::Melee) --MagazineAmmo;
     NextAllowedShotTime = Now + Data->ShotInterval; Character->Health->ProtectionEndServerTime = 0;
     // Only an authorized shot changes burst buildup. Owners recover it against the server clock.
-    BloomAtLastShot = FMath::Min(GetBloomDegrees() + Data->BloomPerShotDegrees, Data->MaxBloomDegrees);
+    const float MovingBurst=HasOpticalScope() && ScopeLevel && !IsPrecisionCrouched() ?
+        1.f+FMath::Clamp(Character->GetVelocity().Size2D()/277.78f,0.f,1.f)*2.f : 1.f;
+    BloomAtLastShot = FMath::Min(GetBloomDegrees() + Data->BloomPerShotDegrees*GetScopeRecoilMultiplier()*MovingBurst, Data->MaxBloomDegrees);
     LastSpreadShotServerTime = Now;
     ForceNetUpdate();
+    if (ScopeLevel && Data->bUnscopeAfterShot) ClearScope();
     ++AuthorizedShotCount;
     LastShotTraceCount = 0;
     LastShotPelletHits.Reset();
@@ -289,9 +390,13 @@ void AERWeapon::TryFire()
             Projectile->ExplosionInnerRadius = Data->ExplosionInnerRadius;
             Projectile->BlastArmorRatio = ERWeaponBallistics::GrenadeArmorRatio(Data->ArmorRatio);
             Projectile->FuseDuration = Data->FuseDuration;
-            Projectile->Movement->InitialSpeed = Data->ProjectileSpeed;
-            Projectile->Movement->MaxSpeed = Data->ProjectileSpeed;
-            Projectile->Movement->Velocity = LastShotDirection * Data->ProjectileSpeed;
+            const FVector LaunchVelocity=GetLaunchVelocity(LastShotDirection);
+            Projectile->ReleasedFrom=LaunchPosition;
+            Projectile->ReleasedVelocity=LaunchVelocity;
+            Projectile->Movement->InitialSpeed = LaunchVelocity.Size();
+            // Fuse projectiles must not hit different falling-speed caps when zoom changes range.
+            Projectile->Movement->MaxSpeed = AERProjectile::UsesFuse(Data->Payload) ? 10000.f : Data->ProjectileSpeed;
+            Projectile->Movement->Velocity = LaunchVelocity;
             Projectile->SetLifeSpan(Data->ProjectileLife);
             UGameplayStatics::FinishSpawningActor(Projectile, Projectile->GetActorTransform());
         }
@@ -313,7 +418,7 @@ void AERWeapon::Reload()
     // Only authority enters CanFight; labs replenish reserve, retaining reload timing.
     if (GetWorld()->GetMapName().Contains(TEXT("Lab"))) ReserveAmmo = FMath::Max(ReserveAmmo, Data->MagazineSize);
     if (ReserveAmmo <= 0) return;
-    StopFire(); bReloading = true;
+    StopFire(); ClearScope(); bReloading = true;
     GetWorldTimerManager().SetTimer(ReloadTimer, this, &AERWeapon::FinishReload, Data->ReloadDuration, false);
 }
 void AERWeapon::FinishReload()
@@ -327,6 +432,7 @@ void AERWeapon::FinishReload()
 }
 void AERWeapon::Cancel()
 {
+    ClearScope();
     bWantsFire=false;GetWorldTimerManager().ClearTimer(FireTimer);
     if(bCookingGrenade) ReleaseGrenade(false);
     GetWorldTimerManager().ClearTimer(ReloadTimer);bReloading=false;
@@ -339,6 +445,9 @@ void AERWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetim
     DOREPLIFETIME_CONDITION(AERWeapon, BloomAtLastShot, COND_OwnerOnly);
     DOREPLIFETIME_CONDITION(AERWeapon, LastSpreadShotServerTime, COND_OwnerOnly);
     DOREPLIFETIME(AERWeapon, Data);
+    DOREPLIFETIME(AERWeapon, ScopeLevel);
+    DOREPLIFETIME_CONDITION(AERWeapon, ScopeChangedServerTime, COND_OwnerOnly);
+    DOREPLIFETIME_CONDITION(AERWeapon, LastScopeMotionServerTime, COND_OwnerOnly);
     DOREPLIFETIME(AERWeapon,bCookingGrenade);DOREPLIFETIME(AERWeapon,GrenadeRecoveryEndServerTime);
 }
 AERProjectile::AERProjectile()
@@ -400,13 +509,13 @@ void AERProjectile::BeginPlay()
         Movement->ProjectileGravityScale = 1;
         Movement->bShouldBounce = true;
         Movement->bRotationFollowsVelocity = false;
-        Movement->Friction = .32f;
+        Movement->Friction = .4f;
         Movement->bBounceAngleAffectsFriction = true;
         Movement->BounceVelocityStopSimulatingThreshold = 30;
         if (HasAuthority())
         {
             BounceRandom.Initialize(FMath::Rand());
-            Movement->Bounciness = BounceRandom.FRandRange(.28f,.38f);
+            Movement->Bounciness = BounceRandom.FRandRange(.18f,.25f);
             Spin = FVector(BounceRandom.FRandRange(-7.f,7.f),BounceRandom.FRandRange(10.f,17.f),BounceRandom.FRandRange(-5.f,5.f));
             FuseDuration = FMath::Max(.05f,FuseDuration);
             FuseEndServerTime=GetWorld()->GetTimeSeconds()+FuseDuration;
@@ -460,6 +569,12 @@ void AERProjectile::Bounce(const FHitResult& Result, const FVector& IncomingVelo
     if (!HasAuthority() || bImpacted || !UsesFuse(Payload)) return;
     ++BounceCount;
     RestNormal = Result.ImpactNormal.GetSafeNormal();
+    if (Result.GetActor() && Result.GetActor()->IsA<APawn>())
+    {
+        // Soft body contact: retain a little sliding motion and only 5% rebound.
+        const float IntoSurface=FMath::Max(0.f,-FVector::DotProduct(IncomingVelocity,RestNormal));
+        Movement->Velocity=FVector::VectorPlaneProject(IncomingVelocity,RestNormal)*.25f+RestNormal*IntoSurface*.05f;
+    }
     const float Speed = Movement->Velocity.Size();
     // Small tangent impulses vary the contact without reversing the normal
     // rebound, adding energy, or allowing a client to choose its trajectory.
@@ -500,7 +615,16 @@ void AERProjectile::Tick(float DeltaSeconds)
 void AERProjectile::Hit(UPrimitiveComponent* Component, AActor* Other, UPrimitiveComponent* OtherComponent, FVector Impulse, const FHitResult& Result)
 {
     if (!HasAuthority() || bImpacted || Other == GetInstigator() || Other == GetOwner()) return;
-    if (UsesFuse(Payload)) return;
+    if (UsesFuse(Payload))
+    {
+        if(Payload==EERPayload::LaunchedHE && Cast<AERCharacter>(Other) && !ContactDamagedPlayers.Contains(Other))
+        {
+            ContactDamagedPlayers.Add(Other);
+            UGameplayStatics::ApplyPointDamage(Other,Damage*.25f,Movement->Velocity.GetSafeNormal(),Result,
+                GetInstigatorController(),this,UDamageType::StaticClass());
+        }
+        return; // Contact never consumes or restarts the fuse.
+    }
     if (Payload == EERPayload::Rocket) { Detonate(); return; }
     const FVector ShotDirection = Movement->Velocity.GetSafeNormal();
     bImpacted = true; Movement->StopMovementImmediately(); Collision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -595,10 +719,15 @@ void AERProjectile::Detonate()
     // Player cover checks above see the intact walls. Block exposure is also
     // snapshotted before removal, including cover across multiple room actors.
     if (Payload == EERPayload::HE || Payload == EERPayload::Rocket || Payload == EERPayload::LaunchedHE)
+    {
         // Fragment injury range is larger than the local structural blast.
         // Preserve the shared snapshot and the tuned building damage envelope.
         AERBlockRoom::ApplyWorldExplosion(GetWorld(), Position + FVector::UpVector * 10,
-            Payload==EERPayload::Rocket?ExplosionRadius:FMath::Min(ExplosionRadius,350.f), Damage, this);
+            Payload==EERPayload::Rocket?ExplosionRadius:FMath::Min(ExplosionRadius,350.f),
+            Damage*(Payload==EERPayload::Rocket?1.f:3.f), this);
+        UE_LOG(LogTemp,Display,TEXT("ER_GRENADE_STRUCTURE damage=%.1f radius=%.1f"),
+            Damage*(Payload==EERPayload::Rocket?1.f:3.f),Payload==EERPayload::Rocket?ExplosionRadius:FMath::Min(ExplosionRadius,350.f));
+    }
     MulticastDetonate(Position, Payload);
     if (Payload==EERPayload::Smoke && SmokeCloudClass)
     {

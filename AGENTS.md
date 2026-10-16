@@ -617,7 +617,7 @@ containment and opaque clipping; never distort density beyond the 3m envelope.
 Use setup_smoke_shape.py for smoke-only asset regeneration, preserving HE.
 
 Explosion/throw refinement (16 October): Milkor launch speed1800cm/s (half
-3600), hand HE/smoke/stun880cm/s (80% of1100). Preserve3.5s cook and2/6m
+3600), hand HE/smoke/stun880cm/s (80% of1100). Preserve 3.5s cook and2/6m
 damage. Disable colorful Fire emitters in the owned compact burst; use a65ms
 neutral flash and three small short smoke puffs. Add3..6 local cosmetic floor
 chips only with a walkable WorldStatic surface within60cm beneath the blast;
@@ -720,3 +720,48 @@ Use presentation_labels.py and setup_english_presentation.py for saved metadata;
 character_catalog.py owns English skin labels. Preserve model names in source
 provenance/credits. Verify saved catalogs, native Menu validation/admission and
 actual Metal menu layout. Do not regenerate maps or imported models for labels.
+
+Rifle scopes (16 October): only Assault/Carbine/Sniper active data opt in via
+ScopeMode (iron/optical); visible labels remain Assault/Sniper/Marksman. Right
+click toggles Assault; optical cycles40/10/off with FOV/90 sensitivity. Server
+owns level/settle/cone, no client directions. Assault retains ordinary spread;
+optical stationary recovered aim reaches zero after.16/.25s, hip cones3/6deg.
+Sniper retains zoom after shots, Marksman exits. Hide normal centre reticle and
+ammo ring on optical rifles, including hipfire. Move complete FPS rig for iron
+sights, never independently detach gun/hands. Scope tuning/setup must preserve
+source art and other weapon balance. Run test-scopes.py --render and retain
+reference/accuracy/network/legacy-arsenal regressions; inspect actual captures.
+
+Grenade/launcher range revision (16 October): hand utility horizontal launch
+component x1.2; launcher iron-style ADS (right-click toggle75FOV) x1.5 only
+while scoped. Preserve vertical launch component, gravity,3.5s cook/fuse and
+player blast140HP/2..6m. Weapon data owns iron anchor/eye distance; retain the
+Assault centre. Fuse speed cap10000 avoids vertical-cap artifacts. Server bounce
+.18..25/friction.4. HE/LaunchedHE structural damage x3, radius350cm, intact-cover
+snapshot/material resistance preserved; rocket/player/chain damage unchanged.
+Use setup_grenade_combat.py/setup_scopes.py and verify scopes --render, grenade
+baseline/combat, actual baseline-vs-boosted block blast, and regressions.
+
+Scope motion/posture refinement (16 October): Assault/launcher iron aim raises
+and lowers over.2s with smoothstep and matched FOV/sensitivity; cap integration
+at50ms per frame so a hitch cannot skip the whole animation. Launcher anchor
+2.5cm below centre with3deg upward rig pitch; preserve complete-rig grips.
+Optical standing movement keeps focus blurred; server motion timestamps delay
+recovery until actual stopping. Grounded crouch focus25ms, crouch-walking
+Marksman zero spread after focus; no airborne exemption. Sniper crouch reduces
+burst/cosmetic recoil x.2 and accelerates recovery x4; standing auto bloom now
+.5deg/shot, delay.3s, recovery6deg/s. Blur reads focus plus real bloom.
+These requested rules are not an assertion of CS parity. Verify intermediate
+enter/exit captures, grounded/moving/crouch server cones and accuracy regressions.
+
+Launcher/player contact refinement (16 October): launch LaunchedHE six degrees above
+authorized aim (clamp pitch +/-89); scope still multiplies horizontal velocity x1.5.
+Fuse grenades hitting pawns retain 25% tangent/5% normal incoming speed. Only
+LaunchedHE deals 25% base damage on contact, once per target per projectile, through
+normal armor/protection rules. Preserve 3.5s fuse and subsequent blast.
+
+Scoped launcher origin fix (16 October): while iron blend is active, derive
+launcher muzzle from raised FPS rig in camera-local coordinates, then transform
+through authoritative eye/aim and matching FOV projection. Ignore first-person
+depth scale for a full-sized projectile; blend from ordinary hip origin. Retain
+eye-to-muzzle obstruction sweep/fallback and server-only launch direction.

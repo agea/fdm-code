@@ -224,6 +224,9 @@ for profile in sorted(profiles,key=lambda item:item['key']!='Assault'):
         hitscan_range=profile.get('range',60000),range_modifier=1,explosion_radius=600 if profile.get('payload') in ('HE','LAUNCHED_HE') else 350,explosion_inner_radius=200,fuse_duration=3.5 if profile.get('payload') in ('HE','LAUNCHED_HE','SMOKE') else 2.5,
         projectile_speed=profile.get('speed',30000),projectile_life=8,bloom_per_shot_degrees=0 if profile.get('one') else .12)
     if profile.get('row'):settings.update(rows[profile['row']])
+    settings.update(runpy.run_path(str(project/'scripts/scope_profiles.py'))['SCOPE_PROFILES'].get(key,{}))
+    if 'iron_sight_offset' in settings:settings['iron_sight_offset']=ue.Vector(*settings['iron_sight_offset'])
+    if profile.get('payload') in ('HE','SMOKE','STUN'):settings['launch_range_multiplier']=1.2
     settings['support_surface_contacts']=palm_tools['surface_contacts'](mesh,key,settings['support_hand_offset'],clips.get('Idle')) if settings['fit_support_hand'] else []
     if settings['support_surface_contacts']:settings['support_hand_offset']=settings['support_surface_contacts'][0]
     right_socket='ER_Palm_R' if key=='Pistol' else 'HandGrip_R';weapon_origin=None

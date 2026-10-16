@@ -45,6 +45,18 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite) float ExplosionInnerRadius = 200;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) float FuseDuration = 3.5f;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) float ZoomFOV = 90;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Launch") float LaunchRangeMultiplier = 1.f;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Launch") float ScopedLaunchRangeMultiplier = 1.f;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Scope") FVector IronSightOffset = FVector(6.07019f,0.f,18.71037f);
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Scope") float IronSightEyeDistance = 14.f;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Scope") float IronSightDrop = 0.f;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Scope") float IronSightPitch = 0.f;
+    // 0: none, 1: iron sights, 2: two-stage optical scope.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Scope") int32 ScopeMode = 0;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Scope") bool bUnscopeAfterShot = false;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Scope") float ScopeSettleDuration = .2f;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Scope") float NoScopeSpreadDegrees = 5.f;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Scope") float ScopedRunningSpreadDegrees = 2.f;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) float Damage = 36;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Ballistics") float ArmorRatio = 2;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Ballistics") float RangeModifier = 1;
@@ -91,6 +103,20 @@ public:
     void OnGrenadeDetonated(AERProjectile* Projectile);
     UPROPERTY(Replicated, BlueprintReadOnly) float BloomAtLastShot = 0;
     UPROPERTY(Replicated, BlueprintReadOnly) double LastSpreadShotServerTime = -100;
+    UPROPERTY(Replicated, BlueprintReadOnly) uint8 ScopeLevel = 0;
+    UPROPERTY(Replicated) double ScopeChangedServerTime = -100;
+    UFUNCTION(Server, Reliable) void ServerCycleScope();
+    UFUNCTION(Server, Reliable) void ServerClearScope();
+    void ClearScope();
+    UPROPERTY(Replicated) double LastScopeMotionServerTime = -100;
+    void UpdateScopeMotion();
+    bool IsPrecisionCrouched() const;
+    float GetScopeRecoilMultiplier() const;
+    float GetScopeBlur() const;
+    float GetScopeSettle() const;
+    float GetScopeFOV() const;
+    bool HasOpticalScope() const { return Data && Data->ScopeMode == 2; }
+    FVector GetLaunchVelocity(const FVector& Direction) const;
     float GetSpreadDegrees() const;
     float GetBloomDegrees() const;
     // Observations of the actual server traces for development probes.
@@ -166,6 +192,7 @@ public:
 private:
     bool bImpacted = false;
     bool bChainPending = false;
+    TSet<TWeakObjectPtr<AActor>> ContactDamagedPlayers;
     FTimerHandle FuseTimer;
     FRandomStream BounceRandom;
     FLinearColor SmokeTeamColor = FLinearColor(.30f,.31f,.32f,1.f);

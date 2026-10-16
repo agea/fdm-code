@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Two actual local Unreal peers: weapon selection, ammo, respawn and payloads."""
 from pathlib import Path
+from presentation_labels import LEGACY_NAMES
 import os
 import subprocess
 import time
@@ -30,7 +31,7 @@ try:
     print('\n'.join(line for line in server.splitlines() if 'ER_ARSENAL_' in line or 'ER_PAYLOAD_DETONATE' in line))
     success='ER_ARSENAL_COMPLETE result=PASS' in server and 'ER_ARSENAL_FAIL' not in server
     conditions={
-        'remote_new_loadout_mesh': 'name=M249 mesh=SK_M249 ammo=100' in remote,
+        'remote_new_loadout_mesh': f"name={LEGACY_NAMES['M249']} mesh=SK_M249 ammo=100" in remote,
         'remote_directional_stun_feedback':'ER_ARSENAL_REMOTE_FLASH' in remote,
         'he_smoke_stun_fuses': all('ER_PAYLOAD_DETONATE kind='+str(kind) in server for kind in [2,3,4]),
         'he_burst_on_host_and_remote': all('ER_GRENADE_BURST system=P_ER_CompactHE' in peer for peer in [server,remote]),

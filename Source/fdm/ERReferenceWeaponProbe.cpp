@@ -10,6 +10,7 @@
 #include "ERMatch.h"
 #include "ERMovement.h"
 #include "Camera/CameraComponent.h"
+#include "Camera/PlayerCameraManager.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -22,7 +23,11 @@
 #include "HAL/IConsoleManager.h"
 
 AERReferenceWeaponProbe::AERReferenceWeaponProbe()
-{ bReplicates=true;bAlwaysRelevant=true;PrimaryActorTick.bCanEverTick=true; }
+{
+    bReplicates=true;bAlwaysRelevant=true;PrimaryActorTick.bCanEverTick=true;
+    // Project anchors only after the character and camera cache describe the same rendered frame.
+    if(FParse::Param(FCommandLine::Get(),TEXT("ERScopeTest")))PrimaryActorTick.TickGroup=TG_PostUpdateWork;
+}
 void AERReferenceWeaponProbe::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(AERReferenceWeaponProbe,Phase);}
 void AERReferenceWeaponProbe::Check(bool Value,const FString& Label)
@@ -36,7 +41,7 @@ void AERReferenceWeaponProbe::Advance(int32 Next,float Delay)
 void AERReferenceWeaponProbe::ServerAcknowledgeSlot_Implementation(int32 RequestedPhase)
 {
 #if !UE_BUILD_SHIPPING
-    if(RequestedPhase==Phase && ((RequestedPhase>=1 && RequestedPhase<=10) || (RequestedPhase>=40 && RequestedPhase<=46)))AcknowledgedPhase=RequestedPhase;
+    if(RequestedPhase==Phase && ((RequestedPhase>=100 && RequestedPhase<=125) || (RequestedPhase>=1 && RequestedPhase<=10) || (RequestedPhase>=40 && RequestedPhase<=46)))AcknowledgedPhase=RequestedPhase;
 #endif
 }
 void AERReferenceWeaponProbe::BeginCombatChecks()
@@ -52,6 +57,7 @@ void AERReferenceWeaponProbe::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
 #if !UE_BUILD_SHIPPING
+    if(FParse::Param(FCommandLine::Get(),TEXT("ERScopeTest"))) { TickScopes(); return; }
     const FKey Keys[]={EKeys::One,EKeys::Two,EKeys::Three,EKeys::Four,EKeys::Five,EKeys::Six,EKeys::Seven,EKeys::Eight,EKeys::F,EKeys::G};
     const bool Gallery=FParse::Param(FCommandLine::Get(),TEXT("ERReferenceGallery"));
     if(!HasAuthority())
@@ -317,5 +323,150 @@ void AERReferenceWeaponProbe::Tick(float DeltaTime)
         UE_LOG(LogTemp,Display,TEXT("ER_REFERENCE_COMPLETE result=%s"),Failed?TEXT("FAIL"):TEXT("PASS"));
         FPlatformMisc::RequestExitWithStatus(false,Failed?1:0);Advance(99,1000);break;
     }
+#endif
+}
+
+void AERReferenceWeaponProbe::TickScopes()
+{
+#if !UE_BUILD_SHIPPING
+    const bool Render=FParse::Param(FCommandLine::Get(),TEXT("ERReferenceGallery"));
+    const double Now=GetWorld()->GetTimeSeconds();
+    if(!HasAuthority())
+    {
+        auto* PC=Cast<AERPlayerController>(GetWorld()->GetFirstPlayerController());
+        auto* C=PC?Cast<AERCharacter>(PC->GetPawn()):nullptr;
+        if(!C || !C->Weapon || Phase<100 || Phase>125)return;
+        if(ClientPhase!=Phase)
+        {
+            ClientPhase=Phase;ClientChangedAt=Now;PC->SetControlRotation(FRotator(0,45,0));
+            const FKey Keys[]={EKeys::Five,EKeys::RightMouseButton,EKeys::RightMouseButton,
+                EKeys::Six,EKeys::RightMouseButton,EKeys::RightMouseButton,EKeys::RightMouseButton,
+                EKeys::Seven,EKeys::RightMouseButton,EKeys::RightMouseButton,EKeys::RightMouseButton,
+                EKeys::RightMouseButton,EKeys::LeftMouseButton,EKeys::Six,EKeys::RightMouseButton,
+                EKeys::LeftMouseButton,EKeys::R,EKeys::One,EKeys::RightMouseButton,
+                EKeys::Eight,EKeys::RightMouseButton,EKeys::LeftMouseButton,EKeys::RightMouseButton,
+                EKeys::LeftMouseButton,EKeys::One,EKeys::RightMouseButton};
+            FInputKeyEventArgs A;A.Key=Keys[Phase-100];A.Event=IE_Pressed;A.AmountDepressed=1;A.EventTimestamp=FPlatformTime::Cycles64();
+            PC->InputKey(A);A.Event=IE_Released;A.AmountDepressed=0;PC->InputKey(A);
+        }
+        const float Blend=C->GetIronAimBlend();
+        if(Render && (Phase==101 || Phase==102 || Phase==120 || Phase==122) &&
+            TransitionCapturedPhase!=Phase && Blend>.05f && Blend<.95f)
+        {
+            TransitionCapturedPhase=Phase;
+            UE_LOG(LogTemp,Display,TEXT("ER_SCOPE_TRANSITION phase=%d blend=%.4f fov=%.3f"),Phase,Blend,PC->PlayerCameraManager->GetFOVAngle());
+            FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir()/FString::Printf(TEXT("Testing/Scopes/Transition_%d.png"),Phase),true,false);
+        }
+        if(CapturedPhase!=Phase && Now-ClientChangedAt>(Render?1.5:.5) &&
+            (!Render || !GShaderCompilingManager || !GShaderCompilingManager->IsCompiling()))
+        {
+            CapturedPhase=Phase;
+            UE_LOG(LogTemp,Display,TEXT("ER_SCOPE_OWNER phase=%d level=%d fov=%.1f spread=%.3f body=%d rifle=%d"),
+                Phase,C->Weapon->ScopeLevel,C->Weapon->GetScopeFOV(),C->Weapon->GetSpreadDegrees(),C->FirstPersonBody->IsVisible(),C->FirstPersonRifle->IsVisible());
+            if((Phase==101 || Phase==120) && Render)
+            {
+                FVector2D Screen;
+                const auto& View=PC->PlayerCameraManager->GetCameraCacheView();
+                const bool Projected=PC->ProjectWorldLocationToScreen(View.TransformWorldToFirstPerson(C->GetIronSightLocation(),false),Screen);
+                int32 Width,Height;PC->GetViewportSize(Width,Height);
+                const float Drop=C->Weapon->Data->IronSightDrop;
+                const float ExpectedY=Height*.5f+Width*.5f*Drop/C->Weapon->Data->IronSightEyeDistance;
+                const float Error=FVector2D::Distance(Screen,FVector2D(Width*.5f,ExpectedY));
+                UE_LOG(LogTemp,Display,TEXT("ER_SCOPE_IRON_ALIGN result=%s screen=%.3f,%.3f error=%.4f"),
+                    Projected && Error<1.f?TEXT("PASS"):TEXT("FAIL"),Screen.X,Screen.Y,Error);
+            }
+            if(Render)FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir()/FString::Printf(TEXT("Testing/Scopes/Scope_%d.png"),Phase),true,false);
+            ServerAcknowledgeSlot(Phase);
+        }
+        return;
+    }
+    if(Phase==0)
+    {
+        for(FConstPlayerControllerIterator It=GetWorld()->GetPlayerControllerIterator();It;++It)
+            if(auto* PC=Cast<AERPlayerController>(It->Get())){if(PC->IsLocalController())Host=PC;else Client=PC;}
+        if(!Host || !Client || !Host->GetPawn() || !Client->GetPawn() || !GetWorld()->GetAuthGameMode<AERGameMode>()->IsMatchInProgress())return;
+        if(Render && (Now<15 || (GShaderCompilingManager && GShaderCompilingManager->IsCompiling())))return;
+        SetOwner(Client);
+        auto* H=CastChecked<AERCharacter>(Host->GetPawn());auto* C=CastChecked<AERCharacter>(Client->GetPawn());
+        H->TeleportTo(FVector(-1300,-1500,95),FRotator::ZeroRotator);C->TeleportTo(FVector(-850,-1500,95),FRotator(0,45,0));
+        Host->SetControlRotation(FRotator(65,0,0));Client->SetControlRotation(FRotator(0,45,0));
+        H->ServerSelectWeapon(4);const float Hip=H->Weapon->GetSpreadDegrees();H->Weapon->ServerCycleScope();
+        Check(H->Weapon->ScopeLevel==1 && FMath::IsNearlyEqual(Hip,H->Weapon->GetSpreadDegrees()),TEXT("assault_ads_does_not_improve_accuracy"));
+        H->Weapon->ServerCycleScope();Check(H->Weapon->ScopeLevel==0,TEXT("assault_two_click_toggle"));
+        H->ServerSelectWeapon(6);H->Weapon->ServerCycleScope();
+        Check(H->Weapon->GetScopeSettle()>.95f && H->Weapon->GetSpreadDegrees()>5.f,TEXT("marksman_initial_server_settle_penalty"));
+        H->Weapon->StartFire();H->Weapon->StopFire();
+        Check(H->Weapon->LastShotSpreadDegrees>5.f && H->Weapon->ScopeLevel==0,TEXT("early_quickscope_uses_real_server_spread_and_exits"));
+        // Exercise the shared authoritative focus formula with controlled movement/posture.
+        auto* M=CastChecked<UERMovement>(H->GetCharacterMovement());
+        M->SetMovementMode(MOVE_Walking);M->Velocity=FVector(139,0,0);M->bWantsToCrouch=false;
+        auto* Bolt=H->Weapon.Get();Bolt->ServerCycleScope();Bolt->ScopeChangedServerTime=Now-10;
+        Bolt->UpdateScopeMotion();
+        Check(Bolt->GetScopeSettle()==1.f && Bolt->GetSpreadDegrees()>5.f,TEXT("standing_marksman_walk_never_finishes_focus"));
+        M->Velocity=FVector::ZeroVector;
+        Check(Bolt->GetScopeSettle()>.8f,TEXT("standing_stop_requires_real_focus_recovery"));
+        M->bWantsToCrouch=true;M->Velocity=FVector(90,0,0);
+        Check(Bolt->GetScopeSettle()==0.f && Bolt->GetSpreadDegrees()==0.f,TEXT("crouch_walking_marksman_is_fully_precise"));
+        Bolt->ScopeChangedServerTime=Now-.03;
+        Check(Bolt->GetScopeSettle()==0.f,TEXT("crouch_scope_focus_finishes_within_thirty_ms"));
+        H->ServerSelectWeapon(5);auto* Auto=H->Weapon.Get();Auto->ServerCycleScope();Auto->ScopeChangedServerTime=Now-10;
+        M->bWantsToCrouch=false;M->Velocity=FVector::ZeroVector;
+        Auto->BloomAtLastShot=1.5f;Auto->LastSpreadShotServerTime=Now-.1;
+        const float StandingBurst=Auto->GetBloomDegrees();
+        M->bWantsToCrouch=true;
+        Check(Auto->GetBloomDegrees()<StandingBurst && Auto->GetScopeRecoilMultiplier()<=.2f,TEXT("crouch_sniper_recovers_spray_and_reduces_vertical_recoil"));
+        M->bWantsToCrouch=false;M->Velocity=FVector(139,0,0);Auto->UpdateScopeMotion();
+        Check(Auto->GetScopeBlur()>.7f && Auto->GetSpreadDegrees()>3.f,TEXT("walking_auto_sniper_has_large_real_spread_and_blur"));
+        Auto->BloomAtLastShot=0;Auto->LastSpreadShotServerTime=Now-10;
+        M->Velocity=FVector::ZeroVector;M->bWantsToCrouch=false;Auto->ClearScope();
+        C->Health->ProtectionEndServerTime=Now+120;
+        Phase=100;Deadline=Now+60;ForceNetUpdate();return;
+    }
+    if(Phase<100 || Phase>125)return;
+    if(AcknowledgedPhase!=Phase && Now<Deadline)return;
+    Check(AcknowledgedPhase==Phase,FString::Printf(TEXT("scope_owner_input_and_replication_%d"),Phase));
+    auto* C=CastChecked<AERCharacter>(Client->GetPawn());auto* W=C->Weapon.Get();
+    const uint8 Expected[]={0,1,0,0,1,2,0,0,1,2,0,1,0,0,1,1,0,0,0,0,1,1,0,0,0,0};
+    Check(W->ScopeLevel==Expected[Phase-100],FString::Printf(TEXT("scope_server_level_%d"),Phase));
+    if(Phase==103 || Phase==107)Check(W->GetSpreadDegrees()>=3.f,TEXT("optical_hipfire_has_large_spread"));
+    if(Phase==104 || Phase==108)
+        Check(W->GetSpreadDegrees()<.001f && W->GetScopeFOV()==40.f,TEXT("settled_stationary_scope_is_straight_fov40"));
+    if(Phase==105 || Phase==109)Check(W->GetScopeFOV()==10.f,TEXT("second_zoom_fov10"));
+    if(Phase==112)Check(W->AuthorizedShotCount>0 && W->ScopeLevel==0,TEXT("marksman_shot_exits_scope"));
+    if(Phase==115)Check(W->AuthorizedShotCount>0 && W->ScopeLevel==1,TEXT("sniper_shot_keeps_scope"));
+    if(Phase==120)Check(W->Data->Payload==EERPayload::LaunchedHE && W->Data->ScopedLaunchRangeMultiplier==1.5f && FMath::IsNearlyEqual(W->GetSpreadDegrees(),.3f),TEXT("launcher_iron_sight_keeps_accuracy"));
+    if(Phase==121 || Phase==123)
+    {
+        bool Found=false;
+        for(TActorIterator<AERProjectile> It(GetWorld());It;++It)if(It->GetOwner()==W && It->Payload==EERPayload::LaunchedHE)
+        {
+            if(Phase==121)
+            {
+                FVector Eye;FRotator Aim;C->GetActorEyesViewPoint(Eye,Aim);Eye=C->Camera->GetComponentLocation();
+                const FVector Local=C->Camera->GetComponentTransform().InverseTransformPosition(C->GetVisualMuzzle(true));
+                FMinimalViewInfo View;View.Location=Eye;View.Rotation=Aim;View.FOV=W->Data->ZoomFOV;
+                View.FirstPersonFOV=90.f;View.FirstPersonScale=.2f;
+                const FVector ExpectedOrigin=View.TransformWorldToFirstPerson(Eye+Aim.RotateVector(Local),true);
+                UE_LOG(LogTemp,Display,TEXT("ER_SCOPE_ORIGIN actual=%s expected=%s delta=%.3f"),*It->ReleasedFrom.ToString(),*ExpectedOrigin.ToString(),FVector::Distance(It->ReleasedFrom,ExpectedOrigin));
+                Check(It->ReleasedFrom.Equals(ExpectedOrigin,.5f),TEXT("scoped_launcher_spawns_at_raised_muzzle"));
+                Check(!It->ReleasedFrom.Equals(Eye+Aim.RotateVector(FVector(45,12,-12)),1.f),TEXT("scoped_launcher_does_not_use_hip_origin"));
+            }
+            FRotator LaunchAim=W->LastShotDirection.Rotation();
+            LaunchAim.Pitch=FMath::Clamp(LaunchAim.Pitch+6.f,-89.f,89.f);
+            const FVector Base=LaunchAim.Vector()*W->Data->ProjectileSpeed;
+            Check(Base.Z>W->LastShotDirection.Z*W->Data->ProjectileSpeed,TEXT("launcher_lobs_above_reticle"));
+            const float Ratio=Phase==121?1.5f:1.f;
+            const bool Match=FMath::IsNearlyEqual(It->ReleasedVelocity.Size2D(),Base.Size2D()*Ratio,.1f) &&
+                FMath::IsNearlyEqual(It->ReleasedVelocity.Z,Base.Z,.1f);
+            Found|=Match;It->Damage=0; // Keep later presentation phases safe after the fuse.
+        }
+        Check(Found,Phase==121?TEXT("real_scoped_launcher_has_fifty_percent_more_horizontal_range"):TEXT("real_launcher_exit_restores_ordinary_launch"));
+    }
+    if(Phase==125)
+    {
+        UE_LOG(LogTemp,Display,TEXT("ER_REFERENCE_COMPLETE result=%s"),Failed?TEXT("FAIL"):TEXT("PASS"));
+        FPlatformMisc::RequestExitWithStatus(false,Failed?1:0);return;
+    }
+    ++Phase;Deadline=Now+60;ForceNetUpdate();
 #endif
 }

@@ -105,6 +105,7 @@ void AERGrenadeProbe::Tick(float DeltaSeconds)
         if(Players<2) return;
         Check(C->ReferenceArsenal.Num()==10 && FMath::IsNearlyEqual(C->ReferenceArsenal[7]->ProjectileSpeed,1750.f),TEXT("milkor_launch_speed_reduced_again"));
         Check(C->ReferenceArsenal.Num()==10 && FMath::IsNearlyEqual(C->ReferenceArsenal[8]->ProjectileSpeed,880.f) && FMath::IsNearlyEqual(C->ReferenceArsenal[9]->ProjectileSpeed,880.f),TEXT("hand_grenade_launch_speed_reduced_twenty_percent"));
+        Check(C->ReferenceArsenal[8]->LaunchRangeMultiplier==1.2f && C->ReferenceArsenal[9]->LaunchRangeMultiplier==1.2f,TEXT("hand_range_bonus_twenty_percent"));
         Check(C->Inventory.Num()==10 && C->Inventory[8]->MagazineAmmo==10 && C->Inventory[9]->MagazineAmmo==10,TEXT("ten_he_and_ten_smoke_for_testing"));
         if(auto* Defaults=C->Weapon->ProjectileClass->GetDefaultObject<AERProjectile>();Defaults->GrenadeExplosionClass)
         {
@@ -130,6 +131,7 @@ void AERGrenadeProbe::Tick(float DeltaSeconds)
         for(int32 I=0;I<Grenades.Num();++I)
         {
             auto* P=Grenades[I].Get();
+            Check(P && P->Movement->Bounciness>=.18f && P->Movement->Bounciness<=.25f && P->Movement->Friction==.4f,TEXT("reduced_grenade_bounce_and_slide"));
             Check(P && P->BounceCount>0,I?TEXT("launcher_bounces_without_impact_detonation"):TEXT("he_bounces_without_impact_detonation"));
             Check(P && !P->GetActorQuat().Equals(InitialRotations[I],.05f),TEXT("server_tumbles_grenade_during_flight"));
         }

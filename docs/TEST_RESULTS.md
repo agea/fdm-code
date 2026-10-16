@@ -2812,3 +2812,174 @@ il nucleo scoperto infligge 112HP; a 4m 28HP, a 6m zero.
 - Existing Italian UI literal audit, Python syntax and whitespace checks passed.
   Logs: Saved/Testing/english-presentation-{build,assets,skins,menu-tests,
   menu-render,admission}.log; saved label receipt english-presentation-assets.json.
+
+## Rifle scopes — 16 October 2026
+
+- Editor Mac arm64 Development: PASS with `scripts/build-editor.command -DisableUnity`.
+  The default unity build exposed an existing anonymous-namespace `Count` collision
+  between ERSmokeCloud.cpp and ERTeamGallery.cpp; no unrelated code was changed.
+- `setup_scopes.py`: PASS; saved only DA_Assault, DA_Carbine and DA_Sniper in
+  the private weapons mount. Runtime owner observations confirm the new profiles.
+- Native `EclipseRecoil.Weapons.ReferenceBallistics`: Success (one test).
+- `test-scopes.py --render`: PASS on the final module, two actual peers and19
+  remote input phases. Server checks: Assault unchanged spread/two-click toggle;
+  actual early Marksman shot retains >5deg cone and exits scope; optical cycles,
+  settled0deg/40FOV, second zoom10FOV,3/6deg hip spread, shot retention/exit,
+  reload clearing and disabled knife scope. All19 client level/FOV observations
+  independently matched expectations. Captures `Saved/Testing/Scopes/Scope_100..118.png`.
+  Inspected final Assault ADS (101), Sniper optic (104), Marksman second zoom (109)
+  and Marksman hip (107): gun-only centred Assault, both black crosslines,
+  circular opaque perimeter, hidden scope weapon/arms, no hip reticle/ammo ring.
+  The initial captures exposed oversized Assault framing and a faint/missing
+  vertical crossline; both were corrected and final captures repeated.
+- `test-reference-weapons.py`: PASS, all ten real remote slot selections and
+  existing ammunition, launcher, armor, XM1014 anatomy/cover checks.
+- `test-network.py --accuracy`: PASS, motion/posture, real server ray sampling,
+  burst, empty-shot rejection and owner bloom/clock recovery.
+- `test-network.py`: PASS, including damage/cover, ammunition, teams, round reset,
+  death/corpse and respawn rules.
+- `test-arsenal.py`: server gameplay checks passed on the first run; the runner
+  still expected the retired display label M249 and rejected the correctly
+  replicated Machine Gun / SK_M249 /100-round loadout. Updated that assertion
+  to use presentation_labels.LEGACY_NAMES; final full repeat PASS.
+
+Logs: Saved/Testing/scopes-{build,setup,native}.log, scopes-render-{host,client}.log,
+reference-weapons-{host,client}.log, accuracy-{host,client}.log,
+network-{host,client}.log and arsenal-{host,client}.log. No packaging/publication.
+
+### Assault aperture centring — 16 October 2026, follow-up reference
+
+Editor Mac arm64 Development build PASS (`-DisableUnity`,88.18s).
+Read the preserved derived Assault FBX through Blender without saving it;
+rear-aperture centre is weapon-local(6.07019,0,18.71037)cm. Native framing now
+places that anchor at camera(14,0,0)cm instead of placing the muzzle below centre.
+This preserves fitted grip transforms and the gun-only ADS view while increasing
+its on-screen size to match the newer reference. No weapon data/art changes.
+
+The owning client's actual Metal camera projection reports
+`ER_SCOPE_IRON_CENTER result=PASS screen=640.000,360.000 error=0.0000`
+at1280x720. Inspected the new `Saved/Testing/Scopes/Scope_101.png`: aperture
+centred, front post visible through it, closer rifle, no floating/cropped hands.
+Full `test-scopes.py --render` repeat PASS: all19 owner states/FOVs, actual
+server scope/accuracy checks, fresh Metal captures and new centre assertion.
+Prior combat/network/arsenal
+regressions remain the earlier results above; this adjustment changes presentation.
+
+## Grenade range / rebound / structure and launcher ADS — 16 October 2026
+
+- Editor Mac arm64 Development: PASS (`-DisableUnity`,58.89s final build).
+  First attempt read a grenade-probe file during its write; rebuilt after the
+  source was complete. Final source has no compiler errors.
+- Existing weapon data migrated through setup_grenade_combat.py/setup_scopes.py:
+  hand horizontal multiplier1.2; launcher scoped multiplier1.5, iron-style75FOV
+  and its own measured aiming anchor. Retained2/6m player damage and3.5s fuses.
+- `test-grenades.py --render`: PASS, actual bounce/contact/tumble, runtime
+  bounciness.18..25 and friction.4, saved range settings, fuse/explosion/smoke,
+  remote effects/team colors and fresh Metal captures. Inspected01_Bounce.png.
+- `test-grenades.py --combat --render`: PASS, actual input-driven hand release
+  has1.2x horizontal velocity and the original vertical velocity; cook/release,
+  same fuse, held pose, damage/armor/cover, shootable grenades and chain tests.
+  Inspected Cook02_Released.png.
+- `test-destruction.py --combat --render`: PASS. Same intact physical room and
+  blast origin: previous100 structural damage destroyed100 blocks; the actual
+  HE fuse supplies300 structural damage and destroyed106. Material/cover rules
+  still apply; this is damage x3, not a claim of triple destroyed-block count.
+  Existing penetration, blocked shots, rear targets, pawn breach and reset passed.
+- `test-network.py --accuracy`: PASS on the changed module.
+- Initial `test-scopes.py --render`: PASS,26 actual owning-client phases;
+  real launched projectile uses1.5x horizontal velocity with original vertical
+  component in ADS, and ordinary velocity after exit. Refined the launcher's
+  anchor from the rear feature to the upper front feature to expose the target
+  above the gun. Final repeat and remaining regression results recorded below.
+
+No new meshes/materials, saved map edits, packaging or publication.
+
+Final aiming repeat: `test-scopes.py --render` PASS with26 owner states/FOVs,
+all fresh captures, real launcher velocity checks and both iron anchors at
+(640,360),0px error. The probe now ticks at TG_PostUpdateWork so its camera
+cache and weapon transform describe the same rendered frame; an earlier
+pre-physics sample mixed frames and reported4.56px despite the centred capture.
+Final build including that probe fix: PASS,60.17s. Inspected final Scope_120.png:
+centred launcher, target visible above the front aiming feature, ordinary hip
+frame restored on exit. `test-reference-weapons.py` and `test-arsenal.py`: PASS.
+
+Final regressions: `test-network.py` PASS after a fresh startup (one earlier
+attempt exited before listening); `EclipseRecoil.Weapons.ReferenceBallistics`
+Success,1 test. Saved logs in Saved/Testing/grenade-range-{build,setup,scopes,native}.log
+plus the standard grenade baseline/combat, destruction, reference, accuracy,
+network and arsenal host/client logs. Both direct physics boosts and all
+remaining network/weapon regressions completed successfully.
+
+## Continuous aim / movement and crouch focus — 16 October 2026
+
+Editor Mac arm64 Development PASS (`-DisableUnity`,70.27s final build).
+setup_scopes.py saved the four existing aiming data assets. Launcher drop2.5cm,
+upward rig pitch3deg; Assault centre retained. Iron rig/FOV/sensitivity ease
+in/out over.2s at normal frame rates; integration capped50ms per frame so a
+stall cannot skip the complete animation. No art/animation regeneration.
+
+`test-scopes.py --render`: final PASS,26 real owner input phases, actual server
+launch/shot checks, fresh steady and intermediate Metal captures. New server
+checks passed: moving standing Marksman never finishes focus, actual stopping
+requires recovery, grounded crouch-walking gives zero cone, crouch focus finishes
+within30ms, crouching Sniper reduces recoil/recovery delay, walking Sniper has
+large true spread plus blur. Crouch benefits use the shared server posture/velocity
+formula; no new movement RPC or client-selected shot direction.
+
+Four intermediate phases101/102/120/122 observed blends between.05 and.95 with
+FOV between75 and90. Inspected Transition_101.png and final Scope_120.png.
+Alignment: Assault(640,360); launcher(640,413.333) at1280x720, matching its
+intentional drop. First graphical run missed the initial Assault intermediate
+frame after a stall; added the integration cap and repeated all captures.
+
+`test-network.py --accuracy`: final PASS, including real movement/posture cones,
+server traces, burst, owner replication/clock recovery and rejected empty fire.
+The first concurrent run missed timing-sensitive burst checks; the sequential
+repeat passed without changing their assertions. `test-reference-weapons.py`:
+PASS, all ten remote slots and armor/reload/projectile/XM1014/cover regressions.
+Native Weapons result is recorded below.
+
+Requested mechanics are implemented as game-specific rules, without asserting
+that the supplied Counter-Strike description is an exact simulation reference.
+
+Native `EclipseRecoil.Weapons.ReferenceBallistics`: Success,1 test. Final
+sequential command chain exited0. Logs: Saved/Testing/scope-motion-{build,setup,test,native}.log
+and the standard accuracy/reference host/client logs. No packaging/publication.
+
+### Launcher arc and player contacts — 16 October
+
+- Editor build with `-DisableUnity`: PASS (54.27s).
+- `test-grenades.py --combat --render`: PASS, two real peers. Four actual
+  swept contacts (launcher HE, hand HE, smoke, stun) each registered a bounce;
+  only launcher contact removed35HP from the unarmored target. Post-contact
+  horizontal rebound stayed below80cm/s from1000cm/s incoming speed. All
+  retained their fuse. Explicit repeated-contact callback checks applied no
+  further damage. Existing cook, armor, cover, shooting and chain tests passed.
+- `test-scopes.py --render`: PASS, all26 replicated states, iron alignment,
+  intermediate transition captures, actual launcher shots above the reticle
+  with six-degree elevation, scoped horizontal velocity x1.5 and ordinary
+  velocity restored on scope exit.
+
+Logs: `Saved/Testing/grenade-combat-render-{host,client}.log`,
+`Saved/Testing/scopes-render-{host,client}.log`; build log copied as
+`Saved/Testing/launcher-contact-build.log`. No asset regeneration required.
+
+`test-reference-weapons.py`: PASS, all remote slots, real launcher projectile
+spawn/speed, rifle armor/reload and shotgun anatomical/cover checks.
+
+### Scoped launcher origin — 16 October
+
+- Editor `-DisableUnity`: PASS.
+- `test-scopes.py`: PASS, two real peers, actual fired projectile origin matches
+  raised muzzle with FOV correction (measured delta0.000cm), distinct from hip
+  origin; upward launch and scoped horizontal range checks pass.
+- `test-scopes.py --render`: PASS on final run, all26 replicated states, fresh
+  captures, alignment and intermediate transitions. Raised muzzle origin delta
+  0.000cm in final Metal run. Initial graphical run failed the later-pose muzzle
+  comparison; diagnostic headless and graphical reruns matched exactly with no
+  gameplay changes between them. Diagnostic origin log retained for visibility.
+- Existing eye-to-muzzle sweep/fallback remains in place; no new near-wall
+  gameplay fixture was added in this revision.
+
+Logs: `Saved/Testing/scopes-host.log`, `scopes-render-host.log` and matching
+client logs. Build retained as `Saved/Testing/launcher-origin-build.log`.

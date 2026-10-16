@@ -19,6 +19,7 @@ private:
     int32 ClientPhase=-1, CapturedPhase=-1;
     int32 AcknowledgedPhase=-1;
     int32 CapturedReload=-1;
+    int32 TransitionCapturedPhase=-1;
     double Deadline=0, ClientChangedAt=0;
     double ReloadStartedAt=0;
     bool Failed=false;
@@ -28,4 +29,5 @@ private:
     void Check(bool Value, const FString& Label);
     void Advance(int32 Next,float Delay);
     void BeginCombatChecks();
+    void TickScopes();
 };

@@ -344,6 +344,7 @@ void AERCharacter::BeginPlay()
 {
     Super::BeginPlay();
     FirstPersonBodyBaseLocation = FirstPersonBody->GetRelativeLocation();
+    FirstPersonBodyBaseRotation = FirstPersonBody->GetRelativeRotation();
     UERShotEffects::Prewarm(GetWorld(), TracerSystem, Camera->GetComponentLocation());
     // Compress only the viewmodel's rendered depth, preserving its framing and
     // socket transforms. Keep it inside the capsule clearance near walls.
@@ -478,14 +479,37 @@ void AERCharacter::Tick(float DeltaTime)
     const double LocalNow=GetWorld()->GetTimeSeconds();
     const bool bHideGrenade=bGrenade && ((Weapon && Weapon->IsGrenadeHandHidden()) ||
         (IsLocallyControlled() && ((bLocalGrenadeInputHeld && LocalNow<LocalGrenadeCookDeadline) || LocalNow<LocalGrenadeHideUntil)));
-    FirstPersonRifle->SetVisibility(!Health->bDead && !Movement->bHighClimb && !bHideGrenade);
+    if(Weapon)Weapon->UpdateScopeMotion();
+    const bool bOptic = Weapon && Weapon->HasOpticalScope() && Weapon->ScopeLevel;
+    const bool bIronSights = Weapon && Weapon->ScopeLevel && Weapon->Data && Weapon->Data->ScopeMode == 1;
+    const bool bRaise=bIronSights && !Health->bDead && !Movement->bHighClimb;
+    IronAimBlend=FMath::FInterpConstantTo(IronAimBlend,bRaise?1.f:0.f,FMath::Min(DeltaTime,.05f),5.f);
+    const float AimBlend=GetIronAimBlend();
+    FirstPersonBody->SetVisibility(!Health->bDead && !bOptic && AimBlend<.01f);
+    if (AppliedWeaponData)
+    {
+        const FVector Base=FirstPersonBodyBaseLocation+AppliedWeaponData->ViewOffset;
+        FirstPersonBody->SetRelativeLocation(Base);
+        FirstPersonBody->SetRelativeRotation(FirstPersonBodyBaseRotation);
+        if (AimBlend>0 && AppliedWeaponData->ScopeMode==1)
+        {
+            // Shift the complete fitted rig; weapon and both palm contacts stay together.
+            FirstPersonBody->SetRelativeRotation((FQuat(FRotator(AppliedWeaponData->IronSightPitch*AimBlend,0,0))*
+                FirstPersonBodyBaseRotation.Quaternion()).Rotator());
+            FirstPersonBody->UpdateComponentToWorld();
+            const FVector Sight=Camera->GetComponentTransform().InverseTransformPosition(GetIronSightLocation());
+            // Keep the authored aiming anchor on the optical centre at its weapon-specific eye distance.
+            FirstPersonBody->SetRelativeLocation(Base+FVector(AppliedWeaponData->IronSightEyeDistance-Sight.X,-Sight.Y,-Sight.Z-AppliedWeaponData->IronSightDrop)*AimBlend);
+        }
+    }
+    FirstPersonRifle->SetVisibility(!bOptic && !Health->bDead && !Movement->bHighClimb && !bHideGrenade);
     WorldRifle->SetVisibility(!Health->bDead && (bReadyToThrow || !(Weapon && Weapon->IsGrenadeHandHidden())));
-    FirstPersonSight->SetVisibility(!Health->bDead && !Movement->bHighClimb && AppliedWeaponData && AppliedWeaponData->SightMesh);
+    FirstPersonSight->SetVisibility(!bOptic && !Health->bDead && !Movement->bHighClimb && AppliedWeaponData && AppliedWeaponData->SightMesh);
     WorldSight->SetVisibility(!Health->bDead && AppliedWeaponData && AppliedWeaponData->SightMesh);
     const bool bFlash = GetWorld()->GetTimeSeconds() < MuzzleFlashUntil && !Health->bDead && !Movement->bHighClimb;
-    FirstPersonMuzzleFlash->SetVisibility(bFlash);
+    FirstPersonMuzzleFlash->SetVisibility(bFlash && !bOptic);
     WorldMuzzleFlash->SetVisibility(bFlash);
-    CameraKick = Health->bDead || Movement->bHighClimb ? 0.f : FMath::FInterpTo(CameraKick, 0.f, DeltaTime, 22.f);
+    CameraKick = Health->bDead || Movement->bHighClimb ? 0.f : FMath::FInterpTo(CameraKick, 0.f, DeltaTime, Weapon && Weapon->GetScopeRecoilMultiplier()<1.f ? 44.f : 22.f);
     const bool bHideLeft = Movement->bHighClimb || (AppliedWeaponData && AppliedWeaponData->bOneHanded && !(Weapon && Weapon->bReloading));
     if (bLeftArmHidden != bHideLeft)
     {
@@ -616,8 +640,9 @@ void AERCharacter::CalcCamera(float DeltaTime, FMinimalViewInfo& OutResult)
     Super::CalcCamera(DeltaTime, OutResult);
     // The viewmodel now occupies a shallow depth range; retain nearby fingers.
     OutResult.PerspectiveNearClipPlane = 1.f;
-    if (const auto* PC = Cast<AERPlayerController>(Controller); PC && PC->bZoomHeld && !Health->bDead && Weapon && Weapon->Data)
-        OutResult.FOV = Weapon->Data->ZoomFOV;
+    if (!Health->bDead && Weapon)
+        OutResult.FOV = Weapon->Data && Weapon->Data->ScopeMode==1 ?
+            FMath::Lerp(90.f,Weapon->Data->ZoomFOV,GetIronAimBlend()) : Weapon->GetScopeFOV();
     if (IsLocallyControlled() && !Health->bDead)
     {
         const FVector Right = FRotationMatrix(FRotator(0,OutResult.Rotation.Yaw,0)).GetUnitAxis(EAxis::Y);
@@ -763,6 +788,11 @@ void AERCharacter::ServerSelectWeapon_Implementation(int32 Slot)
     UE_LOG(LogTemp, Display, TEXT("ER_WEAPON_SELECTED slot=%d name=%s ammo=%d reserve=%d"),
         Slot, *Weapon->Data->DisplayName, Weapon->MagazineAmmo, Weapon->ReserveAmmo);
 }
+FVector AERCharacter::GetIronSightLocation() const
+{
+    // Weapon-owned aim anchor, measured from preserved source geometry (cm).
+    return FirstPersonRifle->GetComponentTransform().TransformPosition(Weapon && Weapon->Data ? Weapon->Data->IronSightOffset : FVector::ZeroVector);
+}
 FVector AERCharacter::GetVisualMuzzle(bool bFirstPerson) const
 {
     const auto* Component = bFirstPerson ? FirstPersonRifle.Get() : WorldRifle.Get();
@@ -818,6 +848,7 @@ void AERCharacter::UpdateWeaponPresentation()
     bAppliedReloading = false;
     FirstPersonRifle->AttachToComponent(FirstPersonBody,FAttachmentTransformRules::KeepRelativeTransform,
         Data->bFirstPersonPalmGrip ? TEXT("ER_Palm_R") : TEXT("HandGrip_R"));
+    IronAimBlend=0;
     FirstPersonBody->SetRelativeLocation(FirstPersonBodyBaseLocation + Data->ViewOffset);
     for (auto* Sight : {FirstPersonSight.Get(), WorldSight.Get()})
     { Sight->SetSkeletalMeshAsset(Data->SightMesh); Sight->SetRelativeTransform(Data->SightTransform); }
@@ -838,7 +869,7 @@ void AERCharacter::UpdateWeaponPresentation()
         GetMesh()->TickAnimation(0.f, false);
         GetMesh()->RefreshBoneTransforms();
     }
-    if (auto* PC = Cast<AERPlayerController>(Controller)) PC->bZoomHeld = false;
+
     MuzzleFlashUntil = 0;
     UE_LOG(LogTemp, Display, TEXT("ER_WEAPON_MODEL name=%s mesh=%s"), *Data->DisplayName, *Data->Mesh->GetPathName());
 }
@@ -880,7 +911,11 @@ void AERCharacter::MulticastShot_Implementation(FVector_NetQuantize Start, FVect
             FirstPersonBody->SetPlayRate(Data && Data->WeaponFireAnimation ? FMath::Max(1.f,Animation->GetPlayLength()/FMath::Max(.01f,Data->ShotInterval)) : 1.f);
             if (auto* Instance = FirstPersonBody->GetSingleNodeInstance()) Instance->SetPosition(0.f, false);
         }
-        if (bGunshot) CameraKick = FMath::Min(CameraKick + .35f, .65f);
+        if (bGunshot)
+        {
+            const float Recoil=Weapon?Weapon->GetScopeRecoilMultiplier():1.f;
+            CameraKick = FMath::Min(CameraKick + .35f*Recoil, .65f*Recoil);
+        }
         if (FireSound && bGunshot) UGameplayStatics::PlaySound2D(this, FireSound, .35f, Pitch);
     }
     else if (FireSound && bGunshot)

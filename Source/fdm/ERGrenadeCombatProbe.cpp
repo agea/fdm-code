@@ -103,6 +103,9 @@ void AERGrenadeProbe::TickCombat(float DeltaSeconds)
             const FVector Offset=CookProjectile->ReleasedFrom-Local->Camera->GetComponentLocation();
             Check(FVector::DotProduct(Offset,FRotator(0,90,0).Vector())<0 && Offset.Z>=-5 && Offset.Z<=0,TEXT("throw_starts_just_above_shoulder_below_eye"));
             Check(CookProjectile->ReleasedVelocity.Z>200,TEXT("overarm_throw_has_upward_ballistic_arc"));
+            const FVector OldThrow=FVector(0,1,.35f).GetSafeNormal()*880.f;
+            Check(FMath::IsNearlyEqual(CookProjectile->ReleasedVelocity.Size2D(),OldThrow.Size2D()*1.2f,1.f) &&
+                FMath::IsNearlyEqual(CookProjectile->ReleasedVelocity.Z,OldThrow.Z,1.f),TEXT("actual_hand_throw_twenty_percent_more_horizontal_range_same_vertical_arc"));
         }
         Capture(TEXT("Cook02_Released.png"));
         Advance(4,FMath::Max(.1,OriginalFuseEnd-Now+.5));
@@ -292,8 +295,43 @@ void AERGrenadeProbe::TickCombat(float DeltaSeconds)
         Check(ChainGrenades[2].IsValid() && ChainGrenades[2]->HasDetonated(),TEXT("chain_reaches_grenade_outside_initial_blast_radius"));
         Check(ChainGrenades[3].IsValid() && !ChainGrenades[3]->HasDetonated(),TEXT("solid_cover_blocks_every_hop_of_grenade_chain"));
         Check(ChainGrenades[4].IsValid() && ChainGrenades[4]->HasDetonated() && !ShotGrenadeHolder->Weapon->bCookingGrenade,TEXT("chain_detonates_exposed_held_grenade_and_clears_cook"));
+        // Real swept projectile/capsule contacts, isolated from the chain fixture.
+        for(int32 Index=0;Index<4;++Index)
+        {
+            const FVector Position(0,Index*1000,20000);
+            auto* Target=GetWorld()->SpawnActor<AERCharacter>(Local->GetClass(),Position,FRotator::ZeroRotator);
+            Place(Target,Position);Target->Health->ProtectionEndServerTime=0;Target->Health->Armor=0;
+            Target->Tags.Add(FName(*FString::Printf(TEXT("ContactTarget%d"),Index)));
+            FTransform Transform(FRotator::ZeroRotator,Position-FVector(200,0,0));
+            auto* Grenade=GetWorld()->SpawnActorDeferred<AERProjectile>(AERProjectile::StaticClass(),Transform,Local,Local);
+            Grenade->Payload=Index==0?EERPayload::LaunchedHE:Index==1?EERPayload::HE:Index==2?EERPayload::Smoke:EERPayload::Stun;
+            Grenade->Damage=140;Grenade->FuseDuration=3.5f;
+            Grenade->Movement->Velocity=FVector(1000,0,0);Grenade->Movement->InitialSpeed=1000;
+            Grenade->Tags.Add(FName(*FString::Printf(TEXT("ContactGrenade%d"),Index)));
+            Grenade->FinishSpawning(Transform);
+        }
+        Advance(18,.3f);
+    }
+    else if(Phase==18)
+    {
+        for(int32 Index=0;Index<4;++Index)
+        {
+            AERCharacter* Target=nullptr;AERProjectile* Grenade=nullptr;
+            for(TActorIterator<AERCharacter> It(GetWorld());It;++It)
+                if(It->ActorHasTag(FName(*FString::Printf(TEXT("ContactTarget%d"),Index))))Target=*It;
+            for(TActorIterator<AERProjectile> It(GetWorld());It;++It)
+                if(It->ActorHasTag(FName(*FString::Printf(TEXT("ContactGrenade%d"),Index))))Grenade=*It;
+            Check(Target && Grenade && Grenade->BounceCount>0,*FString::Printf(TEXT("real_player_contact_%d"),Index));
+            if(!Target || !Grenade)continue;
+            Check(FMath::IsNearlyEqual(Target->Health->Health,Index==0?65.f:100.f,.1f),*FString::Printf(TEXT("only_launcher_contact_deals_quarter_damage_%d"),Index));
+            Check(FMath::Abs(Grenade->Movement->Velocity.X)<80.f && !Grenade->HasDetonated(),*FString::Printf(TEXT("player_contact_soft_bounce_keeps_fuse_%d"),Index));
+            FHitResult Contact(Target,Target->GetCapsuleComponent(),Target->GetActorLocation(),-FVector::ForwardVector);
+            Grenade->Hit(Grenade->Collision,Target,Target->GetCapsuleComponent(),FVector::ZeroVector,Contact);
+            Check(FMath::IsNearlyEqual(Target->Health->Health,Index==0?65.f:100.f,.1f),TEXT("repeated_contact_cannot_stack_damage"));
+            Grenade->Destroy();Target->Destroy();
+        }
         UE_LOG(LogTemp,Display,TEXT("ER_GRENADE_TEST_COMPLETE result=%s"),bFailed?TEXT("FAIL"):TEXT("PASS"));
-        FPlatformMisc::RequestExitWithStatus(false,bFailed?1:0);Advance(18,1000);
+        FPlatformMisc::RequestExitWithStatus(false,bFailed?1:0);Advance(19,1000);
     }
 #endif
 }

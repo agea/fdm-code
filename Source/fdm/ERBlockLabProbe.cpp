@@ -11,6 +11,7 @@
 #include "EngineUtils.h"
 #include "Engine/World.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/ProjectileMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/App.h"
 #include "Misc/Paths.h"
@@ -174,11 +175,15 @@ void AERBlockLabProbe::TickCombat(AERCharacter* Character, AERPlayerController* 
     else if (Phase == 4 && Elapsed > .5f)
     {
         PC->ConsoleCommand(TEXT("ERBlockRegenerate"));
+        BaselineBlastDestroyed=AERBlockRoom::ApplyWorldExplosion(GetWorld(),FVector(100,-230,110),300,100,nullptr).Destroyed;
+        PC->ConsoleCommand(TEXT("ERBlockRegenerate"));
         auto* Grenade = GetWorld()->SpawnActorDeferred<AERProjectile>(Character->Weapon->ProjectileClass, FTransform(FVector(100,-230,100)), Character, Character, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
         if (Grenade)
         {
             Grenade->Payload = EERPayload::HE; Grenade->Damage = 100; Grenade->ExplosionRadius = 300; Grenade->FuseDuration = .2f;
+            Grenade->Movement->InitialSpeed=0;Grenade->Movement->MaxSpeed=0;Grenade->Movement->Velocity=FVector::ZeroVector;
             UGameplayStatics::FinishSpawningActor(Grenade, Grenade->GetActorTransform());
+            Grenade->Movement->ProjectileGravityScale=0; // Compare both blasts at exactly the same origin.
         }
         else Check(false, TEXT("real_grenade_spawn"));
         Phase = 5; Elapsed = 0;
@@ -186,6 +191,8 @@ void AERBlockLabProbe::TickCombat(AERCharacter* Character, AERPlayerController* 
     else if (Phase == 5 && Elapsed > 1)
     {
         Check(Room->BlockWorld->GetDestroyedCount() > 10 && Room->ValidateMappings(), TEXT("real_he_fuse_damages_block_world"));
+        Check(Room->BlockWorld->GetDestroyedCount()>BaselineBlastDestroyed,TEXT("grenade_structural_boost_breaks_more_than_previous_damage"));
+        UE_LOG(LogTemp,Display,TEXT("ER_GRENADE_STRUCTURAL_COMPARE baseline=%d boosted=%d"),BaselineBlastDestroyed,Room->BlockWorld->GetDestroyedCount());
         PC->ConsoleCommand(TEXT("ERBlockRegenerate"));
         Check(Room->GetInstanceCount() == 504 && Drywall->Health == 500 && Brick->Health == 500 && Concrete->Health == 500, TEXT("combat_regeneration_resets_targets_and_blocks"));
         UE_LOG(LogTemp, Display, TEXT("ER_BLOCK_PROBE_COMPLETE result=%s"), Failed ? TEXT("FAIL") : TEXT("PASS"));

@@ -329,6 +329,10 @@ void AERPlayerController::Move(const FInputActionValue& Value)
     Character->AddMovementInput(Rotation.Vector(), Axis.Y);
     Character->AddMovementInput(FRotationMatrix(Rotation).GetUnitAxis(EAxis::Y), Axis.X);
 }
+void AERPlayerController::ZoomPressed()
+{
+    if (!bMenuOpen) if (auto* C = Cast<AERCharacter>(GetPawn()); C && C->Weapon) C->Weapon->ServerCycleScope();
+}
 void AERPlayerController::Look(const FInputActionValue& Value)
 {
     if (bMenuOpen) return;
@@ -336,7 +340,9 @@ void AERPlayerController::Look(const FInputActionValue& Value)
     const FVector2D Input = Value.Get<FVector2D>();
     if (!FMath::IsFinite(Input.X) || !FMath::IsFinite(Input.Y)) return;
     const float Gain = ERMouseResponse::Gain(Input, FApp::GetDeltaTime(), GI ? GI->GetMouseAcceleration() : .5f);
-    const FVector2D Axis = Input * Gain * (GI ? GI->GetMouseLookMultiplier() : 0.16f / 0.18f);
+    const auto* C = Cast<AERCharacter>(GetPawn());
+    const float ZoomGain = C && C->Weapon ? (C->Weapon->Data && C->Weapon->Data->ScopeMode==1 ? FMath::Lerp(90.f,C->Weapon->Data->ZoomFOV,C->GetIronAimBlend()) : C->Weapon->GetScopeFOV())/90.f : 1.f;
+    const FVector2D Axis = Input * Gain * (GI ? GI->GetMouseLookMultiplier() : 0.16f / 0.18f) * ZoomGain;
     AddYawInput(Axis.X); AddPitchInput(-Axis.Y);
 #if !UE_BUILD_SHIPPING
     if (bInputAudit && FApp::GetCurrentTime() >= NextMouseAuditAt)
@@ -389,7 +395,7 @@ void AERPlayerController::MenuPressed() { if (!IsMenuLevel()) ShowMenu(!bMenuOpe
 void AERPlayerController::SelectSlot(int32 Slot)
 {
     if (bMenuOpen) return;
-    bZoomHeld = false;
+    if (auto* C = Cast<AERCharacter>(GetPawn()); C && C->Weapon) C->Weapon->ServerClearScope();
     if (auto* C = Cast<AERCharacter>(GetPawn())) C->ServerSelectWeapon(Slot);
 }
 void AERPlayerController::SelectNumber(int32 Index)
@@ -535,7 +541,7 @@ void AERPlayerController::ShowMenu(bool bShow)
     if (!IsLocalController() || !GetWorld()->GetGameViewport()) return;
     ForwardReleased(); LastForwardTap = LastCrouchTap = -1;
     FireReleased(); WalkReleased(); CrouchReleased(); JumpReleased(); bShowScoreboard = false;
-    bZoomHeld = false;
+    if (auto* C = Cast<AERCharacter>(GetPawn()); C && C->Weapon) C->Weapon->ServerClearScope();
     bMenuOpen = bShow; bShowMouseCursor = bShow;
     SetIgnoreMoveInput(false); SetIgnoreLookInput(false);
     if (MenuWidget.IsValid()) { GetWorld()->GetGameViewport()->RemoveViewportWidgetContent(MenuWidget.ToSharedRef()); MenuWidget.Reset(); }
@@ -842,6 +848,28 @@ void AERHUD::DrawHUD()
     }
     const bool bLab = GetWorld()->GetMapName().Contains(TEXT("L_MovementLab"));
     const auto* Character = Cast<AERCharacter>(PC->GetPawn());
+    if (const auto* Weapon = Character && !Character->Health->bDead ? Character->Weapon.Get() : nullptr; Weapon && Weapon->HasOpticalScope() && Weapon->ScopeLevel)
+    {
+        const float R = FMath::Min(W,H)*.48f, CX=W*.5f, CY=H*.5f;
+        // Opaque outside a circular lens, including ultrawide side bars.
+        for (int32 Y=0; Y<FMath::CeilToInt(H); ++Y)
+        {
+            const float DY=Y+.5f-CY;
+            const float X=FMath::Abs(DY)<R ? FMath::Sqrt(R*R-DY*DY) : 0.f;
+            DrawRect(FLinearColor::Black,0,Y,CX-X,1);
+            DrawRect(FLinearColor::Black,CX+X,Y,W-CX-X,1);
+        }
+        const float Blur=Weapon->GetScopeBlur();
+        for(int32 I=-4; I<=4; ++I)
+        {
+            if(I && Blur<=0) continue;
+            const float Offset=I*Blur*2.f;
+            const FLinearColor Ink(0,0,0,I==0?1.f-Blur*.7f:Blur*.12f);
+            DrawRect(Ink,CX-R,CY+Offset-.75f,2.f*R,1.5f);
+            DrawRect(Ink,CX+Offset-.75f,CY-R,1.5f,2.f*R);
+        }
+    }
+
     DrawRect(FLinearColor(0.01f,0.02f,0.04f,.8f), W/2-220, 15, 440, 70);
     Text(bLab ? FString(TEXT("MOVEMENT LAB  |  185 cm")) : FString::Printf(TEXT("ALPHA  %02d     /     %02d  OMEGA"), GS->AlphaScore, GS->OmegaScore), W/2-160, 25, FLinearColor::White, 1.5f);
     FString Status = TEXT("Waiting for players");
@@ -867,8 +895,12 @@ void AERHUD::DrawHUD()
         const float Sprint = Movement->GetSprintRemaining(), Recovery = Movement->GetRecoveryRemaining();
         Text(Sprint > 0 ? FString::Printf(TEXT("SPRINT %.1f s"), Sprint) : (Recovery > 0 ? FString::Printf(TEXT("RECOVERY %.1f s"), Recovery) : TEXT("SPRINT READY  |  double-tap W")), 30, H-100, FLinearColor(.6f,.8f,1), 1.f);
         if (Movement->bProneWanted || Movement->IsProne()) Text(TEXT("PRONE  |  C / Ctrl to stand up"), 30, H-125, FLinearColor::White, 1.f);
+        const bool bOptical = Character->Weapon && Character->Weapon->HasOpticalScope();
+        if (!bOptical && !(Character->Weapon && Character->Weapon->ScopeLevel))
+        {
         DrawLine(W/2-8,H/2,W/2-3,H/2,FLinearColor::White); DrawLine(W/2+3,H/2,W/2+8,H/2,FLinearColor::White);
         DrawLine(W/2,H/2-8,W/2,H/2-3,FLinearColor::White); DrawLine(W/2,H/2+3,W/2,H/2+8,FLinearColor::White);
+        }
         Text(FString::Printf(TEXT("HP  %.0f   AP  %.0f"), Character->Health->Health, Character->Health->Armor), 30, H-65, FLinearColor(.4f,1,.7f), 2.f);
         if (const auto* Weapon = Character->Weapon.Get())
         {
@@ -887,6 +919,8 @@ void AERHUD::DrawHUD()
             const bool bUnavailable = Weapon->bReloading || Cast<UERMovement>(Character->GetCharacterMovement())->bHighClimb;
             const FLinearColor AmmoColor = bUnavailable ? FLinearColor(1.f,.7f,.25f,.8f) :
                 (Remaining <= Capacity / 5 ? FLinearColor(1.f,.4f,.18f,.95f) : FLinearColor(.8f,.95f,1.f,.9f));
+            if (!bOptical && !Weapon->ScopeLevel)
+            {
             for (int32 I = 0; I < Capacity; ++I)
             {
                 const float Angle = -PI * .5f + (2.f * PI * I) / Capacity;
@@ -929,6 +963,7 @@ void AERHUD::DrawHUD()
             float TextW = 0, TextH = 0;
             GetTextSize(CenterAmmo, TextW, TextH, nullptr, .9f*Scale);
             Text(CenterAmmo,W*.5f-TextW*.5f,H*.5f+ReticleRadius+10.f*Scale,AmmoColor,.9f*Scale);
+            }
 #if !UE_BUILD_SHIPPING
             if (FParse::Param(FCommandLine::Get(), TEXT("ERAccuracyAudit")) && GetWorld()->GetTimeSeconds() >= NextReticleAuditAt)
             {

@@ -1887,3 +1887,110 @@ character_catalog.py centralizes skin labels; setup_english_presentation.py save
 only owned weapon data and Blueprint labels. Future import/setup scripts reuse
 these names. Asset filenames, source model/stat references and license credits
 retain original identities. No map/mesh/material regeneration for this change.
+
+## Rifle scopes — 16 October 2026
+
+Right mouse now cycles on press/release rather than hold. Only active Assault,
+Sniper (serialized Carbine/SCAR-20) and Marksman (serialized Sniper/AWP) opt in.
+Assault toggles iron-sight framing at75deg; shift the entire fitted FPS rig to
+centre the muzzle; hide the cropped forearms in this gun-only view, preserving
+both grip transforms and all server shot origins. Its
+spread is unchanged. Optical rifles cycle90/40/10/90, scale mouse sensitivity
+by FOV/90 and hide FPS arms/gun behind a circular black mask with fine black
+crosslines. Normal centre crosshair, ammo ring and centre count are hidden for
+optical rifles even without zoom; corner ammo/HP remain available.
+
+Weapon-owned reliable RPCs validate active slot, alive/match/reload/traversal;
+level replicates, owner receives synchronized settle start. Settling adds real
+server cone spread over.16s Sniper/.25s Marksman and briefly softens crosslines.
+Stationary, settled and recovered optical shots have zero base spread; motion,
+airborne state and burst bloom still apply. Hip cones3deg Sniper/6deg Marksman
+are server sampled. Sniper bloom.45deg/shot recovers6deg/s after.08s; Marksman
+.8deg/shot recovers2deg/s after.2s. Sniper keeps scope after firing; Marksman
+exits. Reload, death/holster/cancel and menu clear zoom; no automatic rezoom.
+Shared tuning is in scope_profiles.py, applied narrowly by setup_scopes.py and
+reused by future full arsenal imports. No model/animation/texture regeneration.
+Opt-in test-scopes.py drives actual remote key presses and server ballistics;
+--render captures all states through Metal. Test outcomes are recorded separately.
+
+### Assault iron-sight centre revision — 16 October 2026
+
+The newer user reference supersedes the low/distant gun-only framing above.
+Centre the actual rear aperture at camera(14,0,0)cm, moving the entire fitted
+FPS rig. The preserved AR15 geometry places its aperture centre at weapon-local
+(6.07019,0,18.71037)cm; measure this point rather than centring the muzzle below
+the view. Keep arms hidden in ADS and restore the ordinary hip frame on exit.
+No FOV, sensitivity, spread, server origins or optical-rifle behavior changes.
+The Metal scope probe now projects this anchor through the actual first-person
+camera transform and requires less than one pixel error from viewport centre.
+
+## Grenade range, launcher aim and structural blast — 16 October 2026
+
+The user clarified range means throwing distance, not explosion radius. Hand
+HE/smoke/stun now multiply the horizontal release velocity by1.2, retaining the
+880cm/s reference speed's vertical component and inherited player velocity.
+Launcher retains1750cm/s unscoped; right click toggles centred iron-style aiming
+at75FOV, with horizontal launch velocity multiplied1.5 while aimed. Gravity and
+3.5s fuse are unchanged. This gives20%/50% more unimpeded horizontal travel for
+the same flight time; terrain, walls, rebounds and cooking still bound distance.
+Fuse-projectile speed cap10000cm/s avoids different vertical fall caps distorting
+that comparison. No client velocity/position authority is introduced.
+
+ScopeMode1 now reads weapon-owned IronSightOffset/EyeDistance instead of the
+Assault-only constant. Existing Assault anchor/default14cm is preserved. Launcher
+anchor(18.493,.034,14.8316)cm comes from the retained model's upper front aiming
+feature, eye distance30cm. Whole FPS rig moves together; cropped arms hide in ADS,
+normal hip framing returns on exit. Launcher keeps its ordinary spread/cooldown.
+
+Fuse projectiles (including launched HE) now sample bounciness.18..25 instead of
+.28..38, with friction.4 instead of.32. Server contact variation/tumble remains.
+HE and launched HE supply3x damage only to ApplyWorldExplosion, preserving the
+3.5m structural envelope, material resistance and intact-cover snapshot. Peak
+player damage140,2/6m falloff, armor, chain radius and rocket damage stay intact.
+setup_grenade_combat.py and setup_scopes.py update existing saved weapon profiles;
+future Sketchfab imports reuse the shared aiming/range settings. No new art.
+
+## Continuous iron aim and posture-dependent optical focus — 16 October 2026
+
+Assault and launcher now raise/lower the complete fitted FPS rig over.2s with
+smoothstep easing, including90-to75 FOV and mouse sensitivity. Reversing the
+right-click toggle reverses from the current blend. Reset on weapon changes;
+server shots/launch bonus retain the authoritative logical scope state.
+Launcher aim anchor sits2.5cm below the camera centre with3deg upward rig pitch;
+Assault remains centred. Both palm contacts remain attached to the same rig.
+
+Optical focus now remains blurred while standing movement exceeds5cm/s, or
+while airborne. Marksman/AWP has full moving blur and7.5deg running penalty;
+Sniper/SCAR has graded blur and4deg. The server records recent scoped motion;
+after actual stopping, standing focus recovers over.25/.16s. Opposite movement
+inputs use existing physical braking; no input-key shortcut selects a precise shot.
+Grounded crouch intent/low posture reduces focus to.025s and ignores the motion
+recovery timestamp. Grounded crouch-walking Marksman has zero movement/burst
+spread once focused; jumping never receives this exemption. Sniper crouch-walk
+has a small.08deg full-speed motion term, scoped burst/recoil gain x.2 and bloom
+recovery x4 with at most.025s delay. Its standing burst gains.5deg per shot,
+up to3deg, waits.3s and recovers6deg/s; walking adds further burst growth.
+Scope crossline blur reads the same focus and burst state. Camera recoil stays
+cosmetic, reduced in amplitude and recovered faster while scoped crouching.
+
+These are requested gameplay rules, not a claim of exact Counter-Strike parity.
+Shared scope tuning/setup updates the existing four data assets only.
+
+### Launcher arc and player contacts — 16 October
+
+Launcher projectiles now start six degrees above the aim direction, scoped or
+unscoped; the existing scoped horizontal range bonus remains 1.5. This changes
+server launch velocity without changing camera/control rotation. All fused
+grenades have a soft player contact response (25% tangential speed, 5% normal
+rebound). Only launcher HE inflicts25% of base damage on player contact:
+35 raw with the140 damage profile, 28 against sufficient armor. Each projectile
+can damage a given player once on contact; the original fuse and blast remain.
+
+### Scoped launcher projectile origin — 16 October
+
+Launcher shots during iron aim now originate at the raised FPS muzzle rather
+than the fixed hipfire offset. Server uses the rig in camera-local space and
+authoritative eye/aim, with first-person FOV correction and full projectile
+depth. Origin blends during raising/lowering. The existing obstruction sweep
+and blocked-muzzle fallback still prevent firing through nearby geometry.
+Six-degree elevation, scoped range bonus, contact damage and fuse are retained.

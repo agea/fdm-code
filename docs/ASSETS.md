@@ -677,3 +677,32 @@ on22 existing weapon data assets and20 selectable appearances across character,
 training and corpse Blueprint defaults. Generic active slot names come from
 scripts/presentation_labels.py; English skin labels from character_catalog.py.
 No new binary packages or changes to model/source provenance or asset paths.
+
+### Rifle scope presentation (16 October 2026)
+
+No new imported media. The circular scope mask/crosslines are native HUD drawing;
+iron sights move the existing fitted FPS rig together with both hands.
+`scripts/setup_scopes.py` changes only the three existing private data assets
+`Weapons/Sketchfab/{Assault,Carbine,Sniper}/DA_*` using shared scope tuning.
+Source meshes, optics, materials, authored poses and provenance stay intact.
+
+Assault centre refinement: source FBX read only through Blender to measure the
+rear aperture centre(6.07019,0,18.71037)cm. Only native rig framing changed;
+no model, pose, material or data asset regeneration for this adjustment.
+
+Grenade range/launcher aim tuning: existing hand utility data now carries1.2
+horizontal throw range; DA_Launcher enables iron-style aiming with1.5 aimed
+range. Scope anchors are weapon data, retaining the Assault aperture and using
+the launcher's existing upper aiming feature. No source meshes, attachments,
+animations, materials or map geometry regenerated. combat.json records tuning.
+
+Aim-motion refinement: native.2s rig/FOV blend, launcher2.5cm drop/3deg pitch,
+and revised optical movement/crouch/burst tuning. Existing four DA_* aiming
+profiles updated through setup_scopes.py; no animation or model regeneration.
+
+Launcher arc/player contact revision (16 October): native gameplay and probe
+changes only; no new or regenerated binary assets. Existing grenade data and
+viewmodel sight anchors remain in use.
+
+Scoped launcher origin fix (16 October): native runtime/probe change only; uses
+existing FPS mesh muzzle offset and iron transforms. No binary asset changes.

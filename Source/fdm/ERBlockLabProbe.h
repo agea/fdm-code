@@ -13,6 +13,7 @@ public:
     virtual void Tick(float DeltaSeconds) override;
 private:
     int32 Phase = 0;
+    int32 BaselineBlastDestroyed = 0;
     float Elapsed = 0;
     bool Failed = false;
     void Check(bool Value, const TCHAR* Label);

@@ -128,6 +128,8 @@ public:
     UFUNCTION(Server, Reliable) void ServerSelectWeapon(int32 Slot);
     void InitializeLoadout(int32 Primary);
     FVector GetVisualMuzzle(bool bFirstPerson) const;
+    FVector GetIronSightLocation() const;
+    float GetIronAimBlend() const { return IronAimBlend*IronAimBlend*(3.f-2.f*IronAimBlend); }
     FVector GetRenderedMuzzle(bool bFirstPerson) const;
     UFUNCTION(NetMulticast, Unreliable) void MulticastShot(FVector_NetQuantize Start, FVector_NetQuantize End, bool bTracer = true);
     void ApplyDeathVisuals();
@@ -140,6 +142,8 @@ private:
     UPROPERTY() TObjectPtr<class UERWeaponData> AppliedWeaponData;
     bool bAppliedReloading = false;
     FVector FirstPersonBodyBaseLocation = FVector::ZeroVector;
+    FRotator FirstPersonBodyBaseRotation = FRotator::ZeroRotator;
+    float IronAimBlend = 0;
     void UpdateWeaponPresentation();
     FVector LastHitDirection = FVector::ForwardVector;
     FVector DamageViewKick = FVector::ZeroVector;

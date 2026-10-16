@@ -68,7 +68,7 @@ public:
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Arsenal") TArray<TObjectPtr<class UERWeaponData>> PrimaryOptions;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Arsenal") bool bReferenceArsenalMenu = false;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Team appearance") TSubclassOf<class AERCharacter> SkinCatalog;
-    bool bZoomHeld = false;
+
     float FlashOpacity = 0;
     bool bShowScoreboard = false;
     bool bMenuOpen = false;
@@ -154,8 +154,8 @@ private:
     void SelectReferenceSmoke() { SelectSlot(9); }
     void NextWeapon();
     void PreviousWeapon();
-    void ZoomPressed() { if (!bMenuOpen) bZoomHeld = true; }
-    void ZoomReleased() { bZoomHeld = false; }
+    void ZoomPressed();
+    void ZoomReleased() {}
 };
 
 UCLASS()
