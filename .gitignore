@@ -20,3 +20,8 @@ __pycache__/
 # Restored licensed assets stay outside the public code history.
 /Content/
 /SourceAssets/
+
+# Project-owned startup branding; all other Content mounts remain excluded.
+!/Content/
+/Content/*
+!/Content/Splash/

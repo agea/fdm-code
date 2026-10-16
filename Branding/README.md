@@ -1,0 +1,29 @@
+# Game branding
+
+The user supplied `Originals/logo.png`, `Originals/icon.png` and
+`Originals/splash.png` on 16 October 2026. These are unchanged source copies.
+No separate license was supplied or inferred.
+
+Run `python3 scripts/prepare-branding.py` with Pillow installed to regenerate:
+
+| File | Use | Size |
+| --- | --- | --- |
+| `Branding/logo.png` | Prepared standalone logo, retained for future use | 1024 × 414 |
+| `Branding/background.jpg` | Opening window and pause-menu background | 2560 × 1441 |
+| `Branding/icon.png` | Local macOS game process / Dock icon | 1024 × 1024 |
+| `Content/Splash/Splash.png` | Game startup splash | 1599 × 900 |
+| `Content/Splash/EdSplash.png` | Project Editor startup splash | 1599 × 900 |
+| `Content/Splash/Icon.png` | Linux splash icon | 256 × 256 |
+| `Build/Mac/Application.icns` | Native macOS application icon | multiple sizes |
+| `Build/Windows/Application.ico` | Native Windows application icon | 16–256 px |
+
+Aspect ratios and source transparency are preserved. The startup image is
+opaque. The local launcher passes `-NoSplash`: the artwork fills the opening
+menu and pause menu instead of appearing in a separate loading window. The
+background fills the viewport with its aspect ratio preserved and any excess
+cropped at the edges. Three black panels at 76% opacity keep the text readable.
+The standalone logo is not displayed over the background artwork. The launcher
+reapplies a 70% window size once at startup using the active monitor's dimensions;
+later menu size choices survive level travel. Runtime
+paths refer only to files inside the project. Native icon files are prepared
+without building or packaging standalone applications.

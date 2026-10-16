@@ -12,6 +12,9 @@ public:
     AERTeamGallery();
     virtual void Tick(float DeltaTime) override;
 private:
+    void TickCharacterShots(class AERCharacter* Player, class APlayerController* PC);
+    int32 ShotIndex = 0;
+    float NextShot = 0;
     float Age = 0;
     int32 Stage = 0;
     UPROPERTY() TArray<TObjectPtr<class AERCorpse>> Corpses;

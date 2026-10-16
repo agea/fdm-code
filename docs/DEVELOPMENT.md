@@ -1587,3 +1587,43 @@ preferenze restano identificatori interni per preservare classi serializzate,
 Blueprint, mappe modificate e impostazioni. Non sono il marchio del gioco.
 I JSON di verifica storici mantengono i valori/percorsi originali come ricevute;
 non sono configurazione dei repository correnti. Nessuna modifica al gameplay.
+
+
+## 16 ottobre 2026 — Cattura personaggi
+
+`scripts/capture-character-set.py` avvia la galleria opt-in
+`-ERTeamGallery -ERCharacterShots`: tre skin per ciascuno dei quattro modelli,
+arma casuale per variante, viste frontale/laterale/posteriore. Camera, luci e
+fondale sono transitori; output in `Saved/Screenshots/CharacterSet`.
+
+
+## 16 ottobre 2026 — Asset del marchio
+
+Originali forniti dall’utente copiati senza modifiche in `Branding/Originals`.
+`scripts/prepare-branding.py` genera logo Slate 1024×414, icona 1024²,
+splash gioco/Editor 1599×900 e icone native ICNS/ICO. Il launcher mostra
+la splash; il menu usa il logo con proporzioni preservate. Su Mac il processo
+locale `-game` aggiorna anche l’icona Dock senza modificare UnrealEditor.app.
+Inventario e percorsi in `Branding/README.md`; nessun accesso runtime a Downloads.
+
+
+## 16 ottobre 2026 — Sfondo menu
+
+La richiesta successiva sostituisce la splash separata: il launcher torna
+a usare `-NoSplash`. La stessa illustrazione, ridotta a 2560×1441, è lo
+sfondo della prima schermata interattiva e del menu richiamato durante
+la partita. Riempie il viewport conservando le proporzioni e ritagliando
+i bordi eccedenti. I tre pannelli hanno fondo nero al 76% e testo chiaro.
+Originali, logo e icona rimangono in `Branding`; il file dello sfondo è
+`Branding/background.jpg`, rigenerabile con `prepare-branding.py`.
+
+
+## 16 ottobre 2026 — Logo menu e dimensione iniziale
+
+Rimosso il logo aggiuntivo dal pannello centrale: resta quello presente
+nell’illustrazione di sfondo. All’avvio del menu principale il gioco applica
+una sola volta il 70% del monitor attivo, anche quando le dimensioni iniziali
+del launcher ricadono nel fallback o nelle preferenze salvate. Il launcher
+passa `-ERInitialWindowPercent=70`; le dimensioni esplicite di cattura/probe
+senza questo flag sono rispettate. Il guard nella GameInstance preserva
+le successive scelte utente durante i cambi mappa e il ritorno al menu.

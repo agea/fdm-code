@@ -5,6 +5,10 @@
 #include "ERWeapon.h"
 #include "ERMatch.h"
 #include "Camera/CameraActor.h"
+#include "Engine/PointLight.h"
+#include "Engine/StaticMeshActor.h"
+#include "Components/StaticMeshComponent.h"
+#include "Components/PointLightComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Animation/SkeletalMeshActor.h"
@@ -206,6 +210,7 @@ void AERTeamGallery::Tick(float DeltaTime)
     Age += DeltaTime;
     auto* PC = GetWorld()->GetFirstPlayerController();
     auto* Player = PC ? Cast<AERCharacter>(PC->GetPawn()) : nullptr;
+    if (FParse::Param(FCommandLine::Get(), TEXT("ERCharacterShots"))) { TickCharacterShots(Player,PC); return; }
     if (FParse::Param(FCommandLine::Get(), TEXT("ERPostureGallery"))) { TickPosture(Player,PC); return; }
     if (FParse::Param(FCommandLine::Get(), TEXT("ERFPSForearmsGallery"))) { TickForearms(Player,PC); return; }
     if (FParse::Param(FCommandLine::Get(), TEXT("ERSkinGallery"))) { TickSkins(Player,PC); return; }
@@ -307,7 +312,12 @@ void AERTeamGallery::TickPosture(AERCharacter* Player, APlayerController* PC)
     auto* M = Cast<UERMovement>(Player->GetCharacterMovement());
     if (Stage == 0 && Age > 3)
     {
-        Player->TeleportTo(FVector(-900,-1500,95),FRotator::ZeroRotator);
+        Player->TeleportTo(FVector(-10000,-10000,92.5),FRotator::ZeroRotator);
+        Player->GetCharacterMovement()->DisableMovement();
+        Player->TeamMarker->SetVisibility(false);
+        auto* Floor = GetWorld()->SpawnActor<AStaticMeshActor>(FVector(-10000,-10000,-15),FRotator::ZeroRotator);
+        Floor->GetStaticMeshComponent()->SetStaticMesh(LoadObject<UStaticMesh>(nullptr,TEXT("/Engine/BasicShapes/Cube.Cube")));
+        Floor->SetActorScale3D(FVector(40,40,.3));
         PC->SetControlRotation(FRotator::ZeroRotator);
         PC->SetIgnoreMoveInput(true); PC->SetIgnoreLookInput(true);
         M->bProneWanted = true;
@@ -351,5 +361,74 @@ void AERTeamGallery::TickPosture(AERCharacter* Player, APlayerController* PC)
         UE_LOG(LogTemp,Display,TEXT("ER_POSTURE_GALLERY_COMPLETE"));
         FPlatformMisc::RequestExit(false); Stage = 7;
     }
+#endif
+}
+
+// Twelve looks, each held unchanged while the camera orbits for three views.
+void AERTeamGallery::TickCharacterShots(AERCharacter* Player, APlayerController* PC)
+{
+#if !UE_BUILD_SHIPPING
+    auto* State = Player ? Player->GetPlayerState<AERPlayerState>() : nullptr;
+    if (!State || !PC || !Player->Weapon || Age < 5 || Age < NextShot) return;
+    if (ShotIndex >= 36)
+    {
+        UE_LOG(LogTemp,Display,TEXT("ER_CHARACTER_SHOTS_COMPLETE count=36"));
+        FPlatformMisc::RequestExit(false); return;
+    }
+    if (!GalleryCamera)
+    {
+        PC->SetIgnoreMoveInput(true); PC->SetIgnoreLookInput(true);
+        Player->TeleportTo(FVector(-10000,-10000,92.5),FRotator::ZeroRotator);
+        Player->GetCharacterMovement()->DisableMovement();
+        Player->TeamMarker->SetVisibility(false);
+        auto* Floor = GetWorld()->SpawnActor<AStaticMeshActor>(FVector(-10000,-10000,-15),FRotator::ZeroRotator);
+        Floor->GetStaticMeshComponent()->SetStaticMesh(LoadObject<UStaticMesh>(nullptr,TEXT("/Engine/BasicShapes/Cube.Cube")));
+        Floor->SetActorScale3D(FVector(40,40,.3));
+        PC->SetControlRotation(FRotator::ZeroRotator);
+        AddTickPrerequisiteActor(Player);
+        GalleryCamera = GetWorld()->SpawnActor<ACameraActor>();
+        GalleryCamera->GetCameraComponent()->SetFieldOfView(50);
+        GalleryCamera->GetCameraComponent()->SetAspectRatio(4.f/3.f);
+        for (const FVector Offset : {FVector(250,250,220), FVector(-250,250,180), FVector(0,-300,250)})
+        {
+            auto* Light = GetWorld()->SpawnActor<APointLight>(Player->GetActorLocation()+Offset,FRotator::ZeroRotator);
+            Light->SetMobility(EComponentMobility::Movable);
+            Light->PointLightComponent->SetIntensity(35000.f);
+            Light->PointLightComponent->SetAttenuationRadius(1800.f);
+            Light->PointLightComponent->SetCastShadows(false);
+        }
+        PC->SetViewTarget(GalleryCamera);
+        if (PC->GetHUD()) PC->GetHUD()->bShowHUD=false;
+        UWidgetLayoutLibrary::RemoveAllWidgets(this);
+    }
+    Player->GetMesh()->SetOwnerNoSee(false);
+    Player->WorldRifle->SetOwnerNoSee(false);
+    Player->FirstPersonBody->SetVisibility(false);
+    Player->FirstPersonRifle->SetVisibility(false);
+    Player->FirstPersonSight->SetVisibility(false);
+    Player->WorldSight->SetOwnerNoSee(false);
+    const int32 Look = ShotIndex / 3, View = ShotIndex % 3;
+    const int32 Model = Look / 3, Variant = Look % 3;
+    const int32 Skin = (Model % 2)*5 + Variant*2;
+    const TCHAR* Models[] = {TEXT("Twinblast"),TEXT("Belica"),TEXT("Drongo"),TEXT("Phase")};
+    const TCHAR* Views[] = {TEXT("fronte"),TEXT("lato"),TEXT("retro")};
+    if (Stage == 0)
+    {
+        if (View == 0)
+        {
+            State->Team = Model < 2 ? EERTeam::Alpha : EERTeam::Omega;
+            State->ActiveSkin = Skin;
+            Player->ServerSelectWeapon(FMath::RandRange(1,7));
+        }
+        const FVector Center = Player->GetActorLocation();
+        const FVector Offset = View == 0 ? FVector(620,0,5) : View == 1 ? FVector(0,620,5) : FVector(-620,0,5);
+        GalleryCamera->SetActorLocationAndRotation(Center+Offset,(-Offset).Rotation());
+        Stage=1; NextShot=Age+(ShotIndex==0 ? 25.f : 3.f); return;
+    }
+    const FString File = FString::Printf(TEXT("Screenshots/CharacterSet/%s/variante-%d-%s.png"),Models[Model],Variant+1,Views[View]);
+    FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir()/File,false,false);
+    UE_LOG(LogTemp,Display,TEXT("ER_CHARACTER_SHOT model=%s skin=%d view=%s weapon=%s file=%s"),
+        Models[Model],Skin,Views[View],*Player->Weapon->Data->DisplayName,*File);
+    ++ShotIndex; Stage=0; NextShot=Age+1.f;
 #endif
 }

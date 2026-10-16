@@ -2325,3 +2325,61 @@ it does not replace their geometry with the viewer's glove.
 Le namespace interne delle classi e degli asset sono state mantenute per
 compatibilità; nessun package binario è stato rinominato o modificato.
 Il prototipo precedente resta nella sua cartella, con remote e contenuti invariati.
+
+
+## 16 ottobre 2026 — Set personaggi a tre viste
+
+Compilazione Editor Mac arm64 riuscita. Eseguito `scripts/capture-character-set.py`
+con rendering Metal: processo terminato con codice 0 e marker
+`ER_CHARACTER_SHOTS_COMPLETE count=36`. Verificati 36 PNG a 1600×1200:
+Twinblast, Belica, Drongo e Phase, skin 0/2/4 e 5/7/9, fronte/lato/retro.
+Arma casuale mantenuta per ogni terna, registrata in `manifest.txt`.
+Controllate visivamente le quattro tavole riepilogative e le inquadrature singole
+durante la regolazione del fondale. Output in `Saved/Screenshots/CharacterSet`,
+archivio `Saved/Screenshots/Personaggi-36-screenshot.zip`.
+Il log segnala usage flag materiali mancanti su alcune mesh; nessuna modifica
+ai package asset e nessun test di rete richiesto per la sola modalità di cattura.
+
+
+## 16 ottobre 2026 — Splash, logo e icona
+
+Compilazione `RespawnAndRageEditor Mac Development arm64` riuscita.
+Avvio reale `-game` con Metal e cattura nativa `shot showui`: logo visibile
+nel menu, proporzioni e trasparenza preservate. Evidenza locale:
+`Saved/Testing/Branding-Menu.png`, log `Saved/Testing/branding-capture.log`.
+La prima verifica mostrava un rettangolo bianco; corretto usando una
+`FSlateDynamicImageBrush`, poi ricompilato e verificato nella cattura finale.
+SHA-256 degli originali copiati identici ai tre file forniti in Downloads;
+PNG/ICNS/ICO generati riaperti e verificati con Pillow. `zsh -n` sul launcher
+e `git diff --check` superati. Solo `Content/Splash` è ammesso da Git;
+i mount Content degli asset e SourceAssets rimangono ignorati.
+Splash gioco/Editor e icone native configurate secondo i percorsi UE 5.8
+verificati nel sorgente locale; splash transitoria e Dock non certificati
+visivamente dalla cattura del viewport. Nessun packaging o test di rete
+eseguito per questa modifica di presentazione.
+
+
+## 16 ottobre 2026 — Sfondo della finestra e menu trasparente
+
+Compilazione Editor Mac arm64 riuscita. Avvio reale Metal su L_MainMenu
+con `-NoSplash`: sfondo visibile a finestra intera, anche dopo il cambio
+di dimensione applicato dalle preferenze, pannelli neri semitrasparenti e
+testi chiari verificati a schermo. Cattura finale tramite UI:
+`Saved/Testing/Branding-Background.png`; log `branding-background.log`.
+La cattura `shot showui` del primissimo frame precede la normalizzazione
+del layout SScaleBox, quindi non è usata come evidenza del layout finale.
+Il menu iniziale e quello durante la partita condividono lo stesso ShowMenu;
+nessun test di gameplay/rete aggiunto per questa modifica grafica.
+`git diff --check`, verifica JPEG con Pillow e sintassi zsh launcher superati.
+
+
+## 16 ottobre 2026 — Menu senza logo e avvio al 70%
+
+Compilazione Editor Mac arm64 riuscita. Avvio reale Metal con dimensioni
+volutamente piccole `-ResX=1280 -ResY=720 -ERInitialWindowPercent=70`:
+log `Saved/Testing/menu-window70.log` registra `ER_DISPLAY size=70%
+resolution=2419x1564 fullscreen=0` e viewport effettivo 2419×1564.
+Verifica visiva conferma selettore Finestra 70%, rimozione del logo
+sovrapposto e mantenimento dello sfondo con pannelli trasparenti.
+Evidenza: `Saved/Testing/Menu-NoLogo-70.png`. Sintassi zsh launcher
+e `git diff --check` superati. Nessun test di combattimento/rete richiesto.

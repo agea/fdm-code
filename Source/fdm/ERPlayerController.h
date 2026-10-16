@@ -39,6 +39,7 @@ public:
     int32 OmegaSkin = 0;
     void SaveSkins();
     void SaveLoadout();
+    bool bInitialWindowSizeApplied = false;
 private:
     float MouseSensitivity = .5f;
     float MouseAcceleration = .5f;

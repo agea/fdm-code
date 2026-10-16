@@ -1,6 +1,10 @@
 #include "ERPlayerController.h"
 #include "ERMouseResponse.h"
 #include "Misc/App.h"
+#include "Misc/Paths.h"
+#include "Brushes/SlateDynamicImageBrush.h"
+#include "Widgets/Images/SImage.h"
+#include "Widgets/Layout/SScaleBox.h"
 #include "ERCharacter.h"
 #include "ERMovement.h"
 #include "ERMatch.h"
@@ -46,9 +50,18 @@
 #include "Widgets/Text/STextBlock.h"
 #include "Framework/Application/SlateApplication.h"
 
+#if PLATFORM_MAC
+void ERSetMacGameIcon(const FString& IconPath);
+#endif
+
 void UERGameInstance::Init()
 {
     Super::Init();
+#if PLATFORM_MAC
+    // Local -game runs use the Editor executable, so also set this process's Dock icon.
+    if (!GIsEditor && !IsRunningDedicatedServer())
+        ERSetMacGameIcon(FPaths::ConvertRelativePathToFull(FPaths::ProjectDir() / TEXT("Branding/icon.png")));
+#endif
     GConfig->GetInt(TEXT("EclipseRecoil.Loadout"), TEXT("PrimaryWeapon"), PrimaryWeapon, GGameUserSettingsIni);
     PrimaryWeapon = FMath::Clamp(PrimaryWeapon, 0, 6);
     GConfig->GetInt(TEXT("EclipseRecoil.Appearance"), TEXT("AlphaSkin"), AlphaSkin, GGameUserSettingsIni);
@@ -176,7 +189,23 @@ void AERPlayerController::BeginPlay()
     bInputAudit = FParse::Param(FCommandLine::Get(), TEXT("ERInputAudit"));
     bPerformanceAudit = FParse::Param(FCommandLine::Get(), TEXT("ERPerformanceAudit"));
 #endif
-    if (auto* GI = GetGameInstance<UERGameInstance>()) ServerSetName(GI->LocalName);
+    if (auto* GI = GetGameInstance<UERGameInstance>())
+    {
+        ServerSetName(GI->LocalName);
+        if (!GIsEditor && IsMenuLevel() && !GI->bInitialWindowSizeApplied &&
+            !FParse::Param(FCommandLine::Get(), TEXT("nullrhi")))
+        {
+            GI->bInitialWindowSizeApplied = true;
+            int32 Percent = 70;
+            int32 ExplicitSize = 0;
+            const bool bRequestedPercent = FParse::Value(FCommandLine::Get(), TEXT("ERInitialWindowPercent="), Percent);
+            const bool bExplicitResolution = FParse::Value(FCommandLine::Get(), TEXT("ResX="), ExplicitSize) ||
+                FParse::Value(FCommandLine::Get(), TEXT("ResY="), ExplicitSize);
+            // Apply once after the native window exists, overriding stale saved sizes.
+            // Explicit capture/probe resolutions still work without the launcher flag.
+            if (bRequestedPercent || !bExplicitResolution) ApplyDisplaySize(FMath::Clamp(Percent, 50, 90));
+        }
+    }
     if (ULocalPlayer* LP = GetLocalPlayer()) if (auto* Subsystem = LP->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>()) if (GameplayMapping) Subsystem->AddMappingContext(GameplayMapping, 0);
     ShowMenu(IsMenuLevel());
     UpdateRenderResolution();
@@ -523,8 +552,6 @@ void AERPlayerController::ShowMenu(bool bShow)
     Panel->AddSlot().AutoHeight().Padding(0,0,0,12)[Heading(TEXT("PERSONAGGIO E ARMI"))];
     SetupPanel->AddSlot().AutoHeight().Padding(0,0,0,12)[Heading(TEXT("IMPOSTAZIONI"))];
     TSharedPtr<SWidget> FocusWidget;
-    Panel->AddSlot().AutoHeight().Padding(0,0,0,10)[SNew(STextBlock).Text(FText::FromString(TEXT("Respawn & Rage"))).Font(FCoreStyle::GetDefaultFontStyle("Bold",30))];
-    Panel->AddSlot().AutoHeight().Padding(0,0,0,10)[SNew(STextBlock).Text(FText::FromString(TEXT("Serious guns. Questionable players")))];
     Panel->AddSlot().AutoHeight().Padding(0,0,0,20)[SNew(STextBlock).Text(FText::FromString(TEXT("ALPHA / OMEGA     •     TEAM DEATHMATCH")))];
     const auto* Catalog = SkinCatalog ? SkinCatalog->GetDefaultObject<AERCharacter>() : nullptr;
     for (bool Alpha : {true, false})
@@ -660,11 +687,19 @@ void AERPlayerController::ShowMenu(bool bShow)
     auto Column = [](TSharedRef<SVerticalBox> Content) -> TSharedRef<SWidget>
     {
         return SNew(SBorder).Padding(20).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
-            .BorderBackgroundColor(FLinearColor(.035f,.055f,.08f,1))
+            .BorderBackgroundColor(FLinearColor(0,0,0,.76f))
+            .ForegroundColor(FLinearColor(.95f,.95f,.95f,1))
             [SNew(SScrollBox) + SScrollBox::Slot()[Content]];
     };
-    MenuWidget = SNew(SBorder).Padding(24).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
-        .BorderBackgroundColor(FLinearColor(.015f,.025f,.045f,.96f))
+    static const FSlateDynamicImageBrush BackgroundBrush(FName(*FPaths::ConvertRelativePathToFull(
+        FPaths::ProjectDir() / TEXT("Branding/background.jpg"))), FVector2D(2560, 1441));
+    MenuWidget = SNew(SOverlay)
+        + SOverlay::Slot()
+        [SNew(SScaleBox).Stretch(EStretch::ScaleToFill)
+            .Clipping(EWidgetClipping::ClipToBounds)
+            .Visibility(EVisibility::HitTestInvisible)
+            [SNew(SImage).Image(&BackgroundBrush)]]
+        + SOverlay::Slot().Padding(24)
         [SNew(SHorizontalBox)
             + SHorizontalBox::Slot().FillWidth(1.1f).Padding(0,0,8,0)[Column(GamePanel)]
             + SHorizontalBox::Slot().FillWidth(1).Padding(8,0)[Column(Panel)]
