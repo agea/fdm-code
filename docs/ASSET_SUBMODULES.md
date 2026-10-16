@@ -81,11 +81,16 @@ total storage or download traffic. See
 
 ## Publication boundaries
 
-The public tree uses an explicit text allowlist and
+The public tree uses an explicit text allowlist (including Objective-C++ `.mm`) and
 `python3 scripts/verify-public-tree.py` checks all local Git history for assets,
 binary blobs, LFS pointers and unexpected paths. Content and SourceAssets are
 ignored, including their mounted directory links. Only the three Assets
-gitlinks are committed in the parent repository.
+gitlinks are committed in the parent repository for licensed game assets.
+The user-supplied game branding is an explicit exception: eleven original or
+derived images/icons under exact `Branding`, `Build` and `Content/Splash` paths
+are checked against pinned SHA-256 hashes in the verifier. `Branding/README.md`
+is also allowed. Other binaries, substituted branding files, LFS pointers and
+symlinks remain forbidden; future branding changes require reviewed hash updates.
 
 Private access is limited to authorized project collaborators; it does not
 grant redistribution rights. Keep Fab originals and generated derivatives

@@ -2383,3 +2383,16 @@ Verifica visiva conferma selettore Finestra 70%, rimozione del logo
 sovrapposto e mantenimento dello sfondo con pannelli trasparenti.
 Evidenza: `Saved/Testing/Menu-NoLogo-70.png`. Sintassi zsh launcher
 e `git diff --check` superati. Nessun test di combattimento/rete richiesto.
+
+
+## 16 ottobre 2026 — Verifica pubblicazione degli asset del marchio
+
+Il pre-push locale respingeva il commit c4a9426 perché il vecchio controllo
+ammetteva esclusivamente testo e gitlink. Aggiunta eccezione per undici
+immagini/icone del marchio, con percorso e SHA-256 esatti, README del marchio
+e sorgenti Objective-C++ `.mm`. Nessuna eccezione generica per binari.
+Sei test `test_public_tree.py` superati: include marchio esatto accettato,
+contenuto sostituito/LFS rifiutato, immagini extra e symlink rifiutati,
+asset rimossi ma ancora nella cronologia e binari mascherati da sorgenti.
+`verify-public-tree.py`: PASS su tutti i 15 commit e 2827 voci approvate.
+`git diff --check` superato. Nessun push eseguito durante questa correzione.
