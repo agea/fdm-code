@@ -35,16 +35,17 @@ configured bots have a separate bounded budget (20 total).
 All laboratories replenish reload reserve on authority while retaining magazine
 capacity and reload duration; ordinary depot ammo remains finite.
 
-Controls: WASD, mouse aim / left-click fire, Space jump / climb / respawn, Shift walk, double-tap W sprint (5s, then 10s recovery), hold Ctrl or C crouch,
+Controls: WASD, mouse aim / left-click fire, Space jump / climb / respawn, Shift walk, double-tap W sprint (max 5s, recovery twice the sprint duration), hold Ctrl or C crouch,
 double-tap Ctrl or C prone (press again to rise),
 R reload, 1–8 / F / G or mouse wheel select weapon, right-click zoom, Tab scoreboard,
 Esc menu. After dying, wait three seconds and press
 fire or jump again. The respawn press is consumed; release before firing.
 
-The requested Sketchfab arsenal is the default: 1 knife, 2 pistol, 3 SMG,
-4 shotgun, 5 assault rifle, 6 carbine, 7 sniper, 8 Milkor grenade launcher,
-F HE and G smoke. All ten slots keep independent ammunition and cooldowns.
-The assault/carbine use the requested AK-47/SCAR-20 statistics. Server-owned
+All menus, HUD messages, controls and skin labels are in English.
+The default arsenal uses generic names: 1 Knife, 2 Pistol, 3 SMG,
+4 Shotgun, 5 Assault Rifle, 6 Sniper Rifle, 7 Marksman Rifle,
+8 Grenade Launcher, F HE Grenade and G Smoke Grenade. All ten slots keep independent ammunition and cooldowns.
+The Assault Rifle and slot6 Sniper Rifle retain the requested AK-47/SCAR-20 statistics. Server-owned
 armor starts at 100 AP and bullets lose damage over distance using the supplied
 worksheet. Source archives and credits are private in
 `SourceAssets/SketchfabWeapons`; runtime assets live in
@@ -53,6 +54,34 @@ translation, source mappings and rebuild details are in
 [the weapon import notes](docs/WEAPON_IMPORT.md).
 The previous Fab arsenal remains available with `?ERLegacyArsenal=1` for its
 baseline regression fixture. Smoke does not affect bot vision.
+
+XM1014 fires six individually traced pellets with20 base damage each, anatomical
+zone multipliers,80% armor penetration and distance falloff. A stable six-slot
+spread pattern adds small random variation; legs bypass armor and head protection
+uses helmet state.
+
+Spawn protection displays the character in opaque gray using an existing engine
+material and a transient tint; original skin colors return on expiry or attack.
+
+HE and Milkor rounds share a compact explosion and a timed fuse: both bounce
+and tumble, and Milkor rounds do not detonate on impact. Launch speeds are
+17.5m/s for Milkor and 8.8m/s for hand grenades. A brief neutral flash and light
+smoke replace the fireball; a short Freesound explosion plays with spatial distance attenuation; ground blasts toss a few cosmetic floor chips. Hold fire to cook a
+hand grenade; release to throw it from just above the shoulder. Other players see the
+armed grenade in a bent-arm ready pose while cooking. Shooting an armed grenade
+triggers its payload, including while it is held; solid cover blocks the shot.
+HE/Milkor blasts also trigger nearby armed grenades in a chain with cover checks,
+with each hop using its own blast radius and intact-cover snapshot. The fuse starts on press and can
+expire in hand after 3.5 seconds from press. HE/Milkor deal full close damage through 2m, taper to zero at 6m
+and respect full/partial cover; armor absorbs at most 20% of exposed blast damage.
+Smoke uses the throwing team’s color (Alpha blue, Omega red-orange), replicated
+consistently to all players. Smoke forms an irregular dome with a maximum 4m radius and height,
+randomized per cloud with moving contours and clipped to connected free space around walls and windows. Its
+12-second lifetime remains server owned, with 2.2s growth and a 4s fade.
+Shots and moving grenades open temporary wakes; Bullet wakes refill over 2s. HE/Milkor explosions disperse a 4m pocket
+with very little refill before cloud expiry. Smoke is about35% denser. Hand grenade stocks are temporarily ten of each type for testing. Run `python3 scripts/test-grenades.py`
+(or `--render` for Metal captures) for the dedicated two-peer regression.
+Add `--combat` to test damage/armor/cover and press/release cooking.
 
 Each server-authorized gunshot now plays a short first-person firing animation,
 gentle cosmetic camera recoil, a muzzle flash and the template firing sound.
@@ -230,7 +259,7 @@ history is pruned by asset cleanup.
 
 Sprint and posture: double-tap W within 300ms and hold the second press to sprint
 at 18km/h. Releasing W, walking, crouching, leaving the ground or climbing ends
-sprint and starts 10s of recovery. A fresh double-tap is required after recovery.
+sprint and starts recovery lasting twice the actual sprint duration (up to 10s). A fresh double-tap is required after recovery.
 Crouching/rising takes 0.4s; going prone/rising takes about 1.1s. Movement slows
 during transitions; prone crawling is 55cm/s. Standing waits for ceiling clearance.
 The prone world pose is procedural, layered over the existing team skeletons.

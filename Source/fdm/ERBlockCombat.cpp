@@ -1,4 +1,6 @@
 #include "ERBlockCombat.h"
+#include "ERShotTrace.h"
+#include "ERWeapon.h"
 #include "HAL/PlatformTime.h"
 #include "ProfilingDebugging/CpuProfilerTrace.h"
 #include "ERBlockRoom.h"
@@ -86,7 +88,10 @@ FERBlockShotResult ERBlockCombat::ContinueShot(UWorld* World, const FHitResult& 
         Result.End = Cursor + Ray * RemainingRange;
         Result.TerminalHit = FHitResult();
         ++Result.ExtraTraces;
-        if (!World->LineTraceSingleByChannel(Hit, Cursor, Result.End, ECC_GameTraceChannel1, Query)) break;
+        const auto* Gun=Cast<AERWeapon>(Causer);
+        const bool Anatomical=Gun && Gun->Data && Gun->Data->bUseBodyHitZones;
+        if (!(Anatomical ? ERShotTrace::Pellet(World,Hit,Cursor,Result.End,Query) :
+            World->LineTraceSingleByChannel(Hit, Cursor, Result.End, ECC_GameTraceChannel1, Query))) break;
     }
     for (auto* Room : Rooms)
         Room->LastCombat = FString::Printf(TEXT("shot hits=%d penetrations=%d energy=%.1f limited=%d target=%s damage=%.1f"), Result.BlockHits, Result.Penetrations, Result.RemainingEnergy, Result.bLimited, Result.TerminalHit.GetActor() && !Result.TerminalHit.GetActor()->IsA<AERBlockRoom>() ? *Result.TerminalHit.GetActor()->GetName() : TEXT("none"), Result.TerminalDamage);

@@ -12,6 +12,9 @@ public:
     AERTeamGallery();
     virtual void Tick(float DeltaTime) override;
 private:
+    void TickProtection(class AERCharacter* Player, class APlayerController* PC);
+    void TickProtectionRespawn(class AERCharacter* Player, class APlayerController* PC);
+    float ProtectionRespawnSeenAt = 0;
     void TickCharacterShots(class AERCharacter* Player, class APlayerController* PC);
     int32 ShotIndex = 0;
     float NextShot = 0;

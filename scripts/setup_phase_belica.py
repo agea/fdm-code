@@ -16,18 +16,18 @@ phase = '/Game/ParagonPhase/Characters/Heroes/Phase/'
 # with project field gear where appropriate. No fantasy Witch skin is used.
 SPECS = {
  'Alpha': ('Belica', belica+'Meshes/Belica', belica+'Meshes/Belica_Extents', [
-  ('Belica · fanteria', 'BelicaInfantry', belica+'Meshes/Belica', [], (.22,.39,.65), (.31,.34,.37)),
-  ('Belica · pattuglia artica', 'BelicaPolar', belica+'Skins/PolarStrike/Meshes/Belica_PolarStrike', [], (.31,.46,.65), (.48,.49,.48)),
-  ('Belica · difesa NBC', 'BelicaCBRN', belica+'Skins/Biohazard/Meshes/Belica_Biohazard', [], (.17,.30,.50), (.33,.35,.32)),
-  ('Belica · corazzata', 'BelicaArmor', belica+'Skins/HeavyArmor/Meshes/Belica_HeavyArmor', [], (.23,.37,.57), (.28,.31,.35)),
-  ('Belica · supporto campale', 'BelicaSupport', belica+'Meshes/Belica', ['pack'], (.18,.32,.57), (.42,.41,.36)),
+  ('Belica · Infantry', 'BelicaInfantry', belica+'Meshes/Belica', [], (.22,.39,.65), (.31,.34,.37)),
+  ('Belica · Arctic Patrol', 'BelicaPolar', belica+'Skins/PolarStrike/Meshes/Belica_PolarStrike', [], (.31,.46,.65), (.48,.49,.48)),
+  ('Belica · NBC Defense', 'BelicaCBRN', belica+'Skins/Biohazard/Meshes/Belica_Biohazard', [], (.17,.30,.50), (.33,.35,.32)),
+  ('Belica · Armored', 'BelicaArmor', belica+'Skins/HeavyArmor/Meshes/Belica_HeavyArmor', [], (.23,.37,.57), (.28,.31,.35)),
+  ('Belica · Support', 'BelicaSupport', belica+'Meshes/Belica', ['pack'], (.18,.32,.57), (.42,.41,.36)),
  ]),
  'Omega': ('Phase', phase+'Meshes/Phase_GDC', phase+'Meshes/Phase_Extents', [
-  ('Phase · ricognizione', 'PhaseRecon', phase+'Meshes/Phase_GDC', [], (.76,.34,.13), (.31,.29,.25)),
-  ('Phase · incursione', 'PhaseAssault', phase+'Skins/Tier_1_5/Kitty/Meshes/Phase_Kitty_GDC', [], (.66,.27,.10), (.28,.29,.26)),
-  ('Phase · pattuglia', 'PhasePatrol', phase+'Skins/Tier_1_5/Pandapack/Meshes/Phase_Pandapack_GDC', [], (.82,.40,.17), (.38,.35,.29)),
-  ('Phase · geniere con casco', 'PhaseEngineer', phase+'Meshes/Phase_GDC', ['helmet'], (.62,.29,.12), (.33,.32,.29)),
-  ('Phase · supporto campale', 'PhaseSupport', phase+'Skins/Tier_1_5/Kitty/Meshes/Phase_Kitty_GDC', ['pack'], (.74,.35,.15), (.39,.36,.29)),
+  ('Phase · Recon', 'PhaseRecon', phase+'Meshes/Phase_GDC', [], (.76,.34,.13), (.31,.29,.25)),
+  ('Phase · Assault', 'PhaseAssault', phase+'Skins/Tier_1_5/Kitty/Meshes/Phase_Kitty_GDC', [], (.66,.27,.10), (.28,.29,.26)),
+  ('Phase · Patrol', 'PhasePatrol', phase+'Skins/Tier_1_5/Pandapack/Meshes/Phase_Pandapack_GDC', [], (.82,.40,.17), (.38,.35,.29)),
+  ('Phase · Engineer', 'PhaseEngineer', phase+'Meshes/Phase_GDC', ['helmet'], (.62,.29,.12), (.33,.32,.29)),
+  ('Phase · Support', 'PhaseSupport', phase+'Skins/Tier_1_5/Kitty/Meshes/Phase_Kitty_GDC', ['pack'], (.74,.35,.15), (.39,.36,.29)),
  ])
 }
 

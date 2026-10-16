@@ -6,6 +6,7 @@
 #include "ERGrenadeExplosion.h"
 #include "ERSmokeCloud.h"
 #include "NiagaraComponent.h"
+#include "Particles/ParticleSystemComponent.h"
 #include "ERShotEffects.h"
 #include "Engine/StaticMeshActor.h"
 #include "Camera/CameraComponent.h"
@@ -254,7 +255,9 @@ void AERArsenalProbe::Tick(float DeltaTime)
     {
         auto* P=GetWorld()->SpawnActorDeferred<AERProjectile>(H->Weapon->ProjectileClass,FTransform(FRotator::ZeroRotator,Position),H->Weapon,H,
             ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
-        P->Payload=Kind; P->Damage=100; P->ExplosionRadius=600; P->FuseDuration=.2f;
+        // Keep this presentation/selection fixture alive after the now-full
+        // close-range HE damage. Lethality is covered by the grenade probe.
+        P->Payload=Kind; P->Damage=60; P->ExplosionRadius=600; P->FuseDuration=.2f;
         P->Movement->InitialSpeed=0; P->Movement->MaxSpeed=0; P->Movement->Velocity=FVector::ZeroVector;
         UGameplayStatics::FinishSpawningActor(P,P->GetActorTransform());
         return P;
@@ -297,16 +300,16 @@ void AERArsenalProbe::Tick(float DeltaTime)
         Check(H->Health->Health<100,TEXT("he_applies_server_area_damage_to_thrower"));
         Check(C->Health->Health==100,TEXT("stun_does_not_deal_health_damage"));
         { bool Smoke=false; for(TActorIterator<AERSmokeCloud> It(GetWorld());It;++It)
-            Smoke |= It->System && It->GetIsReplicated() && It->GetLifeSpan()>10 && !It->GetActorEnableCollision();
+            Smoke |= It->VolumeMaterial && It->FilledCellCount>0 && It->GetIsReplicated() && It->GetLifeSpan()>10 && !It->GetActorEnableCollision();
           Check(Smoke,TEXT("smoke_volume_persists_after_fuse")); }
         H->Weapon->Data=H->Arsenal[0]; H->Weapon->MagazineAmmo=30; H->Weapon->ForceNetUpdate();
         Check(C->Weapon==C->Inventory[1],TEXT("wheel_burst_changes_only_one_slot"));
         { bool Burst=false, HEProjectile=false;
           for(TActorIterator<AERGrenadeExplosion> It(GetWorld());It;++It)
-              Burst |= It->Debris->GetSkeletalMeshAsset()!=nullptr && It->Debris->IsPlaying() && !It->GetIsReplicated()
-                  && It->Debris->GetCollisionEnabled()==ECollisionEnabled::NoCollision;
+              Burst |= It->BurstTemplate!=nullptr && It->Burst->Template!=nullptr && !It->GetIsReplicated()
+                  && It->Burst->GetCollisionEnabled()==ECollisionEnabled::NoCollision;
           for(TActorIterator<AERProjectile> It(GetWorld());It;++It) HEProjectile |= It->Payload==EERPayload::HE;
-          Check(Burst && !HEProjectile,TEXT("he_animation_outlives_projectile_without_collision_or_replication")); }
+          Check(Burst && !HEProjectile,TEXT("he_burst_outlives_projectile_without_collision_or_replication")); }
         Advance(8,.6f); break;
     case 8:
         Check(C->Weapon==C->Inventory[0],TEXT("wheel_reverse_after_quiet_changes_one_slot"));
@@ -320,7 +323,8 @@ void AERArsenalProbe::Tick(float DeltaTime)
     case 9:
         { bool Cut=false;for(TActorIterator<AERSmokeCloud> It(GetWorld());It;++It) Cut|=It->LastColliderCount>0;
           Check(Cut,TEXT("authorized_shot_submits_smoke_cut_positions")); }
-        Advance(10,1.2f); break;
+        // Burst lifespan is 3.05s; leave a frame/timer margin after the fuse.
+        Advance(10,1.7f); break;
     case 10:
         { int32 Bursts=0; for(TActorIterator<AERGrenadeExplosion> It(GetWorld());It;++It) ++Bursts;
           Check(Bursts==0,TEXT("he_animation_cleans_up_after_playback")); }

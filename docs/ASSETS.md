@@ -651,3 +651,29 @@ The grip is upright, the palm/thumb contact sits5cm higher on the backstrap
 and little forearm appears. Its geometry
 targets are recorded privately in pistol-presentation.json. Character vertices,
 materials and source archives remain.
+
+Grenade audio (16 October): owned
+`/Game/EclipseRecoil/Effects/Grenade/Audio/S_ER_GrenadeExplosion`,
+`SA_ER_GrenadeExplosion`, and `SC_ER_GrenadeExplosion` are saved in the
+private weapons submodule and bound to BP_ERGrenadeExplosion. Source is
+qubodup's Freesound162363 public HQ preview; retained MP3, converted mono
+PCM16 WAV, source page, hashes and credit live in
+`Assets/weapons/SourceAssets/Freesound/162363`. See ASSET_LICENSES.md.
+
+Spawn protection gray revision (16 October): removed generated translucent
+Characters/Protection variants. Runtime uses the existing engine
+EngineDebugMaterials/LevelColorationLitMaterial and one transient gray MID per character.
+No new persistent material, texture or mesh packages; original skin surfaces
+are restored from component/slot snapshots. Core character/training Blueprint
+defaults reference only the engine base for this effect.
+
+XM1014 mechanics (16 October): only existing DA_Shotgun data updated
+(6x20, armor1.6, range.70, anatomical-hit opt-in,3.2deg pellet pattern,
+.25deg standing aim inaccuracy). Existing ragdoll physics bodies also serve
+explicit server pellet queries. No new mesh, physics asset or animation packages.
+
+English presentation (16 October): renamed player-facing DisplayName metadata
+on22 existing weapon data assets and20 selectable appearances across character,
+training and corpse Blueprint defaults. Generic active slot names come from
+scripts/presentation_labels.py; English skin labels from character_catalog.py.
+No new binary packages or changes to model/source provenance or asset paths.

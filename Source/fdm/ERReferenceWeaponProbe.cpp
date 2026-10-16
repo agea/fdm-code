@@ -1,4 +1,8 @@
 #include "ERReferenceWeaponProbe.h"
+#include "ERShotTrace.h"
+#include "Components/BoxComponent.h"
+#include "Engine/DamageEvents.h"
+#include "Kismet/GameplayStatics.h"
 #include "ERCharacter.h"
 #include "ERWeapon.h"
 #include "ERWeaponBallistics.h"
@@ -234,8 +238,8 @@ void AERReferenceWeaponProbe::Tick(float DeltaTime)
         H->ServerSelectWeapon(7);H->Weapon->StartFire();H->Weapon->StopFire();
         {bool Physical=false;for(TActorIterator<AERProjectile> It(GetWorld());It;++It)
             if(It->GetOwner()==H->Weapon && It->Payload==EERPayload::LaunchedHE)
-                Physical|=It->Movement->Velocity.Size()>3000 && It->ThrownMesh!=nullptr;
-        Check(Physical && H->Weapon->MagazineAmmo==5,TEXT("launcher_uses_model_projectile_and_high_range_physics"));}
+                Physical|=FMath::IsNearlyEqual(It->Movement->Velocity.Size(),1750.f,.1f) && It->ThrownMesh!=nullptr;
+        Check(Physical && H->Weapon->MagazineAmmo==5,TEXT("launcher_uses_model_projectile_and_reduced_launch_speed"));}
         H->ServerSelectWeapon(4);Host->SetControlRotation(FRotator::ZeroRotator);
         C->Health->ProtectionEndServerTime=0;C->Health->Health=100;C->Health->Armor=100;
         H->Health->ProtectionEndServerTime=0;
@@ -247,6 +251,69 @@ void AERReferenceWeaponProbe::Tick(float DeltaTime)
         Advance(22,.7f);break;
     case 22:
         Check(!C->Health->bDead,TEXT("armor_does_not_instantly_kill_target"));
+        H->TeleportTo(FVector(-400,0,5000),FRotator::ZeroRotator);
+        C->TeleportTo(FVector(-270,0,5000),FRotator(0,180,0));
+        H->GetCharacterMovement()->DisableMovement();C->GetCharacterMovement()->DisableMovement();
+        H->ServerSelectWeapon(3);H->Weapon->MagazineAmmo=7;
+        H->Health->ProtectionEndServerTime=C->Health->ProtectionEndServerTime=0;
+        C->Health->Health=100;C->Health->Armor=100;
+        Advance(23,.6f);break;
+    case 23:
+        {
+            auto* Gun=H->Weapon.Get();
+            Check(Gun->Data->Pellets==6 && Gun->Data->Damage==20 && Gun->Data->ArmorRatio==1.6f &&
+                Gun->Data->RangeModifier==.7f && Gun->Data->bUseBodyHitZones,TEXT("xm1014_saved_data_matches_requested_profile"));
+            Host->SetControlRotation((C->GetMesh()->GetSocketLocation(TEXT("spine_03"))-H->Camera->GetComponentLocation()).Rotation());
+            Gun->StartFire();Gun->StopFire();
+            float Expected=0,Armor=100;int32 BodyHits=0;
+            for(const auto& Hit:Gun->LastShotPelletHits)
+                if(Hit.GetActor()==C)
+                {
+                    ++BodyHits;
+                    const auto Zone=ERWeaponBallistics::ZoneForBone(Hit.BoneName);
+                    const float Damage=ERWeaponBallistics::AtRange(20*ERWeaponBallistics::ZoneMultiplier(Zone),.7f,FVector::Distance(Gun->LastShotTraceStart,Hit.ImpactPoint));
+                    Expected+=ERWeaponBallistics::AbsorbArmor(Damage,Zone==ERWeaponBallistics::EHitZone::Legs ? 2.f : 1.6f,Armor);
+                    UE_LOG(LogTemp,Display,TEXT("ER_XM_PELLET bone=%s damage=%.3f"),*Hit.BoneName.ToString(),Damage);
+                }
+            Check(BodyHits==6 && Gun->LastShotTraceCount==6 && Gun->MagazineAmmo==6,TEXT("xm1014_real_six_anatomical_hits_one_shell"));
+            Check(Expected<=96.01f && !C->Health->bDead && FMath::IsNearlyEqual(C->Health->Health,100-Expected,.05f) &&
+                FMath::IsNearlyEqual(C->Health->Armor,Armor,.05f),TEXT("xm1014_real_armored_chest_survives_six_pellets"));
+            // A world collider must stop the refined anatomical query too.
+            auto* Cover=GetWorld()->SpawnActor<AActor>();
+            auto* Box=NewObject<UBoxComponent>(Cover);Cover->SetRootComponent(Box);
+            Box->SetBoxExtent(FVector(5,100,150));Box->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+            Box->SetCollisionResponseToAllChannels(ECR_Block);Box->RegisterComponent();
+            const FVector Bone=C->GetMesh()->GetSocketLocation(TEXT("spine_03"));
+            Box->SetWorldLocation((Gun->LastShotTraceStart+Bone)*.5f);
+            FCollisionQueryParams Query(SCENE_QUERY_STAT(XMCover),false,H);Query.AddIgnoredActor(Gun);
+            FHitResult CoverHit;
+            Check(ERShotTrace::Pellet(GetWorld(),CoverHit,Gun->LastShotTraceStart,Bone,Query) && CoverHit.GetActor()==Cover,
+                TEXT("xm1014_anatomical_pellets_respect_world_cover"));
+            Box->SetCollisionEnabled(ECollisionEnabled::NoCollision);Cover->Destroy();
+            // Exercise point-damage zone/helmet and depleted-armor paths independently of aim jitter.
+            const FName Bones[]={TEXT("head"),TEXT("spine_01"),TEXT("spine_03"),TEXT("upperarm_l"),TEXT("calf_r")};
+            const float Unarmored[]={80,25,20,20,15},Armored[]={64,20,16,16,15};
+            for(int32 I=0;I<5;++I)for(int32 Kit=0;Kit<2;++Kit)
+            {
+                C->Health->Health=100;C->Health->Armor=Kit ? 100 : 0;C->Health->bHelmet=true;
+                FHitResult Hit(C,C->GetMesh(),Gun->LastShotTraceStart,FVector::UpVector);Hit.BoneName=Bones[I];
+                UGameplayStatics::ApplyPointDamage(C,20,FVector::ForwardVector,Hit,Host,Gun,UDamageType::StaticClass());
+                Check(FMath::IsNearlyEqual(C->Health->Health,100-(Kit?Armored[I]:Unarmored[I]),.01f),FString::Printf(TEXT("xm1014_zone_%s_armor_%d"),*Bones[I].ToString(),Kit));
+            }
+            C->Health->Health=100;C->Health->Armor=100;C->Health->bHelmet=false;
+            FHitResult Head(C,C->GetMesh(),Gun->LastShotTraceStart,FVector::UpVector);Head.BoneName=TEXT("head");
+            UGameplayStatics::ApplyPointDamage(C,20,FVector::ForwardVector,Head,Host,Gun,UDamageType::StaticClass());
+            Check(FMath::IsNearlyEqual(C->Health->Health,20.f,.01f) && C->Health->Armor==100,TEXT("xm1014_kevlar_without_helmet_does_not_protect_head"));
+            C->Health->Health=100;C->Health->Armor=1;
+            FHitResult Chest=Head;Chest.BoneName=TEXT("spine_03");
+            UGameplayStatics::ApplyPointDamage(C,20,FVector::ForwardVector,Chest,Host,Gun,UDamageType::StaticClass());
+            Check(FMath::IsNearlyEqual(C->Health->Health,82.f,.01f) && C->Health->Armor==0,TEXT("xm1014_armor_depletion_applies_per_pellet"));
+            C->Health->Health=100;C->Health->Armor=0;
+            for(int32 I=0;I<3;++I)UGameplayStatics::ApplyPointDamage(C,20,FVector::ForwardVector,Chest,Host,Gun,UDamageType::StaticClass());
+            Check(FMath::IsNearlyEqual(C->Health->Health,40.f,.01f),TEXT("xm1014_three_chest_pellets_deal_sixty"));
+            for(int32 I=0;I<3;++I)UGameplayStatics::ApplyPointDamage(C,20,FVector::ForwardVector,Chest,Host,Gun,UDamageType::StaticClass());
+            Check(C->Health->bDead,TEXT("xm1014_six_unarmored_chest_pellets_kill"));
+        }
         UE_LOG(LogTemp,Display,TEXT("ER_REFERENCE_COMPLETE result=%s"),Failed?TEXT("FAIL"):TEXT("PASS"));
         FPlatformMisc::RequestExitWithStatus(false,Failed?1:0);Advance(99,1000);break;
     }

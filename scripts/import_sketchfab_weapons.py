@@ -28,6 +28,7 @@ selected_keys=set(selection.group(1).split(',')) if selection else None
 previous_file=root/'import-report.json'
 previous={item['key']:item for item in json.loads(previous_file.read_text())} if previous_file.exists() else {}
 
+weapon_names=runpy.run_path(str(project/'scripts/presentation_labels.py'))['WEAPON_NAMES']
 profiles=[
     dict(key='Knife',prefix='f3140',name='Knife',legacy='M1911',one=True,payload='MELEE',damage=40,interval=.5,ammo=1,reserve=0,range=160,spread=0),
     dict(key='Pistol',prefix='bd896',name='Beretta · Desert Eagle',row='deagle',legacy='M1911',one=True,ammo=7,reserve=35,spread=.25,reload=2.2),
@@ -36,10 +37,11 @@ profiles=[
     dict(key='Assault',prefix='924e',name='AR15 · AK-47',row='ak47',legacy='AK74',ammo=30,reserve=90,auto=True,spread=.18,reload=2.5),
     dict(key='Carbine',prefix='62977',name='Carbine · SCAR-20',row='scar20',legacy='M4_8',ammo=20,reserve=90,auto=True,spread=.16,reload=3.1,zoom=35),
     dict(key='Sniper',prefix='eae1',name='Sniper · AWP',row='awp',legacy='M107',ammo=5,reserve=30,spread=.12,reload=2.5,zoom=20),
-    dict(key='Launcher',prefix='c1ec',name='Milkor M32 MGL',legacy='RPG7',payload='LAUNCHED_HE',damage=140,interval=.5,ammo=6,reserve=12,spread=.3,speed=3600,reload=5.5),
-    dict(key='HE',prefix='287306',name='RGD-5 · HE',legacy='Grenade_RGD5',one=True,payload='HE',damage=140,interval=.8,ammo=2,reserve=0,spread=0,speed=1100),
-    dict(key='Smoke',prefix='287306',name='M18 · Smoke',legacy='Grenade_Smoke',one=True,payload='SMOKE',damage=0,interval=.8,ammo=1,reserve=0,spread=0,speed=1100),
+    dict(key='Launcher',prefix='c1ec',name='Milkor M32 MGL',legacy='RPG7',payload='LAUNCHED_HE',damage=140,interval=.5,ammo=6,reserve=12,spread=.3,speed=1750,reload=5.5),
+    dict(key='HE',prefix='287306',name='RGD-5 · HE',legacy='Grenade_RGD5',one=True,payload='HE',damage=140,interval=.8,ammo=10,reserve=0,spread=0,speed=880),
+    dict(key='Smoke',prefix='287306',name='M18 · Smoke',legacy='Grenade_Smoke',one=True,payload='SMOKE',damage=0,interval=.8,ammo=10,reserve=0,spread=0,speed=880),
 ]
+for profile in profiles:profile['name']=weapon_names[profile['key']]
 rows={}
 with (project/'docs/references/weapon-stats-2069175273.csv').open(newline='') as stream:
     for row in csv.reader(stream):
@@ -214,11 +216,12 @@ for profile in sorted(profiles,key=lambda item:item['key']!='Assault'):
         muzzle_offset=ue.ERCharacter.get_weapon_muzzle_from_geometry(mesh),
         view_offset=legacy.get_editor_property('view_offset'),sound_pitch=legacy.get_editor_property('sound_pitch'),
         automatic=profile.get('auto',False),magazine_size=profile['ammo'],initial_reserve=profile['reserve'],
-        reload_duration=profile.get('reload',1.5),standing_spread_degrees=profile['spread'],
+        reload_duration=profile.get('reload',1.5),standing_spread_degrees=.25 if key=='Shotgun' else profile['spread'],
+        use_body_hit_zones=key=='Shotgun',pellet_spread_degrees=3.2,
         pellets=profile.get('pellets',1),payload=getattr(ue.ERPayload,profile.get('payload','BULLET')),
         zoom_fov=profile.get('zoom',75 if profile.get('one') else 60),
-        damage=profile.get('damage',0),shot_interval=profile.get('interval',.1),armor_ratio=1 if profile.get('payload') in ('HE','LAUNCHED_HE') else 2,
-        hitscan_range=profile.get('range',60000),range_modifier=1,explosion_radius=350,fuse_duration=2.5,
+        damage=profile.get('damage',0),shot_interval=profile.get('interval',.1),armor_ratio=1.6 if profile.get('payload') in ('HE','LAUNCHED_HE') else 2,
+        hitscan_range=profile.get('range',60000),range_modifier=1,explosion_radius=600 if profile.get('payload') in ('HE','LAUNCHED_HE') else 350,explosion_inner_radius=200,fuse_duration=3.5 if profile.get('payload') in ('HE','LAUNCHED_HE','SMOKE') else 2.5,
         projectile_speed=profile.get('speed',30000),projectile_life=8,bloom_per_shot_degrees=0 if profile.get('one') else .12)
     if profile.get('row'):settings.update(rows[profile['row']])
     settings['support_surface_contacts']=palm_tools['surface_contacts'](mesh,key,settings['support_hand_offset'],clips.get('Idle')) if settings['fit_support_hand'] else []

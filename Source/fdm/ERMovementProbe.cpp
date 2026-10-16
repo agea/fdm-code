@@ -267,7 +267,9 @@ void AERMovementProbe::Tick(float DeltaTime)
         else if (Phase == 35 && Elapsed > .5f) Advance();
         else if (Phase == 36 && Elapsed > 1)
         {
-            Check(Remote->IsSprinting(),TEXT("fresh remote gesture restarts recovered sprint")); Advance();
+            Check(Remote->IsSprinting(),TEXT("fresh remote gesture restarts recovered sprint"));
+            SprintStartedAt = Remote->Locomotion.SprintUntil - 5;
+            Advance();
         }
         else if (Phase == 37)
         {
@@ -282,7 +284,10 @@ void AERMovementProbe::Tick(float DeltaTime)
                 Check(BodyHit.GetActor()==Client && BodyHit.GetComponent()==Client->ProneHitVolume,TEXT("prone head/body beyond movement capsule remains hittable"));
                 Check(Peak==1 && Remote->IsProne() && FMath::IsNearlyEqual(Remote->Locomotion.HalfHeight,34.f,.1f),TEXT("remote prone capsule reaches 68cm"));
                 Check(FVector::Dist(Eye,Client->Camera->GetComponentLocation())<1,TEXT("prone camera equals authoritative eye"));
-                Check(!Remote->IsSprinting() && Remote->GetRecoveryRemaining()>7,TEXT("posture interrupts sprint and starts recovery"));
+                const double SprintDuration = Remote->Locomotion.SprintUntil - SprintStartedAt;
+                Check(!Remote->IsSprinting() && SprintDuration > 0 && SprintDuration < 5 &&
+                    FMath::IsNearlyEqual(Remote->Locomotion.RecoverUntil - Remote->Locomotion.SprintUntil, 2 * SprintDuration, .001),
+                    TEXT("posture interruption: recovery is twice the actual sprint duration"));
                 Advance();
             }
         }
@@ -303,11 +308,18 @@ void AERMovementProbe::Tick(float DeltaTime)
         auto* Remote = Cast<UERMovement>(Client->GetCharacterMovement());
         if (Phase == 40 && Elapsed > .85f && Peak == 0)
         {
-            Check(Remote->IsSprinting() && Remote->Velocity.Size2D()>350,TEXT("InputKey double W reaches real sprint/movement bindings")); Peak=1;
+            Check(Remote->IsSprinting() && Remote->Velocity.Size2D()>350,TEXT("InputKey double W reaches real sprint/movement bindings"));
+            SprintStartedAt = Remote->Locomotion.SprintUntil - 5; Peak=1;
         }
         if (Elapsed > 1.8f)
         {
-            if (Phase == 40) Check(!Remote->IsSprinting() && Remote->GetRecoveryRemaining()>8,TEXT("InputKey W release ends sprint"));
+            if (Phase == 40)
+            {
+                const double SprintDuration = Remote->Locomotion.SprintUntil - SprintStartedAt;
+                Check(Peak==1 && !Remote->IsSprinting() && SprintDuration > 0 && SprintDuration < 5 &&
+                    FMath::IsNearlyEqual(Remote->Locomotion.RecoverUntil - Remote->Locomotion.SprintUntil, 2 * SprintDuration, .001),
+                    TEXT("InputKey W release: recovery is twice the actual sprint duration"));
+            }
             else Check(Phase == 42 ? !Remote->IsProne() && Remote->Locomotion.HalfHeight>92 : Remote->IsProne() && Remote->Locomotion.HalfHeight<35,
                 Phase == 41 ? TEXT("InputKey double C reaches prone binding") : (Phase == 42 ? TEXT("InputKey single C rises from prone") : TEXT("InputKey double Ctrl reaches prone binding")));
             Advance();

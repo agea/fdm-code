@@ -194,6 +194,7 @@ bool UERMovement::IsChangingPosture() const
 }
 void UERMovement::UpdateSprint()
 {
+    constexpr double MaxSprintDuration = 5.0;
     const double Now = ServerTime();
     const auto* C = Cast<AERCharacter>(CharacterOwner);
     const bool Allowed = C && !C->Health->bDead && IsMovingOnGround() && !IsTraversing() &&
@@ -211,14 +212,15 @@ void UERMovement::UpdateSprint()
     // The gesture can arrive one saved move before its forward acceleration.
     if (bSprintHeld && SprintRequestUntil > Now && Allowed && Now >= Locomotion.RecoverUntil)
     {
-        Locomotion.SprintUntil = Now + 5;
-        Locomotion.RecoverUntil = Now + 15;
+        Locomotion.SprintUntil = Now + MaxSprintDuration;
+        Locomotion.RecoverUntil = Locomotion.SprintUntil + 2 * MaxSprintDuration;
         SprintRequestUntil = 0;
     }
     if (IsSprinting() && (!bSprintHeld || !Allowed))
     {
+        const double SprintDuration = FMath::Clamp(Now - (Locomotion.SprintUntil - MaxSprintDuration), 0.0, MaxSprintDuration);
         Locomotion.SprintUntil = Now;
-        Locomotion.RecoverUntil = Now + 10;
+        Locomotion.RecoverUntil = Now + 2 * SprintDuration;
     }
     bPreviousSprintHeld = bSprintHeld;
 }

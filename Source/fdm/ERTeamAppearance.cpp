@@ -1,4 +1,5 @@
 #include "ERTeamAppearance.h"
+#include "ERCharacter.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/SkeletalMesh.h"
 #include "Animation/AnimSequence.h"
@@ -57,8 +58,9 @@ bool FERTeamAppearance::Matches(USkeletalMeshComponent* Component, bool bCorpse)
         for (const int32 Slot : HiddenMaterialSlots)
             if (Component->IsMaterialSectionShown(Slot, LOD)) { UE_LOG(LogTemp, Warning, TEXT("ER_TEAM_MISMATCH section slot=%d lod=%d"), Slot, LOD); return false; }
     for (const FName Bone : HiddenBones) if (!Component->IsBoneHiddenByName(Bone)) { UE_LOG(LogTemp, Warning, TEXT("ER_TEAM_MISMATCH bone=%s"), *Bone.ToString()); return false; }
+    const auto* Character = Cast<AERCharacter>(Component->GetOwner());
     for (int32 I = 0; I < Materials.Num(); ++I)
-        if (Materials[I] && Component->GetMaterial(I) != Materials[I]) { UE_LOG(LogTemp, Warning, TEXT("ER_TEAM_MISMATCH material=%d"), I); return false; }
+        if (Materials[I] && (Character ? Character->GetUnprotectedMaterial(Component,I) : Component->GetMaterial(I)) != Materials[I]) { UE_LOG(LogTemp, Warning, TEXT("ER_TEAM_MISMATCH material=%d"), I); return false; }
     int32 GearCount = 0;
     TArray<USceneComponent*> Children;
     Component->GetChildrenComponents(false, Children);

@@ -8,52 +8,59 @@
 #include "UObject/UnrealType.h"
 #include "ERCharacter.h"
 #include "ERMatch.h"
-#include "NiagaraDataInterfaceArrayFunctionLibrary.h"
+#include "ERBlockRoom.h"
+#include "ERBlockWorld.h"
 #include "NiagaraDataInterfaceRenderTargetVolume.h"
-#include "Components/CapsuleComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/Texture2D.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "EngineUtils.h"
 #include "Net/UnrealNetwork.h"
 #include "Misc/App.h"
-#include "Engine/ExponentialHeightFog.h"
-#include "Components/ExponentialHeightFogComponent.h"
-#include "HAL/IConsoleManager.h"
 #include "TimerManager.h"
 #include "Kismet/GameplayStatics.h"
 
 namespace
 {
-int32 ActiveFogClouds=0, PreviousFogSetting=0;
+constexpr int32 NX=16, NY=16, NZ=8;
+constexpr int32 Count=NX*NY*NZ;
+int32 Index(int32 X,int32 Y,int32 Z) { return X+NX*(Y+NY*Z); }
 }
 
 AERSmokeCloud::AERSmokeCloud()
 {
-    bReplicates = true; bAlwaysRelevant = true; SetNetUpdateFrequency(2);
-    PrimaryActorTick.bCanEverTick = true;
-    Fumes = CreateDefaultSubobject<UNiagaraComponent>(TEXT("Fumes"));
+    bReplicates=true; bAlwaysRelevant=true; SetNetUpdateFrequency(2);
+    PrimaryActorTick.bCanEverTick=true;
+    Fumes=CreateDefaultSubobject<UNiagaraComponent>(TEXT("Fumes"));
     SetRootComponent(Fumes);
     Fumes->SetAutoActivate(false);
     Fumes->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     Fumes->SetCastShadow(false);
+    Volume=CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Volume"));
+    Volume->SetupAttachment(Fumes);
+    Volume->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    Volume->SetCastShadow(false);
+    Volume->bReceivesDecals=false;
+    SimSize=FVector(800,800,400);
 }
 
-void AERSmokeCloud::Prewarm(UWorld* World, TSubclassOf<AERSmokeCloud> CloudClass, const FVector& ViewPosition)
+FLinearColor AERSmokeCloud::ColorForTeam(EERTeam Team)
 {
-    if(!World || !CloudClass || World->GetNetMode()==NM_DedicatedServer || !FApp::CanEverRender()) return;
-    static TSet<TWeakObjectPtr<UWorld>> PreparedWorlds;
-    if(PreparedWorlds.Contains(World)) return;
-    PreparedWorlds.Add(World);
-    TWeakObjectPtr<UWorld> WeakWorld=World;
-    // Run after initial scalability commands. Empty density warms the same
-    // simulation/fog pipelines during map loading without a visible smoke puff.
-    World->GetTimerManager().SetTimerForNextTick([WeakWorld,CloudClass,ViewPosition]()
-    {
-        if(!WeakWorld.IsValid()) return;
-        const FTransform Transform(FRotator::ZeroRotator,ViewPosition+FVector(350,0,-100));
-        auto* Warmup=WeakWorld->SpawnActorDeferred<AERSmokeCloud>(CloudClass,Transform,nullptr,nullptr,ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
-        if(!Warmup) return;
-        Warmup->bPrewarm=true; Warmup->Duration=.8f; Warmup->SetReplicates(false);
-        UGameplayStatics::FinishSpawningActor(Warmup,Transform);
-    });
+    if(Team==EERTeam::Alpha) return FLinearColor(.08f,.26f,.4f,1.f);
+    if(Team==EERTeam::Omega) return FLinearColor(.4f,.1f,.04f,1.f);
+    return FLinearColor(.30f,.31f,.32f,1.f);
+}
+
+void AERSmokeCloud::OnRep_SmokeColor()
+{
+    if(VolumeInstance) VolumeInstance->SetVectorParameterValue(TEXT("SmokeColor"),SmokeColor);
+}
+
+void AERSmokeCloud::Prewarm(UWorld* World,TSubclassOf<AERSmokeCloud> CloudClass,const FVector& ViewPosition)
+{
+    if(!World || !CloudClass || !FApp::CanEverRender() || World->GetNetMode()==NM_DedicatedServer) return;
+    // The fixed volume has no fluid simulation or global fog setting to warm.
+    CloudClass->GetDefaultObject<AERSmokeCloud>()->Volume->PrecachePSOs();
 }
 
 double AERSmokeCloud::ServerNow() const
@@ -65,113 +72,201 @@ double AERSmokeCloud::ServerNow() const
 void AERSmokeCloud::BeginPlay()
 {
     Super::BeginPlay();
-    if (HasAuthority()) { StartedAtServerTime=ServerNow(); SetLifeSpan(Duration); }
+    if(HasAuthority())
+    {
+        StartedAtServerTime=ServerNow(); SetLifeSpan(Duration);
+        ShapePhase=FVector(FMath::FRandRange(0.f,100.f),FMath::FRandRange(0.f,100.f),FMath::FRandRange(0.f,100.f));
+    }
     SetActorEnableCollision(false);
-    Fumes->SetAsset(System);
-    Fumes->SetVariableInt(TEXT("User.ResolutionMaxAxis"),FMath::Clamp(GridResolution,24,64));
-    Fumes->SetVariableVec3(TEXT("User.WorldSpaceSize"),SimSize);
-    Fumes->SetVariableVec3(TEXT("User.SourceOffset"),FVector(0,0,80));
-    Fumes->SetVariableFloat(TEXT("User.Smoke_Radius"),1);
-    Fumes->SetVariableFloat(TEXT("User.SmokeReponseRate"),1.5f);
-    Fumes->SetVariableFloat(TEXT("User.AppearFogParam"),bPrewarm ? 0 : 1);
-    Fumes->SetVariableLinearColor(TEXT("User.SRend_SmokeColor"),SmokeColor);
-    Fumes->SetSystemFixedBounds(FBox(FVector(-SimSize.X*.5f,-SimSize.Y*.5f,-20),FVector(SimSize.X*.5f,SimSize.Y*.5f,SimSize.Z+20)));
-    if (GetNetMode()!=NM_DedicatedServer && FApp::CanEverRender())
+    Fumes->Deactivate(); Fumes->SetComponentTickEnabled(false);
+    SimSize=SimSize.GetAbs().BoundToBox(FVector(200,200,100),FVector(800,800,400));
+    VolumeOrigin=GetActorLocation();
+    FHitResult Floor;
+    FCollisionQueryParams Query(SCENE_QUERY_STAT(ERSmokeFloor),false,this);
+    if(GetWorld()->LineTraceSingleByObjectType(Floor,VolumeOrigin+FVector(0,0,10),VolumeOrigin-FVector(0,0,150),
+        FCollisionObjectQueryParams(ECC_WorldStatic),Query) && Floor.ImpactNormal.Z>.5f)
+        VolumeOrigin.Z=Floor.ImpactPoint.Z+1.f;
+    Volume->SetStaticMesh(VolumeMesh);
+    Volume->SetWorldLocation(VolumeOrigin+FVector(0,0,SimSize.Z*.5f));
+    Volume->SetWorldScale3D(SimSize/100.f);
+    Volume->SetVisibility(true);
+    Volume->SetHiddenInGame(false);
+    RebuildContainment();
+    if(GetNetMode()!=NM_DedicatedServer && FApp::CanEverRender() && VolumeMaterial)
     {
-        if (auto* Setting=IConsoleManager::Get().FindConsoleVariable(TEXT("r.VolumetricFog")))
+        VolumeInstance=Volume->CreateDynamicMaterialInstance(0,VolumeMaterial);
+        VolumeInstance->SetVectorParameterValue(TEXT("VolumeMin"),FLinearColor(VolumeOrigin-FVector(SimSize.X*.5f,SimSize.Y*.5f,0)));
+        VolumeInstance->SetVectorParameterValue(TEXT("VolumeSize"),FLinearColor(SimSize));
+        VolumeInstance->SetVectorParameterValue(TEXT("SmokeColor"),SmokeColor);
+        UploadDensity();
+    }
+    else Volume->SetVisibility(false);
+    UE_LOG(LogTemp,Display,TEXT("ER_SMOKE_CLOUD shape=hemisphere cells=%d grid=16x16x8 duration=%.1f replicated=%d collision=none"),FilledCellCount,Duration,GetIsReplicated());
+}
+
+void AERSmokeCloud::RebuildContainment()
+{
+    const FVector Cell=SimSize/FVector(NX,NY,NZ);
+    const FVector Min=VolumeOrigin-FVector(SimSize.X*.5f,SimSize.Y*.5f,0);
+    TArray<uint8> Free; Free.Init(0,Count); Occupancy.Init(0,Count);
+    TArray<FVector> Centers; Centers.SetNum(Count);
+    FCollisionQueryParams Query(SCENE_QUERY_STAT(ERSmokeContainment),false,this);
+    const FCollisionObjectQueryParams Objects(ECC_WorldStatic);
+    // Conservative whole-cell overlap prevents a cell spanning a thin wall.
+    // Edge sweeps also catch walls falling precisely between neighbouring cells.
+    const auto Shape=FCollisionShape::MakeBox(Cell*.48f);
+    int32 Seed=INDEX_NONE; float Nearest=MAX_flt;
+    const FVector Source=GetActorLocation()+FVector(0,0,Cell.Z*.5f);
+    for(int32 Z=0;Z<NZ;++Z) for(int32 Y=0;Y<NY;++Y) for(int32 X=0;X<NX;++X)
+    {
+        const int32 I=Index(X,Y,Z);
+        Centers[I]=Min+Cell*FVector(X+.5f,Y+.5f,Z+.5f);
+        const FVector Local=(Centers[I]-VolumeOrigin)/FVector(SimSize.X*.5f,SimSize.Y*.5f,SimSize.Z);
+        if(Local.SizeSquared()>1.f || GetWorld()->OverlapAnyTestByObjectType(Centers[I],FQuat::Identity,Objects,Shape,Query)) continue;
+        Free[I]=1;
+        const float Distance=FVector::DistSquared(Centers[I],Source);
+        FHitResult Hit;
+        if(Distance<Nearest && !GetWorld()->LineTraceSingleByObjectType(Hit,Source,Centers[I],Objects,Query))
+        { Seed=I; Nearest=Distance; }
+    }
+    TArray<int32> Queue;
+    // Never teleport smoke into a remote pocket when the source is enclosed.
+    if(Seed!=INDEX_NONE && Nearest<FMath::Square(Cell.Size()*1.5f)) { Queue.Add(Seed); Occupancy[Seed]=255; }
+    constexpr int32 DX[]={1,-1,0,0,0,0}, DY[]={0,0,1,-1,0,0}, DZ[]={0,0,0,0,1,-1};
+    for(int32 Head=0;Head<Queue.Num();++Head)
+    {
+        const int32 I=Queue[Head], X=I%NX, Y=(I/NX)%NY, Z=I/(NX*NY);
+        for(int32 D=0;D<6;++D)
         {
-            if(ActiveFogClouds++==0) PreviousFogSetting=Setting->GetInt();
-            Setting->SetWithCurrentPriority(1); bUsesFogPass=true;
+            const int32 XX=X+DX[D],YY=Y+DY[D],ZZ=Z+DZ[D];
+            if(XX<0 || XX>=NX || YY<0 || YY>=NY || ZZ<0 || ZZ>=NZ) continue;
+            const int32 J=Index(XX,YY,ZZ);
+            if(!Free[J] || Occupancy[J]) continue;
+            FHitResult Hit;
+            if(GetWorld()->SweepSingleByObjectType(Hit,Centers[I],Centers[J],FQuat::Identity,Objects,Shape,Query)) continue;
+            Occupancy[J]=255; Queue.Add(J);
         }
-        for(TActorIterator<AExponentialHeightFog> It(GetWorld());It;++It)
-            if(It->GetComponent()->bEnableVolumetricFog) { FogSupport=*It; break; }
-        if(!FogSupport)
-        {
-            FogSupport=GetWorld()->SpawnActor<AExponentialHeightFog>();
-            FogSupport->Tags.Add(TEXT("ERSmokeFogSupport"));
-            FogSupport->SetReplicates(false);
-            auto* Fog=FogSupport->GetComponent();
-            // A near-zero background density enables particle volume injection
-            // without adding visible haze to the rest of the map.
-            Fog->SetFogDensity(.000001f);
-            Fog->SetVolumetricFog(true);
-            Fog->SetVolumetricFogDistance(3500);
-            Fog->SetVolumetricFogExtinctionScale(1);
-        }
-        Fumes->Activate(true);
     }
-    else Fumes->SetComponentTickEnabled(false);
-    UE_LOG(LogTemp,Display,TEXT("ER_SMOKE_%s system=%s grid=%d duration=%.1f replicated=%d collision=none"),
-        bPrewarm ? TEXT("PREWARM") : TEXT("CLOUD"),*GetNameSafe(System),GridResolution,Duration,GetIsReplicated());
+    FilledCellCount=Queue.Num();
+    if(VolumeInstance) UploadDensity();
 }
 
-void AERSmokeCloud::EndPlay(const EEndPlayReason::Type Reason)
+bool AERSmokeCloud::ContainsSmokeAt(const FVector& Position) const
 {
-    if(bUsesFogPass && --ActiveFogClouds==0)
-        if(auto* Setting=IConsoleManager::Get().FindConsoleVariable(TEXT("r.VolumetricFog"))) Setting->SetWithCurrentPriority(PreviousFogSetting);
-    if(FogSupport && FogSupport->ActorHasTag(TEXT("ERSmokeFogSupport")))
+    const FVector Unit=(Position-VolumeOrigin+FVector(SimSize.X*.5f,SimSize.Y*.5f,0))/SimSize;
+    if(Unit.X<0 || Unit.X>=1 || Unit.Y<0 || Unit.Y>=1 || Unit.Z<0 || Unit.Z>=1) return false;
+    const int32 I=Index(int32(Unit.X*NX),int32(Unit.Y*NY),int32(Unit.Z*NZ));
+    return Occupancy.IsValidIndex(I) && Occupancy[I]!=0;
+}
+
+void AERSmokeCloud::UploadDensity()
+{
+    if(!VolumeInstance) return;
+    constexpr int32 W=NX*NZ,H=NY;
+    if(!DensityAtlas)
     {
-        bool Used=false;
-        for(TActorIterator<AERSmokeCloud> It(GetWorld());It;++It)
-            if(*It!=this && !It->IsActorBeingDestroyed() && It->FogSupport==FogSupport) { Used=true; break; }
-        if(!Used) FogSupport->Destroy();
+        DensityAtlas=UTexture2D::CreateTransient(W,H,PF_B8G8R8A8,TEXT("ERSmokeContainment"));
+        DensityAtlas->SRGB=false; DensityAtlas->Filter=TF_Bilinear;
+        DensityAtlas->AddressX=TA_Clamp; DensityAtlas->AddressY=TA_Clamp;
+        DensityAtlas->NeverStream=true;
+        DensityAtlas->UpdateResource();
+        VolumeInstance->SetTextureParameterValue(TEXT("DensityAtlas"),DensityAtlas);
     }
-    Super::EndPlay(Reason);
-}
-
-void AERSmokeCloud::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
-{
-    Super::GetLifetimeReplicatedProps(OutLifetimeProps); DOREPLIFETIME(AERSmokeCloud,StartedAtServerTime);
-}
-
-void AERSmokeCloud::AddShot(const FVector& Start, const FVector& End)
-{
-    if (ServerNow()-StartedAtServerTime >= Duration || (End-Start).IsNearlyZero()) return;
-    const FVector Center=GetActorLocation()+FVector(0,0,SimSize.Z*.5f);
-    const FBox Bounds(Center-SimSize*.5f,Center+SimSize*.5f);
-    if (!FMath::LineBoxIntersection(Bounds,Start,End,End-Start)) return;
-    const FVector Direction=(End-Start).GetSafeNormal();
-    const FVector Closest=FMath::ClosestPointOnSegment(Center,Start,End);
-    const float HalfSpan=SimSize.Size()*.5f;
-    const double Until=GetWorld()->GetTimeSeconds()+.3;
-    const int32 Before=ShotCuts.Num();
-    // Submitted positions are visual carve spheres, never projectile collision
-    // or client-selected damage. Clip to the actual server-reported shot segment.
-    for (float Offset=-HalfSpan;Offset<=HalfSpan;Offset+=40.f)
+    auto* Pixels=new uint8[W*H*4];
+    for(int32 Z=0;Z<NZ;++Z) for(int32 Y=0;Y<NY;++Y) for(int32 X=0;X<NX;++X)
     {
-        const FVector Point=Closest+Direction*Offset;
-        const float Along=FVector::DotProduct(Point-Start,Direction);
-        if(Bounds.IsInside(Point) && Along>=0 && Along<=FVector::Dist(Start,End)) ShotCuts.Add({Point,Until});
+        const int32 P=(X+Z*NX+Y*W)*4;
+        Pixels[P]=Pixels[P+1]=Pixels[P+2]=Occupancy[Index(X,Y,Z)]; Pixels[P+3]=255;
     }
-    if(ShotCuts.Num()>Before) ++ShotInteractionCount;
-    if(ShotCuts.Num()>128) ShotCuts.RemoveAt(0,ShotCuts.Num()-128);
-    UE_LOG(LogTemp,Verbose,TEXT("ER_SMOKE_SHOT_CUT points=%d"),ShotCuts.Num());
+    auto* Region=new FUpdateTextureRegion2D(0,0,0,0,W,H);
+    DensityAtlas->UpdateTextureRegions(0,1,Region,W*4,4,Pixels,
+        [](uint8* Data,const FUpdateTextureRegion2D* R){ delete[] Data; delete R; });
+}
+
+void AERSmokeCloud::AddShot(const FVector& Start,const FVector& End,float Radius,float Lifetime)
+{
+    if(ServerNow()-StartedAtServerTime>=Duration || (End-Start).IsNearlyZero()) return;
+    const FVector Center=VolumeOrigin+FVector(0,0,SimSize.Z*.5f);
+    Radius=FMath::Clamp(Radius,1.f,400.f);
+    Lifetime=Radius>=100.f ? FMath::Max(.1f,Duration-float(ServerNow()-StartedAtServerTime)) : FMath::Clamp(Lifetime,.1f,4.f);
+    if(!FMath::LineBoxIntersection(FBox(Center-SimSize*.5f,Center+SimSize*.5f).ExpandBy(Radius),Start,End,End-Start)) return;
+    if(ShotCuts.Num()>=4)
+    {
+        // Short projectile wakes must not immediately erase a large blast pocket.
+        int32 Replace=ShotCuts.IndexOfByPredicate([](const FShotCut& Cut){return Cut.Radius<100.f;});
+        if(Replace==INDEX_NONE) { if(Radius<100.f) return;Replace=0; }
+        ShotCuts.RemoveAt(Replace);
+    }
+    ShotCuts.Add({Start,End,GetWorld()->GetTimeSeconds()+Lifetime,Radius,Lifetime});
+    if(ShotCuts.Num()>4) ShotCuts.RemoveAt(0,ShotCuts.Num()-4);
+    ++ShotInteractionCount;
+    if(Radius>=100.f) { ++BlastInteractionCount;LastBlastRadius=Radius;LastBlastLifetime=Lifetime; }
+    else if(Radius>12.f) ++ProjectileInteractionCount;
+}
+
+float AERSmokeCloud::RecoveredRadius(const FShotCut& Cut,double Now) const
+{
+    if(Now>=Cut.Until) return 0;
+    const float Remaining=FMath::Clamp(float(Cut.Until-Now)/Cut.Lifetime,0.f,1.f);
+    // Blast dispersal barely refills before cloud expiry; bullet wakes close slowly.
+    return Cut.Radius*(Cut.Radius>=100.f ? .95f+.05f*Remaining : FMath::Sqrt(Remaining));
+}
+float AERSmokeCloud::GetActiveBlastRadius() const
+{
+    float Radius=0;for(const auto& Cut:ShotCuts) if(Cut.Radius>=100.f) Radius=FMath::Max(Radius,RecoveredRadius(Cut,GetWorld()->GetTimeSeconds()));
+    return Radius;
+}
+float AERSmokeCloud::GetActiveShotRadius() const
+{
+    float Radius=0;for(const auto& Cut:ShotCuts) if(Cut.Radius<=12.f) Radius=FMath::Max(Radius,RecoveredRadius(Cut,GetWorld()->GetTimeSeconds()));
+    return Radius;
 }
 
 void AERSmokeCloud::Tick(float DeltaSeconds)
 {
     Super::Tick(DeltaSeconds);
-    if (GetNetMode()==NM_DedicatedServer || !System) return;
-    const float Age=FMath::Max(0.f,float(ServerNow()-StartedAtServerTime));
-    const float Fade=FMath::Clamp((Duration-Age)/2.f,0.f,1.f);
-    Fumes->SetVariableFloat(TEXT("User.AppearFogParam"),bPrewarm ? 0 : Fade);
-    if(bPrewarm) return;
-    TArray<FVector4> Colliders;
-    const FVector Center=GetActorLocation()+FVector(0,0,SimSize.Z*.5f);
-    const FBox Bounds(Center-SimSize*.5f,Center+SimSize*.5f);
-    for(TActorIterator<AERCharacter> It(GetWorld());It;++It)
-    {
-        if(It->Health->bDead || !Bounds.IsInside(It->GetActorLocation())) continue;
-        const FVector Position=It->GetActorLocation();
-        // The asset's W field is a scale volume (X*Y*Z), not centimeters.
-        const float Scale=It->GetCapsuleComponent()->GetScaledCapsuleRadius()/50.f;
-        Colliders.Add(FVector4(Position,Scale*Scale*Scale));
-    }
     const double Now=GetWorld()->GetTimeSeconds();
-    ShotCuts.RemoveAll([Now](const FShotCut& Cut){return Cut.Until<Now;});
-    for(const auto& Cut:ShotCuts) Colliders.Add(FVector4(Cut.Position,.125f));
-    LastColliderCount=Colliders.Num();
-    UNiagaraDataInterfaceArrayFunctionLibrary::SetNiagaraArrayVector4(Fumes,TEXT("User.ActorPosSize"),Colliders);
+    if(Now>=NextGeometryCheck)
+    {
+        uint64 Revision=0;
+        for(TActorIterator<AERBlockRoom> It(GetWorld());It;++It)
+            if(It->BlockWorld)
+            {
+                Revision=HashCombineFast(Revision,It->GetMapEpoch());
+                Revision=HashCombineFast(Revision,It->HasAuthority()?It->GetMapSequence():It->GetAppliedMapSequence());
+                Revision=HashCombineFast(Revision,It->BlockWorld->GetRemovedCount()+It->BlockWorld->GetBlocks().Num());
+            }
+        if(GeometryRevision!=Revision) { GeometryRevision=Revision; RebuildContainment(); }
+        NextGeometryCheck=Now+.75;
+    }
+    ShotCuts.RemoveAll([Now](const FShotCut& Cut){ return Cut.Until<Now; });
+    LastColliderCount=ShotCuts.Num();
+    if(!VolumeInstance) return;
+    const float Age=FMath::Max(0.f,float(ServerNow()-StartedAtServerTime));
+    if(Age>=1.f && Age-DeltaSeconds<1.f)
+        UE_LOG(LogTemp,Display,TEXT("ER_SMOKE_RENDER mesh=%s material=%s visible=%d location=%s scale=%s bounds=%s"),*GetNameSafe(Volume->GetStaticMesh()),*GetNameSafe(Volume->GetMaterial(0)),Volume->IsVisible(),*Volume->GetComponentLocation().ToString(),*Volume->GetComponentScale().ToString(),*Volume->Bounds.GetBox().ToString());
+    VolumeInstance->SetScalarParameterValue(TEXT("Growth"),FMath::Clamp(Age/2.2f,0.f,1.f));
+    VolumeInstance->SetScalarParameterValue(TEXT("Fade"),FMath::Clamp((Duration-Age)/4.f,0.f,1.f));
+    VolumeInstance->SetScalarParameterValue(TEXT("SmokeAge"),Age);
+    VolumeInstance->SetVectorParameterValue(TEXT("ShapePhase"),FLinearColor(ShapePhase));
+    for(int32 I=0;I<4;++I)
+    {
+        const auto* Cut=ShotCuts.IsValidIndex(I) ? &ShotCuts[I] : nullptr;
+        VolumeInstance->SetVectorParameterValue(*FString::Printf(TEXT("CutStart%d"),I),FLinearColor(Cut ? Cut->Start : FVector::ZeroVector));
+        VolumeInstance->SetVectorParameterValue(*FString::Printf(TEXT("CutEnd%d"),I),FLinearColor(Cut ? Cut->End : FVector::ZeroVector));
+        VolumeInstance->SetScalarParameterValue(*FString::Printf(TEXT("CutRadius%d"),I),Cut ? RecoveredRadius(*Cut,Now) : 0.f);
+    }
+}
+
+void AERSmokeCloud::EndPlay(const EEndPlayReason::Type Reason)
+{
+    Super::EndPlay(Reason);
+}
+void AERSmokeCloud::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps); DOREPLIFETIME(AERSmokeCloud,StartedAtServerTime);
+    DOREPLIFETIME(AERSmokeCloud,ShapePhase);
+    DOREPLIFETIME(AERSmokeCloud,SmokeColor);
 }
 
 bool AERSmokeCloud::PrepareOwnedSystem(UNiagaraSystem* SmokeSystem)

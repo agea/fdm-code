@@ -10,6 +10,29 @@
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
 #include "HAL/PlatformMisc.h"
+#include "Materials/MaterialInstanceDynamic.h"
+
+namespace
+{
+bool ProtectionMaterialsMatch(AERCharacter* Character, bool Protected)
+{
+    int32 Checked = 0;
+    TInlineComponentArray<UMeshComponent*> Meshes(Character);
+    for (auto* Mesh : Meshes)
+    {
+        if (Mesh != Character->GetMesh() && Mesh != Character->FirstPersonBody && !Mesh->ComponentHasTag(TEXT("ERSkinGear"))) continue;
+        for (int32 Slot = 0; Slot < Mesh->GetNumMaterials(); ++Slot)
+        {
+            auto* Current = Mesh->GetMaterial(Slot);
+            auto* Original = Character->GetUnprotectedMaterial(Mesh,Slot);
+            if (Protected && !Character->ProtectionSurface) return false;
+            if (Current != (Protected ? Character->ProtectionSurface.Get() : Original)) return false;
+            ++Checked;
+        }
+    }
+    return Checked > 0;
+}
+}
 
 AERNetworkProbe::AERNetworkProbe() { PrimaryActorTick.TickGroup = TG_PostUpdateWork; bReplicates = true; bAlwaysRelevant = true; PrimaryActorTick.bCanEverTick = true; SetNetUpdateFrequency(30); }
 void AERNetworkProbe::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -47,16 +70,19 @@ void AERNetworkProbe::ClientStep()
         case 2:
         {
             bool bAppearanceMatches = true;
+            bool bProtectionMatches = true;
             bool bAlphaSeen = false, bOmegaSeen = false;
             for (TActorIterator<AERCharacter> It(GetWorld()); It; ++It)
             {
                 const auto* PS = It->GetPlayerState<AERPlayerState>();
                 if (!PS || PS->Team == EERTeam::None) continue;
+                bProtectionMatches &= ProtectionMaterialsMatch(*It, It->Health->IsProtected() && !It->Health->bDead);
                 bAlphaSeen |= PS->Team == EERTeam::Alpha;
                 bOmegaSeen |= PS->Team == EERTeam::Omega;
                 const auto& Appearance = It->GetTeamAppearance();
                 bAppearanceMatches &= Appearance.Matches(It->GetMesh());
             }
+            UE_LOG(LogTemp, Display, TEXT("ER_PROTECTION_CLIENT_%s owner_and_proxy_materials"), bProtectionMatches ? TEXT("PASS") : TEXT("FAIL"));
             UE_LOG(LogTemp, Display, TEXT("ER_TEAM_CLIENT_%s phase=%d"), bAppearanceMatches && bAlphaSeen && bOmegaSeen ? TEXT("PASS") : TEXT("FAIL"), Phase);
             break;
         }
@@ -108,9 +134,11 @@ void AERNetworkProbe::Tick(float DeltaTime)
                 Check(Host->GetPlayerState<AERPlayerState>()->AlphaSkin == HostSkin, TEXT("Skin_invalid_index_rejected"));
             }
             Check(H->GetTeamAppearance().Matches(H->GetMesh()) && C->GetTeamAppearance().Matches(C->GetMesh()), TEXT("Team_human_mesh_animation_hidden_equipment"));
+            Check(ProtectionMaterialsMatch(H,true) && ProtectionMaterialsMatch(C,true),TEXT("Protection_opaque_gray_materials_on_spawn"));
             HostShot(); Advance(2,.5f); break;
         case 2:
             Check(C->Health->Health==100 && H->Weapon->MagazineAmmo==29 && !H->Health->IsProtected(),TEXT("T14_protection_shot_cancels"));
+            Check(ProtectionMaterialsMatch(H,false) && ProtectionMaterialsMatch(C,true),TEXT("Protection_original_materials_after_attack"));
             C->Health->ProtectionEndServerTime=0; HostShot();
             Check(C->Health->Health==64, TEXT("hitscan_damage_applied_before_shot_returns"));
             { bool Bullet=false; for (TActorIterator<AERProjectile> It(GetWorld()); It; ++It) Bullet |= It->Payload==EERPayload::Bullet;
@@ -139,6 +167,7 @@ void AERNetworkProbe::Tick(float DeltaTime)
             Check(FirstCorpse.IsValid() && FirstCorpse->Body->GetSocketLocation(TEXT("pelvis")).Z < FirstCorpse->GetActorLocation().Z - 35.f,
                 TEXT("Death_corpse_falls_to_ground"));
             Check(!C->Health->bDead && C->Health->Health==100 && C->Weapon->MagazineAmmo==30 && C->Health->IsProtected(),TEXT("T12_requested_respawn_T13_no_shot"));
+            Check(ProtectionMaterialsMatch(C,true),TEXT("Protection_opaque_gray_after_respawn"));
             PlacePlayers(); H->Health->ProtectionEndServerTime=0; Advance(7,1.f); break;
         case 7:
             Check(H->Health->Health==64 && C->Weapon->MagazineAmmo==29,TEXT("T04_client_rpc_hitscan_to_host"));

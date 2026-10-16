@@ -2396,3 +2396,419 @@ contenuto sostituito/LFS rifiutato, immagini extra e symlink rifiutati,
 asset rimossi ma ancora nella cronologia e binari mascherati da sorgenti.
 `verify-public-tree.py`: PASS su tutti i 15 commit e 2827 voci approvate.
 `git diff --check` superato. Nessun push eseguito durante questa correzione.
+
+
+## Recupero sprint proporzionale — 16 ottobre 2026
+
+- Editor Mac Development arm64: compilazione riuscita (25,99 s).
+- `test-movement.py --posture-only`: PASS con host e client Unreal reali;
+  limite sprint 5 s / recupero 10 s, recupero pari al doppio della durata
+  effettiva dopo interruzione per postura e rilascio W tramite InputKey,
+  nessun riavvio tenendo W e replica postura owner/proxy.
+- `test-network.py --accuracy`: PASS, inclusi dati e recupero bloom owner.
+- `test-movement.py` completo: FAIL su tre controlli dei blocchi da 200 cm
+  (raggiungimento/soglia host e raggiungimento client remoto). Tutti i
+  controlli sprint e postura sono passati anche in questa esecuzione.
+  Nessuna modifica alla logica di arrampicata in questo intervento.
+- Log in `Saved/Testing`: `movement-{host,client}.log` per la verifica
+  mirata, `sprint-full-movement-{host,client}.log` per il test completo,
+  `accuracy-{host,client}.log` per la regressione precisione.
+
+
+## Trasparenza protezione alla nascita — 16 ottobre 2026
+
+- Editor Mac Development arm64: compilazione riuscita.
+- `setup_spawn_protection.py`: PASS; 222 associazioni di materiali per
+  Blueprint e 326 varianti/parent generati tramite Unreal nel mount characters.
+  Texture e parametri ereditati, maschere preservate, opacità moltiplicata per
+  0,5. Corretto l'uso SkeletalMesh sulle copie dei materiali originariamente
+  destinati solo ad accessori statici/sezioni nascoste.
+- `test-network.py --phase-belica`: PASS, incluse nuove verifiche materiali
+  su spawn, primo attacco, respawn e owner/proxy remoto; regressioni skin,
+  cadaveri, munizioni, danno e respawn completate.
+- `test-network.py --accuracy`: PASS, inclusi bloom, colpi respinti e stato
+  owner replicato.
+- `-ERProtectionGallery` con rendering Metal: quattro acquisizioni 1280×720
+  Alpha/Omega, protetti/normali, ispezionate visivamente. Corpo e zaino sono
+  trasparenti durante protezione; materiali originali ripristinati dopo la
+  scadenza. Arma invariata. Nessun errore di compilazione shader osservato.
+- Immagini: `Saved/Testing/Protection-{Alpha,Omega}-{Half,Normal}.png`.
+  Log setup/build/render in `/tmp/respawn-protection-*`; log LAN/precisione
+  in `Saved/Testing/{network,accuracy}-{host,client}.log`.
+
+
+### Verifica dopo segnalazione sui bot — 16 ottobre 2026
+
+Aggiunto `-ERProtectionRespawnGallery`: usa quattro veri BP_ERTrainingTarget,
+li uccide e lascia eseguire il respawn normale dopo 3 s. Non prolunga la
+protezione dei bot. A +0,5 s dal respawn verifica IsProtected e 48 slot dei
+materiali; a +4,5 s verifica scadenza e ripristino. PASS su L_Depot e
+L_Killhouse con ERAlphaBots=4/EROmegaBots=0/ERBotMode=Target.
+
+Il Blueprint character e quello training salvati hanno entrambi 222
+associazioni e nessun materiale skin mancante. Il difetto segnalato non è
+stato riprodotto in questi avvii nuovi. Non è stata modificata la durata
+dell'invulnerabilità né la logica di attacco. La camera della verifica evita
+le pareti prima dell'acquisizione nella stanza. Log:
+`/tmp/respawn-protection-{bots,killhouse}-gallery.log`; immagini
+`Saved/Testing/Protection-Bots-Respawn-{Half,Normal}.png`.
+
+
+## Indicatori sopra la testa rimossi — 16 ottobre 2026
+
+Editor Mac Development arm64: PASS (28,78 s). TeamMarker viene nascosto
+in BeginPlay su ogni peer, con visibilità e ombre disattivate anche per
+i Blueprint già salvati. Rimossi creazione/aggiornamento del materiale
+dinamico del marker. `git diff --check`: PASS. Nessun test gameplay
+aggiuntivo eseguito per questa modifica esclusivamente visiva.
+
+
+## 16 ottobre 2026 — HE, Milkor, rimbalzi e fumogena
+
+- Build reale RespawnAndRageEditor Mac Development arm64 UE 5.8.3: **Succeeded**
+  (`Saved/Testing/grenade-build.log`). Asset creati/salvati tramite Unreal:
+  12 package Epic rinominati nel mount privato Effects/Grenade/Epic (circa
+  5,9 MiB), P_ER_CompactHE e M_ER_ContainedSmoke, default BP collegati.
+  Gli originali ContentExamples sono stati solo letti; ricevuta con 12 SHA-256
+  in Assets/weapons/SourceAssets/EpicContentExamples/migration.json.
+- `python3 scripts/test-grenades.py --render`: **PASS**, host Metal e secondo
+  processo LAN. Contatti reali di HE e LaunchedHE prima della miccia senza
+  detonazione all'impatto, rotazione server e variazione dello stesso attore
+  osservata sul client, due burst remoti dopo miccia, cleanup dei proiettili.
+  Griglia smoke realmente riempita sul lato sorgente, lato opposto vuoto con
+  parete chiusa, passaggio dopo apertura della finestra, celle del muro pieno
+  e sotto il pavimento vuote; durata/cleanup replicati verificati.
+  Tutti i sette controlli del runner sono true in grenades-render-results.json.
+- Ispezionate le sei catture Metal fresche in Saved/Testing/Grenades: rimbalzo,
+  lampo HE, successiva polvere, muro chiuso, finestra aperta e camera dentro
+  la nube. Shader M_ER_ContainedSmoke compilato senza fallback/errori;
+  opacità con canale alpha esplicito, bordo morbido, profondità opaca e
+  camera interna verificati visivamente. Un problema iniziale di visibilità
+  dei nuovi componenti e la lettura dell'alpha sono stati corretti prima di
+  queste catture. Il test dell'arsenale senza renderer verifica il template
+  assegnato, anziché richiedere particelle attive con -nullrhi.
+- `scripts/test-arsenal.py`: **PASS**, inclusi HE/smoke/stun, danno server,
+  burst su entrambi i peer, smoke persistente, tagli da colpi autorizzati e cleanup.
+- `scripts/test-network.py`: **PASS**, inclusi protezione, danni, copertura,
+  respawn, score, modelli e materiali owner/proxy.
+- `scripts/test-network.py --accuracy`: **PASS**.
+- `scripts/test-reference-weapons.py`: **PASS**, tutti i dieci slot remoti e
+  proiettile Milkor fisico con geometria propria.
+- `scripts/test-destruction.py --combat`: **PASS**, incluse miccia HE reale,
+  danni ai blocchi e rigenerazione; nessuna modifica ai danni/cover introdotta.
+  Riepilogo di queste quattro regressioni in Saved/Testing/grenade-regressions.json.
+- `scripts/verify-public-tree.py`: **PUBLIC_TREE_PASS**, 16 commit/3094 entry;
+  asset privati mantenuti nei gitlink. Python compile e git diff --check: PASS.
+
+Limiti: contenimento smoke cosmetico a celle circa38×38×35cm, conservativo
+presso pareti e aperture strette; non è una simulazione fluidodinamica e non
+modifica la visione dei bot. Il nuovo materiale non altera le impostazioni
+globali del fog. Non misurate prestazioni/FPS di una partita completa; nessun
+packaging o pubblicazione eseguito.
+
+
+## 16 ottobre 2026 — danno 5/15m, armatura e cook
+
+- Build Editor Mac Development arm64 reale: **Succeeded**, ultima compilazione
+  in Saved/Testing/grenade-cook-build.log. Migrazione Unreal dei tre profili
+  salvati HE legacy, HE Sketchfab e Milkor: 140 danni, 500/1500cm e ArmorRatio 1.6.
+  Nessun asset artistico modificato da setup_grenade_combat.py; ricevuta privata
+  SourceAssets/EpicContentExamples/combat.json.
+- Automation `EclipseRecoil.Weapons.ReferenceBallistics`: **Success**. Aggiunti
+  casi di letalità con 100AP nel nucleo, consumo AP, coda a10m, limite esatto
+  15m e assenza del vecchio danno minimo al bordo; regressioni bullet invariate.
+  Log grenade-cook-weapons-automation.log. Il log Editor riporta anche generici
+  `Condition failed` durante l'inizializzazione, precedenti all'avvio del test;
+  il test richiesto termina con Result={Success} ed eventi senza errori.
+- `test-grenades.py --combat --render`: **PASS**, host Metal e client LAN,
+  input reali LeftMouseButton press/release tramite Enhanced Input. Consumo
+  munizione al click, proiettile armato trattenuto, mano e modello FPS nascosti,
+  cambio arma/ricarica rifiutati durante il cook. Rilascio dello stesso attore,
+  nessun reset della scadenza, origine dietro/sopra la testa, velocità verticale
+  positiva. Sweep verificato con parete dietro la testa e soffitto basso.
+  Verificati anche arming/release remoti e mano nascosta sul client.
+- Danno reale server su 16 bersagli nativi, otto per payload HE/Milkor:
+  con 100AP, bersagli a 4m e 5m morti; a 7,5m/10m/14m rimangono circa 37/72/98,88HP;
+  a 15m 100HP. Copertura piena: 100HP; parziale: danno ridotto. I campioni sono
+  eseguiti prima della modifica strutturale.
+- Morte portatore: la granata già armata cade senza rimborso/reset; verificato
+  abbassamento fisico di oltre 10cm nei primi 250ms, detonazione al termine
+  residuo e cleanup. Overcook 2,5s in mano: portatore con 100HP/100AP ucciso e
+  stato cook ripulito. La velocità massima del drop conserva il budget di
+  movimento invece di limitare la caduta alla velocità iniziale nulla.
+- Tre catture Metal fresche ispezionate in Saved/Testing/Grenades:
+  Cook00_Ready.png, Cook01_Held.png, Cook02_Released.png. Cinque controlli true
+  in grenade-combat-render-results.json.
+- Regressioni finali **PASS**: test-arsenal.py, test-network.py, --accuracy,
+  test-reference-weapons.py, test-destruction.py --combat e test-grenades.py
+  baseline (rimbalzi/fuse/effetti/smoke/coperture/cleanup). Ricevute:
+  grenade-cook-regressions.json e grenade-cook-effects-regressions.json.
+  Tre avvii iniziali erano falliti per modulo temporaneamente assente durante
+  una ricompilazione concorrente; rilanciati dopo la build e passati.
+- Python compile e git diff --check: PASS. Nessun packaging/pubblicazione.
+
+Il modello resta un'approssimazione gameplay: decadimento quadratico, tre
+raggi di esposizione e armatura uniforme; nessuna simulazione individuale
+delle schegge o protezione anatomica. La miccia non compensa la latenza
+del rilascio: decide il tempo server. La distruzione strutturale resta nel
+proprio raggio 3,5m, distinto dal raggio di ferimento 15m.
+
+### Taratura granate 3,5s / 2–6m — 16 ottobre
+
+- Build editor Mac arm64: PASS (`grenade-tuning-build.log`).
+- Migrazione asset Unreal: PASS, tre profili HE/Milkor a 140 danni,
+  nucleo 200cm e limite 600cm; sei profili granata con miccia 3,5s
+  (`grenade-tuning-assets.log`, ricevuta privata `combat.json`).
+- Automation `EclipseRecoil.Weapons.ReferenceBallistics`: PASS, nucleo,
+  decadimento quadratico e zero al limite (`grenade-tuning-weapons-automation.log`).
+- `test-grenades.py --combat`: PASS su host/client, profili salvati,
+  danni HE e Milkor con armatura, coperture piene/parziali, cook dal click,
+  rilascio senza reset, caduta alla morte ed esplosione in mano.
+  Tutti i quattro controlli della ricevuta `grenade-combat-results.json` true;
+  log riepilogo `grenade-tuning-combat-result.log`.
+- Python compile e `git diff --check`: PASS. Nessuna modifica visiva in
+  questa taratura; la verifica grafica precedente resta documentata sopra.
+
+Questa taratura sostituisce i precedenti 5/15m e 2,5s. Con armatura piena
+il nucleo scoperto infligge 112HP; a 4m 28HP, a 6m zero.
+
+### Fumogena irregolare 3m — 16 ottobre
+
+- Build editor arm64 PASS (`smoke-shape-build-final.log`); migrazione Unreal
+  smoke-only PASS (`smoke-shape-assets.log`).
+- `test-grenades.py --render` PASS: volume 600x600x300cm, fase casuale,
+  limite 3m, origine sopra il pavimento, parete chiusa, finestra aperta,
+  celle solide escluse, scadenza12s, replica e shader. Tutti i sette controlli
+  true in `grenades-render-results.json`. Ispezionate le catture aggiornate
+  `04_OpenWindow.png` e `05_InsideSmoke.png` (occlusione scena e vista interna).
+- Regressioni arsenal/reference/network/accuracy/block-combat PASS:
+  `smoke-shape-regressions.json`, tutti cinque true.
+- Python compile e git diff --check PASS. Le deformazioni sono visive entro
+  il volume massimo; il contenimento resta una griglia conservativa16x16x8,
+  non una simulazione fluida. Nessuna modifica alla durata o al danno.
+
+### Lancio ridotto e bagliore/schegge — 16 ottobre
+
+- Build editor arm64 PASS (`explosion-refinement-build-final.log`).
+- Migrazioni Unreal PASS: setup_grenade_combat.py salva Milkor1800cm/s,
+  HE/smoke/stun880cm/s; setup_explosion_refinement.py salva solo gli asset
+  dell'esplosione (fuoco disabilitato, lampo65ms, tre sbuffi brevi, mesh schegge).
+- `test-grenades.py --render` PASS: velocità salvate,3..6 schegge a terra,
+  zero in aria, rimbalzi/replica/micce, fumo3m e pareti/finestre, shader e
+  catture fresche. Ispezionata02_HE.png: piccoli frammenti, niente fiammata.
+- Combat/cook, reference, arsenal, network, accuracy, block-combat PASS.
+  `explosion-refinement-regressions.json`: sette controlli true, incluso render.
+- Corrette due condizioni della fixture: il controllo iniziale del Milkor
+  leggeva la vecchia Arsenal[7] (pistola), ora legge ReferenceArsenal[7];
+  il controllo cleanup arsenal cadeva1ms prima della lifespan3,05s, aggiunto
+  margine200ms. Rilanciati entrambi i test e passati. La prima build aveva
+  overload FRandRange ambiguo con interi, corretto usando argomenti float.
+- Python compile e git diff --check PASS. Danno2/6m e miccia3,5s invariati;
+  schegge cosmetiche temporanee, non un cratere persistente nella geometria.
+
+### Fumogena4m e interazioni — 16 ottobre
+
+- Build editor arm64 PASS (`smoke-interaction-build.log`). Migrazioni Unreal
+  smoke e dotazione/velocità PASS (`smoke-interaction-assets.log`,
+  `smoke-interaction-stock.log`). Milkor1530cm/s, granate manuali880cm/s,
+  HE/smoke10 ciascuna nel catalogo attuale (legacy stun anche10).
+- `test-grenades.py --render` PASS: nuovo raggio4m/altezza4m, dotazione10,
+  velocità ridotta, parete chiusa e finestra aperta, replica/lifetime12s,
+  shader e catture aggiornate. Un vero projectile attraversa la nube e apre
+  la scia; la sua detonation multicast apre il vuoto più ampio. Entrambe le
+  verifiche PASS. Sette controlli true in `grenades-render-results.json`;
+  ispezionata `05_InsideSmoke.png` con apertura temporanea e clipping scena.
+- Contorni mobili: fase casuale replicata e tempo nube sincronizzato nelle
+  tre oscillazioni lente del materiale; crescita2,2s e fade4s nel Tick.
+- Combat/cook, reference, arsenal, network, accuracy, block-combat PASS;
+  `smoke-interaction-regressions.json`, sei controlli true.
+- Python compile e git diff --check PASS. Le scie sono cosmetiche e limitate
+  a quattro per nube; nessuna simulazione fluida, deviazione balistica o cambio
+  al danno. Durata complessiva invariata12s, dissolvenza negli ultimi4s.
+
+### Spalla, cook in terza persona e spostamento fumo — 16 ottobre
+
+- Build arm64 PASS (`grenade-shoulder-build-final.log`); migrazione profili
+  PASS (`grenade-shoulder-assets.log`), Milkor1750cm/s e origine(-14,24,-4)cm.
+- Native `EclipseRecoil.Weapons.ReferenceBallistics` PASS
+  (`grenade-shoulder-weapons.log`).
+- `test-grenades.py --combat --render` finale PASS (`grenade-shoulder-grip.log`):
+  cook reale host/client, mano FPS nascosta, modello terza persona visibile,
+  blend posa pronto-lancio, mano sopra spalla, mesh granata vicino alla mano,
+  origine sotto livello occhi, miccia originale, coperture/danno, death drop
+  e overcook. Tutti cinque controlli true; quattro catture fresche, inclusa
+  Cook03_RemoteReady.png, ispezionata dopo il rilassamento del braccio libero.
+  Il log ER_COOK_WORLD_GRIP conferma HandGrip_R su hand_r e centro del modello
+  circa8cm dal polso (offset presa), non alla cintura.
+- Baseline `--render` PASS: fumo4m, passaggi/pareti, wake e nuova apertura
+  esplosiva300cm/2,5s, shader, lifetime/cleanup. Ricevuta
+  `grenade-shoulder-visuals.json` true per entrambe le modalità.
+- Arsenal/reference/network/accuracy/block-combat PASS, cinque true in
+  `grenade-shoulder-regressions.json`. Nuovo codice pose inattivo con armi normali.
+- Il primo tentativo richiedeva include CameraActor; la luce opt-in della
+  fixture richiede FindComponentByClass<PointLightComponent> in questa UE.
+  Corrette entrambe le compilazioni. Una ripetizione grafica aveva ricevuto
+  look input mentre teneva la granata: la fixture ora ripristina la mira
+  nota immediatamente prima del rilascio, senza cambiare il lancio gameplay.
+  Ripetizione finale PASS. Python compile e git diff --check PASS.
+
+### Fumogene del colore squadra — 16 ottobre
+
+- Build editor arm64 PASS (`smoke-team-build.log`). Nessuna rigenerazione
+  degli asset necessaria: il colore è un valore runtime replicato.
+- `test-grenades.py --render` PASS (`smoke-team-render.log`): due veri
+  projectile smoke con miccia, team Alpha/Omega assegnati prima dell'armamento
+  e ripristinati prima della detonazione; le nubi conservano entrambi i colori.
+  Il client riceve esattamente(.2,.65,1) e(1,.25,.1), confermato dai log
+  ER_SMOKE_REMOTE_TEAM. Otto controlli true in `grenades-render-results.json`.
+- Ispezionata05_InsideSmoke.png: tinta azzurra presente nel volume renderizzato,
+  mantenuti clipping, contenimento, interazioni e durata. Alpha e Omega sono
+  colori assoluti condivisi, non colori relativi al team dell'osservatore.
+- Arsenal/reference/network/accuracy/block-combat PASS:
+  `smoke-team-regressions.json`, cinque true.
+- Python compile e git diff --check PASS. Le esplosioni HE mantengono il
+  proprio fumo neutro; solo il payload fumogena usa il colore del lanciatore.
+
+### Fumo scuro e crescita meno uniforme — 16 ottobre
+
+- Build arm64 PASS (`smoke-dark-build.log`); rigenerazione Unreal del solo
+  materiale/Blueprint fumo PASS (`smoke-dark-assets.log`).
+- `test-grenades.py --render` PASS (`smoke-dark-render.log`), otto controlli
+  true: entrambe le tinte scure replicate, shader, contenimento, radius4m,
+  interazioni e cleanup. Client log: Alpha(.08,.26,.4), Omega(.4,.1,.04).
+  Ispezionate03_ClosedWall.png e05_InsideSmoke.png aggiornate.
+- Crescita materiale con ritardi direzionali continui fino0,48s, raggiunge
+  comunque100% a2,2s; lobi mobili leggermente più marcati e limite4m.
+- `test-network.py` PASS (`smoke-dark-network.log`). Python compile e
+  git diff --check PASS. Nessun cambio a densità, durata o danni; per questa
+  sola taratura visiva verifiche concentrate su shader, fumo e replica.
+
+### Fumo denso e detonazione delle granate colpite — 16 ottobre
+
+- Build editor arm64 PASS (`grenade-shot-build-final.log`); native Weapons
+  ReferenceBallistics PASS (`grenade-shot-weapons.log`). Migrazione smoke-only
+  finale PASS (`grenade-shot-assets-final.log`).
+- Combat --render PASS (`grenade-shot-combat-render.log`): veri spari arma
+  server contro granata armata sospesa e granata in mano al portatore. Entrambe
+  detonano prima della miccia; parete solida blocca lo sparo. Il cook si chiude
+  senza doppio lancio. Preservati danni/coperture, posa e death drop/overcook.
+- Baseline --render finale PASS (`grenade-shot-baseline-final.log`): fumo
+  più denso, foro bullet ancora aperto dopo1,4s e richiuso dopo2s; esplosione
+ 400cm fino a fine nube, raggio ancora>=380cm dopo3s e dopo cinque scie nuove.
+  Il materiale finale libera il nucleo all'80% del raggio delle esplosioni.
+  Otto controlli true; sei catture fresche inclusa06_HE_Dispersed.png,
+  ispezionata: finestra/fondo nuovamente leggibili, pochi residui marginali.
+- Arsenal/reference/network/accuracy/block-combat PASS, cinque true in
+  `grenade-shot-regressions.json`; entrambe le modalità grafiche true in
+  `grenade-shot-visuals.json`. Ultima sola rifinitura shader riverificata
+  con baseline grafica, senza ulteriori cambi al C++.
+- Python compile e git diff --check PASS. Solo danno puntuale positivo da
+  proiettile sul server attiva la granata; nessuna detonazione da melee/radiale.
+
+### Reazione a catena con coperture — 16 ottobre
+
+- Build arm64 PASS (`grenade-chain-build.log`), native Weapons/ReferenceBallistics
+  PASS (`grenade-chain-weapons.log`). Nessuna migrazione asset/audio.
+- `test-grenades.py --combat --render` PASS (`grenade-chain-combat.log`): sparo
+  iniziale su HE, Milkor armato a4,5m, seconda HE a9m (richiede secondo passaggio),
+  granata in mano esposta e HE protetta dietro una parete. Propagazione riuscita
+  a più passaggi, cook chiuso, bersaglio coperto ancora attivo. Next-tick/pending
+  verificati, nessuna detonazione ricorsiva. Tutti cinque controlli true e
+  quattro catture fresche; ispezionata Cook03_RemoteReady.png.
+- Arsenal/reference/network/accuracy/block-combat/baseline PASS:
+  `grenade-chain-regressions.json`, sei true. Baseline conferma fumo, tinte,
+  micce indipendenti delle fixture a danno zero e aperture persistenti.
+- `git diff --check` PASS. Audio solo ricercato: Freesound qubodup162363
+  (pagina indica CC0, registrazione breve/distanza) e Sonniss GameAudioGDC
+  con licenza corrente consultata; nessun file scaricato o importato.
+
+### Freesound grenade audio — 16 October 2026
+
+- Editor arm64 Development build succeeded (`grenade-audio-build.log`).
+- Unreal Python import/save completed: mono0.601s PCM,5m inner radius plus75m
+  falloff,8-voice concurrency; `ER_GRENADE_AUDIO_READY` in
+  `Saved/Testing/grenade-audio-assets.log`.
+- `python3 scripts/test-grenades.py --render --audio`:10/10 checks passed,
+  including real host active audio component, remote asset binding, HE/Milkor
+  fuse/bounce, smoke containment/team tint, shader and fresh Metal captures.
+  Receipt: `Saved/Testing/grenades-render-audio-results.json`.
+- `python3 scripts/test-grenades.py --combat --render --audio`:7/7 checks passed,
+  including gameplay/cook, remote state, active host audio, remote asset and
+  captures. Multi-hop chain, covered target and held grenade checks passed.
+  Receipt: `Saved/Testing/grenade-combat-render-audio-results.json`.
+- CoreAudio mixer initialized and active components were observed; this validates
+  Unreal playback initiation, not a subjective listening/mix assessment. Remote
+  peer intentionally runs without audio output to avoid duplicate speaker playback.
+- Python syntax and git diff whitespace checks passed. Source/credit/hashes and
+  derived audio packages remain in the private weapons submodule.
+
+## Protezione respawn grigia senza copie — 16 ottobre 2026
+
+- Build Editor Mac arm64 Development: PASS (11.11s, configurazione finale).
+- setup_spawn_protection.py: eliminate326 varianti/parent traslucidi (circa16.3MB
+  di pacchetti); nessun nuovo asset. Seconda esecuzione idempotente:0 eliminati,
+ 0 creati. Rimossi anche i soli vecchi inserimenti staged della cartella ritirata,
+  assente da HEAD, per non conservare le copie eliminate nel prossimo commit.
+- Base finale: materiale engine LevelColorationLitMaterial, lit/opaco con Color
+  grigio e supporto universale engine. BasicShapeMaterial è stato scartato dopo
+  avere osservato richieste di compilazione per SkeletalMesh/Clothing. Nessuna
+  modifica o salvataggio nei materiali engine o nelle skin originali.
+- test-network.py --phase-belica: PASS; spawn grigio, ripristino dopo attacco,
+  respawn, owner/proxy remoto, selezione skin, cadaveri, danno e munizioni.
+- ERProtectionGallery Metal: completata; quattro confronti Alpha/Omega
+  Gray/Normal ispezionati visivamente, resa opaca uniforme e materiali originali
+  ripristinati. Nessun warning di usage per la base engine definitiva o errore
+  shader osservato. Restano warning preesistenti di usage su materiali originali
+  nascosti di alcuni personaggi, estranei al nuovo materiale.
+- Log Saved/Testing/protection-gray-{build,removal,assets,network,gallery,bots}.log;
+  screenshot Protection-{Alpha,Omega}-{Gray,Normal}.png. Nessun benchmark FPS
+  dichiarato: la riduzione riguarda copie su disco e passaggi di trasparenza.
+- ERProtectionRespawnGallery Metal: PASS con4 bot veri,48 slot verificati
+  protetti a+0.5s e ripristinati a+4.5s dopo respawn; screenshot grigio ispezionato.
+
+## XM1014 individual pellets and anatomy — 16 October 2026
+
+- Final Editor Mac arm64 Development build: PASS (8.30s).
+- setup_shotgun.py: saved active DA_Shotgun only;6x20,ArmorRatio1.6,
+  RangeModifier.70,anatomical opt-in,3.2deg pellet pattern/.25deg aim.
+- EclipseRecoil.Weapons.ReferenceBallistics: SUCCESS, including96 total
+  armored chest damage/12AP cost, head/stomach/leg multipliers,14 damage
+  per pellet at12.7m, deterministic seeded bounded jitter without center pellet.
+- test-reference-weapons.py: PASS with real host/client and all10 remote slots.
+  Real close shotgun shot consumed one shell and registered6 anatomical hits
+  (lowerarm_l on this pose, same x1 as chest). Each pellet had19.77..19.79
+  pre-armor damage after short-range falloff; target survived. Actual world box
+  blocked the anatomical query. Point-damage integration independently verified
+  all five bone cases with/without AP, helmet bypass, AP depletion,3 chest pellets
+  for60 damage and6 for a kill. This distinguishes real aimed hits from the
+  controlled point-event checks; no exact CS2 pattern or bone-mesh fidelity claim.
+- test-network.py --accuracy: PASS, including owner ammo/bloom replication
+  and server-clock recovery. test-arsenal.py: PASS. test-destruction.py --combat:
+  PASS, including block penetration, actual HE fuse and regeneration.
+- Receipts: Saved/Testing/shotgun-{build,assets,ballistics,reference,accuracy,
+  arsenal,block-combat}.log. Python syntax and whitespace checks passed.
+- test-network.py --phase-belica: PASS in configurazione finale, incluse
+  protezione grigia owner/proxy, cancellazione dopo attacco, selezione skin,
+  cadaveri, danno, munizioni e respawn. Receipt: shotgun-network.log.
+
+## English UI and generic weapon labels — 16 October 2026
+
+- Editor Mac arm64 Development build: PASS (28.30s).
+- setup_english_presentation.py: PASS;22 existing weapon data labels and20 skin
+  names across3 Blueprint defaults saved. Exact active slot order verified:
+  Knife,Pistol,SMG,Shotgun,Assault Rifle,Sniper Rifle,Marksman Rifle,
+  Grenade Launcher,HE Grenade,Smoke Grenade. Stats and asset IDs unchanged.
+- Fresh-process verify_team_skins.py: ER_SKINS_SAVED_COMPLETE,60 appearance
+  records passed, checking translated names plus original meshes, materials,
+  accessories and corpse copies.
+- EclipseRecoil.Menu.IPv4Validation: SUCCESS, including Recruit fallback and
+  safe player-name/address handling.
+- test-admission.py: PASS:4-player cap, balanced teams, late joins, disconnect
+  and English Server full message observed by the rejected real client.
+  Bot label translation is a source change; this run did not use --bots.
+- Actual Metal main menu1600x1000 captured and inspected: English headings,
+  selectors, skin names, settings, controls and requested generic weapon keys;
+  no clipped labels observed. Screenshot Saved/Testing/English-MainMenu.png.
+- Existing Italian UI literal audit, Python syntax and whitespace checks passed.
+  Logs: Saved/Testing/english-presentation-{build,assets,skins,menu-tests,
+  menu-render,admission}.log; saved label receipt english-presentation-assets.json.

@@ -13,6 +13,7 @@
 #include "ERMovementProbe.h"
 #include "ERAccuracyProbe.h"
 #include "ERArsenalProbe.h"
+#include "ERGrenadeProbe.h"
 #include "ERReferenceWeaponProbe.h"
 #include "ERBlockLabProbe.h"
 #include "ERProceduralMap.h"
@@ -121,7 +122,7 @@ void AERGameMode::FillBots()
         Bot->MovementPhaseOffset=(TestBots.Num()%6)*.4f;
         State->SetIsABot(true);
         State->AlphaSkin = State->OmegaSkin = (TestBots.Num() + 1) % ERSkins::Count;
-        State->SetPlayerName(FString::Printf(TEXT("%s %d"), bStationaryBots ? TEXT("Bersaglio") : TEXT("Bot"), TestBots.Num()+1));
+        State->SetPlayerName(FString::Printf(TEXT("%s %d"), bStationaryBots ? TEXT("Target") : TEXT("Bot"), TestBots.Num()+1));
         if (bConfiguredBots) State->Team = TestBots.Num() < AlphaBotCount ? EERTeam::Alpha : EERTeam::Omega;
         else if (bStationaryBots && DesiredBots >= 2)
         {
@@ -155,7 +156,7 @@ void AERGameMode::BeginPlay()
 {
     Super::BeginPlay();
 #if !UE_BUILD_SHIPPING
-    if (FParse::Param(FCommandLine::Get(), TEXT("ERPostureGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERTeamGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERCorpseGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERSkinGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERFPSForearmsGallery"))) GetWorld()->SpawnActor<AERTeamGallery>();
+    if (FParse::Param(FCommandLine::Get(), TEXT("ERProtectionRespawnGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERProtectionGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERPostureGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERTeamGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERCorpseGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERSkinGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERFPSForearmsGallery"))) GetWorld()->SpawnActor<AERTeamGallery>();
 #endif
     if (GameSession) GameSession->MaxPlayers = 4;
     GetWorldTimerManager().SetTimer(MatchTimer, this, &AERGameMode::CheckMatch, 0.2f, true);
@@ -174,6 +175,7 @@ void AERGameMode::BeginPlay()
     if (FParse::Param(FCommandLine::Get(), TEXT("ERBotProbe")) || FParse::Param(FCommandLine::Get(), TEXT("ERTargetSkinsProbe"))) GetWorld()->SpawnActor<AERBotProbe>();
     if (FParse::Param(FCommandLine::Get(), TEXT("ERAccuracyProbe"))) GetWorld()->SpawnActor<AERAccuracyProbe>();
     if (FParse::Param(FCommandLine::Get(), TEXT("ERReferenceWeaponProbe"))) GetWorld()->SpawnActor<AERReferenceWeaponProbe>();
+    if (FParse::Param(FCommandLine::Get(), TEXT("ERGrenadeProbe")) || FParse::Param(FCommandLine::Get(), TEXT("ERGrenadeCombatProbe"))) GetWorld()->SpawnActor<AERGrenadeProbe>();
     if (FParse::Param(FCommandLine::Get(), TEXT("ERArsenalProbe")) || FParse::Param(FCommandLine::Get(), TEXT("ERArsenalGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERHitscanGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERGrenadeGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERSmokeGallery")))
         GetWorld()->SpawnActor<AERArsenalProbe>();
 #endif
@@ -187,7 +189,7 @@ void AERGameMode::PreLogin(const FString& Options, const FString& Address, const
     if (!bFull && !bStationaryBots && !bConfiguredBots)
         while (!TestBots.IsEmpty() && GetNumPlayers()+TestBots.Num()+PendingHumanSlots.Num() >= 4) RemoveBot();
     Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
-    if (bFull) ErrorMessage = TEXT("Server pieno: massimo 4 giocatori.");
+    if (bFull) ErrorMessage = TEXT("Server full: maximum 4 players.");
     if (ErrorMessage.IsEmpty()) PendingHumanSlots.Add(GetWorld()->GetTimeSeconds()+30);
 }
 void AERGameMode::Logout(AController* Player)
@@ -201,7 +203,7 @@ FString AERGameMode::SanitizeName(const FString& Name)
     FString Result;
     for (TCHAR C : Name.Left(24)) if (FChar::IsAlnum(C) || C == TCHAR(' ') || C == TCHAR('_') || C == TCHAR('-')) Result.AppendChar(C);
     Result.TrimStartAndEndInline();
-    return Result.IsEmpty() ? TEXT("Recluta") : Result;
+    return Result.IsEmpty() ? TEXT("Recruit") : Result;
 }
 FString AERGameMode::InitNewPlayer(APlayerController* Player, const FUniqueNetIdRepl& Id, const FString& Options, const FString& Portal)
 {

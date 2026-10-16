@@ -886,8 +886,8 @@ open-source del codice è stata scelta implicitamente.
 ## Sprint e posizione prona — 14 ottobre 2026
 
 - Doppio W entro 300 ms, seconda pressione tenuta: sprint **18 km/h**, massimo
-  **5 s**, poi **10 s** di recupero completo. Interrompere prima avvia comunque
-  10 s di recupero; tenere W non riavvia lo sprint. Stato e scadenze autorizzati
+  **5 s**, poi recupero pari al **doppio della durata effettiva dello sprint**
+  (aggiornamento 16 ottobre: 2 s di sprint → 4 s di recupero, 5 s → 10 s); tenere W non riavvia lo sprint. Stato e scadenze autorizzati
   dal server, intenti nelle quattro flag custom dei saved move Unreal.
 - C/Ctrl premuto conserva l'accovacciamento; doppio tocco attiva la posizione
   prona persistente. Una nuova pressione risale verso accovacciato, il rilascio
@@ -1627,3 +1627,263 @@ del launcher ricadono nel fallback o nelle preferenze salvate. Il launcher
 passa `-ERInitialWindowPercent=70`; le dimensioni esplicite di cattura/probe
 senza questo flag sono rispettate. Il guard nella GameInstance preserva
 le successive scelte utente durante i cambi mappa e il ritorno al menu.
+
+
+## Protezione alla nascita: grigio opaco — 16 ottobre 2026
+
+La revisione sostituisce la trasparenza al50%: corpo, accessori della skin e
+braccia FPS usano LevelColorationLitMaterial già incluso in Unreal, con una sola
+istanza dinamica transitoria grigia(.32,.32,.32) per personaggio. Nessuna
+texture, mesh o copia di materiali aggiunta su disco. Armi e materiali originali
+restano invariati; la resa protetta è uniforme e rinuncia alle texture della skin.
+
+Lo stato legge la scadenza server esistente, senza nuove proprietà replicate.
+Gli originali sono conservati per componente/slot e ripristinati su scadenza,
+attacco, morte e prima di cambiare skin. setup_spawn_protection.py salva i default
+BP_ERCharacter/BP_ERTrainingTarget ed elimina le vecchie varianti traslucide in
+Characters/Protection tramite Unreal, controllando prima i riferimenti esterni.
+Verifiche LAN owner/proxy/respawn/attacco e confronti Metal Alpha/Omega.
+
+
+## Rimozione indicatori sopra la testa — 16 ottobre 2026
+
+TeamMarker è nascosto in BeginPlay per tutti i giocatori e bot, compresi
+i respawn e i Blueprint già salvati. Disattivate anche le ombre del marker
+e rimossi la creazione e l'aggiornamento della sua istanza materiale dinamica.
+Il componente resta per compatibilità con gli asset esistenti.
+
+
+## Granate e fumogena — 16 ottobre 2026
+
+La richiesta del 16 ottobre sostituisce l'effetto HE a schegge di pavimento e
+la simulazione Niagara della fumogena descritti nelle sezioni storiche sopra.
+HE e proiettile Milkor condividono P_ER_CompactHE, copia propria del burst
+Epic Content Examples con sprite subUV, fumo e piccoli detriti cosmetici.
+Il riferimento Niagara Fluids dello screenshot guida l'aspetto, ma la
+simulazione 3D della demo non viene eseguita per ogni detonazione.
+Sorgente acquisita in Documents/Unreal Projects/ContentExamples, lasciata
+intatta; 12 package migrati e rinominati attraverso Unreal nel mount privato
+Effects/Grenade/Epic. Il precedente FBX e l'archivio restano conservati, senza
+collegamenti attivi all'animazione dei frammenti.
+
+La fumogena usa un volume traslucido con densità propria, semisfera di circa
+6×6×2,8 m, crescita di 1,1 s e dissolvenza negli ultimi 2 s dei 12 s totali.
+Una griglia 16×16×8 verifica celle interamente libere e sweep fra vicini:
+il riempimento connesso passa nelle aperture sufficientemente ampie, senza
+attraversare pareti sottili. Il bordo è conservativo a risoluzione circa
+38×38×35 cm: le fessure più piccole possono restare chiuse. Il materiale
+integra 48 campioni lungo la vista e termina alla profondità della scena;
+funziona anche dalla camera dentro la nube. Ogni nube possiede la propria
+texture di densità. Revisioni ed epoche dei blocchi invalidano il contenimento
+con controllo ogni 750 ms. Nessuna modifica globale a volumetric fog o ai livelli.
+Fino a quattro segmenti di sparo autorizzati aprono brevi tagli cosmetici;
+restano invariati danni, collisioni e vista dei bot. Nessuna interazione
+procedurale coi corpi dei giocatori nella nuova versione semplice.
+
+HE, smoke, stun e LaunchedHE usano lo stesso percorso fisico: gravità, attrito,
+rotazione su più assi, variazione contenuta dei contatti e assestamento di lato.
+Solo il server campiona le variazioni e replica posizione/rotazione. La miccia
+non è riavviata dai rimbalzi e il lifetime non può troncarla; il Milkor mantiene
+la velocità di lancio del suo profilo, ma ora detona solo a fine miccia.
+Danni e copertura restano server-side sul percorso condiviso dei blocchi.
+
+Setup attuale: scripts/setup_grenade_effects.py dopo la migrazione privata
+(scripts/migrate_epic_grenade.py). I vecchi setup_grenade_explosion.py e
+setup_interactive_smoke.py documentano le integrazioni precedenti.
+Verifica dedicata: scripts/test-grenades.py, anche --render, con due processi
+reali, rimbalzi prima della miccia, trasformazioni remote, parete chiusa,
+finestra aperta, forma sopra il suolo e cleanup. Esiti in TEST_RESULTS.md.
+
+
+## Danno HE/Milkor e cook — 16 ottobre, richiesta successiva
+
+HE e Milkor ora usano 140 danni fino a 5m e una coda quadratica fino a zero
+a 15m. Con 100AP, la riduzione massima è 20%:112HP nel nucleo completamente
+esposto, circa 63HP a 7,5m e 28HP a 10m. Distanza 3D dal centro capsula; tre
+trace WorldStatic verso testa, torso e parte inferiore pesano l'esposizione.
+Muro pieno blocca il danno, copertura parziale lo riduce. Le coperture sono
+valutate prima di mutare i blocchi; questi mantengono il raggio strutturale
+3,5m distinto dalle schegge a 15m. Nessuna modifica all'armatura dei proiettili.
+
+Click sulle granate a mano arma un proiettile reale e consuma una munizione.
+Miccia 2,5s sul server, senza tempo cook fornito dal client. Finché tenuta,
+la granata resta nascosta dietro/sopra la testa; mano/braccio FPS e modello
+scompaiono anche tramite previsione locale dell'input. Il rilascio lancia
+lo stesso attore con tempo residuo, da un'origine arretrata/alta controllata
+con sweep, velocità rivolta leggermente verso l'alto e inerzia del portatore.
+L'attore conserva rimbalzi/rotazione precedenti. Se non si rilascia esplode
+in mano; morte e salita interrotta lasciano cadere l'ordigno già vivo. Nessun
+rimborso o reset; cambio arma/ricarica non annullano la miccia. Il recupero
+mostra la granata successiva soltanto se rimangono munizioni. Cook applicato
+anche a smoke/stun manuali; Milkor resta click normale e miccia all'uscita.
+
+Script di migrazione: setup_grenade_combat.py. Test dedicato esteso:
+test-grenades.py --combat --render, input mouse reali su host e client,
+scadenza originale, morte portatore, danni/coperture su entrambi i payload.
+
+
+### Ultima taratura granate — 16 ottobre
+
+Richiesta successiva: miccia **3,5s**, nucleo letale **2m**, danno decrescente
+fino a **6m** per HE e Milkor. Picco 140 e riduzione armatura massima 20%
+invariati: 112HP nel nucleo scoperto con 100AP, circa 63HP a 3m, 28HP a 4m e
+1,75HP a 5,5m. A 6m il danno è zero. Stesso decadimento quadratico e verifiche
+di copertura; il cook usa sempre la scadenza dal click. Miccia aggiornata
+anche alle fumogene e stun manuali; durata del fumo invariata. Danno
+strutturale distinto 3,5m e tutti gli effetti restano quelli precedenti.
+Rigenerazione profili e migrazione esistente aggiornate; test di danno
+adattati alle nuove distanze, con entrambi i payload e armatura piena.
+
+### Fumogena irregolare, raggio 3m — 16 ottobre
+
+Volume massimo 6x6x3m, raggio 3m. Il bordo usa lobi morbidi asimmetrici
+con fase casuale server replicata, oltre al rumore mobile della densità.
+Le rientranze variano tra granate e rimangono dentro il limite di 3m.
+Restano griglia conservativa, passaggi connessi, pareti/finestre, durata12s,
+quattro volumi e clipping contro la scena. setup_smoke_shape.py rigenera
+soltanto materiale e Blueprint del fumo senza cambiare gli asset HE.
+
+### Lancio ridotto ed esplosione sobria — 16 ottobre
+
+Milkor1800cm/s (−50%); granate manuali880cm/s (−20%). Miccia3,5s, cook,
+rimbalzi e danno2/6m invariati. L'effetto HE/Milkor disabilita gli emettitori
+di fuoco colorati: bagliore neutro65ms, luce breve e tre piccoli sbuffi
+con durata0,55..0,95s. Solo entro60cm da una superficie statica con normale
+verso l'alto genera3..6 schegge piatte casuali, con materiale del pavimento.
+Le schegge sono cosmetiche, gravità/rotazione e arresto contro geometria
+statica; spariscono entro3s. Nessuna lastra intera animata né schegge in aria.
+
+### Fumo4m, contorni mobili e interazioni — 16 ottobre
+
+Milkor1530cm/s (−15% rispetto1800); granate manuali880cm/s. Dotazione
+provvisoria10 per tipo manuale HE/smoke/stun; tamburo Milkor6 e riserva12.
+Fumo8x8x4m, raggio massimo4m, crescita2,2s, dissolvenza4s, durata totale12s.
+I lobi asimmetrici evolvono con l'età sincronizzata della nube; griglia sempre
+16x16x8, ora celle50cm, conservando coperture e aperture sufficientemente ampie.
+Colpi autorizzati: scie12cm/.3s già presenti; granate/proiettili fisici
+replicati: scia25cm/.6s (10Hz massimo); esplosioni: apertura150cm/1s.
+Quattro aperture contemporanee per nube, chiusura automatica e nessun cambio
+al moto, ai danni o alla mira. Le interazioni sono visive, non fluidodinamiche.
+
+### Origine sulla spalla e cook visibile — 16 ottobre
+
+Milkor1750cm/s (vicino ai precedenti1800). Il lancio manuale parte da
+(-14 avanti,24 destra,-4 alto)cm rispetto agli occhi, con sweep anti-parete.
+Il braccio FPS resta nascosto durante cook; il modello terza persona mostra
+la granata anche quando è l'ultima, con posa procedurale destra piegata,
+mano sopra la spalla e transizione morbida. Usa lo stato cook replicato,
+rig esistenti e socket della presa; nessun cambio a fisica/danni o miccia.
+HE/Milkor aprono nel fumo un raggio300cm per2,5s, invece150cm/1s, con
+richiusura graduale; le scie piccole non espellono le grandi aperture dal
+budget4. Esplosioni accanto alla nube interagiscono anche se il centro non
+è dentro il suo box, usando il raggio esteso della query cosmetica.
+
+### Fumo del colore della squadra — 16 ottobre
+
+Le fumogene assumono i colori HUD: Alpha azzurro(.2,.65,1), Omega
+rosso-arancio(1,.25,.1), in spazio lineare. Il projectile cattura sul server
+la squadra all'armamento; il colore non dipende dalla sopravvivenza del
+lanciatore o da successivi cambi squadra. La nube riceve il colore prima
+del BeginPlay, lo replica e aggiorna il materiale con RepNotify anche se
+arriva dopo la creazione della MID. Nessun cambio al fumo cosmetico HE,
+densità, durata12s, raggio4m, contorni, coperture o aperture temporanee.
+
+### Colori più scuri e crescita a sbuffi — 16 ottobre
+
+Tinte squadra al40% dei precedenti RGB lineari: Alpha(.08,.26,.4),
+Omega(.4,.1,.04). La densità/trasparenza non cambia. La crescita applica
+ritardi morbidi diversi secondo la direzione, fino al22% del tempo totale
+(circa0,48s); le zone avanzano in modo meno uniforme, arrivando comunque
+alla crescita completa a2,2s. Lobi mobili leggermente più marcati e limite4m
+invariato. Preservati squadra replicata,12s totali/fade4s, pareti/finestre
+e aperture di colpi/granate/esplosioni. Migrazione smoke-only.
+
+### Fumo denso, dispersione duratura e granate colpibili — 16 ottobre
+
+Densità ottica circa+35% (.035 invece.026). I fori dei colpi restano2s e si
+richiudono lentamente (raggio con radice del tempo residuo); scie delle granate
+1,5s. Le esplosioni HE/Milkor disperdono400cm, fino alla fine della nube, con
+solo5% di recupero del raggio. Sempre quattro aperture massime, priorità alle
+esplosioni; colori/raggio4m/crescita2,2s/durata12s/fade4s e contenimento invariati.
+Le granate armate hanno sfera di query dedicata (6cm in volo,12cm in mano),
+che blocca i trace delle armi e non cambia il movimento. Danno puntuale da
+proiettile verificato sul server provoca la detonazione del payload, anche
+durante il cook; corpo a corpo e danno radiale non creano catene automatiche.
+Stessa pipeline del fuse per danni, effetti, pulizia e cook; nessun rimborso.
+
+La maschera esplosiva libera completamente il nucleo fino all'80% del raggio,
+poi sfuma nel bordo; le scie piccole mantengono il nucleo al30%. Questo rende
+la dispersione HE nettamente visibile anche nel nuovo fumo più denso.
+
+### Reazione a catena tra granate — 16 ottobre
+
+HE/Milkor e razzi con danno positivo possono innescare granate già armate nel
+proprio raggio (HE6m). Ogni passaggio controlla la linea WorldStatic verso la
+granata prima di danni ai personaggi o rimozione dei blocchi; una copertura
+intatta al momento dell'esplosione protegge l'ordigno. I bersagli esposti
+sono accodati al tick successivo, con guardie pending/detonated, senza ricorsione
+o duplicati. Vale anche in mano, usando la normale chiusura del cook. Smoke e
+stun attivati in anticipo conservano il loro payload e non propagano una
+ulteriore onda esplosiva. Nessun cambio al danno da proiettile o alle micce.
+
+### Freesound explosion audio — 16 October 2026
+
+HE and Milkor now use qubodup's Freesound162363 public HQ preview, converted
+to mono44.1kHz PCM16 (0.601s), retained with credit/provenance in the private
+weapons repository. setup_grenade_audio.py imports PCM with FORCE_INLINE and
+binds sound/attenuation/concurrency to BP_ERGrenadeExplosion. The existing
+authoritative detonation multicast produces one local sound per peer; dedicated
+servers skip it. Volume.65, original pitch, spatial inner radius5m plus75m
+falloff, maximum8 simultaneous sounds (stop farthest then oldest). The smoke
+and stun payloads retain their own behavior. No additional sound library imported.
+`test-grenades.py --render --audio` enables the host's real audio device and
+checks active playback plus remote asset binding.
+
+## XM1014: pallini, zone e rosata — 16 ottobre 2026
+
+Valori richiesti dall'utente, già nel CSV locale:6 pallini da20, ArmorRatio1.6
+(80% attraversa corazza), RangeModifier.70 ogni1270cm. Profili delle altre armi
+invariati. Un click consuma una cartuccia; la modalità automatica esistente resta.
+
+Il nuovo flag bUseBodyHitZones attiva sul solo XM1014 danno per osso: testa/collo
+x4, pelvis/spine_01 stomaco x1.25, torace/braccia x1, gambe/piedi x.75. La
+corazza non protegge le gambe; Health.bHelmet separato e replicato protegge la
+testa quando c'è AP. Defaulttrue conserva il kit iniziale; non dedotto dalla skin
+e nessuna nuova scelta inventario aggiunta. AP si consuma separatamente a ogni
+pallino e, se esaurito, non può assorbire il danno dei successivi. Sei pallini
+al petto fanno120 grezzi o96 con AP sufficiente a distanza zero; lo stomaco
+corazzato può invece ricevere120. A distanza positiva si applica il decadimento.
+
+ERShotTrace riusa i corpi anatomici dei physics asset già esistenti: le mesh
+autoritative sono query-only, ignorano i normali canali e aggiornano le pose
+anche fuori vista. Il mondo viene tracciato prima e limita le query scheletriche;
+nessun cambio a collisione locomozione o balistica delle altre armi. Anche la
+continuazione nei blocchi usa l'anatomia, mantenendo l'attenuazione energetica.
+A contatto con una capsula, i pallini partono dall'occhio per non saltare le
+hitbox o assegnare automaticamente petto. Non è simulazione di frammentazione
+fisica o mesh poligonale: usa le hitbox anatomiche dei physics asset attuali.
+
+Rosata: sei posizioni radiali stabili, raggio alternato65/85% del cono3.2gradi,
+più jitter su disco fino12% del cono. Il centro della rosata ha imprecisione
+condivisa .25gradi più penalità movimento/postura/bloom esistenti. Il server
+estrae il jitter dal suo stream; nessun pallino centrale garantito. Nessun asset
+aggiuntivo di hitbox, animazione o mesh; setup_shotgun.py salva solo DA_Shotgun.
+
+## English interface and generic weapon names — 16 October 2026
+
+Translated all owned menu/HUD strings, setup controls, pause/help, scoreboard,
+match outcomes, reload/protection/respawn prompts, map synchronization and
+connection/travel/admission errors into English. Default player is Recruit and
+stationary bot labels use Target. GameInstance selects en for engine-supplied
+messages without saving global language preferences.20 skin labels translated
+in character/training/corpse defaults, preserving indices and source identities.
+
+Requested mapping:2 Pistol,3 SMG,4 Shotgun,5 Assault Rifle,6 Sniper Rifle,
+7 Marksman Rifle,8 Grenade Launcher. Knife/HE Grenade/Smoke Grenade and legacy
+weapon labels are also generic English. Existing internal Carbine key remains
+slot6,Sniper key remains slot7; no reorder, stats or input changes. HUD and menus
+read the saved DisplayName. presentation_labels.py centralizes weapon metadata,
+character_catalog.py centralizes skin labels; setup_english_presentation.py saves
+only owned weapon data and Blueprint labels. Future import/setup scripts reuse
+these names. Asset filenames, source model/stat references and license credits
+retain original identities. No map/mesh/material regeneration for this change.

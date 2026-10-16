@@ -33,8 +33,8 @@ try:
         'remote_new_loadout_mesh': 'name=M249 mesh=SK_M249 ammo=100' in remote,
         'remote_directional_stun_feedback':'ER_ARSENAL_REMOTE_FLASH' in remote,
         'he_smoke_stun_fuses': all('ER_PAYLOAD_DETONATE kind='+str(kind) in server for kind in [2,3,4]),
-        'he_burst_on_host_and_remote': all('ER_GRENADE_BURST mesh=SK_ER_BombDebris animation=A_ER_BombDebris' in peer for peer in [server,remote]),
-        'smoke_cloud_on_host_and_remote': all('ER_SMOKE_CLOUD system=NS_ER_InteractiveSmoke' in peer for peer in [server,remote]),
+        'he_burst_on_host_and_remote': all('ER_GRENADE_BURST system=P_ER_CompactHE' in peer for peer in [server,remote]),
+        'smoke_cloud_on_host_and_remote': all('ER_SMOKE_CLOUD shape=hemisphere' in peer for peer in [server,remote]),
         'remote_shot_carving':'ER_SMOKE_REMOTE_CUT events=' in remote,
     }
     for label,passed in conditions.items():

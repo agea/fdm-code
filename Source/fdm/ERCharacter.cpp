@@ -13,6 +13,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Materials/MaterialInstanceDynamic.h"
+#include "UObject/ConstructorHelpers.h"
 #include "Net/UnrealNetwork.h"
 #include "DrawDebugHelpers.h"
 #include "Animation/AnimSequence.h"
@@ -248,12 +249,14 @@ void UERHealthComponent::OnRep_Dead() { if (bDead) if (auto* Character = Cast<AE
 void UERHealthComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
-    DOREPLIFETIME(UERHealthComponent, Health); DOREPLIFETIME(UERHealthComponent, bDead); DOREPLIFETIME(UERHealthComponent, ProtectionEndServerTime);
+    DOREPLIFETIME(UERHealthComponent, bHelmet); DOREPLIFETIME(UERHealthComponent, Health); DOREPLIFETIME(UERHealthComponent, bDead); DOREPLIFETIME(UERHealthComponent, ProtectionEndServerTime);
     DOREPLIFETIME(UERHealthComponent, Armor);
 }
 AERCharacter::AERCharacter(const FObjectInitializer& ObjectInitializer)
     : Super(ObjectInitializer.SetDefaultSubobjectClass<UERMovement>(ACharacter::CharacterMovementComponentName).SetDefaultSubobjectClass<UERPostureMesh>(ACharacter::MeshComponentName))
 {
+    static ConstructorHelpers::FObjectFinder<UMaterialInterface> GrayBase(TEXT("/Engine/EngineDebugMaterials/LevelColorationLitMaterial.LevelColorationLitMaterial"));
+    ProtectionBaseMaterial = GrayBase.Object;
     bReplicates = true;
     PrimaryActorTick.bCanEverTick = true;
     GetCapsuleComponent()->InitCapsuleSize(34, 92.5f);
@@ -371,6 +374,12 @@ void AERCharacter::BeginPlay()
     }
     if (HasAuthority())
     {
+        // Reuse anatomical ragdoll bodies for explicit shotgun queries only.
+        // Other weapon/world/pawn collision channels keep their existing behaviour.
+        GetMesh()->SetCollisionResponseToAllChannels(ECR_Ignore);
+        GetMesh()->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+        GetMesh()->SetGenerateOverlapEvents(false);
+        GetMesh()->VisibilityBasedAnimTickOption=EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
         Health->ProtectionEndServerTime = GetWorld()->GetTimeSeconds() + 4;
         // Direct map startup can assign the loadout before this pawn's BeginPlay.
         // Keep that weapon and its FPS pose instead of replacing it with the fallback.
@@ -381,7 +390,10 @@ void AERCharacter::BeginPlay()
             if (Weapon) Weapon->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
         }
     }
-    TeamMaterial = TeamMarker->CreateDynamicMaterialInstance(0);
+    // Enforce this at runtime: existing Blueprints serialize the old visible marker.
+    TeamMarker->SetHiddenInGame(true);
+    TeamMarker->SetVisibility(false);
+    TeamMarker->SetCastShadow(false);
 #if !UE_BUILD_SHIPPING
     if (FParse::Param(FCommandLine::Get(), TEXT("ERViewmodelWallTest")))
     {
@@ -455,8 +467,19 @@ void AERCharacter::Tick(float DeltaTime)
     }
 #endif
     const auto* Movement = Cast<UERMovement>(GetCharacterMovement());
-    if (HasAuthority() && Movement->bHighClimb && Weapon) Weapon->StopFire();
-    FirstPersonRifle->SetVisibility(!Health->bDead && !Movement->bHighClimb);
+    if (HasAuthority() && Movement->bHighClimb && Weapon)
+    {
+        if(Weapon->bCookingGrenade) Weapon->Cancel();
+        else Weapon->StopFire();
+    }
+    const bool bGrenade=AppliedWeaponData && AERWeapon::IsHandGrenade(AppliedWeaponData->Payload);
+    const bool bReadyToThrow=bGrenade && Weapon && Weapon->bCookingGrenade && !Health->bDead;
+    GrenadeThrowPoseBlend=FMath::FInterpTo(GrenadeThrowPoseBlend,bReadyToThrow?1.f:0.f,DeltaTime,14.f);
+    const double LocalNow=GetWorld()->GetTimeSeconds();
+    const bool bHideGrenade=bGrenade && ((Weapon && Weapon->IsGrenadeHandHidden()) ||
+        (IsLocallyControlled() && ((bLocalGrenadeInputHeld && LocalNow<LocalGrenadeCookDeadline) || LocalNow<LocalGrenadeHideUntil)));
+    FirstPersonRifle->SetVisibility(!Health->bDead && !Movement->bHighClimb && !bHideGrenade);
+    WorldRifle->SetVisibility(!Health->bDead && (bReadyToThrow || !(Weapon && Weapon->IsGrenadeHandHidden())));
     FirstPersonSight->SetVisibility(!Health->bDead && !Movement->bHighClimb && AppliedWeaponData && AppliedWeaponData->SightMesh);
     WorldSight->SetVisibility(!Health->bDead && AppliedWeaponData && AppliedWeaponData->SightMesh);
     const bool bFlash = GetWorld()->GetTimeSeconds() < MuzzleFlashUntil && !Health->bDead && !Movement->bHighClimb;
@@ -469,6 +492,13 @@ void AERCharacter::Tick(float DeltaTime)
         bLeftArmHidden = bHideLeft;
         if (bLeftArmHidden) FirstPersonBody->HideBoneByName(TEXT("upperarm_l"), EPhysBodyOp::PBO_None);
         else FirstPersonBody->UnHideBoneByName(TEXT("upperarm_l"));
+    }
+    const bool bHideRight=bHideGrenade;
+    if(bRightArmHidden!=bHideRight)
+    {
+        bRightArmHidden=bHideRight;
+        if(bHideRight) FirstPersonBody->HideBoneByName(TEXT("upperarm_r"),EPhysBodyOp::PBO_None);
+        else FirstPersonBody->UnHideBoneByName(TEXT("upperarm_r"));
     }
     // Presentation only: preserve the physical capsule and server eye/muzzle.
     if (IsLocallyControlled())
@@ -487,10 +517,9 @@ void AERCharacter::Tick(float DeltaTime)
     }
     if (const auto* State = GetPlayerState<AERPlayerState>())
     {
-        FLinearColor Color = State->Team == EERTeam::Alpha ? FLinearColor(0.05f,0.45f,1) : FLinearColor(1,0.12f,0.03f);
-        if (TeamMaterial) TeamMaterial->SetVectorParameterValue(TEXT("Color"), Color);
         if (State->Team != EERTeam::None && (AppliedBodyTeam != static_cast<uint8>(State->Team) || AppliedSkin != State->ActiveSkin))
         {
+            RestoreProtectionMaterials();
             const auto& Appearance = GetTeamAppearance();
             const auto& Materials = State->Team == EERTeam::Alpha ? AlphaBodyMaterials : OmegaBodyMaterials;
             if (Appearance.Mesh)
@@ -535,7 +564,50 @@ void AERCharacter::Tick(float DeltaTime)
             }
             AppliedBodyTeam = static_cast<uint8>(State->Team);
             AppliedSkin = State->ActiveSkin;
+            bProtectionMaterialsDirty = true;
             if (!Appearance.Mesh && !Materials.IsEmpty()) UE_LOG(LogTemp, Display, TEXT("ER_TARGET_COLORS team=%s slots=%d"), State->Team == EERTeam::Alpha ? TEXT("Alpha") : TEXT("Omega"), Materials.Num());
+        }
+    }
+    UpdateProtectionPresentation();
+}
+UMaterialInterface* AERCharacter::GetUnprotectedMaterial(UMeshComponent* Mesh, int32 Slot) const
+{
+    for (const auto& State : ProtectionSurfaces)
+        if (State.Mesh == Mesh && State.Originals.IsValidIndex(Slot)) return State.Originals[Slot];
+    return Mesh->GetMaterial(Slot);
+}
+void AERCharacter::RestoreProtectionMaterials()
+{
+    for (const auto& State : ProtectionSurfaces)
+        if (IsValid(State.Mesh))
+            for (int32 Slot=0; Slot<State.Originals.Num(); ++Slot) State.Mesh->SetMaterial(Slot,State.Originals[Slot]);
+    ProtectionSurfaces.Reset();
+}
+void AERCharacter::UpdateProtectionPresentation()
+{
+    if (GetNetMode() == NM_DedicatedServer) return;
+    const bool Protected = !Health->bDead && Health->IsProtected();
+    if (!bProtectionMaterialsDirty && Protected == bProtectionVisualsApplied) return;
+    bProtectionMaterialsDirty = false;
+    bProtectionVisualsApplied = Protected;
+    RestoreProtectionMaterials();
+    if (!Protected || !ProtectionBaseMaterial) return;
+    if (!ProtectionSurface)
+    {
+        ProtectionSurface=UMaterialInstanceDynamic::Create(ProtectionBaseMaterial,this);
+        ProtectionSurface->SetVectorParameterValue(TEXT("Color"),FLinearColor(.32f,.32f,.32f));
+    }
+    TInlineComponentArray<UMeshComponent*> Meshes(this);
+    for (auto* Mesh : Meshes)
+    {
+        // Body, first-person arms and skin gear; weapons retain their materials.
+        if (Mesh != GetMesh() && Mesh != FirstPersonBody && !Mesh->ComponentHasTag(TEXT("ERSkinGear"))) continue;
+        auto& State=ProtectionSurfaces.AddDefaulted_GetRef();
+        State.Mesh=Mesh;
+        for (int32 Slot=0; Slot<Mesh->GetNumMaterials(); ++Slot)
+        {
+            State.Originals.Add(Mesh->GetMaterial(Slot));
+            Mesh->SetMaterial(Slot,ProtectionSurface);
         }
     }
 }
@@ -580,12 +652,20 @@ float AERCharacter::TakeDamage(float Damage, const FDamageEvent& Event, AControl
         if (Gun->Data->Payload == EERPayload::Bullet && Event.IsOfType(FPointDamageEvent::ClassID))
         {
             const auto& Point = static_cast<const FPointDamageEvent&>(Event);
+            if(Gun->Data->bUseBodyHitZones)
+            {
+                const auto Zone=ERWeaponBallistics::ZoneForBone(Point.HitInfo.BoneName);
+                Damage*=ERWeaponBallistics::ZoneMultiplier(Zone);
+                if(Zone==ERWeaponBallistics::EHitZone::Legs ||
+                    (Zone==ERWeaponBallistics::EHitZone::Head && !Health->bHelmet)) Ratio=2.f;
+            }
             Damage = ERWeaponBallistics::AtRange(Damage, Gun->Data->RangeModifier,
                 FVector::Distance(Gun->LastShotTraceStart, Point.HitInfo.ImpactPoint));
         }
     }
     else if (const auto* Projectile = Cast<AERProjectile>(Causer); Projectile &&
-        (Projectile->Payload == EERPayload::HE || Projectile->Payload == EERPayload::LaunchedHE)) Ratio = 1.f;
+        (Projectile->Payload == EERPayload::HE || Projectile->Payload == EERPayload::LaunchedHE))
+            Ratio = ERWeaponBallistics::GrenadeArmorRatio(Projectile->BlastArmorRatio);
     Health->ReceiveDamage(Damage, Killer, Ratio);
     if (Before > Health->Health) ClientDamageFeedback(Before - Health->Health, LastHitDirection);
     return Before - Health->Health;
@@ -631,6 +711,19 @@ void AERCharacter::ApplyDeathVisuals()
     CameraKick = 0; MuzzleFlashUntil = 0;
 }
 void AERCharacter::ServerStartFire_Implementation() { if (!Health->bDead && Weapon && !Cast<UERMovement>(GetCharacterMovement())->bHighClimb) Weapon->StartFire(); }
+void AERCharacter::SetGrenadeInputHeld(bool bHeld)
+{
+    if(!IsLocallyControlled()) return;
+    if(!bHeld)
+    {
+        if(bLocalGrenadeInputHeld) LocalGrenadeHideUntil=GetWorld()->GetTimeSeconds()+.35;
+        bLocalGrenadeInputHeld=false;return;
+    }
+    if(Health->bDead || !Weapon || !Weapon->Data || !AERWeapon::IsHandGrenade(Weapon->Data->Payload) ||
+        Weapon->MagazineAmmo<=0 || Weapon->bReloading || Weapon->IsGrenadeHandHidden() || Cast<UERMovement>(GetCharacterMovement())->bHighClimb) return;
+    bLocalGrenadeInputHeld=true;
+    LocalGrenadeCookDeadline=GetWorld()->GetTimeSeconds()+Weapon->Data->FuseDuration;
+}
 void AERCharacter::ServerStopFire_Implementation() { if (Weapon) Weapon->StopFire(); }
 void AERCharacter::ServerReload_Implementation() { if (!Health->bDead && Weapon && !Cast<UERMovement>(GetCharacterMovement())->bHighClimb) Weapon->Reload(); }
 bool AERCharacter::UsesReferenceArsenal() const
@@ -662,7 +755,7 @@ void AERCharacter::InitializeLoadout(int32 Primary)
 void AERCharacter::ServerSelectWeapon_Implementation(int32 Slot)
 {
     if (Health->bDead || !Inventory.IsValidIndex(Slot) || !Inventory[Slot] || Weapon == Inventory[Slot] ||
-        Cast<UERMovement>(GetCharacterMovement())->IsTraversing()) return;
+        (Weapon && Weapon->bCookingGrenade) || Cast<UERMovement>(GetCharacterMovement())->IsTraversing()) return;
     if (Weapon) Weapon->Cancel();
     Weapon = Inventory[Slot];
     MuzzleFlashUntil = 0; CameraKick = 0;

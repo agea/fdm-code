@@ -49,8 +49,8 @@ reviewing their new repository ownership.
   Step automatically through 30cm; timed weapon-held vault through 80cm;
   Space+forward climbs through 150cm relative to current feet, including in air.
 - Sprint/posture scope (14 October): double W within 300ms, held second press,
-  runs at 18km/h for at most five seconds, followed by ten seconds of recovery
-  including early interruption. Require a fresh gesture after recovery. Hold
+  runs at 18km/h for at most five seconds, followed by recovery lasting twice the actual sprint duration
+  (up to ten seconds), including early interruption. Require a fresh gesture after recovery. Hold
   C/Ctrl crouches; double C/Ctrl latches prone, next press/release rises.
   Keep physical posture/eye transitions timed (0.4s crouch, about 1.1s prone),
   validate final standing clearance and keep the owner camera/server eye aligned.
@@ -547,3 +547,176 @@ automation test, test-reference-weapons.py and --render, inspect all captures,
 verify saved asset bindings with verify_sketchfab_weapons.py, then retain
 network/accuracy/legacy-arsenal regressions. ERLegacyArsenal is the explicit server
 URL option for the older regression fixture, not the default gameplay catalog.
+
+
+Spawn protection appearance (16 October, gray revision): body, skin gear and
+FPS arms use the existing engine LevelColorationLitMaterial through one transient gray
+MID per character during the replicated protection deadline. No new material,
+texture, skin copies or network fields. Cache originals by component AND slot,
+restore before skin changes and on expiry/attack/death. Weapons retain materials.
+setup_spawn_protection.py now saves BP defaults and removes the retired
+Characters/Protection variants through Unreal after checking external references.
+Never regenerate the translucent copies or edit original skin materials.
+Verify LAN owner/proxy/respawn/attack and Metal protection galleries.
+
+Head markers (16 October): the user removed all overhead player/bot indicators.
+Keep TeamMarker hidden at runtime, including existing Blueprint defaults and
+respawns; retain the component only for serialized asset compatibility.
+
+
+Grenade revision (16 October): supersedes animated floor fragments, live smoke
+fluids and Milkor impact detonation above. HE/LaunchedHE use compact Epic
+Content Examples subUV burst defaults in Effects/Grenade, no active BombCrack
+animation. Keep imported Epic originals/receipts private and the downloaded
+ContentExamples project unchanged. Generate owned defaults with
+setup_grenade_effects.py; older explosion/smoke setup scripts are historical.
+Smoke is a 6x6x2.8m hemisphere, 16x16x8 conservative connected free-cell grid
+with neighbour sweeps and a 48-step local density material. Each cloud owns
+its density atlas; block revision/epoch refresh is bounded to every750ms.
+Preserve four-cloud/12s and eight-burst budgets, server lifetime, round cleanup,
+authorized short shot cuts, camera-inside rendering and opaque-depth clipping.
+Never change global fog settings. Narrower-than-cell apertures may stay closed;
+do not claim exact fluid transport or bot vision occlusion. Utility and Milkor
+projectiles bounce/tumble with server-sampled bounded contact variation; only
+the fuse detonates them. Rockets retain their impact rule. Run test-grenades.py
+and --render, inspect actual captures, plus arsenal/reference/network/accuracy
+and physical block-combat regressions. Preserve all unrelated in-progress work.
+
+
+Grenade damage/cook revision (16 October, latest request): HE and LaunchedHE
+share 140 peak through 5m with a quadratic tail to zero at 15m. Three server
+WorldStatic head/torso/legs exposure samples see intact cover before any
+structural mutation. Keep the separate 3.5m building-damage envelope. Explosive
+ArmorRatio clamps1.6..2 (at most 20% reduction); default full armor still takes
+112HP inside 5m. Bullet armor remains unchanged. Update existing owned data
+through setup_grenade_combat.py, preserve art and all normal input mappings.
+Hand HE/smoke/stun consume ammo/arm on press, throw the same replicated actor
+on release, never restart its server fuse. Keep held/recovery replication,
+immediate local holding-arm/weapon hide, overhead origin swept from the
+server eye, upward velocity and normal projectile collisions. Never trust
+client fuse duration, elapsed cook time or launch transform. Hold-too-long
+detonates in hand; death/interrupt drops live ordnance; no holster/reload
+cancellation/refund. Milkor remains press-to-fire. Run native Weapons tests,
+test-grenades.py --combat --render with actual host/client inputs and inspect
+captures, then baseline grenade/arsenal/reference/network/accuracy and physical
+block-combat regressions.
+
+
+Latest grenade tuning (16 October): supersedes the 5/15m and 2.5s values
+above. HE/LaunchedHE retain 140 peak and the same quadratic/exposure/armor
+model, now full through 2m and zero at 6m. All hand grenades and Milkor use
+3.5s fuses; cook still starts on press. Preserve the separate 3.5m structural
+envelope, cover checks, art and input behavior. Migrate saved weapon data
+through setup_grenade_combat.py; verify updated radii/fuses in the combat
+probe and the native Weapons tests.
+
+Smoke shape refinement (16 October): 3m maximum radius and 3m height within
+6x6x3m bounds. Smooth asymmetric shader lobes and drifting noise vary per
+server-sampled replicated ShapePhase. Keep the conservative connected-cell
+containment and opaque clipping; never distort density beyond the 3m envelope.
+Use setup_smoke_shape.py for smoke-only asset regeneration, preserving HE.
+
+Explosion/throw refinement (16 October): Milkor launch speed1800cm/s (half
+3600), hand HE/smoke/stun880cm/s (80% of1100). Preserve3.5s cook and2/6m
+damage. Disable colorful Fire emitters in the owned compact burst; use a65ms
+neutral flash and three small short smoke puffs. Add3..6 local cosmetic floor
+chips only with a walkable WorldStatic surface within60cm beneath the blast;
+never spawn chips for an airburst. Match surface material, bounded ballistic
+motion with static traces, shrink/cleanup with the burst; no gameplay collision.
+Use setup_explosion_refinement.py and setup_grenade_combat.py for saved assets.
+
+Smoke/test-stock refinement (16 October): supersedes the3m/1800cm/s values.
+Milkor1530cm/s (another15% reduction), hand speed880 unchanged. Hand utility
+profiles start with10 each for testing; keep Milkor's six-round drum/reserve.
+Smoke bounds8x8x4m, maximum radius4m, growth2.2s and fade4s within the same12s
+lifetime. Animate replicated-phase contour lobes using synchronized smoke age;
+keep16x16x8 containment (50cm cells), walls/windows, four-cloud budget.
+Authorized shots retain12cm/.3s cosmetic cuts; locally replicated moving
+ordnance adds25cm/.6s wakes at most10Hz; detonation multicast adds150cm/1s
+clearing. Keep four cuts/cloud and automatic closure; no aim/damage/drag changes,
+no client-authorized gameplay or fluid claims. setup_smoke_shape.py and
+setup_grenade_combat.py update owned material/Blueprint/data only. Verify
+actual projectile wake/blast interaction, test stock and new radii/speed.
+
+Shoulder/cook presentation (16 October): Milkor1750cm/s, near earlier1800.
+Hand throw origin is yaw-relative(-14,24,-4)cm from eye, swept against cover,
+not25cm above head. Preserve local FPS hand/model hide but show WorldRifle
+while cooking, including the last grenade. UERPostureMesh applies a blended
+right-arm two-bone ready pose toward the shoulder origin from replicated cook
+state; keep grip socket, skin/locomotion, damage and fuse rules. Verify actual
+remote-player pose/visible grenade with combat --render and capture
+Cook03_RemoteReady.png. HE/Milkor blast clears smoke300cm radius for2.5s;
+protect blast pockets from displacement by small wakes, four cuts/cloud max.
+
+Team smoke (16 October): smoke grenades capture the thrower's server team
+when armed, using HUD colors Alpha(.2,.65,1) and Omega(1,.25,.1). Preserve the
+snapshot through death/respawn/team changes; neutral fallback without a team.
+Assign SmokeColor before deferred cloud BeginPlay and replicate with material
+RepNotify, so all peers see the same tint even on late property delivery.
+Do not alter HE burst smoke or density/lifetime/containment/interactions.
+Verify both teams and remote colors with the actual smoke-fuse baseline/render.
+
+Darker/billowing smoke (16 October): team smoke now uses40% of the previous
+linear RGB tint: Alpha(.08,.26,.4), Omega(.4,.1,.04). Keep replicated team
+snapshot semantics. Material growth has smooth per-direction onset delays
+up to22% of the2.2s growth, all catching up at the same final time; slightly
+stronger moving lobes, always inside4m. Preserve density/opacity, lifetime,
+containment and gameplay. Regenerate only smoke with setup_smoke_shape.py;
+verify both team colors remotely, shader/render and existing interactions.
+
+Dense/dispersed smoke and shootable grenades (16 October): optical density
+coefficient .035 (previous .026); bullet holes close over2s with square-root
+radius recovery, moving-grenade wakes1.5s. HE/Milkor dispersal radius400cm
+lasts until cloud expiry and loses only5% radius; retain four cuts and protect
+blast pockets from small-cut eviction. Preserve team tints/containment/timing.
+Armed fuse projectiles have a separate query-only ShotTarget on Projectile
+channel (6cm thrown,12cm held). Do not alter movement/pawn collision. Only
+server positive bullet point damage detonates; melee/radial damage cannot
+trigger it. In-hand cook clears through existing OnGrenadeDetonated, without
+refund, second throw or fuse restart. Ignore the held projectile during safe
+origin sweeps. Verify actual weapon traces with cover and thrown/held targets,
+smoke recovery after elapsed time, shader/render, Weapons and regressions.
+
+Grenade chain (16 October): supersedes the earlier no-radial-trigger rule via
+an explicit server blast-to-grenade path, not generic TakeDamage. Positive-damage
+HE/LaunchedHE/Rocket blasts snapshot WorldStatic exposure to live fuse projectiles
+before character/death callbacks and structural mutation. Use each source's blast
+radius (HE6m), enqueue each target once next tick, guard already-detonated and
+pending targets. Preserve covers at every hop and clear in-hand cook through
+the normal detonation path; smoke/stun release their own payload without becoming
+explosive propagation sources. Verify multi-hop, held and protected targets.
+
+Grenade audio (16 October): owned BP_ERGrenadeExplosion binds Freesound162363
+public HQ preview, imported mono PCM44.1kHz,0.601s, FORCE_INLINE. Source and
+credit in private Assets/weapons/SourceAssets/Freesound/162363; no original
+FLAC or library imported. Local detonation effect plays once on each peer,
+volume.65, spatial attenuation inner5m/falloff75m, concurrency8 stop farthest
+then oldest. Dedicated servers skip cosmetics. Regenerate via
+setup_grenade_audio.py and verify test-grenades.py --render --audio.
+
+XM1014 detail (16 October): active Shotgun data keeps6 pellets x20, armor
+ratio1.6, range modifier.70 per1270cm. bUseBodyHitZones opts only this weapon
+into anatomical hits (existing physics bodies) and head4/stomach1.25/
+chest-arms1/legs.75. Legs bypass armor; head uses replicated Health.bHelmet
+(defaulttrue, separate from cosmetic helmets). Other weapon balance unchanged.
+Server meshes are query-only/ignore scene channels and always refresh poses;
+ERShotTrace queries world cover first and explicit anatomical bodies second,
+including block continuation. Reuse physics assets; generate no new hitbox assets.
+Contact capsule obstruction starts pellets at the eye for anatomical resolution.
+Rosette6 slots,3.2deg cone with small seeded disk jitter, shared .25deg base aim
+plus existing posture/motion/bloom. One shell and presentation event per shot,
+full-auto preserved. setup_shotgun.py updates only active data. Verify Weapons
+automation, reference weapon LAN actual pellet/zone/armor/cover checks and
+network/accuracy/legacy arsenal/block combat regressions.
+
+English presentation/generic weapon names (16 October): all owned player-facing
+menu/HUD/help/errors/results/default names and20 skin labels use English. Set
+current game language to en in GameInstance Init without persisting OS/editor
+preferences. Generic active slots:1 Knife,2 Pistol,3 SMG,4 Shotgun,5 Assault Rifle,
+6 Sniper Rifle,7 Marksman Rifle,8 Grenade Launcher,F HE Grenade,G Smoke Grenade.
+This is nomenclature only: keep slot order, saved IDs, asset paths and ballistics;
+internal Carbine key is slot6 Sniper Rifle and Sniper key is slot7 Marksman Rifle.
+Use presentation_labels.py and setup_english_presentation.py for saved metadata;
+character_catalog.py owns English skin labels. Preserve model names in source
+provenance/credits. Verify saved catalogs, native Menu validation/admission and
+actual Metal menu layout. Do not regenerate maps or imported models for labels.

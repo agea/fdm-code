@@ -41,12 +41,12 @@ try:
     host = launch("admission-host", [map_url, "-port=17778"])
     wait_for("admission-host", "listening on port 17778")
     if with_bots:
-        wait_for("admission-host", "ER_BOT_JOINED name=Bersaglio 3")
+        wait_for("admission-host", "ER_BOT_JOINED name=Target 3")
     for number in range(1, 4):
         launch("admission-client-"+str(number), ["127.0.0.1:17778"])
         wait_for("admission-host", f"ER_PLAYER_JOINED players={number+1}")
     launch("admission-rejected", ["127.0.0.1:17778"])
-    wait_for("admission-rejected", "Server pieno")
+    wait_for("admission-rejected", "Server full")
     text = (logs / (log_prefix + "admission-host.log")).read_text(errors="replace")
     joins = [line for line in text.splitlines() if "ER_PLAYER_JOINED" in line]
     assert len(joins) == 4, joins
@@ -62,7 +62,7 @@ try:
     processes[1].wait(timeout=10)
     wait_for("admission-host", "ER_PLAYER_LEFT players=3", seconds=35)
     if with_bots:
-        wait_for("admission-host", "ER_BOT_JOINED name=Bersaglio 1", seconds=35, count=2)
+        wait_for("admission-host", "ER_BOT_JOINED name=Target 1", seconds=35, count=2)
         print("PASS BOT REFILL: one target returns after a human leaves")
     print("PASS T03: four players, Alpha 2 / Omega 2")
     print("PASS T17: late joins preserve the running match")

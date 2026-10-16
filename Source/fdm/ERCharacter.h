@@ -5,6 +5,14 @@
 #include "ERTeamAppearance.h"
 #include "ERCharacter.generated.h"
 
+USTRUCT()
+struct FERProtectionSurfaceState
+{
+    GENERATED_BODY()
+    UPROPERTY() TObjectPtr<class UMeshComponent> Mesh;
+    UPROPERTY() TArray<TObjectPtr<class UMaterialInterface>> Originals;
+};
+
 UCLASS(ClassGroup=(EclipseRecoil), meta=(BlueprintSpawnableComponent))
 class FDM_API UERHealthComponent : public UActorComponent
 {
@@ -13,6 +21,7 @@ public:
     UERHealthComponent();
     UPROPERTY(Replicated, BlueprintReadOnly) float Health = 100;
     UPROPERTY(Replicated, BlueprintReadOnly) float Armor = 0;
+    UPROPERTY(Replicated, BlueprintReadOnly) bool bHelmet = true;
     UPROPERTY(ReplicatedUsing=OnRep_Dead, BlueprintReadOnly) bool bDead = false;
     UPROPERTY(Replicated, BlueprintReadOnly) double ProtectionEndServerTime = 0;
     bool IsProtected() const;
@@ -70,6 +79,12 @@ public:
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Team appearance") TArray<FERTeamAppearance> AlphaSkins;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Team appearance") TArray<FERTeamAppearance> OmegaSkins;
     const FERTeamAppearance& GetTeamAppearance() const;
+    // Existing engine surface; only a transient tint instance, no skin asset copies.
+    UPROPERTY() TObjectPtr<class UMaterialInterface> ProtectionBaseMaterial;
+    UPROPERTY(Transient) TObjectPtr<class UMaterialInstanceDynamic> ProtectionSurface;
+    class UMaterialInterface* GetUnprotectedMaterial(class UMeshComponent* Mesh, int32 Slot) const;
+    void RestoreProtectionMaterials();
+    void UpdateProtectionPresentation();
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Training") TArray<TObjectPtr<class UMaterialInterface>> AlphaBodyMaterials;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Training") TArray<TObjectPtr<class UMaterialInterface>> OmegaBodyMaterials;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="First person") TArray<TObjectPtr<class UMaterialInterface>> AlphaFirstPersonMaterials;
@@ -106,6 +121,8 @@ public:
     virtual float TakeDamage(float Damage, const FDamageEvent& Event, AController* Killer, AActor* Causer) override;
     virtual void FellOutOfWorld(const class UDamageType& Type) override;
     UFUNCTION(Server, Reliable) void ServerStartFire();
+    void SetGrenadeInputHeld(bool bHeld);
+    float GrenadeThrowPoseBlend = 0;
     UFUNCTION(Server, Reliable) void ServerStopFire();
     UFUNCTION(Server, Reliable) void ServerReload();
     UFUNCTION(Server, Reliable) void ServerSelectWeapon(int32 Slot);
@@ -117,6 +134,9 @@ public:
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 private:
     bool bDeathVisualsApplied = false;
+    UPROPERTY(Transient) TArray<FERProtectionSurfaceState> ProtectionSurfaces;
+    bool bProtectionVisualsApplied = false;
+    bool bProtectionMaterialsDirty = true;
     UPROPERTY() TObjectPtr<class UERWeaponData> AppliedWeaponData;
     bool bAppliedReloading = false;
     FVector FirstPersonBodyBaseLocation = FVector::ZeroVector;
@@ -128,9 +148,12 @@ private:
     uint8 AppliedBodyTeam = 0;
     int32 AppliedSkin = INDEX_NONE;
     bool bLeftArmHidden = false;
+    bool bRightArmHidden = false;
+    bool bLocalGrenadeInputHeld = false;
+    double LocalGrenadeHideUntil = 0;
+    double LocalGrenadeCookDeadline = 0;
     float StepPhase = 0;
     FVector StepOffset = FVector::ZeroVector;
     float CameraKick = 0;
     double MuzzleFlashUntil = 0;
-    UPROPERTY() TObjectPtr<class UMaterialInstanceDynamic> TeamMaterial;
 };

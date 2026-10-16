@@ -1,9 +1,11 @@
 #include "ERTeamGallery.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "ERCharacter.h"
 #include "ERMovement.h"
 #include "ERCorpse.h"
 #include "ERWeapon.h"
 #include "ERMatch.h"
+#include "ERBotController.h"
 #include "Camera/CameraActor.h"
 #include "Engine/PointLight.h"
 #include "Engine/StaticMeshActor.h"
@@ -202,6 +204,107 @@ void AERTeamGallery::TickSkins(AERCharacter* Player, APlayerController* PC)
 #endif
 }
 
+void AERTeamGallery::TickProtectionRespawn(AERCharacter* Player, APlayerController* PC)
+{
+#if !UE_BUILD_SHIPPING
+    if (!Player || !PC) return;
+    TArray<AERCharacter*> Bots;
+    for (TActorIterator<AERCharacter> It(GetWorld()); It; ++It)
+        if (It->GetPlayerState<AERPlayerState>() && It->GetPlayerState<AERPlayerState>()->IsABot()) Bots.Add(*It);
+    if (Bots.Num()!=4) return;
+    if (Stage==0 && Age>5)
+    {
+        Player->Health->ProtectionEndServerTime=GetWorld()->GetTimeSeconds()+60;
+        if (PC->GetHUD()) PC->GetHUD()->bShowHUD=false;
+        UWidgetLayoutLibrary::RemoveAllWidgets(this);
+        GalleryCamera=GetWorld()->SpawnActor<ACameraActor>();
+        GalleryCamera->GetCameraComponent()->SetFieldOfView(60); PC->SetViewTarget(GalleryCamera);
+        for (auto* Bot : Bots) { Bot->Health->ProtectionEndServerTime=0; Bot->Health->ReceiveDamage(100,nullptr); }
+        Stage=1;
+    }
+    if (Stage==1)
+    {
+        for (auto* Bot : Bots) if (Bot->Health->bDead) return;
+        ProtectionRespawnSeenAt=Age;
+        const FVector Center=Bots[0]->GetActorLocation()+FVector(0,0,20);
+        FVector View=Center+FVector(0,0,80);
+        // Keep the review camera inside authored rooms rather than behind a wall.
+        for (int32 Direction=0;Direction<12;++Direction)
+        {
+            const FVector Candidate=Center+FRotator(0,Bots[0]->GetActorRotation().Yaw+Direction*30.f,0).Vector()*300+FVector(0,0,30);
+            FHitResult Hit;
+            if (!GetWorld()->LineTraceSingleByObjectType(Hit,Center,Candidate,FCollisionObjectQueryParams(ECC_WorldStatic)))
+            { View=Candidate; break; }
+        }
+        GalleryCamera->SetActorLocationAndRotation(View,(Center-View).Rotation());
+        Stage=2;
+    }
+    const bool Half=Stage==2 && Age>ProtectionRespawnSeenAt+.5f;
+    const bool Normal=Stage==3 && Age>ProtectionRespawnSeenAt+4.5f;
+    if (Half || Normal)
+    {
+        bool Valid=true; int32 Slots=0;
+        for (auto* Bot : Bots)
+        {
+            Valid &= Bot->Health->IsProtected()==Half;
+            for (int32 Slot=0;Slot<Bot->GetMesh()->GetNumMaterials();++Slot)
+            {
+                auto* Current=Bot->GetMesh()->GetMaterial(Slot);
+                auto* Original=Bot->GetUnprotectedMaterial(Bot->GetMesh(),Slot);
+                Valid &= Current==(Half ? static_cast<UMaterialInterface*>(Bot->ProtectionSurface.Get()) : Original); ++Slots;
+            }
+            UE_LOG(LogTemp,Display,TEXT("ER_PROTECTION_RESPAWN bot=%s class=%s protected=%d remaining=%.2f materials=%d"),
+                *Bot->GetName(),*Bot->GetClass()->GetName(),Bot->Health->IsProtected(),
+                Bot->Health->ProtectionEndServerTime-GetWorld()->GetTimeSeconds(),Bot->GetMesh()->GetNumMaterials());
+        }
+        UE_LOG(LogTemp,Display,TEXT("ER_PROTECTION_RESPAWN_%s gray=%d bots=%d slots=%d"),Valid?TEXT("PASS"):TEXT("FAIL"),Half,Bots.Num(),Slots);
+        FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir()/FString::Printf(TEXT("Testing/Protection-Bots-Respawn-%s.png"),Half?TEXT("Gray"):TEXT("Normal")),false,false);
+        Stage=Half ? 3 : 4;
+    }
+    if (Stage==4 && Age>ProtectionRespawnSeenAt+6) FPlatformMisc::RequestExit(false);
+#endif
+}
+
+void AERTeamGallery::TickProtection(AERCharacter* Player, APlayerController* PC)
+{
+#if !UE_BUILD_SHIPPING
+    if (!Player || !PC || !Player->GetPlayerState<AERPlayerState>()) return;
+    auto* State = Player->GetPlayerState<AERPlayerState>();
+    if (Stage == 0 && Age > 3)
+    {
+        Player->TeleportTo(FVector(-1000,-1500,95), FRotator(0,180,0));
+        State->Team = EERTeam::Alpha; State->ActiveSkin = 8;
+        Player->Health->ProtectionEndServerTime = GetWorld()->GetTimeSeconds()+100;
+        GalleryCamera = GetWorld()->SpawnActor<ACameraActor>(FVector(-1350,-1500,135),FRotator(-5,0,0));
+        GalleryCamera->GetCameraComponent()->SetFieldOfView(45);
+        PC->SetViewTarget(GalleryCamera);
+        if (PC->GetHUD()) PC->GetHUD()->bShowHUD = false;
+        UWidgetLayoutLibrary::RemoveAllWidgets(this);
+        Stage=1;
+    }
+    Player->GetMesh()->SetOwnerNoSee(false);
+    Player->WorldRifle->SetOwnerNoSee(false);
+    TInlineComponentArray<UMeshComponent*> Meshes(Player);
+    for (auto* Mesh : Meshes)
+        if (Mesh->ComponentHasTag(TEXT("ERSkinGear"))) Mesh->SetOwnerNoSee(false);
+    const auto Capture = [&](const TCHAR* Name)
+    { FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir()/FString::Printf(TEXT("Testing/Protection-%s.png"),Name),false,false); };
+    if (Stage==1 && Age>12) { Capture(TEXT("Alpha-Gray")); Stage=2; }
+    else if (Stage==2 && Age>14) { Player->Health->ProtectionEndServerTime=0; Stage=3; }
+    else if (Stage==3 && Age>17) { Capture(TEXT("Alpha-Normal")); Stage=4; }
+    else if (Stage==4 && Age>19)
+    {
+        State->Team=EERTeam::Omega; State->ActiveSkin=9;
+        Player->Health->ProtectionEndServerTime=GetWorld()->GetTimeSeconds()+100; Stage=5;
+    }
+    else if (Stage==5 && Age>26) { Capture(TEXT("Omega-Gray")); Stage=6; }
+    else if (Stage==6 && Age>28) { Player->Health->ProtectionEndServerTime=0; Stage=7; }
+    else if (Stage==7 && Age>31) { Capture(TEXT("Omega-Normal")); Stage=8; }
+    else if (Stage==8 && Age>33)
+    { UE_LOG(LogTemp,Display,TEXT("ER_PROTECTION_GALLERY_COMPLETE")); FPlatformMisc::RequestExit(false); }
+#endif
+}
+
 AERTeamGallery::AERTeamGallery() { PrimaryActorTick.bCanEverTick = true; }
 void AERTeamGallery::Tick(float DeltaTime)
 {
@@ -210,6 +313,8 @@ void AERTeamGallery::Tick(float DeltaTime)
     Age += DeltaTime;
     auto* PC = GetWorld()->GetFirstPlayerController();
     auto* Player = PC ? Cast<AERCharacter>(PC->GetPawn()) : nullptr;
+    if (FParse::Param(FCommandLine::Get(), TEXT("ERProtectionRespawnGallery"))) { TickProtectionRespawn(Player,PC); return; }
+    if (FParse::Param(FCommandLine::Get(), TEXT("ERProtectionGallery"))) { TickProtection(Player,PC); return; }
     if (FParse::Param(FCommandLine::Get(), TEXT("ERCharacterShots"))) { TickCharacterShots(Player,PC); return; }
     if (FParse::Param(FCommandLine::Get(), TEXT("ERPostureGallery"))) { TickPosture(Player,PC); return; }
     if (FParse::Param(FCommandLine::Get(), TEXT("ERFPSForearmsGallery"))) { TickForearms(Player,PC); return; }

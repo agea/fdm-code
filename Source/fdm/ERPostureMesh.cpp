@@ -4,6 +4,8 @@
 #include "Engine/SkeletalMesh.h"
 #include "Engine/SkeletalMeshSocket.h"
 #include "ERWeapon.h"
+#include "ERMatch.h"
+#include "Camera/CameraComponent.h"
 
 void UERPostureMesh::FinalizeBoneTransform()
 {
@@ -123,6 +125,66 @@ void UERPostureMesh::FinalizeBoneTransform()
             else for (float Slide=.25f;Slide<=10.f && FVector::Distance(Shoulder,Target)>Reach;Slide+=.25f)
                 Target=Weapon.TransformPosition(Data->SupportHandOffset-FVector(Slide,0,0))-Offset;
             FitArm(TEXT("upperarm_l"),TEXT("lowerarm_l"),TEXT("hand_l"),Target,Rotation);
+        }
+    }
+    if(Mesh && C && C->Weapon && Data && AERWeapon::IsHandGrenade(Data->Payload) &&
+        !C->Health->bDead && C->GrenadeThrowPoseBlend>.001f)
+    {
+        const auto& Ref=Mesh->GetRefSkeleton();auto& Pose=GetEditableComponentSpaceTransforms();
+        const int32 Upper=Ref.FindBoneIndex(TEXT("upperarm_r")),Lower=Ref.FindBoneIndex(TEXT("lowerarm_r")),Hand=Ref.FindBoneIndex(TEXT("hand_r"));
+        if(Pose.IsValidIndex(Upper) && Pose.IsValidIndex(Lower) && Pose.IsValidIndex(Hand))
+        {
+            const TArray<FTransform> Original=Pose;
+            const FRotator Yaw(0,C->GetBaseAimRotation().Yaw,0);
+            const FVector TargetWorld=C->Camera->GetComponentLocation()+Yaw.RotateVector(FVector(-14,24,-4));
+            const FVector Target=GetComponentTransform().InverseTransformPosition(TargetWorld);
+            const FVector Shoulder=Pose[Upper].GetLocation(),Elbow=Pose[Lower].GetLocation(),Wrist=Pose[Hand].GetLocation();
+            const float A=FVector::Distance(Shoulder,Elbow),B=FVector::Distance(Elbow,Wrist);
+            const FVector Direction=(Target-Shoulder).GetSafeNormal();
+            const float D=FMath::Clamp(FVector::Distance(Shoulder,Target),FMath::Abs(A-B)+.1f,A+B-.1f);
+            FVector Bend=FVector::VectorPlaneProject(GetComponentTransform().InverseTransformVectorNoScale(Yaw.RotateVector(FVector(.2f,1.f,0))),Direction).GetSafeNormal();
+            if(Bend.IsNearlyZero()) Bend=FVector::VectorPlaneProject(FVector::ZAxisVector,Direction).GetSafeNormal();
+            const float Along=(A*A-B*B+D*D)/(2.f*D);
+            const FVector NewElbow=Shoulder+Direction*Along+Bend*FMath::Sqrt(FMath::Max(0.f,A*A-Along*Along));
+            const FVector NewWrist=Shoulder+Direction*D;
+            const FQuat UpperTurn=FQuat::FindBetweenNormals((Elbow-Shoulder).GetSafeNormal(),(NewElbow-Shoulder).GetSafeNormal());
+            const FQuat LowerTurn=FQuat::FindBetweenNormals((Wrist-Elbow).GetSafeNormal(),(NewWrist-NewElbow).GetSafeNormal());
+            FTransform NewUpper=Pose[Upper],NewLower=Pose[Lower],NewHand=Pose[Hand];
+            NewUpper.SetRotation(UpperTurn*NewUpper.GetRotation());
+            NewLower.SetLocation(NewElbow);NewLower.SetRotation(LowerTurn*NewLower.GetRotation());
+            NewHand.SetLocation(NewWrist);NewHand.SetRotation(LowerTurn*NewHand.GetRotation());
+            for(int32 Bone=Upper;Bone<Pose.Num();++Bone)
+            {
+                int32 Ancestor=Bone;
+                while(Ancestor!=INDEX_NONE && Ancestor!=Upper && Ancestor!=Lower && Ancestor!=Hand) Ancestor=Ref.GetParentIndex(Ancestor);
+                const FTransform* Replacement=Ancestor==Hand?&NewHand:Ancestor==Lower?&NewLower:Ancestor==Upper?&NewUpper:nullptr;
+                if(Replacement)
+                {
+                    const FTransform Ready=Original[Bone].GetRelativeTransform(Original[Ancestor]) * *Replacement;
+                    Pose[Bone].Blend(Original[Bone],Ready,C->GrenadeThrowPoseBlend);
+                }
+            }
+        }
+    }
+    if(Mesh && C && Data && AERWeapon::IsHandGrenade(Data->Payload) && !C->Health->bDead && C->GrenadeThrowPoseBlend>.001f)
+    {
+        // Relax the empty support arm instead of leaving the rifle support pose.
+        const auto& Ref=Mesh->GetRefSkeleton();auto& Pose=GetEditableComponentSpaceTransforms();
+        const int32 Upper=Ref.FindBoneIndex(TEXT("upperarm_l")),Lower=Ref.FindBoneIndex(TEXT("lowerarm_l"));
+        if(Pose.IsValidIndex(Upper) && Pose.IsValidIndex(Lower))
+        {
+            const FVector Pivot=Pose[Upper].GetLocation();
+            const FVector RestWorld=FMath::Lerp(FVector(0,0,-1),C->GetActorForwardVector(),Blend).GetSafeNormal();
+            const FVector Down=GetComponentTransform().InverseTransformVectorNoScale(RestWorld).GetSafeNormal();
+            const FQuat Turn=FQuat::FindBetweenNormals((Pose[Lower].GetLocation()-Pivot).GetSafeNormal(),Down);
+            for(int32 Bone=Upper;Bone<Pose.Num();++Bone)
+            {
+                int32 Ancestor=Bone;while(Ancestor!=INDEX_NONE && Ancestor!=Upper) Ancestor=Ref.GetParentIndex(Ancestor);
+                if(Ancestor!=Upper) continue;
+                const FTransform Original=Pose[Bone];FTransform Rest=Original;
+                Rest.SetLocation(Pivot+Turn.RotateVector(Original.GetLocation()-Pivot));Rest.SetRotation(Turn*Original.GetRotation());
+                Pose[Bone].Blend(Original,Rest,C->GrenadeThrowPoseBlend);
+            }
         }
     }
     Super::FinalizeBoneTransform();

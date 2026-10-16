@@ -25,8 +25,8 @@ with the server URL option `?ERLegacyArsenal=1` for its existing regression fixt
 | 5 | wburton AR15 | `ak47` | 36 | 0.10 | 1.550 | 0.98 |
 | 6 | DJMaesen carbine | `scar20` | 80 | 0.25 | 1.650 | 0.98 |
 | 7 | DJMaesen sniper | `awp` | 115 | 1.46 | 1.950 | 0.99 |
-| 8 | user77 / JaumWF / DJMaesen Milkor M32 | Project HE launcher | 140 peak | 0.50 | 1.000 | n/a |
-| F | Riskyerick RGD-5 | Project HE | 140 peak | 0.80 | 1.000 | n/a |
+| 8 | user77 / JaumWF / DJMaesen Milkor M32 | Project HE launcher | 140 peak | 0.50 | 1.600 | n/a |
+| F | Riskyerick RGD-5 | Project HE | 140 peak | 0.80 | 1.600 | n/a |
 | G | Riskyerick M18 | Smoke | 0 | 0.80 | n/a | n/a |
 
 The downloaded worksheet snapshot is
@@ -56,9 +56,9 @@ behavior. Tests for the original 36-damage fixture use the legacy catalog.
 
 Knife attacks use a 160cm server trace, respect the first obstruction, have a
 cooldown and consume no ammunition. The Milkor launches a replicated physical
-`LaunchedHE`, using the supplied `GL_slug1` geometry. Its 3600cm/s launch speed
-exceeds the 1100cm/s thrown HE/smoke speed; gravity, impact detonation and a
-2.5s backup fuse remain authoritative. HE damage still checks static cover and
+`LaunchedHE`, using the supplied `GL_slug1` geometry. Its 1750cm/s launch speed
+exceeds the 880cm/s thrown HE/smoke speed; gravity, bouncing/tumbling and the
+3.5s fuse remain authoritative. Impacts never detonate this payload. HE damage still checks static cover and
 the shared block explosion path. Smoke uses the existing replicated smoke cloud.
 
 ## Assets and animation
@@ -173,3 +173,33 @@ separate weapon and animation credits. The grenade listing reports Sketchfab's
 free standard license; the other listings report CC BY 4.0. Exact snapshots and
 underlying author references are preserved privately. This import does not
 change distribution permissions or publish assets.
+
+
+### Grenade combat revision, 16 October
+
+Both HE and LaunchedHE use 140 peak damage inside 200cm and
+`140 * (1 - (distance_cm - 200) / 400)^2` between 200 and 600cm, then zero.
+Distances are 3D distances to the character's capsule centre. Three server
+WorldStatic traces sample head, torso and lower body before any block damage;
+visible samples weight exposure. Full cover prevents injury and partial cover
+reduces it. This is a gameplay approximation rather than individual fragments.
+Blast ArmorRatio is clamped to 1.6..2, so full armor reduces exposed damage by
+at most 20%, consuming armor through the existing accounting. At default 1.6,
+close damage is 112HP even with 100AP. Bullet armor/range rules stay unchanged.
+Structural block damage keeps its own 3.5m envelope; 6m is the fragmentation
+injury envelope, not a building-demolition radius.
+
+Hand HE/smoke/stun use a 3.5s fuse from press, arm and consume ammunition on fire press. A real replicated
+projectile owns the server fuse while held, follows a swept shoulder position and stays hidden as a separate projectile.
+The third-person weapon mesh remains visible in the raised, bent-arm cook pose. Release launches that same actor
+with the remaining fuse, from 14cm behind/24cm right/4cm below the eye when
+clear, adding upward throw bias and player momentum. A sphere sweep clips the
+origin against walls/ceilings; no client-selected launch transform or cook time.
+Holding through the deadline detonates in hand; death/interrupted traversal
+drops the live grenade without refund/reset. Switching/reloading is blocked
+while cooking. The holding FPS arm and weapon hide immediately on local press,
+with replicated held/recovery state for peers; a spare becomes visible again
+after recovery. Milkor retains normal press-to-fire behavior.
+
+Run scripts/setup_grenade_combat.py through Unreal once to migrate existing
+profiles, then test-grenades.py --combat (also --render).

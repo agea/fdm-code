@@ -18,6 +18,7 @@ private:
     UPROPERTY() TObjectPtr<class AERCharacter> Client;
     UPROPERTY() TObjectPtr<AActor> PostureRoof;
     float Elapsed = 0, Peak = 0, GroundZ = 0;
+    double SprintStartedAt = 0;
     bool Failed = false, SawTraversal = false;
     int32 LocalPhase = -1;
     void Check(bool Value, const FString& Label);

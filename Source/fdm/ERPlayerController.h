@@ -11,7 +11,7 @@ class FDM_API UERGameInstance : public UGameInstance
 {
     GENERATED_BODY()
 public:
-    UPROPERTY(BlueprintReadWrite) FString LocalName = TEXT("Recluta");
+    UPROPERTY(BlueprintReadWrite) FString LocalName = TEXT("Recruit");
     UPROPERTY(BlueprintReadOnly) FString LastError;
     virtual void Init() override;
     virtual void Shutdown() override;

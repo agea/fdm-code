@@ -1,11 +1,11 @@
-"""Stable menu labels; skin indices and asset identities are unchanged."""
+"""Stable English menu labels; skin indices and asset identities are unchanged."""
 NAMES = {
-    'Alpha': ['Twinblast · ufficiale', 'Twinblast · assalto', 'Twinblast · pattuglia',
-              'Twinblast · ricognizione', 'Twinblast · supporto', 'Belica · fanteria',
-              'Belica · pattuglia artica', 'Belica · difesa NBC', 'Belica · corazzata',
-              'Belica · supporto'],
-    'Omega': ['Drongo · predone', 'Drongo · sciacallo', 'Drongo · incursione',
-              'Drongo · contrabbando', 'Drongo · milizia', 'Phase · ricognizione',
-              'Phase · incursione', 'Phase · pattuglia', 'Phase · geniere',
-              'Phase · supporto'],
+    'Alpha': ['Twinblast · Officer', 'Twinblast · Assault', 'Twinblast · Patrol',
+              'Twinblast · Recon', 'Twinblast · Support', 'Belica · Infantry',
+              'Belica · Arctic Patrol', 'Belica · NBC Defense', 'Belica · Armored',
+              'Belica · Support'],
+    'Omega': ['Drongo · Raider', 'Drongo · Jackal', 'Drongo · Assault',
+              'Drongo · Smuggler', 'Drongo · Militia', 'Phase · Recon',
+              'Phase · Assault', 'Phase · Patrol', 'Phase · Engineer',
+              'Phase · Support'],
 }

@@ -1,4 +1,5 @@
 #include "ERPlayerController.h"
+#include "Internationalization/Internationalization.h"
 #include "ERMouseResponse.h"
 #include "Misc/App.h"
 #include "Misc/Paths.h"
@@ -57,6 +58,7 @@ void ERSetMacGameIcon(const FString& IconPath);
 void UERGameInstance::Init()
 {
     Super::Init();
+    FInternationalization::Get().SetCurrentLanguage(TEXT("en"));
 #if PLATFORM_MAC
     // Local -game runs use the Editor executable, so also set this process's Dock icon.
     if (!GIsEditor && !IsRunningDedicatedServer())
@@ -159,25 +161,25 @@ bool UERGameInstance::IsValidAddress(const FString& Address)
 bool UERGameInstance::Join(const FString& RawAddress)
 {
     const FString Address = RawAddress.TrimStartAndEnd();
-    if (!IsValidAddress(Address)) { LastError = TEXT("Inserisci un IPv4 valido, per esempio 192.168.1.20:7777."); return false; }
+    if (!IsValidAddress(Address)) { LastError = TEXT("Enter a valid IPv4 address, e.g. 192.168.1.20:7777."); return false; }
     if (APlayerController* PC = GetFirstLocalPlayerController())
     {
-        LastError = TEXT("Connessione in corso...");
+        LastError = TEXT("Connecting...");
         PC->ClientTravel(Address + TEXT("?Name=") + AERGameMode::SanitizeName(LocalName) + FString::Printf(TEXT("?Primary=%d?AlphaSkin=%d?OmegaSkin=%d?Team=%d"), PrimaryWeapon, AlphaSkin, OmegaSkin, FMath::Clamp(PlayerTeam,0,1)), TRAVEL_Absolute); return true;
     }
-    LastError = TEXT("Giocatore locale non disponibile."); return false;
+    LastError = TEXT("Local player unavailable."); return false;
 }
 void UERGameInstance::ReturnToMenu() { UGameplayStatics::OpenLevel(GetWorld(), TEXT("/Game/EclipseRecoil/Maps/L_MainMenu")); }
 void UERGameInstance::NetworkFailure(UWorld* World, UNetDriver* Driver, ENetworkFailure::Type Type, const FString& Error)
 {
     if (World != GetWorld()) return;
-    LastError = TEXT("Connessione interrotta o non riuscita: ") + Error.Left(180);
+    LastError = TEXT("Connection lost or failed: ") + Error.Left(180);
     ReturnToMenu();
 }
 void UERGameInstance::TravelFailure(UWorld* World, ETravelFailure::Type Type, const FString& Error)
 {
     if (World != GetWorld()) return;
-    LastError = TEXT("Caricamento non riuscito: ") + Error.Left(180);
+    LastError = TEXT("Travel failed: ") + Error.Left(180);
     if (!UGameplayStatics::GetCurrentLevelName(World).Contains(TEXT("L_MainMenu"))) ReturnToMenu();
 }
 bool AERPlayerController::IsMenuLevel() const { return UGameplayStatics::GetCurrentLevelName(GetWorld()).Contains(TEXT("L_MainMenu")); }
@@ -350,9 +352,9 @@ void AERPlayerController::FirePressed()
     if (bMenuOpen) return;
     // Started fires once per physical press. Returning here consumes the respawn click.
     if (bAwaitingRespawn) { ServerRequestRespawn(); return; }
-    if (auto* Character = Cast<AERCharacter>(GetPawn())) Character->ServerStartFire();
+    if (auto* Character = Cast<AERCharacter>(GetPawn())) { Character->SetGrenadeInputHeld(true);Character->ServerStartFire(); }
 }
-void AERPlayerController::FireReleased() { if (auto* Character = Cast<AERCharacter>(GetPawn())) Character->ServerStopFire(); }
+void AERPlayerController::FireReleased() { if (auto* Character = Cast<AERCharacter>(GetPawn())) { Character->SetGrenadeInputHeld(false);Character->ServerStopFire(); } }
 void AERPlayerController::JumpPressed()
 {
     if (bMenuOpen) return;
@@ -502,11 +504,11 @@ FText AERPlayerController::GetDisplaySizeText() const
     const UGameViewportClient* Viewport = GetWorld()->GetGameViewport();
     const TSharedPtr<SWindow> Window = Viewport->GetWindow();
     if (Window.IsValid() && Window->GetWindowMode() != EWindowMode::Windowed)
-        return FText::FromString(TEXT("Schermo intero"));
+        return FText::FromString(TEXT("Fullscreen"));
     const FIntPoint Resolution = Viewport->Viewport ? Viewport->Viewport->GetSizeXY() : GEngine->GetGameUserSettings()->GetScreenResolution();
     const FIntPoint Display = GetDisplayResolution();
     const int32 Percent = FMath::RoundToInt(100.f * FMath::Min(float(Resolution.X) / Display.X, float(Resolution.Y) / Display.Y));
-    return FText::FromString(FString::Printf(TEXT("Finestra %d%%  ·  %d × %d"), Percent, Resolution.X, Resolution.Y));
+    return FText::FromString(FString::Printf(TEXT("Windowed %d%%  ·  %d × %d"), Percent, Resolution.X, Resolution.Y));
 }
 
 void AERPlayerController::ApplyDisplaySize(int32 Percent)
@@ -548,9 +550,9 @@ void AERPlayerController::ShowMenu(bool bShow)
     TSharedRef<SVerticalBox> GamePanel = SNew(SVerticalBox);
     TSharedRef<SVerticalBox> SetupPanel = SNew(SVerticalBox);
     auto Heading = [](const TCHAR* Text) { return SNew(STextBlock).Text(FText::FromString(Text)).Font(FCoreStyle::GetDefaultFontStyle("Bold",22)); };
-    GamePanel->AddSlot().AutoHeight().Padding(0,0,0,12)[Heading(TEXT("PARTITA"))];
-    Panel->AddSlot().AutoHeight().Padding(0,0,0,12)[Heading(TEXT("PERSONAGGIO E ARMI"))];
-    SetupPanel->AddSlot().AutoHeight().Padding(0,0,0,12)[Heading(TEXT("IMPOSTAZIONI"))];
+    GamePanel->AddSlot().AutoHeight().Padding(0,0,0,12)[Heading(TEXT("MATCH"))];
+    Panel->AddSlot().AutoHeight().Padding(0,0,0,12)[Heading(TEXT("CHARACTER & WEAPONS"))];
+    SetupPanel->AddSlot().AutoHeight().Padding(0,0,0,12)[Heading(TEXT("SETTINGS"))];
     TSharedPtr<SWidget> FocusWidget;
     Panel->AddSlot().AutoHeight().Padding(0,0,0,20)[SNew(STextBlock).Text(FText::FromString(TEXT("ALPHA / OMEGA     •     TEAM DEATHMATCH")))];
     const auto* Catalog = SkinCatalog ? SkinCatalog->GetDefaultObject<AERCharacter>() : nullptr;
@@ -563,7 +565,7 @@ void AERPlayerController::ShowMenu(bool bShow)
                 const auto& Options = Alpha ? Catalog->AlphaSkins : Catalog->OmegaSkins;
                 if (Options.IsValidIndex(Index)) return Options[Index].DisplayName;
             }
-            return FString::Printf(TEXT("Variante %d"), Index + 1);
+            return FString::Printf(TEXT("Variant %d"), Index + 1);
         };
         TSharedRef<SVerticalBox> SkinChoices = SNew(SVerticalBox);
         for (int32 Index = 0; Index < ERSkins::Count; ++Index)
@@ -576,13 +578,13 @@ void AERPlayerController::ShowMenu(bool bShow)
             })];
         Panel->AddSlot().AutoHeight().Padding(0,8)[SNew(STextBlock)
             .ColorAndOpacity(Alpha ? FLinearColor(.4f,.7f,1) : FLinearColor(1,.55f,.25f))
-            .Text(FText::FromString(Alpha ? TEXT("Personaggio Alpha · blu / freddo") : TEXT("Personaggio Omega · arancio / caldo")))];
+            .Text(FText::FromString(Alpha ? TEXT("Alpha character · blue / cool") : TEXT("Omega character · orange / warm")))];
         Panel->AddSlot().AutoHeight()[SNew(SComboButton)
             .ButtonContent()[SNew(STextBlock).Text_Lambda([GI, Alpha, Label]() { return FText::FromString(Label(Alpha ? GI->AlphaSkin : GI->OmegaSkin)); })]
             .MenuContent()[SNew(SBox).MaxDesiredHeight(400)[SNew(SScrollBox) + SScrollBox::Slot()[SkinChoices]]]];
     }
     Panel->AddSlot().AutoHeight().Padding(0,5)[SNew(STextBlock).AutoWrapText(true)
-        .Text(FText::FromString(bMain ? TEXT("Scegli un aspetto per ogni squadra e la squadra con cui giocare.") : TEXT("Le modifiche al personaggio si applicano dalla prossima nascita.")))];
+        .Text(FText::FromString(bMain ? TEXT("Choose a skin for each team and the team you want to play on.") : TEXT("Character changes apply on your next spawn.")))];
     if (bMain)
     {
         auto Choice = [Button](TSharedRef<SVerticalBox> Parent, const TCHAR* Title, TArray<FString> Labels, int32* Value, TFunction<bool()> Enabled)
@@ -597,31 +599,31 @@ void AERPlayerController::ShowMenu(bool bShow)
         };
         auto Always = []() { return true; };
         auto OwnGame = [GI]() { return GI->SessionMode != 2; };
-        GamePanel->AddSlot().AutoHeight()[SNew(STextBlock).Text(FText::FromString(TEXT("Nome giocatore")))];
+        GamePanel->AddSlot().AutoHeight()[SNew(STextBlock).Text(FText::FromString(TEXT("Player name")))];
         GamePanel->AddSlot().AutoHeight().Padding(0,4)[SAssignNew(NameBox, SEditableTextBox).Text(FText::FromString(GI->LocalName))];
         FocusWidget = NameBox;
-        Choice(GamePanel,TEXT("Connessione"),{TEXT("Locale"),TEXT("Crea server e gioca"),TEXT("Connettiti come client")},&GI->SessionMode,Always);
-        Choice(GamePanel,TEXT("Mappa / laboratorio"),{TEXT("Deposito"),TEXT("Laboratorio movimento"),TEXT("Laboratorio distruzione"),TEXT("Piano procedurale"),TEXT("Killhouse procedurale"),TEXT("Dust Mirror procedurale")},&GI->MapChoice,OwnGame);
-        Choice(GamePanel,TEXT("La tua squadra"),{TEXT("Alpha"),TEXT("Omega")},&GI->PlayerTeam,Always);
+        Choice(GamePanel,TEXT("Connection"),{TEXT("Local"),TEXT("Host and play"),TEXT("Join a server")},&GI->SessionMode,Always);
+        Choice(GamePanel,TEXT("Map / lab"),{TEXT("Depot"),TEXT("Movement Lab"),TEXT("Destruction Lab"),TEXT("Procedural Floor"),TEXT("Procedural Killhouse"),TEXT("Procedural Dust Mirror")},&GI->MapChoice,OwnGame);
+        Choice(GamePanel,TEXT("Your team"),{TEXT("Alpha"),TEXT("Omega")},&GI->PlayerTeam,Always);
         TArray<FString> Counts; for (int32 I=0; I<=10; ++I) Counts.Add(FString::FromInt(I));
-        Choice(GamePanel,TEXT("Bot Alpha"),Counts,&GI->AlphaBots,OwnGame);
-        Choice(GamePanel,TEXT("Bot Omega"),Counts,&GI->OmegaBots,OwnGame);
-        Choice(GamePanel,TEXT("Comportamento bot"),{TEXT("Fermi"),TEXT("Solo movimento"),TEXT("Movimento e sparo")},&GI->BotBehavior,OwnGame);
+        Choice(GamePanel,TEXT("Alpha bots"),Counts,&GI->AlphaBots,OwnGame);
+        Choice(GamePanel,TEXT("Omega bots"),Counts,&GI->OmegaBots,OwnGame);
+        Choice(GamePanel,TEXT("Bot behavior"),{TEXT("Stationary"),TEXT("Movement only"),TEXT("Movement and combat")},&GI->BotBehavior,OwnGame);
         GamePanel->AddSlot().AutoHeight().Padding(0,10)[SNew(STextBlock).AutoWrapText(true).Text_Lambda([GI]() {
-            return FText::FromString(GI->SessionMode==2 ? TEXT("Mappa e bot sono decisi dal server.") : GI->SessionMode==1 ? TEXT("Server in ascolto su tutte le interfacce · porta 7777. La partita inizia anche con un solo giocatore.") : TEXT("Partita locale. Nei laboratori puoi ricaricare senza esaurire le riserve."));
+            return FText::FromString(GI->SessionMode==2 ? TEXT("The server selects the map and bots.") : GI->SessionMode==1 ? TEXT("Hosting on port 7777. The match can start with one player.") : TEXT("Local match. Labs allow reloading with unlimited reserve ammo."));
         })];
         GamePanel->AddSlot().AutoHeight().Padding(0,4)[SAssignNew(AddressBox, SEditableTextBox)
             .IsEnabled_Lambda([GI]() { return GI->SessionMode==2; })
-            .Text(FText::FromString(GI->ServerAddress)).HintText(FText::FromString(TEXT("IP server:porta")))];
+            .Text(FText::FromString(GI->ServerAddress)).HintText(FText::FromString(TEXT("Server IP:port")))];
         GamePanel->AddSlot().AutoHeight().Padding(0,12)[SNew(SButton).ContentPadding(FMargin(16,12))
             .OnClicked_Lambda([this,GI]() { GI->LocalName=NameBox->GetText().ToString(); GI->ServerAddress=AddressBox->GetText().ToString(); GI->StartSession(); return FReply::Handled(); })
-            [SNew(STextBlock).Text_Lambda([GI]() { return FText::FromString(GI->SessionMode==2 ? TEXT("CONNETTI") : TEXT("AVVIA PARTITA")); })]];
+            [SNew(STextBlock).Text_Lambda([GI]() { return FText::FromString(GI->SessionMode==2 ? TEXT("CONNECT") : TEXT("START MATCH")); })]];
     }
     else
     {
-        FocusWidget = Button(TEXT("RIPRENDI"), [this]() { ShowMenu(false); return FReply::Handled(); });
+        FocusWidget = Button(TEXT("RESUME"), [this]() { ShowMenu(false); return FReply::Handled(); });
         GamePanel->AddSlot().AutoHeight().Padding(0,10)[FocusWidget.ToSharedRef()];
-        GamePanel->AddSlot().AutoHeight().Padding(0,10)[Button(TEXT("TORNA AL MENU"), [GI]() { GI->ReturnToMenu(); return FReply::Handled(); })];
+        GamePanel->AddSlot().AutoHeight().Padding(0,10)[Button(TEXT("MAIN MENU"), [GI]() { GI->ReturnToMenu(); return FReply::Handled(); })];
     }
     const auto* MenuPawn=Cast<AERCharacter>(GetPawn());
     const bool bReferenceMenu=MenuPawn ? MenuPawn->UsesReferenceArsenal() : bReferenceArsenalMenu;
@@ -638,32 +640,32 @@ void AERPlayerController::ShowMenu(bool bShow)
                 return FReply::Handled();
             })];
         }
-        Panel->AddSlot().AutoHeight().Padding(0,8)[SNew(STextBlock).Text(FText::FromString(bMain ? TEXT("Arma principale") : TEXT("Arma principale · dalla prossima nascita")))];
+        Panel->AddSlot().AutoHeight().Padding(0,8)[SNew(STextBlock).Text(FText::FromString(bMain ? TEXT("Primary weapon") : TEXT("Primary weapon · next spawn")))];
         Panel->AddSlot().AutoHeight()[SNew(SComboButton)
             .ButtonContent()[SNew(STextBlock).Text_Lambda([this, GI]()
-            { return FText::FromString(PrimaryOptions.IsValidIndex(GI->PrimaryWeapon) ? PrimaryOptions[GI->PrimaryWeapon]->DisplayName : TEXT("AK74")); })]
+            { return FText::FromString(PrimaryOptions.IsValidIndex(GI->PrimaryWeapon) ? PrimaryOptions[GI->PrimaryWeapon]->DisplayName : TEXT("Assault Rifle")); })]
             .MenuContent()[Choices]];
-        Panel->AddSlot().AutoHeight().Padding(0,5)[SNew(STextBlock).Text(FText::FromString(TEXT("1 Principale · 2 M1911 · 3 HE · 4 Fumo · 5 Stun\nRotella cambia arma · Tasto destro zoom"))).AutoWrapText(true)];
+        Panel->AddSlot().AutoHeight().Padding(0,5)[SNew(STextBlock).Text(FText::FromString(TEXT("1 Primary · 2 Pistol · 3 HE Grenade · 4 Smoke Grenade · 5 Stun Grenade\nMouse wheel: switch weapon · Right mouse: zoom"))).AutoWrapText(true)];
     }
     else Panel->AddSlot().AutoHeight().Padding(0,8)[SNew(STextBlock).AutoWrapText(true).Text(FText::FromString(
-        TEXT("1 Coltello · 2 Pistola · 3 SMG · 4 Shotgun\n5 Fucile d'assalto · 6 Carabina · 7 Sniper · 8 Lanciagranate\nF Granata HE · G Fumogena\nRotella cambia arma · Tasto destro zoom")))];
+        TEXT("1 Knife · 2 Pistol · 3 SMG · 4 Shotgun\n5 Assault Rifle · 6 Sniper Rifle\n7 Marksman Rifle · 8 Grenade Launcher\nF HE Grenade · G Smoke Grenade\nMouse wheel: switch weapon · Right mouse: zoom")))];
     TSharedRef<SVerticalBox> DisplayChoices = SNew(SVerticalBox);
     for (int32 Percent : {50, 60, 70, 80, 90, 100})
     {
-        const FString Label = Percent == 100 ? TEXT("Schermo intero") : FString::Printf(TEXT("Finestra %d%%"), Percent);
+        const FString Label = Percent == 100 ? TEXT("Fullscreen") : FString::Printf(TEXT("Windowed %d%%"), Percent);
         DisplayChoices->AddSlot().AutoHeight()[Button(Label, [this, Percent]() { ApplyDisplaySize(Percent); return FReply::Handled(); })];
     }
-    SetupPanel->AddSlot().AutoHeight().Padding(0,10,0,5)[SNew(STextBlock).Text(FText::FromString(TEXT("Dimensione finestra / schermo")))];
+    SetupPanel->AddSlot().AutoHeight().Padding(0,10,0,5)[SNew(STextBlock).Text(FText::FromString(TEXT("Window / display size")))];
     SetupPanel->AddSlot().AutoHeight().Padding(0,5)[SAssignNew(DisplaySizeSelector, SComboButton)
         .ButtonContent()[SNew(STextBlock).Text_Lambda([this]() { return GetDisplaySizeText(); })]
         .MenuContent()[DisplayChoices]];
     SetupPanel->AddSlot().AutoHeight().Padding(0,8,0,3)[SNew(STextBlock)
-        .Text(FText::FromString(TEXT("Risoluzione 3D automatica · obiettivo 60+ FPS"))).AutoWrapText(true)];
-    SetupPanel->AddSlot().AutoHeight().Padding(0,5)[Button(TEXT("REIMPOSTA RISOLUZIONE AUTOMATICA"), [this]() {
+        .Text(FText::FromString(TEXT("Automatic 3D resolution · target 60+ FPS"))).AutoWrapText(true)];
+    SetupPanel->AddSlot().AutoHeight().Padding(0,5)[Button(TEXT("RESET AUTOMATIC RESOLUTION"), [this]() {
         ResetRenderResolution(); return FReply::Handled();
     })];
     SetupPanel->AddSlot().AutoHeight().Padding(0,12,0,5)[SNew(STextBlock).Text_Lambda([GI]() {
-        return FText::FromString(FString::Printf(TEXT("Sensibilità mouse · %d%%"), FMath::RoundToInt(GI->GetMouseSensitivity() * 100.f)));
+        return FText::FromString(FString::Printf(TEXT("Mouse sensitivity · %d%%"), FMath::RoundToInt(GI->GetMouseSensitivity() * 100.f)));
     })];
     SetupPanel->AddSlot().AutoHeight().Padding(0,5)[SNew(SSlider)
         .Value_Lambda([GI]() { return GI->GetMouseSensitivity(); })
@@ -672,7 +674,7 @@ void AERPlayerController::ShowMenu(bool bShow)
         .OnMouseCaptureEnd_Lambda([GI]() { GI->SaveMouseSensitivity(); })
         .OnControllerCaptureEnd_Lambda([GI]() { GI->SaveMouseSensitivity(); })];
     SetupPanel->AddSlot().AutoHeight().Padding(0,12,0,5)[SNew(STextBlock).Text_Lambda([GI]() {
-        return FText::FromString(FString::Printf(TEXT("Accelerazione mouse · %d%%"), FMath::RoundToInt(GI->GetMouseAcceleration() * 100.f)));
+        return FText::FromString(FString::Printf(TEXT("Mouse acceleration · %d%%"), FMath::RoundToInt(GI->GetMouseAcceleration() * 100.f)));
     })];
     SetupPanel->AddSlot().AutoHeight().Padding(0,5)[SNew(SSlider)
         .Value_Lambda([GI]() { return GI->GetMouseAcceleration(); })
@@ -681,9 +683,9 @@ void AERPlayerController::ShowMenu(bool bShow)
         .OnMouseCaptureEnd_Lambda([GI]() { GI->SaveMouseSensitivity(); })
         .OnControllerCaptureEnd_Lambda([GI]() { GI->SaveMouseSensitivity(); })];
     SetupPanel->AddSlot().AutoHeight().Padding(0,3)[SNew(STextBlock)
-        .Text(FText::FromString(TEXT("Movimenti lenti precisi, movimenti rapidi più ampi. 0% = risposta uniforme."))).AutoWrapText(true)];
+        .Text(FText::FromString(TEXT("Precise slow movements, faster turns with quick movements. 0% = uniform response."))).AutoWrapText(true)];
     SetupPanel->AddSlot().AutoHeight().Padding(0,15)[SNew(STextBlock).Text_Lambda([GI]() { return FText::FromString(GI->LastError); }).AutoWrapText(true).ColorAndOpacity(FLinearColor(1,.6f,.25f))];
-    SetupPanel->AddSlot().AutoHeight().Padding(0,10)[SNew(STextBlock).Text(FText::FromString(TEXT("WASD  Movimento     Mouse  Mira / Fuoco\nShift  Cammina     Spazio  Salto / Arrampicata / Respawn     Ctrl / C  Accovacciati\nDoppio W  Sprint (5 s / recupero 10 s)     Doppio Ctrl / C  Pancia a terra\nR  Ricarica     Tab  Classifica     Esc  Menu"))).AutoWrapText(true)];
+    SetupPanel->AddSlot().AutoHeight().Padding(0,10)[SNew(STextBlock).Text(FText::FromString(TEXT("WASD  Move     Mouse  Aim / Fire\nShift  Walk     Space  Jump / Climb / Respawn     Ctrl / C  Crouch\nDouble-tap W  Sprint (max 5 s / double recovery time)\nDouble-tap Ctrl / C  Prone\nR  Reload     Tab  Scoreboard     Esc  Menu"))).AutoWrapText(true)];
     auto Column = [](TSharedRef<SVerticalBox> Content) -> TSharedRef<SWidget>
     {
         return SNew(SBorder).Padding(20).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
@@ -830,48 +832,48 @@ void AERHUD::DrawHUD()
     auto Text = [this](const FString& Value, float X, float Y, FLinearColor Color = FLinearColor::White, float Scale = 1.3f) { DrawText(Value, Color, X, Y, nullptr, Scale); };
     for (TActorIterator<AERBlockRoom> It(GetWorld()); It; ++It)
     {
-        if(PC->IsBlockMapLoading())Text(TEXT("Sincronizzazione della mappa..."),30,83,FLinearColor::Yellow,1);
+        if(PC->IsBlockMapLoading())Text(TEXT("Synchronizing map..."),30,83,FLinearColor::Yellow,1);
         if(const auto* Map=Cast<AERProceduralMap>(*It))if(Map->LayoutConfig.TemplateAsset && !FParse::Param(FCommandLine::Get(),TEXT("ERBlockDebug")))continue;
-        Text(TEXT("LAB DISTRUZIONE | ERBlockShot 100 10 / ERBlockExplosion 250 180 / ERBlockCollapseDemo"), 30, 105, FLinearColor::Yellow, 1);
-        if (const auto* Map=Cast<AERProceduralMap>(*It)) Text(Map->LayoutConfig.TemplateAsset ? TEXT("ERMapGenerate 42 8 1 | seed del template"):TEXT("ERMapGenerate 42 6 3 | seed / stanze 6..10 / piani 1..3"), 30, 185, FLinearColor::Yellow, 1);
+        Text(TEXT("DESTRUCTION LAB | ERBlockShot 100 10 / ERBlockExplosion 250 180 / ERBlockCollapseDemo"), 30, 105, FLinearColor::Yellow, 1);
+        if (const auto* Map=Cast<AERProceduralMap>(*It)) Text(Map->LayoutConfig.TemplateAsset ? TEXT("ERMapGenerate 42 8 1 | template seed"):TEXT("ERMapGenerate 42 6 3 | seed / rooms 6..10 / floors 1..3"), 30, 185, FLinearColor::Yellow, 1);
         Text(It->GetStatistics(), 30, 125, FLinearColor::White, .9f);
-        Text(TEXT("Ultimo blocco: ") + It->LastHit, 30, 145, FLinearColor::White, 1);
+        Text(TEXT("Last block: ") + It->LastHit, 30, 145, FLinearColor::White, 1);
         Text(It->LastCombat, 30, 165, FLinearColor::White, 1);
     }
     const bool bLab = GetWorld()->GetMapName().Contains(TEXT("L_MovementLab"));
     const auto* Character = Cast<AERCharacter>(PC->GetPawn());
     DrawRect(FLinearColor(0.01f,0.02f,0.04f,.8f), W/2-220, 15, 440, 70);
-    Text(bLab ? FString(TEXT("LAB MOVIMENTO  |  185 cm")) : FString::Printf(TEXT("ALPHA  %02d     /     %02d  OMEGA"), GS->AlphaScore, GS->OmegaScore), W/2-160, 25, FLinearColor::White, 1.5f);
-    FString Status = TEXT("In attesa di giocatori");
+    Text(bLab ? FString(TEXT("MOVEMENT LAB  |  185 cm")) : FString::Printf(TEXT("ALPHA  %02d     /     %02d  OMEGA"), GS->AlphaScore, GS->OmegaScore), W/2-160, 25, FLinearColor::White, 1.5f);
+    FString Status = TEXT("Waiting for players");
     if (GS->IsMatchInProgress())
     {
         const int32 Seconds = FMath::Max(0, FMath::CeilToInt(GS->MatchEndServerTime - GS->GetServerWorldTimeSeconds()));
-        Status = FString::Printf(TEXT("%02d:%02d    •    Primo a 50"), Seconds/60, Seconds%60);
+        Status = FString::Printf(TEXT("%02d:%02d    •    First to 50"), Seconds/60, Seconds%60);
     }
     else if (GS->GetMatchState() == MatchState::WaitingPostMatch)
-        Status = GS->Winner == EERTeam::None ? TEXT("PAREGGIO • Nuova partita tra 10 secondi") : (GS->Winner == EERTeam::Alpha ? TEXT("ALPHA VINCE") : TEXT("OMEGA VINCE"));
-    if (bLab && Character) Status = FString::Printf(TEXT("%.1f km/h   |   Quota piedi: %.0f cm"), Character->GetVelocity().Size2D()*.036f, Character->GetActorLocation().Z-Character->GetCapsuleComponent()->GetScaledCapsuleHalfHeight()-2.1f);
+        Status = GS->Winner == EERTeam::None ? TEXT("DRAW • Next match in 10 seconds") : (GS->Winner == EERTeam::Alpha ? TEXT("ALPHA WINS") : TEXT("OMEGA WINS"));
+    if (bLab && Character) Status = FString::Printf(TEXT("%.1f km/h   |   Feet height: %.0f cm"), Character->GetVelocity().Size2D()*.036f, Character->GetActorLocation().Z-Character->GetCapsuleComponent()->GetScaledCapsuleHalfHeight()-2.1f);
     Text(Status, W/2-150, 58);
     const auto* PS = PC->GetPlayerState<AERPlayerState>();
     Text(PS && PS->Team == EERTeam::Omega ? TEXT("OMEGA") : TEXT("ALPHA"), 30, 30, PS && PS->Team == EERTeam::Omega ? FLinearColor(1,.25f,.1f) : FLinearColor(.2f,.65f,1));
     if (bLab)
     {
-        Text(TEXT("SHIFT: cammina    SPAZIO + avanti: arrampica"),30,105);
-        Text(TEXT("30 cm: passo    80 cm: salita    150 cm: spalle"),30,128);
+        Text(TEXT("SHIFT: walk    SPACE + forward: climb"),30,105);
+        Text(TEXT("30 cm: step    80 cm: vault    150 cm: shoulder height"),30,128);
     }
     if (Character && !Character->Health->bDead)
     {
         const auto* Movement = Cast<UERMovement>(Character->GetCharacterMovement());
         const float Sprint = Movement->GetSprintRemaining(), Recovery = Movement->GetRecoveryRemaining();
-        Text(Sprint > 0 ? FString::Printf(TEXT("SPRINT %.1f s"), Sprint) : (Recovery > 0 ? FString::Printf(TEXT("RECUPERO %.1f s"), Recovery) : TEXT("SPRINT PRONTO  |  doppio W")), 30, H-100, FLinearColor(.6f,.8f,1), 1.f);
-        if (Movement->bProneWanted || Movement->IsProne()) Text(TEXT("PANCIA A TERRA  |  C / Ctrl per rialzarti"), 30, H-125, FLinearColor::White, 1.f);
+        Text(Sprint > 0 ? FString::Printf(TEXT("SPRINT %.1f s"), Sprint) : (Recovery > 0 ? FString::Printf(TEXT("RECOVERY %.1f s"), Recovery) : TEXT("SPRINT READY  |  double-tap W")), 30, H-100, FLinearColor(.6f,.8f,1), 1.f);
+        if (Movement->bProneWanted || Movement->IsProne()) Text(TEXT("PRONE  |  C / Ctrl to stand up"), 30, H-125, FLinearColor::White, 1.f);
         DrawLine(W/2-8,H/2,W/2-3,H/2,FLinearColor::White); DrawLine(W/2+3,H/2,W/2+8,H/2,FLinearColor::White);
         DrawLine(W/2,H/2-8,W/2,H/2-3,FLinearColor::White); DrawLine(W/2,H/2+3,W/2,H/2+8,FLinearColor::White);
         Text(FString::Printf(TEXT("HP  %.0f   AP  %.0f"), Character->Health->Health, Character->Health->Armor), 30, H-65, FLinearColor(.4f,1,.7f), 2.f);
         if (const auto* Weapon = Character->Weapon.Get())
         {
-            Text(Weapon->bReloading ? TEXT("RICARICA...") : FString::Printf(TEXT("%02d / %02d    %s"),Weapon->MagazineAmmo,Weapon->ReserveAmmo,
-                Weapon->Data ? *Weapon->Data->DisplayName : TEXT("Rifle A")),W-440,H-65,FLinearColor::White,1.4f);
+            Text(Weapon->bReloading ? TEXT("RELOADING...") : FString::Printf(TEXT("%02d / %02d    %s"),Weapon->MagazineAmmo,Weapon->ReserveAmmo,
+                Weapon->Data ? *Weapon->Data->DisplayName : TEXT("Assault Rifle")),W-440,H-65,FLinearColor::White,1.4f);
             const int32 Capacity = Weapon->Data ? FMath::Clamp(Weapon->Data->MagazineSize, 1, 120) : 30;
             const int32 Remaining = FMath::Clamp(Weapon->MagazineAmmo, 0, Capacity);
             const float Scale = FMath::Clamp(H / 720.f, .65f, 2.f);
@@ -936,18 +938,18 @@ void AERHUD::DrawHUD()
             }
 #endif
         }
-        if (Character->Health->IsProtected()) Text(TEXT("PROTEZIONE ALLA NASCITA"), W/2-145,H-100,FLinearColor(.4f,.8f,1));
+        if (Character->Health->IsProtected()) Text(TEXT("SPAWN PROTECTION"), W/2-145,H-100,FLinearColor(.4f,.8f,1));
     }
     if (PC->bAwaitingRespawn)
     {
         const int32 Seconds = FMath::Max(0, FMath::CeilToInt(PC->RespawnAllowedAt-GS->GetServerWorldTimeSeconds()));
-        Text(Seconds > 0 ? FString::Printf(TEXT("Rientro disponibile tra %d"),Seconds) : TEXT("Premi sparo o salto per rientrare"),W/2-175,H/2+60,FLinearColor(1,.6f,.3f),1.6f);
+        Text(Seconds > 0 ? FString::Printf(TEXT("Respawn available in %d"),Seconds) : TEXT("Press fire or jump to respawn"),W/2-175,H/2+60,FLinearColor(1,.6f,.3f),1.6f);
     }
-    Text(TEXT("TAB  Classifica     ESC  Menu"),30,H-25,FLinearColor(.6f,.65f,.7f),1.f);
+    Text(TEXT("TAB  Scoreboard     ESC  Menu"),30,H-25,FLinearColor(.6f,.65f,.7f),1.f);
     if (PC->bShowScoreboard || GS->GetMatchState() == MatchState::WaitingPostMatch)
     {
         DrawRect(FLinearColor(.015f,.025f,.04f,.92f),W/2-340,130,680,240);
-        Text(TEXT("SQUADRA       GIOCATORE                   K     D     TK"), W/2-320,150);
+        Text(TEXT("TEAM          PLAYER                     K     D     TK"), W/2-320,150);
         float Y = 190;
         for (APlayerState* Item : GS->PlayerArray) if (const auto* State = Cast<AERPlayerState>(Item))
         {

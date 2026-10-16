@@ -11,6 +11,7 @@ import unreal as ue
 assets = ue.EditorAssetLibrary
 tools = ue.AssetToolsHelpers.get_asset_tools()
 folder = '/Game/EclipseRecoil/Weapons/LowPoly'
+legacy_names = runpy.run_path(str(Path(__file__).with_name('presentation_labels.py')))['LEGACY_NAMES']
 pose_folder = '/Game/EclipseRecoil/Characters/FirstPerson/Weapons'
 body = ue.load_asset('/Game/EclipseRecoil/Characters/Teams/Alpha/FirstPerson/SK_ER_Twinblast_Alpha_Officer_Forearms')
 if not body:
@@ -27,9 +28,9 @@ profiles = [
     dict(name='M107', mesh='SK_M107', damage=115, interval=1.455, ammo=5, reserve=10, auto=False, left=(0,32,0), spread=.12, zoom=20, reload=2.5, pitch=.7, sight='SK_Optic_02_Black', sight_x=-20, sight_z=4),
     dict(name='RPG7', mesh='SK_RPG7', damage=140, interval=1.2, ammo=1, reserve=4, auto=False, left=(0,20,0), spread=.3, speed=2200, payload=ue.ERPayload.ROCKET, reload=2.5, pitch=.6),
     dict(name='M1911', mesh='SK_M1911', damage=53, interval=.225, ammo=7, reserve=21, auto=False, left=(0,3,-3), spread=.25, pitch=1.25, one=True, view=(20,-3,10), zoom=75),
-    dict(name='RGD5 · HE', mesh='SK_Grenade_RGD5', damage=140, interval=.8, ammo=2, reserve=0, auto=False, left=(0,8,-2), spread=0, speed=1100, payload=ue.ERPayload.HE, one=True, pitch=.7),
-    dict(name='Fumogena', mesh='SK_Grenade_Smoke', damage=0, interval=.8, ammo=1, reserve=0, auto=False, left=(0,8,-2), spread=0, speed=1100, payload=ue.ERPayload.SMOKE, one=True, pitch=.7),
-    dict(name='Stun', mesh='SK_Grenade_Stun', damage=0, interval=.8, ammo=1, reserve=0, auto=False, left=(0,8,-2), spread=0, speed=1100, payload=ue.ERPayload.STUN, one=True, pitch=.7),
+    dict(name='RGD5 · HE', mesh='SK_Grenade_RGD5', damage=140, interval=.8, ammo=10, reserve=0, auto=False, left=(0,8,-2), spread=0, speed=880, payload=ue.ERPayload.HE, one=True, pitch=.7),
+    dict(name='Fumogena', mesh='SK_Grenade_Smoke', damage=0, interval=.8, ammo=10, reserve=0, auto=False, left=(0,8,-2), spread=0, speed=880, payload=ue.ERPayload.SMOKE, one=True, pitch=.7),
+    dict(name='Stun', mesh='SK_Grenade_Stun', damage=0, interval=.8, ammo=10, reserve=0, auto=False, left=(0,8,-2), spread=0, speed=880, payload=ue.ERPayload.STUN, one=True, pitch=.7),
 ]
 
 def save(asset):
@@ -92,7 +93,7 @@ for p in profiles:
                                   rotation=ue.Rotator(pitch=0,yaw=90,roll=0), scale=ue.Vector(1,1,1))
     bounds = mesh.get_imported_bounds()
     muzzle = ue.ERCharacter.get_weapon_muzzle_from_geometry(mesh)
-    settings = dict(display_name=p['name'], mesh=mesh, grip_transform=grip_transform, muzzle_offset=muzzle,
+    settings = dict(display_name=legacy_names.get(key,p['name']), mesh=mesh, grip_transform=grip_transform, muzzle_offset=muzzle,
                     view_offset=ue.Vector(*(p.get('view',(18,-3,10) if p.get('one') else (0,0,0)))),
                     idle_animation=idle, fire_animation=fire, damage=p['damage'], shot_interval=p['interval'],
                     magazine_size=p['ammo'], initial_reserve=p['reserve'], automatic=p['auto'],
@@ -100,8 +101,9 @@ for p in profiles:
                     one_handed=p.get('one',False), sound_pitch=p['pitch'], reload_duration=p.get('reload',1.5),
                     projectile_speed=p.get('speed',30000), projectile_life=8 if 'payload' in p else 2,
                     standing_spread_degrees=p['spread'], zoom_fov=p.get('zoom',60 if not p.get('one') else 90),
-                    explosion_radius=600 if p.get('payload')==ue.ERPayload.STUN else 350,
-                    fuse_duration=2.5, bloom_per_shot_degrees=.12 if not p.get('one') else 0)
+                    explosion_radius=600 if p.get('payload')==ue.ERPayload.HE else 600 if p.get('payload')==ue.ERPayload.STUN else 350,
+                    explosion_inner_radius=200,armor_ratio=1.6 if p.get('payload')==ue.ERPayload.HE else 2,
+                    fuse_duration=3.5 if p.get('payload') in (ue.ERPayload.HE,ue.ERPayload.SMOKE,ue.ERPayload.STUN) else 2.5, bloom_per_shot_degrees=.12 if not p.get('one') else 0)
     for name,value in settings.items():
         data.set_editor_property(name, value)
     data.set_editor_property('sight_mesh',ue.load_asset(folder+'/'+p['sight']) if p.get('sight') else None)

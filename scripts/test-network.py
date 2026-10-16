@@ -93,6 +93,10 @@ try:
         ]:
             print('ER_TEST_' + ('PASS' if passed else 'FAIL'), label)
             success = success and passed
+    if not args.accuracy:
+        protection_ok = 'ER_PROTECTION_CLIENT_PASS owner_and_proxy_materials' in remote and 'ER_PROTECTION_CLIENT_FAIL' not in remote
+        print('ER_TEST_' + ('PASS' if protection_ok else 'FAIL'), 'protection_owner_and_proxy_materials')
+        success = success and protection_ok
     if args.skins:
         for marker in ['Skin_preferences_replicated', 'Skin_pending_until_respawn', 'Skin_corpse_preserves_old_selection', 'Skin_new_selection_on_respawn', 'Skin_invalid_index_rejected']:
             passed = 'ER_TEST_PASS ' + marker in output

@@ -13,6 +13,7 @@ actual acquisition license/receipt with the private asset archive.
 | Low-poly arsenal | Simon Mercuzot, [Low Poly Weapons VOL.1](https://www.fab.com/listings/a1dde692-c321-4c0e-9835-06cf335e2e57) | Acquisition license not recorded; keep FBX, palette and imported meshes private. |
 | Interactive smoke | Theos, [Bullet Interactive Smoke](https://www.fab.com/listings/34604c10-bd96-44be-a2be-8b8233774eac) | Acquisition license not recorded; keep original/derived Niagara, materials and archive private. |
 | Explosion/debris | Paul Yang, [Bomb Crack_Ground_00 (Free)](https://www.fab.com/listings/ad281506-98a2-40b7-a5e8-f3fde43870b1) | Potential exception: the [creator's Sketchfab listing](https://sketchfab.com/3d-models/bomb-crack-ground-00-free-c5cb1a953d1747b0af697c004d74735d) reports CC Attribution. Confirm the exact version and that it covers the same files before public redistribution. |
+| Content Examples effects | Epic Games, ContentExamples UE 5.8 downloaded by the user on 16 October 2026 | Twelve packages migrated through Unreal into the private weapons repository; original source project preserved. Provenance and integration receipts in Assets/weapons/SourceAssets/EpicContentExamples. No new public asset distribution. |
 | Unreal template | Epic Games, installed UE 5.8.3 First Person/Shooter template | Examples have separate distribution permission; do not apply Fab restrictions indiscriminately to templates. |
 | Project C++/Python/configuration | Project-owned work plus retained template source | Suitable for a separate public code tree after choosing the owner's code license and preserving template notices. This is not an engine-source redistribution. |
 
@@ -119,3 +120,13 @@ grenade set reports Sketchfab free standard terms. Keep each model's own terms;
 this acquisition does not imply a blanket public or commercial clearance.
 Derived skeletal FBX, weapon packages and fitted hand-animation adaptations
 remain private with their source provenance. See WEAPON_IMPORT.md.
+
+## Grenade explosion audio — 16 October 2026
+
+[Distant Explosion of Propelled Grenade](https://freesound.org/people/qubodup/sounds/162363/)
+by qubodup: the sound page lists CC0 1.0. Credit retained voluntarily.
+Imported the public HQ MP3 preview, converted to mono44.1kHz PCM16 WAV
+(0.601s) without gain changes; the login-only original FLAC was not acquired.
+Downloaded preview, WAV, source-page snapshot, hashes and credit are retained
+in private `Assets/weapons/SourceAssets/Freesound/162363`. Derived Unreal assets
+are under `/Game/EclipseRecoil/Effects/Grenade/Audio`.
