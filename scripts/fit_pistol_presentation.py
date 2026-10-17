@@ -1,4 +1,4 @@
-"""Owned FPS pistol framing and thumb fit; geometry and gameplay stay intact."""
+"""Fit the owned pistol hand and rear view to the 17 October grip references."""
 from pathlib import Path
 import json
 import math
@@ -10,8 +10,11 @@ palm_tools=runpy.run_path(str(Path(__file__).with_name('setup_palm_contacts.py')
 xyz=maths['xyz'];add=maths['add'];sub=maths['sub'];mul=maths['mul'];length=maths['length'];unit=maths['unit']
 quat=maths['quat'];qmul=maths['qmul'];inverse=maths['inverse'];rotate=maths['rotate'];from_to=maths['from_to']
 
-MUZZLE_CAMERA=(46.,46.*.164,46.*-.1603125)
-CENTER_AIM_DEPTH=150.
+HAND_SCALE=.62
+# Seat the knuckles against the grip flank instead of fitting only one palm socket.
+HAND_SEAT=(-.8,-3.4,-.7)
+MUZZLE_CAMERA=(56.,56.*.164,56.*-.1603125)
+CENTER_AIM_DEPTH=350.
 
 def camera_rotation():
     # A finite convergence point reproduces the reference's visible barrel
@@ -26,6 +29,8 @@ def attachment(pose,weapon_mesh,weapon_idle):
     previous=ue.MathLibrary.compose_transforms(ue.Transform(rotation=ue.Rotator(pitch=0,yaw=90,roll=0)),grip)
     relative=ue.MathLibrary.make_relative_transform(previous,palm)
     frame=palm_tools['pistol_transform'](weapon_mesh,weapon_idle,relative.rotation,palm.scale3d.x)
+    offset=ue.MathLibrary.transform_direction(frame,ue.Vector(*HAND_SEAT))*(-1/palm.scale3d.x)
+    frame.set_editor_property('translation',frame.translation+offset)
     weapon=ue.MathLibrary.compose_transforms(frame,palm)
     weapon.set_editor_property('scale3d',frame.scale3d)
     return frame,weapon
@@ -40,14 +45,14 @@ def fit_thumb(pose,skin,weapon_mesh,weapon_idle,receipt):
     tip_local=tuple(sum(p[i] for p in far)/len(far) for i in range(3))
     old=[xyz(b.translation) for b in bones]+[xyz(ue.MathLibrary.transform_location(bones[-1],ue.Vector(*tip_local)))]
     lengths=[length(sub(old[i+1],old[i])) for i in range(3)]
-    contact=ue.ERCharacter.get_weapon_surface_contact(weapon_mesh,ue.Vector(-5,-100,4.2),ue.Vector(-5,100,4.2),weapon_idle)
+    contact=ue.ERCharacter.get_weapon_surface_contact(weapon_mesh,ue.Vector(-1.5,-100,3.8),ue.Vector(-1.5,100,3.8),weapon_idle)
     if max(abs(v) for v in xyz(contact))>1000:raise RuntimeError('No opposite pistol grip surface for thumb')
     target_local=add(xyz(contact),(0,-.35,0))
     world=lambda p:xyz(ue.MathLibrary.transform_location(weapon,ue.Vector(*p)))
     target=world(target_local);base=old[0]
     if length(sub(target,base))>=sum(lengths):raise RuntimeError('Pistol thumb target exceeds its anatomical reach')
-    # Start around the backstrap, then preserve all three phalanx lengths.
-    points=[base,world((-8.5,1.5,5.8)),world((-7,-1,4.8)),target]
+    # Extend the thumb along the opposite flank; preserve all phalanx lengths.
+    points=[base,world((-7.8,-2.2,5.)),world((-4.5,-2.,4.3)),target]
     for _ in range(80):
         points[3]=target
         for i in [2,1,0]:points[i]=add(points[i+1],mul(unit(sub(points[i],points[i+1])),lengths[i]))
@@ -73,7 +78,8 @@ def motion_basis():
 
 def pose_options(weapon_mesh,weapon_idle,receipt):
     delta=motion_basis()
-    return dict(ER_POSE_RIGHT_GRIP=((-10,25,125),delta,(-35,10,115)),
+    return dict(ER_POSE_RIGHT_ELBOW_TARGET=(-12,-5,110),
+                ER_POSE_RIGHT_GRIP=((-10,25,125),delta,(-35,10,115)),
                 ER_POSE_FINALIZE=lambda pose,skin:fit_thumb(pose,skin,weapon_mesh,weapon_idle,receipt))
 
 def camera_tip(data,skin,base):
@@ -106,7 +112,7 @@ def frame_settings(settings,skin,receipt):
     # At90deg horizontal FOV the viewport is (1+Y/X)/2, .5-Z/X*width/(2*height).
     target=ue.Vector(*MUZZLE_CAMERA)
     settings['view_offset']=settings['view_offset']+target-current
-    receipt.update(muzzle_camera_cm=xyz(target),assault_muzzle_camera_cm=xyz(reference),visual_muzzle_local_cm=xyz(visual_tip),
+    receipt.update(hand_seat_cm=HAND_SEAT,hand_scale=HAND_SCALE,muzzle_camera_cm=xyz(target),assault_muzzle_camera_cm=xyz(reference),visual_muzzle_local_cm=xyz(visual_tip),
                    view_offset_cm=xyz(settings['view_offset']),
                    camera_angles_degrees=dict(pitch=camera_rotation().pitch,yaw=camera_rotation().yaw,roll=0),
                    center_aim_camera_cm=(CENTER_AIM_DEPTH,0,0),

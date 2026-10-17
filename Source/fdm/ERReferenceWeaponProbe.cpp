@@ -154,10 +154,10 @@ void AERReferenceWeaponProbe::Tick(float DeltaTime)
             {
             PistolTipCamera=TipCamera;
             const FVector Bore=Camera.InverseTransformVectorNoScale(H->FirstPersonRifle->GetForwardVector());
-            const FVector Aim=TipCamera+Bore*((150.-TipCamera.X)/Bore.X);
+            const FVector Aim=TipCamera+Bore*((350.-TipCamera.X)/Bore.X);
             Check(Bore.X>.98 && FVector2D(Aim.Y,Aim.Z).Size()<.01,
                 TEXT("runtime_pistol_bore_converges_with_center_aim_ray"));
-            Check(FMath::IsNearlyEqual(TipCamera.X,46.,.01) &&
+            Check(FMath::IsNearlyEqual(TipCamera.X,56.,.01) &&
                 FMath::Abs(TipCamera.Y/TipCamera.X-.164)<.001 &&
                 FMath::Abs(TipCamera.Z/TipCamera.X+.1603125)<.001,
                 TEXT("runtime_pistol_matches_supplied_reference_framing"));
@@ -166,8 +166,11 @@ void AERReferenceWeaponProbe::Tick(float DeltaTime)
 #if WITH_EDITOR
             const FTransform Gun=H->FirstPersonRifle->GetComponentTransform();
             const FTransform Palm=H->FirstPersonBody->GetSocketTransform(TEXT("ER_Palm_R"));
+            const FVector GripWrist=Gun.InverseTransformPosition(H->FirstPersonBody->GetBoneLocation(TEXT("hand_r")));
+            const FVector GripKnuckle=Gun.InverseTransformPosition(H->FirstPersonBody->GetBoneLocation(TEXT("middle_01_r")));
+            Check(FMath::Abs(GripWrist.Y)<2. && GripKnuckle.Y>.5 && GripKnuckle.Y<4.,TEXT("runtime_pistol_wrist_behind_grip_and_knuckles_at_flank"));
             const FVector Handle=AERCharacter::GetWeaponSurfaceContact(H->Weapon->Data->Mesh,FVector(-5,100,2),FVector(-5,-100,2),H->Weapon->Data->WeaponIdleAnimation);
-            Check(FVector::Distance(Gun.TransformPosition(Handle),Palm.GetLocation()-Palm.GetUnitAxis(EAxis::Z)*.35)<.05,TEXT("runtime_pistol_handle_seated_in_palm"));
+            Check(FVector::Distance(Gun.TransformPosition(Handle+FVector(-.8,-3.4,-.7)),Palm.GetLocation()-Palm.GetUnitAxis(EAxis::Z)*.35)<.05,TEXT("runtime_pistol_fitted_grip_anchor"));
             auto ThumbPoints=AERCharacter::GetPresentationVertices(H->FirstPersonBody->GetSkeletalMeshAsset(),TEXT("thumb_03_r"));
             ThumbPoints.Sort([](const FVector& A,const FVector& B){return A.SizeSquared()<B.SizeSquared();});
             FVector ThumbLocal=FVector::ZeroVector;
@@ -175,7 +178,7 @@ void AERReferenceWeaponProbe::Tick(float DeltaTime)
             if(ThumbPoints.Num()>=Count)
             {
                 for(int32 I=ThumbPoints.Num()-Count;I<ThumbPoints.Num();++I)ThumbLocal+=ThumbPoints[I]/Count;
-                const FVector Contact=AERCharacter::GetWeaponSurfaceContact(H->Weapon->Data->Mesh,FVector(-5,-100,4.2),FVector(-5,100,4.2),H->Weapon->Data->WeaponIdleAnimation)+FVector(0,-.35,0);
+                const FVector Contact=AERCharacter::GetWeaponSurfaceContact(H->Weapon->Data->Mesh,FVector(-1.5,-100,3.8),FVector(-1.5,100,3.8),H->Weapon->Data->WeaponIdleAnimation)+FVector(0,-.35,0);
                 Check(FVector::Distance(H->FirstPersonBody->GetSocketTransform(TEXT("thumb_03_r")).TransformPosition(ThumbLocal),Gun.TransformPosition(Contact))<.05,TEXT("runtime_pistol_thumb_wraps_grip"));
             }
             else Check(false,TEXT("runtime_pistol_thumb_geometry_available"));

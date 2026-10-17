@@ -2006,3 +2006,37 @@ Sostituita RGD-5 con F1 dal medesimo Grenades.fbx; texture F1 del pacchetto.
 Migrazione setup_f1_grenade.py aggiorna solo mesh e idle modello, mantenendo
 pose mani e parametri HE. Rimossa la mesh sferica Flash; luce del bagliore,
 fumo, detriti e suono Sonniss mantenuti.
+
+### FPS pistol/SMG proportions — 17 October 2026
+
+Pistol muzzle depth increases from46 to51cm while preserving its screen anchor,
+upright grip and150cm barrel convergence. Pistol hand scale increases from.50
+to.56; regenerate the palm attachment and anatomical thumb solve together with
+idle/fire/reload so the handle remains seated in the larger palm. SMG view offset
+moves the complete gun/hand rig6cm forward. Imported geometry, world grips and
+weapon statistics stay unchanged. Regenerate with import_sketchfab_weapons.py
+-ERReferenceOnly=Pistol,SMG; saved/runtime pistol depth checks now expect51cm.
+Validation: Editor Mac Development build passes with -DisableUnity (ordinary
+unity build hits a pre-existing ERTeamGallery Count/ERSmokeCloud Count shadow).
+Metal two-peer test-reference-weapons.py --render passes, including runtime
+palm/thumb/framing checks, all slots and reload captures. Inspected Pistol Alpha,
+Omega idle/reload and SMG captures. Saved pistol/SMG geometry and animation checks
+pass; the broader saved audit also reports existing HE/Launcher source armor-ratio
+expectation mismatches and was interrupted by incidental Blueprint restoration.
+
+### Pistol grip reference revision — 17 October 2026
+
+The supplied11:39 references supersede the earlier side-on grip. The old palm
+socket fit left middle knuckles about5.8cm from the weapon centre, despite an
+exact thumb-tip match. Seat the whole hand(-.8,-3.4,-.7)cm relative to that frame,
+use.62 hand scale, and place the elbow behind/below the wrist through the hidden
+shoulder solver. Extend the thumb along the opposite flank at weapon x=-1.5,
+z=3.8 instead of curling it back across the rear. Keep phalanx lengths intact.
+Muzzle depth56cm and350cm convergence reduce the side angle and retain the
+screen anchor. Partial arsenal regeneration now skips unchanged catalog Blueprint
+saves. Source reference captures live in the private weapons References folder.
+Runtime/saved checks also require the wrist behind the grip and middle knuckles
+within4cm of its centre, catching the old floating hand placement.
+Final validation: Mac Editor build passes; two-peer Metal reference test passes
+including the new wrist/knuckle checks, palm anchor, thumb contact, framing and
+all reload captures. Visually inspected final Alpha/Omega idle and pistol reload.

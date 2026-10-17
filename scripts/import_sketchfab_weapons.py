@@ -189,7 +189,7 @@ for profile in sorted(profiles,key=lambda item:item['key']!='Assault'):
     legacy=ue.load_asset('/Game/EclipseRecoil/Weapons/LowPoly/DA_'+profile['legacy'])
     if not legacy:raise RuntimeError('Missing fitted legacy pose '+profile['legacy'])
     motion=json.loads((directory/'derived'/('motion-'+key+'.json')).read_text())
-    hand_scale=.5 if profile.get('one') else .72
+    hand_scale=pistol_tools['HAND_SCALE'] if key=='Pistol' else .5 if profile.get('one') else .72
     support=motion['support']
     idle_path=folder+'/'+key+'/A_'+key+'_Hands_Idle'
     pose_options={
@@ -223,6 +223,7 @@ for profile in sorted(profiles,key=lambda item:item['key']!='Assault'):
         damage=profile.get('damage',0),shot_interval=profile.get('interval',.1),armor_ratio=1.6 if profile.get('payload') in ('HE','LAUNCHED_HE') else 2,
         hitscan_range=profile.get('range',60000),range_modifier=1,explosion_radius=600 if profile.get('payload') in ('HE','LAUNCHED_HE') else 350,explosion_inner_radius=200,fuse_duration=3.5 if profile.get('payload') in ('HE','LAUNCHED_HE','SMOKE') else 2.5,
         projectile_speed=profile.get('speed',30000),projectile_life=8,bloom_per_shot_degrees=0 if profile.get('one') else .12)
+    if key=='SMG':settings['view_offset']+=ue.Vector(6,0,0)
     if profile.get('row'):settings.update(rows[profile['row']])
     settings.update(runpy.run_path(str(project/'scripts/scope_profiles.py'))['SCOPE_PROFILES'].get(key,{}))
     if 'iron_sight_offset' in settings:settings['iron_sight_offset']=ue.Vector(*settings['iron_sight_offset'])
@@ -262,7 +263,7 @@ for profile in sorted(profiles,key=lambda item:item['key']!='Assault'):
 catalog.sort(key=lambda data:slots[data.get_name().removeprefix('DA_')])
 report.sort(key=lambda item:slots[item['key']])
 if len(catalog)!=10 and not staging:raise RuntimeError('Incomplete catalog; keeping current loadout')
-if not staging:
+if not staging and not selected_keys:
     for path in ['/Game/EclipseRecoil/Core/BP_ERCharacter','/Game/EclipseRecoil/Core/BP_ERTrainingTarget']:
         bp=ue.load_asset(path);ue.get_default_object(bp.generated_class()).set_editor_property('reference_arsenal',catalog)
         ue.BlueprintEditorLibrary.compile_blueprint(bp);save(bp)
