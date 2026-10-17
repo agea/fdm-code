@@ -4,9 +4,11 @@
 #include "ERPlayerController.h"
 #include "ERCharacter.h"
 #include "ERWeapon.h"
+#include "ERWeaponBallistics.h"
 #include "ERBlockCombat.h"
 #include "ERMatch.h"
 #include "Camera/CameraComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
@@ -18,6 +20,14 @@
 #include "Misc/App.h"
 #include "Misc/Paths.h"
 #include "UnrealClient.h"
+// The breach keeps its bottom course: a remote pawn steps over it and is then
+// teleported onto it, so server corrections are relative to a runtime block group.
+static const FERBlockId BreachStub{5,4,0};
+static bool StandsOnStub(const AERProceduralMap* Map,const AERCharacter* C)
+{
+    FERBlockId Id;const auto* Move=C->GetCharacterMovement();const auto T=Map->GetBlockTransform(BreachStub);
+    return Move->IsMovingOnGround() && Map->ResolveHit(Move->CurrentFloor.HitResult,Id) && Id==BreachStub && FVector::Dist2D(C->GetActorLocation(),T.GetLocation())<30;
+}
 AERBlockNetworkProbe::AERBlockNetworkProbe()
 {
     bReplicates=true;bAlwaysRelevant=true;PrimaryActorTick.bCanEverTick=true;SetNetUpdateFrequency(20);
@@ -58,6 +68,8 @@ bool AERBlockNetworkProbe::CollisionParity() const
 {
     if(!Map || !Map->ValidateMappings() || Map->GetInstanceCount()!=Map->BlockWorld->GetBlocks().Num()-Map->BlockWorld->GetRemovedCount())return false;
     FCollisionQueryParams Q(SCENE_QUERY_STAT(ERBlockNetworkParity),false);FHitResult Hit;
+    // Block parity only; a pawn standing in the breach must not count as a block.
+    for(TActorIterator<ACharacter> It(GetWorld());It;++It)Q.AddIgnoredActor(*It);
     const auto& Blocks=Map->BlockWorld->GetBlocks();
     for(int32 I=0;I<Blocks.Num();I+=13)
     {
@@ -125,6 +137,14 @@ void AERBlockNetworkProbe::ClientTick(float DeltaSeconds)
     {
         if(Reports.Contains(FString::FromInt(Phase)))return;
         bool Passed=CollisionParity();
+        if(Phase==5 && InitialRole)
+        {
+            // Give the teleport correction time to arrive (40 ms lag under --loss).
+            if(PhaseElapsed<1.5f)return;
+            const auto* Base=C->GetCharacterMovement()->GetMovementBase();
+            const bool OnStub=StandsOnStub(Map,C);Passed&=OnStub;
+            UE_LOG(LogTemp,Display,TEXT("ER_BLOCK_NET_CLIENT_%s phase=5 role=%s block_movement_base pos=%s base=%s"),OnStub ? TEXT("PASS"):TEXT("FAIL"),*Role,*C->GetActorLocation().ToString(),Base ? *Base->GetName():TEXT("none"));
+        }
         if(Phase==5)Passed&=Map->BlockWorld->GetDetachedCount()==9;
         if(Phase==6 || Phase==10)Passed&=Map->BlockWorld->GetRemovedCount()==0;
         if(Phase==9)Passed&=Map->GetInstanceCount()==0;
@@ -168,17 +188,26 @@ void AERBlockNetworkProbe::Tick(float DeltaSeconds)
     if(Phase==1 && Reported(TEXT("Initial"),1) && C->Weapon->AuthorizedShotCount>ShotsBefore)
     {
         Check(C->Weapon->AuthorizedShotCount==ShotsBefore+1 && Map->BlockWorld->Find(ShotId)->State==EERBlockState::Destroyed,TEXT("remote_authorized_weapon_destroys_block"));
-        TArray<FERBlockDamageRequest> Breach;for(int32 Col=3;Col<=5;++Col)for(int32 Row=0;Row<8;++Row)Breach.Add({{5,Col,Row},0,true});Map->ApplyDamageBatch(Breach);
+        TArray<FERBlockDamageRequest> Breach;for(int32 Col=3;Col<=5;++Col)for(int32 Row=1;Row<=8;++Row)Breach.Add({{5,Col,Row},0,true});Map->ApplyDamageBatch(Breach);
         auto P=Map->GetBlockTransform({5,4,3}).GetLocation();P.Z=100;FireFrom=P-FVector(100,0,0);WalkEnd=P+FVector(100,0,0);FireAim=FRotator::ZeroRotator;
-        Place(Initial.Get(),FireFrom,FireAim);Place(Host.Get(),P+FVector(220,0,0),FRotator(0,180,0));CastChecked<AERCharacter>(Host->GetPawn())->Health->ProtectionEndServerTime=0;
+        Place(Initial.Get(),FireFrom,FireAim);Place(Host.Get(),P+FVector(220,0,0),FRotator(0,180,0));{auto* H=CastChecked<AERCharacter>(Host->GetPawn())->Health.Get();H->ProtectionEndServerTime=0;H->Health=100;H->Armor=100;}
         ShotsBefore=C->Weapon->AuthorizedShotCount;Advance(2);
     }
     else if(Phase==2 && Reported(TEXT("Initial"),2) && C->Weapon->AuthorizedShotCount>ShotsBefore)
-    {Check(CastChecked<AERCharacter>(Host->GetPawn())->Health->Health==64,TEXT("remote_hitscan_through_replicated_breach"));Advance(3);}
+    {
+        UE_LOG(LogTemp,Display,TEXT("ER_BLOCK_NET_BREACH_SHOT host_health=%.1f %s last=%s"),CastChecked<AERCharacter>(Host->GetPawn())->Health->Health,*Map->LastCombat,*Map->LastHit);
+        // One torso rifle hit with the reference loadout's kevlar and source range falloff.
+        const auto* Gun=C->Weapon.Get();float Armor=100;
+        const float Expected=ERWeaponBallistics::AbsorbArmor(ERWeaponBallistics::AtRange(Gun->Data->Damage,Gun->Data->RangeModifier,
+            FVector::Distance(Gun->LastShotTraceStart,Gun->LastShotTraceEnd)),Gun->Data->ArmorRatio,Armor);
+        Check(FMath::IsNearlyEqual(CastChecked<AERCharacter>(Host->GetPawn())->Health->Health,100-Expected,.05f),TEXT("remote_hitscan_through_replicated_breach"));Advance(3);
+    }
     else if(Phase==3 && Reported(TEXT("Initial"),3))
     {
         Check(FVector::Dist2D(C->GetActorLocation(),WalkEnd)<60 && C->GetActorLocation().Z>65,TEXT("authoritative_remote_breach_crossing"));
-        TArray<FERBlockDamageRequest> Ring;for(int32 Col=3;Col<=7;++Col)for(int32 Row=5;Row<=9;++Row)if(Col==3 || Col==7 || Row==5 || Row==9)Ring.Add({{7,Col,Row},0,true});Map->ApplyDamageBatch(Ring);Advance(4);
+        TArray<FERBlockDamageRequest> Ring;for(int32 Col=3;Col<=7;++Col)for(int32 Row=5;Row<=9;++Row)if(Col==3 || Col==7 || Row==5 || Row==9)Ring.Add({{7,Col,Row},0,true});Map->ApplyDamageBatch(Ring);
+        const auto Stub=Map->GetBlockTransform(BreachStub);
+        Place(Initial.Get(),Stub.GetLocation()+FVector(0,0,Stub.GetScale3D().Z*50+C->GetCapsuleComponent()->GetScaledCapsuleHalfHeight()+2),FRotator::ZeroRotator);Advance(4);
     }
     else if(Phase==4 && !Map->IsSupportPending())
     {Check(Map->BlockWorld->GetDetachedCount()==9 && CollisionParity(),TEXT("authority_collapse_and_collision"));Advance(5,45);}
@@ -187,6 +216,7 @@ void AERBlockNetworkProbe::Tick(float DeltaSeconds)
         if(Reported(TEXT("Initial"),5) && !LateAnnounced){LateAnnounced=true;UE_LOG(LogTemp,Display,TEXT("ER_BLOCK_NET_READY_FOR_LATE_JOIN"));}
         if(!Reported(TEXT("Initial"),5) || !Reported(TEXT("Late"),5))return;
         Check(Late.IsValid() && Map->ValidateMappings(),TEXT("late_join_matches_damaged_collapsed_snapshot"));
+        Check(StandsOnStub(Map,C),TEXT("authoritative_remote_rests_on_block_group"));
         Map->LayoutConfig.Seed=7919;Map->LayoutConfig.Floors=3;Check(Map->Regenerate(),TEXT("authority_epoch_regeneration"));Advance(6,30);
     }
     else if(Phase==6 && Reported(TEXT("Initial"),6) && Reported(TEXT("Late"),6))

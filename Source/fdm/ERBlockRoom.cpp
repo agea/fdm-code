@@ -1,6 +1,8 @@
 #include "ERBlockRoom.h"
 #include "ERBlockDebris.h"
 #include "ERBlockNetPage.h"
+#include "ERCellNetShard.h"
+#include "Components/DynamicMeshComponent.h"
 #include "ERProceduralMap.h"
 #include "ERPlayerController.h"
 #include "Net/UnrealNetwork.h"
@@ -55,10 +57,12 @@ bool AERBlockRoom::Regenerate()
 {
     TRACE_CPUPROFILER_EVENT_SCOPE(ERBlock_Regenerate);
     const double Start = FPlatformTime::Seconds();
-    if ((!CanMutateBlocks() && !bApplyingNetwork) || !BlockMesh || !GenerateLogicalWorld()) return false;
+    if ((!CanMutateBlocks() && !bApplyingNetwork) || !BlockMesh || !(bCellMode ? GenerateCells() : GenerateLogicalWorld())) return false;
+    if (!bCellMode) CellWorld.Reset();
     ClearCollapse();
-    bGraphValid=HasAuthority() && Collapse.Enabled && SupportGraph.Build(BlockWorld->GetBlocks(),Collapse.GroundAnchors,Collapse.GroundZ);
-    if (HasAuthority() && Collapse.Enabled && !bGraphValid) UE_LOG(LogTemp,Warning,TEXT("ER_BLOCK_SUPPORT_UNAVAILABLE unsupported geometry or graph budget"));
+    // Support/collapse for 5cm cells is phase 2; cell worlds keep ordinary damage only.
+    bGraphValid=HasAuthority() && Collapse.Enabled && !bCellMode && SupportGraph.Build(BlockWorld->GetBlocks(),Collapse.GroundAnchors,Collapse.GroundZ);
+    if (HasAuthority() && Collapse.Enabled && !bGraphValid) UE_LOG(LogTemp,Warning,TEXT("ER_BLOCK_SUPPORT_UNAVAILABLE %s"),bCellMode ? TEXT("5cm cell mode has no support graph yet") : TEXT("unsupported geometry or graph budget"));
     RebuildProfile={}; GenerationProfile={};
     GenerationProfile.LogicalMs=(FPlatformTime::Seconds()-Start)*1000;
     const double GroupStart=FPlatformTime::Seconds();
@@ -66,8 +70,11 @@ bool AERBlockRoom::Regenerate()
     {
         RemoveInstanceComponent(Group.Mesh);
         Group.Mesh->DestroyComponent();
+        // Free the deterministic name before the replacement group claims it.
+        Group.Mesh->Rename(*MakeUniqueObjectName(this, UInstancedStaticMeshComponent::StaticClass(), TEXT("DeadBlocks")).ToString(), nullptr, REN_DontCreateRedirectors | REN_NonTransactional);
     }
     Groups.Reset(); Instances.Reset(); ComponentGroups.Reset(); CachedChunks=0;
+    ClearCells();
     Instances.Reserve(BlockWorld->GetBlocks().Num());
     LastHit = TEXT("none"); LastCombat = TEXT("none"); LastUpdateMs = 0; LastGroupsRebuilt = 0;
     ClearOwnedEffects();
@@ -84,9 +91,12 @@ bool AERBlockRoom::Regenerate()
             Index = Groups.AddDefaulted(); GroupLookup.Add(Key,Index); Chunks.Add(Block.Chunk);
             auto& Group = Groups[Index];
             Group.Chunk = Block.Chunk; Group.Material = Block.Material;
-            Group.Mesh = NewObject<UInstancedStaticMeshComponent>(this);
+            Group.Mesh = NewObject<UInstancedStaticMeshComponent>(this, *FString::Printf(TEXT("Blocks_%d_%d_%d_M%d"), Key.Chunk.X, Key.Chunk.Y, Key.Chunk.Z, int32(Key.Material)));
             AddInstanceComponent(Group.Mesh);
             Group.Mesh->SetMobility(EComponentMobility::Movable);
+            // Movable groups become pawns' movement bases: corrections carry them by
+            // name, identical on host and clients for the same layout.
+            Group.Mesh->SetNetAddressable();
             Group.Mesh->SetupAttachment(RootComponent);
             Group.Mesh->SetStaticMesh(BlockMesh);
             Group.Mesh->SetCollisionProfileName(TEXT("BlockAll"));
@@ -99,10 +109,18 @@ bool AERBlockRoom::Regenerate()
     CachedChunks=Chunks.Num();
     GenerationProfile.GroupingMs=(FPlatformTime::Seconds()-GroupStart)*1000;
     for (int32 Index = 0; Index < Groups.Num(); ++Index) RebuildGroup(Index);
+    if (bCellMode)
+    {
+        const double CellStart=FPlatformTime::Seconds();
+        BuildCellComponents(); CachedChunks=CellWorld.GetChunks().Num();
+        RebuildProfile.AddMs+=(FPlatformTime::Seconds()-CellStart)*1000;
+        GenerationProfile.MeshMs=RebuildProfile.MeshMs; GenerationProfile.CollisionMs=RebuildProfile.CollisionMs;
+        GenerationProfile.Quads=RebuildProfile.Quads; GenerationProfile.Boxes=RebuildProfile.Boxes;
+    }
     GenerationProfile.ClearMs=RebuildProfile.ClearMs; GenerationProfile.AddMs=RebuildProfile.AddMs; GenerationProfile.MappingMs=RebuildProfile.MappingMs; GenerationProfile.Groups=RebuildProfile.Groups; GenerationProfile.Uploaded=RebuildProfile.Uploaded;
     GenerationMs = float((FPlatformTime::Seconds() - Start) * 1000);
     GenerationProfile.TotalMs=GenerationMs;
-    if (HasAuthority() && GetNetMode()!=NM_Standalone) PublishNetworkGeneration();
+    if (HasAuthority() && GetNetMode()!=NM_Standalone) { if (bCellMode) PublishCellGeneration(); else PublishNetworkGeneration(); }
     UE_LOG(LogTemp, Display, TEXT("ER_BLOCK_GENERATED %s"), *GetStatistics());
     return true;
 }
@@ -208,7 +226,7 @@ FERBlockBatchResult AERBlockRoom::ApplyDamageBatch(const TArray<FERBlockDamageRe
 {
     TRACE_CPUPROFILER_EVENT_SCOPE(ERBlock_ApplyBatch);
     FERBlockBatchResult Result;
-    if (!CanMutateBlocks()) return Result;
+    if (!CanMutateBlocks() || bCellMode) return Result;
     const double Start = FPlatformTime::Seconds();
     RebuildProfile={}; UpdateProfile={};
     TMap<FERBlockId, FERBlockDamageRequest> Aggregated;
@@ -234,7 +252,21 @@ FERBlockBatchResult AERBlockRoom::ApplyDamageBatch(const TArray<FERBlockDamageRe
         ++Result.Damaged;
         const auto* Block = BlockWorld->Find(Id);
         if (Block->State == EERBlockState::Destroyed) { Dirty.Add(Group); ++Result.Destroyed; }
-        LastHit = FString::Printf(TEXT("%s HP=%.0f material=%d"), *Id.ToString(), Block->Health, int32(Block->Material));
+        LastHit = FString::Printf(TEXT("%s HP=%.1f material=%d"), *Id.ToString(), Block->Health, int32(Block->Material));
+    }
+    // Glass alone breaks as a pane, after every request has been applied.
+    TArray<FERBlockId> PaneSections;
+    for (const auto& Id : Order)
+    {
+        const auto* Block = BlockWorld->Find(Id);
+        if (Block && Block->Material == EERBlockMaterial::Glass && Block->State == EERBlockState::Destroyed)
+            for (const auto& Section : BlockWorld->CollectGlassPane(Id)) PaneSections.AddUnique(Section);
+    }
+    for (const auto& Id : PaneSections)
+    {
+        const auto* Location = Instances.Find(Id);
+        if (!Location || !BlockWorld->DestroyBlock(Id)) continue;
+        ++Result.Damaged; ++Result.Destroyed; Dirty.Add(Location->Group); Order.Add(Id);
     }
     TArray<int32> GroupsToUpdate = Dirty.Array(); GroupsToUpdate.Sort();
     UpdateProfile.LogicalMs=(FPlatformTime::Seconds()-Start)*1000;
@@ -255,14 +287,23 @@ FTransform AERBlockRoom::GetBlockTransform(const FERBlockId& Id) const
 }
 FERBlockBatchResult AERBlockRoom::ApplyWorldExplosion(UWorld* World, const FVector& Origin, float Radius, float Damage, AActor* IgnoredActor)
 {
+    if (!FMath::IsFinite(Radius) || Radius <= 0 || !FMath::IsFinite(Damage) || Damage <= 0) return {};
+    return ApplyWorldExplosion(World, Origin, FERBlockExplosionProfile::Linear(Radius, Damage), IgnoredActor);
+}
+FERBlockBatchResult AERBlockRoom::ApplyWorldExplosion(UWorld* World, const FVector& Origin, const FERBlockExplosionProfile& Profile, AActor* IgnoredActor)
+{
     TRACE_CPUPROFILER_EVENT_SCOPE(ERBlock_Explosion);
     const double Start=FPlatformTime::Seconds();
     FERBlockBatchResult Result;
-    if (!World || World->GetNetMode() == NM_Client || Origin.ContainsNaN() ||
-        !FMath::IsFinite(Radius) || Radius <= 0 || Radius > 5000 || !FMath::IsFinite(Damage) || Damage <= 0) return Result;
-    struct FPending { AERBlockRoom* Room; TArray<FERBlockDamageRequest> Damage; };
+    if (!World || World->GetNetMode() == NM_Client || Origin.ContainsNaN() || !Profile.IsValid() || Profile.BaseDamage <= 0) return Result;
+    const float Radius = Profile.OuterRadius;
+    struct FPending { AERBlockRoom* Room; TArray<FERBlockDamageRequest> Damage; TMap<FERCellId, float> Cells; };
     TArray<FPending> Pending;
     FCollisionQueryParams Query(SCENE_QUERY_STAT(ERBlockExplosion), false, IgnoredActor);
+    // Cell walls attenuate through their own voxel exposure, not as static occluders.
+    FCollisionQueryParams CellQuery(Query);
+    for (TActorIterator<AERBlockRoom> It(World); It; ++It)
+        if (It->IsCellMode()) { TArray<UPrimitiveComponent*> Components; It->GetCellComponents(Components); for (auto* C : Components) CellQuery.AddIgnoredComponent(C); }
     // All rooms are sampled against the unchanged collision snapshot first.
     // Destruction of the cover during this blast never exposes another room.
     for (TActorIterator<AERBlockRoom> It(World); It; ++It)
@@ -272,6 +313,7 @@ FERBlockBatchResult AERBlockRoom::ApplyWorldExplosion(UWorld* World, const FVect
         const double Scale = Room->GetActorScale3D().GetAbs().GetMin();
         if (Scale < .0001) continue;
         auto& Event = Pending.AddDefaulted_GetRef(); Event.Room = Room;
+        if (Room->IsCellMode()) { Room->CollectCellExplosion(Origin, Profile, CellQuery, Event.Cells, Result); continue; }
         const double QueryStart=FPlatformTime::Seconds();
         const auto Candidates = Room->BlockWorld->QuerySphere(Room->GetActorTransform().InverseTransformPosition(Origin), float(Radius / Scale));
         Result.QueryMs+=(FPlatformTime::Seconds()-QueryStart)*1000;
@@ -281,37 +323,61 @@ FERBlockBatchResult AERBlockRoom::ApplyWorldExplosion(UWorld* World, const FVect
             const auto* Block = Room->BlockWorld->Find(Id);
             if (Block->bIndestructible) continue;
             const FTransform Transform = Room->GetBlockTransform(Id);
-            const FVector Local = Transform.InverseTransformPosition(Origin);
-            const FVector Closest = Transform.TransformPosition(FVector(FMath::Clamp(Local.X, -50., 50.), FMath::Clamp(Local.Y, -50., 50.), FMath::Clamp(Local.Z, -50., 50.)));
-            const double Distance = FVector::Distance(Origin, Closest);
+            // Distance is measured to the cell centre, as the preset specifies.
+            const double Distance = FVector::Distance(Origin, Transform.GetLocation());
             if (Distance >= Radius) continue;
+            const auto* Material = Room->MaterialCatalog->Find(Block->Material);
+            if (!Material) continue;
             ++Result.Candidates;
-            FHitResult Cover; FERBlockId CoverId;
             // Sample the exposed face, not the centre deep in the wall: a ray
             // to the centre would meet adjacent coplanar bricks first. Keep the
             // other coordinates inside the face to avoid shared-edge ambiguity.
+            const FVector Local = Transform.InverseTransformPosition(Origin);
             FVector Sample(FMath::Clamp(Local.X, -49., 49.), FMath::Clamp(Local.Y, -49., 49.), FMath::Clamp(Local.Z, -49., 49.));
             const int32 Face = FMath::Abs(Local.Y) > 50 ? 1 : FMath::Abs(Local.X) > 50 ? 0 : FMath::Abs(Local.Z) > 50 ? 2 : INDEX_NONE;
             if (Face != INDEX_NONE) Sample[Face] = Local[Face] > 0 ? 49.9999 : -49.9999;
             ++Result.CoverTraces;
-            const bool bCover = World->LineTraceSingleByObjectType(Cover, Origin, Transform.TransformPosition(Sample), FCollisionObjectQueryParams(ECC_WorldStatic), Query);
-            if (bCover && !(Room->ResolveHit(Cover, CoverId) && CoverId == Id)) { ++Result.Occluded; continue; }
-            const auto* Profile = Room->MaterialCatalog->Find(Block->Material);
-            if (Profile) Event.Damage.Add({Id, float(FMath::Min(double(TNumericLimits<float>::Max()), Damage * (1 - Distance / Radius) * Profile->ExplosionDamageScale)), false});
+            // Object queries report every hit along the path. Each intact
+            // shielding cell passes only its transmission share; anything that
+            // is not a destructible cell fully occludes, as before.
+            TArray<FHitResult> Hits;
+            World->LineTraceMultiByObjectType(Hits, Origin, Transform.TransformPosition(Sample), FCollisionObjectQueryParams(ECC_WorldStatic), Query);
+            double Exposure = 1; int32 Layers = 0;
+            TArray<TPair<const AERBlockRoom*, FERBlockId>> Crossed;
+            for (const auto& Cover : Hits)
+            {
+                const auto* CoverRoom = Cast<AERBlockRoom>(Cover.GetActor());
+                FERBlockId CoverId;
+                if (CoverRoom == Room && Room->ResolveHit(Cover, CoverId) && CoverId == Id) continue;
+                if (!CoverRoom || !CoverRoom->MaterialCatalog || !CoverRoom->ResolveHit(Cover, CoverId)) { Exposure = 0; break; }
+                if (Crossed.Contains(TPair<const AERBlockRoom*, FERBlockId>(CoverRoom, CoverId))) continue;
+                Crossed.Emplace(CoverRoom, CoverId);
+                const auto* Shield = CoverRoom->BlockWorld->Find(CoverId);
+                const auto* ShieldMaterial = CoverRoom->MaterialCatalog->Find(Shield->Material);
+                if (Shield->bIndestructible || !ShieldMaterial || ++Layers > Profile.MaxShieldingLayers) { Exposure = 0; break; }
+                Exposure *= ShieldMaterial->ExplosionTransmission;
+                if (Exposure <= 1.e-6) { Exposure = 0; break; }
+            }
+            if (Exposure <= 0) { ++Result.Occluded; continue; }
+            if (Exposure < 1) ++Result.Attenuated;
+            const double CellDamage = ERBlockCombat::ExplosionCellDamage(Profile, Distance, Material->ExplosionDamageScale, Exposure);
+            if (CellDamage > 0) Event.Damage.Add({Id, float(FMath::Min(double(TNumericLimits<float>::Max()), CellDamage)), false});
         }
         Result.ExposureMs+=(FPlatformTime::Seconds()-ExposureStart)*1000;
     }
+    // Damage is accumulated from the snapshot, then removals are applied
+    // together. Excess damage never propagates to neighbouring cells.
     const double MutationStart=FPlatformTime::Seconds();
     for (auto& Event : Pending)
     {
-        const auto Batch = Event.Room->ApplyDamageBatch(Event.Damage);
+        const auto Batch = Event.Room->IsCellMode() ? Event.Room->ApplyCellBatch(Event.Cells) : Event.Room->ApplyDamageBatch(Event.Damage);
         Result.Damaged += Batch.Damaged; Result.Destroyed += Batch.Destroyed; Result.GroupsRebuilt += Batch.GroupsRebuilt;
     }
     Result.MutationMs=(FPlatformTime::Seconds()-MutationStart)*1000;
     Result.TotalMs=(FPlatformTime::Seconds()-Start)*1000;
     for (auto& Event : Pending)
-        Event.Room->LastCombat = FString::Printf(TEXT("blast candidates=%d covered=%d damaged=%d removed=%d rebuilt=%d"), Result.Candidates, Result.Occluded, Result.Damaged, Result.Destroyed, Result.GroupsRebuilt);
-    UE_LOG(LogTemp, Display, TEXT("ER_BLOCK_EXPLOSION candidates=%d covered=%d damaged=%d removed=%d rebuilt=%d"), Result.Candidates, Result.Occluded, Result.Damaged, Result.Destroyed, Result.GroupsRebuilt);
+        Event.Room->LastCombat = FString::Printf(TEXT("blast candidates=%d covered=%d attenuated=%d damaged=%d removed=%d rebuilt=%d"), Result.Candidates, Result.Occluded, Result.Attenuated, Result.Damaged, Result.Destroyed, Result.GroupsRebuilt);
+    UE_LOG(LogTemp, Display, TEXT("ER_BLOCK_EXPLOSION candidates=%d covered=%d attenuated=%d damaged=%d removed=%d rebuilt=%d ms=%.2f"), Result.Candidates, Result.Occluded, Result.Attenuated, Result.Damaged, Result.Destroyed, Result.GroupsRebuilt, Result.TotalMs);
     return Result;
 }
 bool AERBlockRoom::CanShowEffects(const FVector& Position) const
@@ -324,14 +390,18 @@ void AERBlockRoom::SpawnBlockImpact(const FERBlockId& Id, const FVector& Positio
 {
     if(HasAuthority() && GetNetMode()!=NM_Standalone && !bInCosmeticMulticast)
     {MulticastBlockImpact(Network.Epoch,Id,Position,Normal);return;}
-    if (!CanShowEffects(Position) || MaxImpactEffects <= 0 || Normal.ContainsNaN() || Normal.IsNearlyZero()) return;
     const auto* Block = BlockWorld->Find(Id);
     const auto* Profile = Block && MaterialCatalog ? MaterialCatalog->Find(Block->Material) : nullptr;
-    if (!Profile) return;
+    if (Profile) SpawnMaterialImpact(*Profile, Block->IsAttached(), Position, Normal);
+}
+void AERBlockRoom::SpawnMaterialImpact(const FERBlockMaterialProperties& Material, bool bDecal, const FVector& Position, const FVector& Normal)
+{
+    if (!CanShowEffects(Position) || MaxImpactEffects <= 0 || Normal.ContainsNaN() || Normal.IsNearlyZero()) return;
+    const auto* Profile = &Material;
     const int32 Budget = FMath::Clamp(MaxImpactEffects, 0, 64);
     ImpactDecals.RemoveAll([](const auto& Item) { return !Item.IsValid(); });
     ImpactEmitters.RemoveAll([](const auto& Item) { return !Item.IsValid() || !Item->IsActive(); });
-    if (Block->IsAttached() && Profile->ImpactDecal)
+    if (bDecal && Profile->ImpactDecal)
     {
         while (ImpactDecals.Num() >= Budget) { ImpactDecals[0]->DestroyComponent(); ImpactDecals.RemoveAt(0); }
         if (auto* Decal = UGameplayStatics::SpawnDecalAtLocation(GetWorld(), Profile->ImpactDecal, FVector(.4f, 1.5f, 1.5f), Position + Normal * .05f, Normal.Rotation(), 8))
@@ -360,6 +430,14 @@ float AERBlockRoom::TakeDamage(float Amount, const FDamageEvent& Event, AControl
 {
     if (!Event.IsOfType(FPointDamageEvent::ClassID)) return 0;
     const auto& Point = static_cast<const FPointDamageEvent&>(Event);
+    if (bCellMode)
+    {
+        FERCellId Cell;
+        if (!ResolveCell(Point.HitInfo, Cell)) return 0;
+        const float Before = CellWorld.GetHealth(Cell);
+        TMap<FERCellId, float> Damage; Damage.Add(Cell, Amount);
+        return ApplyCellBatch(Damage).Damaged > 0 ? Before - CellWorld.GetHealth(Cell) : 0;
+    }
     FERBlockId Id;
     if (!ResolveHit(Point.HitInfo, Id)) return 0;
     const float Previous = BlockWorld->Find(Id)->Health;
@@ -395,6 +473,13 @@ int32 AERBlockRoom::GetChunkCount() const
 }
 FString AERBlockRoom::GetStatistics() const
 {
+    if (bCellMode)
+    {
+        int32 Quads=0,Boxes=0; for (int32 Q:ChunkQuads) Quads+=Q; for (int32 B:ChunkBoxes) Boxes+=B;
+        return FString::Printf(TEXT("%s resolution=%.0fcm cells=%lld alive=%lld destroyed=%lld panels=%d chunks=%d quads=%d boxes=%d generation=%.2fms update=%.2fms chunks_updated=%d mesh=%.2fms collision=%.2fms"),
+            *GetLayoutStatistics(), CellSettings.CellSize, CellWorld.GetCellCount(), CellWorld.GetCellCount()-CellWorld.GetRemovedCount(), CellWorld.GetRemovedCount(),
+            CellWorld.GetPanels().Num(), CellWorld.GetChunks().Num(), Quads, Boxes, GenerationMs, LastUpdateMs, LastGroupsRebuilt, UpdateProfile.MeshMs, UpdateProfile.CollisionMs);
+    }
     int32 Debris=0,Physics=0;GetDebrisCounts(Debris,Physics);
     return FString::Printf(TEXT("%s blocks=%d alive=%d destroyed=%d detached=%d chunks=%d groups=%d instances=%d generation=%.2fms update=%.2fms groups_updated=%d debris=%d physics=%d support=%.2fms pending=%d"),
         *GetLayoutStatistics(), BlockWorld->GetBlocks().Num(), Instances.Num(), BlockWorld->GetDestroyedCount(),BlockWorld->GetDetachedCount(), GetChunkCount(), Groups.Num(), Instances.Num(), GenerationMs, LastUpdateMs, LastGroupsRebuilt,Debris,Physics,LastSupportMs,bSupportPending);
@@ -407,11 +492,30 @@ FERBlockMemoryProfile AERBlockRoom::GetMemoryProfile() const
     auto PageBytes=[](const AERBlockNetPage* P){return P ? P->State.Health.GetAllocatedSize()+P->State.States.GetAllocatedSize():SIZE_T(0);};
     if(HasAuthority()){for(const auto& P:AuthorityPages)Result.NetworkBytes+=PageBytes(P.Get());}
     else {for(const auto& P:ReceivedPages)Result.NetworkBytes+=PageBytes(P.Value.Get());}
+    Result.NetworkBytes+=AuthorityShards.GetAllocatedSize()+ReceivedShards.GetAllocatedSize()+AppliedChunkRevisions.GetAllocatedSize();
+    if(HasAuthority()){for(const auto& S:AuthorityShards)if(S.IsValid())Result.NetworkBytes+=S->GetPayloadBytes();}
+    else {for(const auto& S:ReceivedShards)if(S.Value.IsValid())Result.NetworkBytes+=S.Value->GetPayloadBytes();}
     Result.SupportBytes=SupportGraph.GetAllocatedBytes()+OwnedDebris.GetAllocatedSize();
     GetDebrisCounts(Result.Debris,Result.SimulatingDebris);
     Result.LogicalBytes=BlockWorld->GetStorageBytes(); Result.LayoutBytes=GetLayoutBytes();
     Result.MappingBytes=Groups.GetAllocatedSize()+Instances.GetAllocatedSize()+ComponentGroups.GetAllocatedSize()+ImpactDecals.GetAllocatedSize()+ImpactEmitters.GetAllocatedSize()+OwnedBursts.GetAllocatedSize();
     for (const auto& Group:Groups) Result.MappingBytes+=Group.Members.GetAllocatedSize()+Group.InstanceIds.GetAllocatedSize();
+    if (bCellMode)
+    {
+        Result.LogicalBytes=CellWorld.GetAllocatedBytes();
+        Result.MappingBytes+=CellMeshes.GetAllocatedSize()+CellComponentChunks.GetAllocatedSize()+ChunkQuads.GetAllocatedSize()+ChunkBoxes.GetAllocatedSize();
+        Result.Cells=CellWorld.GetCellCount(); Result.RemovedCells=CellWorld.GetRemovedCount();
+        for (int32 I=0;I<CellMeshes.Num();++I)
+        {
+            if (!CellMeshes[I]) continue;
+            // CPU mesh copy; GPU vertex/index buffers are outside tracked memory.
+            FResourceSizeEx Size(EResourceSizeMode::Exclusive); CellMeshes[I]->GetResourceSizeEx(Size);
+            Result.InstanceResourceBytes+=Size.GetTotalMemoryBytes();
+            CellMeshes[I]->ProcessMesh([&Result](const UE::Geometry::FDynamicMesh3& Mesh){Result.InstanceResourceBytes+=Mesh.GetByteCount();});
+            if (CellMeshes[I]->GetBodyInstance() && CellMeshes[I]->GetBodyInstance()->IsValidBodyInstance()) ++Result.CollisionBodies;
+            Result.Quads+=ChunkQuads[I]; Result.CollisionBoxes+=ChunkBoxes[I];
+        }
+    }
     TInlineComponentArray<UInstancedStaticMeshComponent*> Meshes(this);
     for (auto* Mesh:Meshes)
     {
@@ -441,7 +545,8 @@ void AERBlockRoom::ClearOwnedEffects()
 void AERBlockRoom::EndPlay(const EEndPlayReason::Type Reason)
 {
     for(auto& Page:AuthorityPages)if(Page.IsValid())Page->Destroy();
-    AuthorityPages.Empty();ReceivedPages.Empty();
+    for(auto& Shard:AuthorityShards)if(Shard.IsValid())Shard->Destroy();
+    AuthorityPages.Empty();ReceivedPages.Empty();AuthorityShards.Empty();ReceivedShards.Empty();
     ClearCollapse();
     ClearOwnedEffects();
     Super::EndPlay(Reason);
@@ -547,6 +652,12 @@ void AERBlockRoom::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 }
 uint32 AERBlockRoom::GetLayoutDigest() const
 {
+    if(bCellMode)
+    {
+        uint32 H=HashCombine(7,CellWorld.GetLayoutDigest());
+        for(int32 I=0;I<7;++I)if(const auto* P=MaterialCatalog->Find(static_cast<EERBlockMaterial>(I)))H=HashCombine(H,FCrc::StrCrc32(P->Surface ? *P->Surface->GetPathName():TEXT("")));
+        return H;
+    }
     uint32 H=6;
     if(const auto* Map=Cast<AERProceduralMap>(this))if(Map->LayoutConfig.TemplateAsset) H=HashCombine(H,Map->GetTemplateGeometryDigest());
     auto Mix=[&](int32 V){H=HashCombine(H,::GetTypeHash(V));};
@@ -570,6 +681,8 @@ uint32 AERBlockRoom::GetLayoutDigest() const
 }
 uint32 AERBlockRoom::GetStateDigest() const
 {
+    // Cells: alive bits only. HP never leave the server.
+    if(bCellMode)return HashCombine(GetLayoutDigest(),CellWorld.GetAliveDigest());
     uint32 H=GetLayoutDigest();
     for(const auto& B:BlockWorld->GetBlocks())
     {uint32 Bits;FMemory::Memcpy(&Bits,&B.Health,4);H=HashCombine(H,Bits);H=HashCombine(H,uint8(B.State));}
@@ -578,6 +691,7 @@ uint32 AERBlockRoom::GetStateDigest() const
 void AERBlockRoom::PublishNetworkGeneration()
 {
     for(auto& P:AuthorityPages)if(P.IsValid())P->Destroy();AuthorityPages.Empty();
+    for(auto& S:AuthorityShards)if(S.IsValid())S->Destroy();AuthorityShards.Empty();
     const uint32 Epoch=Network.Epoch+1;
     Network={};Network.Epoch=Epoch ? Epoch:1;Network.Blocks=Config;Network.BlockCount=BlockWorld->GetBlocks().Num();
     Network.LayoutDigest=GetLayoutDigest();Network.Sequence=1;
@@ -630,6 +744,8 @@ void AERBlockRoom::OnRep_Network()
     if(BuiltEpoch!=Network.Epoch)
     {
         bMapReady=false;bNetworkError=false;SetMapCollision(false);
+        if(Network.Cells){if(!OnRepCellDescriptor())return;TryApplyCellNetwork();return;}
+        bCellMode=false;
         if(Network.Protocol!=6 || Network.BlockCount<=0 || Network.BlockCount>50000 || Network.PageVersions.Num()!=FMath::DivideAndRoundUp(Network.BlockCount,AERBlockNetPage::Capacity))
         {bNetworkError=true;UE_LOG(LogTemp,Error,TEXT("ER_BLOCK_NET_INCOMPATIBLE descriptor"));return;}
         Config=Network.Blocks;
@@ -644,7 +760,7 @@ void AERBlockRoom::OnRep_Network()
         ReceivedPages.Empty();
         for(TActorIterator<AERBlockNetPage> P(GetWorld());P;++P)if(P->Room==this && P->State.Epoch==BuiltEpoch)ReceivedPages.Add(P->State.Index,*P);
     }
-    TryApplyNetwork();
+    if(Network.Cells)TryApplyCellNetwork();else TryApplyNetwork();
 }
 void AERBlockRoom::ReceiveNetworkPage(AERBlockNetPage* Page)
 {

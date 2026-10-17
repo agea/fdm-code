@@ -8,6 +8,7 @@ public class fdm : ModuleRules
         PrivateDependencyModuleNames.Add("RenderCore");
         PrivateDependencyModuleNames.Add("ApplicationCore");
         PrivateDependencyModuleNames.Add("PhysicsCore");
+        PrivateDependencyModuleNames.AddRange(new [] { "GeometryCore", "GeometryFramework", "NetCore" });
         if (Target.bBuildEditor) PrivateDependencyModuleNames.AddRange(new [] { "MeshDescription", "StaticMeshDescription", "SkeletalMeshDescription", "AnimationCore", "AssetRegistry", "NiagaraEditor" });
     }
 }

@@ -246,6 +246,7 @@ void AERSmokeCloud::Tick(float DeltaSeconds)
                 Revision=HashCombineFast(Revision,It->GetMapEpoch());
                 Revision=HashCombineFast(Revision,It->HasAuthority()?It->GetMapSequence():It->GetAppliedMapSequence());
                 Revision=HashCombineFast(Revision,It->BlockWorld->GetRemovedCount()+It->BlockWorld->GetBlocks().Num());
+                Revision=HashCombineFast(Revision,uint64(It->GetCellWorld().GetRemovedCount()));
             }
         if(GeometryRevision!=Revision) { GeometryRevision=Revision; RebuildContainment(); }
         NextGeometryCheck=Now+.75;

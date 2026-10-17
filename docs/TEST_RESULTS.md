@@ -3008,3 +3008,218 @@ client logs. Build retained as `Saved/Testing/launcher-origin-build.log`.
 - Ispezionate Slot_08.png (F1 impugnata, texture e replica visibili) e
   Grenades/02_HE.png (detriti, nessuna mesh sferica). La cattura HE è
   successiva al flash breve; la luce resta invariata nel codice runtime.
+
+## Preset danni materiali/blocchi/granate — 17 ottobre 2026
+- Editor Mac Development: Succeeded. Corretto un errore preesistente
+  `-Wshadow` (unity build, `Count` in ERTeamGallery vs ERSmokeCloud) che
+  bloccava anche la baseline.
+- setup_block_damage_preset.py: commandlet exit0, `DA_ER_BlockMaterials`
+  salvato (maps). Il test DamagePreset rilegge l'asset: HP/moltiplicatori della
+  tabella per gli ID 0–6, surface e decal 0–2 invariati.
+- test-destruction.py: 16/16 Success (nuovi DamagePreset,
+  DamageLocalAndShielding, GlassPane). Granata su parete a quattro strati:
+  310 candidati, 144 occlusi, 84 attenuati, 1,14ms.
+- --combat: PASS 3/3. Il colpo reale di fucile rimuove 1 cella di cartongesso,
+  o 2 quando la dispersione cade su una giunzione. La granata HE reale rimuove
+  60 celle, tutte entro 200cm (contro 94 dell'esplosione lineare legacy).
+- --procedural, --collapse, test-destruction-stress.py, test-grenades.py
+  (base e --combat), test-map-template.py, test-dust-template.py: PASS.
+- test-destruction-network.py (normale e --loss): FAIL su un solo check
+  preesistente, `remote_hitscan_through_replicated_breach`: l'host perde 27,8
+  invece di 36 con un colpo diretto che non attraversa blocchi. Fallisce
+  identico anche sulla baseline senza queste modifiche. Lo script interrompe
+  la run al primo FAIL; con una copia temporanea che non interrompe, tutte le
+  18 fasi client e gli altri check host passano: late join dopo
+  distruzione/crollo, dense join, esplosione coerente su tre client.
+- Non verificato: celle da 5cm (rinviate), resa grafica Metal di questo preset.
+
+## Prototipo celle 5cm su L_DestructionLab — 17 ottobre 2026
+- Editor Mac Development: Succeeded (nuove dipendenze GeometryCore,
+  GeometryFramework, NetCore).
+- test-cell-destruction.py: 4/4 Success (Cells.StorageAndCalibration,
+  MeshAndCollision, BallisticsAndBlast, NetworkTransactions). Facce e box
+  verificati per forza bruta dopo 3000 rimozioni casuali: nessuna faccia
+  interna, box che coprono esattamente le celle vive. Mattone 20cm a
+  trasmissione equivalente (0,933/cm): capsula accovacciata dopo 2 granate,
+  in piedi dopo 4. Delta di rete per la granata su cartongesso: 13 chunk,
+  606 byte per 7937 celle rimosse.
+- test-cell-destruction.py --game: PASS (personaggio reale nella breccia del
+  cartongesso, mattone chiuso dopo 1 granata e attraversato accovacciato dopo 3,
+  cemento danneggiato senza rimozioni, legno e lamiera aperti, spoletta HE reale
+  entro 200cm, passaggio celle↔blocchi e rigenerazioni senza componenti residui).
+  Colpo reale di fucile: 2 celle (una per lastra), bersaglio dietro 500→468,1.
+  Generazione 77.580 celle / 52 chunk 5,5ms; granate 4,3–7,3ms ciascuna.
+- measure-cell-scaling.py: 0,14ms per chunk (607.500 celle / 388 chunk in 56ms).
+- Regressioni blocchi: test-destruction.py 16/16 Success (20/20 con le celle),
+  --combat, --collapse, --procedural PASS. --game FAIL su un solo check,
+  `console_aim_damage`, che attende ancora `HP=20` (cartongesso a 30 HP prima del
+  preset; ora 20−10 = 10). Non dipende dal codice celle: è un'aspettativa da
+  aggiornare dopo il preset.
+- test-cell-destruction.py --render (Metal): PASS. Ispezionate Cells-Overview,
+  DrywallBreach, BrickBreach, WoodEast/WoodWest e Blocks-Overview. Le prime catture
+  hanno mostrato facce scure: avvolgimento dei triangoli invertito rispetto alla
+  convenzione Unreal ed elemento normale condiviso fra i 4 angoli del quad
+  (triangoli senza normali). Corretti entrambi; MeshAndCollision ora verifica
+  avvolgimento e normali di ogni triangolo. Illuminazione uguale alla modalità
+  blocchi; resta una linea leggera sul legno al bordo fra due chunk.
+- Non verificato: LAN reale in modalità celle (protocollo 7 testato solo in
+  processo), mappe procedurali/template a celle (fase 2), crolli.
+
+## Celle 5cm in LAN reale (protocollo 7) — 17 ottobre 2026
+- Nuovo probe opt-in `ERCellNetworkProbe` e script `test-cell-network.py`: host
+  listen su `L_DestructionLab?Cells=1` (`-ERCellNetworkProbe`), un client
+  iniziale e un client che entra dopo granate e attraversamenti. Il probe si
+  registra da solo (nessuna modifica a ERMatch/ERPlayerController). Ogni
+  client remoto ha un attore `AERCellNetworkReporter` per i report verso l'host.
+- test-cell-network.py: exit0, 21/21 controlli dello script, host
+  `ER_CELL_NET_PROBE_COMPLETE result=PASS`, nessun FAIL.
+  - Digest di stato identici su host e client dopo ogni transazione. Cartongesso:
+    7937 celle rimosse, 13 chunk, 606 byte di maschere. Mattone 20cm, granate
+    1–3: +2570, +3138, +2290 celle (19 chunk, 1390 byte in tutto).
+  - Collisione: 40.140 colonne di celle per controllo, ognuna tracciata due
+    volte (componente del chunk e query di scena). 0 differenze dai bit vivi,
+    su host e client, a ogni fase.
+  - Gate: nessun componente della stanza collide prima del primo snapshot
+    completo (0 violazioni; tick in attesa nell'ultima run: iniziale 3, tardivo
+    12). Il probe non pretende più almeno un tick in attesa: descrittore e shard
+    possono arrivare nello stesso frame, prima di qualsiasi tick (visto una volta
+    con gated_ticks=0). Ogni tick in attesa controlla tutti i componenti. Gli stati
+    applicati dai client (10 per l'iniziale, 6 per il tardivo) coincidono tutti
+    con uno stato pubblicato dall'host per la stessa epoca e sequenza: nessun
+    manifest parziale. La stanza del lab usa un solo shard (52 chunk).
+  - Personaggio reale del client: breccia nel cartongesso attraversata (server
+    Y=−325,9). Breccia nel mattone dopo 3 granate attraversata accovacciato
+    (server X=318,4, client X=315,6).
+  - Late join: lo shard porta solo i 19 chunk modificati su 52, 1390 byte di
+    maschere (una bitmask completa del lab costerebbe 9698 byte). Byte ricevuti
+    al primo snapshot pronto: iniziale 6461 (lab intatto), tardivo 9993
+    (+3532, comprende anche gli altri attori).
+  - Epoche: `ERCellMode 0` → epoca 2 a blocchi (504 istanze sui client).
+    `ERCellMode 1` → epoca 3 a celle pulite, 0 chunk inviati. Granata → 13 chunk.
+    `ERBlockRegenerate` → epoca 4 pulita. Granata sul legno: 8590 celle,
+    18 chunk, 769 byte. Tutto coerente su entrambi i client.
+- test-cell-network.py --loss (3% di perdita in ingresso, 40ms di lag sui
+  client): exit0, 21/21. 1–4 pacchetti persi per client; gate 3/11 tick; byte
+  al primo snapshot 11096 / 13436.
+- Bug trovato e corretto (ERBlockRoomCells.cpp, `BuildCellComponents`): i
+  componenti dei chunk sono Movable e creati a runtime, ma non erano
+  net-addressable. Quando il pawn sta su un chunk (il bordo rimasto della
+  breccia nel mattone), le correzioni di CharacterMovement arrivano relative a
+  quel componente. Il client non riusciva a risolverlo e scartava ogni
+  correzione: `ClientAdjustPosition_Implementation could not resolve the new
+  relative movement base actor, ignoring server correction!` (53 volte).
+  Risultato: client oltre la breccia (X=315), server fermo contro il muro
+  (X=244, Y=−60, Z=110). Correzione: `SetNetAddressable()`. I nomi
+  `Cells_P<id>_C<chunk>` sono deterministici su host e client per lo stesso
+  layout. Lo script ora fallisce se quel warning ricompare.
+- Regressioni dopo la correzione: test-cell-destruction.py 4/4 Success,
+  --game PASS.
+- Non verificato: test-cell-network.py --render (Metal). Non rieseguite le
+  suite a blocchi: la correzione tocca solo i componenti delle celle. I gruppi
+  ISM a blocchi sono anch'essi Movable, creati a runtime e non net-addressable.
+  Nei log di test-destruction-network.py il warning non compare, ma su quella
+  mappa nessuna correzione con base ISM è stata osservata.
+
+## Gruppi ISM a blocchi come base di movimento in LAN — 17 ottobre 2026
+- Domanda: i gruppi ISM della modalità a blocchi (`AERBlockRoom::Regenerate`,
+  `NewObject<UInstancedStaticMeshComponent>(this)`, Movable, nomi automatici)
+  hanno lo stesso bug dei chunk a celle? Sì.
+- Perché i log precedenti erano puliti: nel probe nessun pawn remoto stava mai
+  sopra un blocco. Pavimenti, scale e fondazione di `AERProceduralMap` sono
+  default subobject con nome stabile. La breccia toglieva le righe 0–7, quindi
+  l'attraversamento avveniva sul pavimento.
+- Riproduzione (ERBlockNetworkProbe.cpp, test-destruction-network.py):
+  - La breccia nel muro 5 ora toglie le righe 1–8 e lascia la fila W5:C*:R0
+    (25cm, sotto il passo di 30cm). Il client iniziale la scavalca.
+  - A fine fase 3 il server lo teletrasporta sopra W5:C4:R0 (`Place`, cioè
+    `ForceClientAdjustment`). In fase 5 client e server verificano che
+    `CurrentFloor` risolva proprio quel blocco (`block_movement_base`,
+    `authoritative_remote_rests_on_block_group`).
+  - `CollisionParity` ora ignora i personaggi: un pawn fermo nella breccia
+    non conta come blocco.
+  - Lo script passa `p.NetShowCorrections 1` e fallisce se un log contiene
+    "could not resolve the new relative movement base".
+- Prima della correzione: host `FNetGUIDCache::SupportsObject:
+  ...ERProceduralMap_0.InstancedStaticMeshComponent_20 NOT Supported` a ogni
+  correzione. Client `ClientAdjustPosition_Implementation could not resolve the
+  new relative movement base actor, ignoring server correction!` 47 volte.
+  Il client restava sul pavimento (X=363,7, Z=74,65), il server sul blocco
+  (X=235, Z=119,5), con errore costante di 96,8cm. Fase 5 FAIL.
+- Correzione (solo ERBlockRoom.cpp, `Regenerate`):
+  - nomi deterministici `Blocks_<cx>_<cy>_<cz>_M<materiale>`, uguali su host e
+    client per lo stesso layout (chiave chunk+materiale, unica per stanza);
+  - `SetNetAddressable()`;
+  - prima di `DestroyComponent`, il gruppo morto viene rinominato
+    (`DeadBlocks_N`), così un nuovo Regenerate con lo stesso layout non
+    ricrea un oggetto con un nome ancora occupato. Il probe lo esercita: fase
+    9→10 rigenera lo stesso layout.
+- Dopo la correzione:
+  - test-destruction-network.py: exit0, 21/21 (18 di prima + 3 controlli
+    `unresolved_movement_base_corrections=0`), `ER_BLOCK_NET_PROBE_COMPLETE
+    result=PASS epoch=3`. Client e server fermi su `Blocks_0_1_0_M0` a
+    X=235, Z=119,5. 0 "NOT Supported", 0 correzioni scartate.
+  - --loss: exit0, 21/21, PASS, 0 correzioni scartate.
+  - test-destruction.py: exit0, 20/20 Success (Cells inclusi).
+  - test-cell-network.py: primo run exit1. Fallisce solo il controllo
+    `gated_ticks>0` della fase 1 del client iniziale (snapshot applicato prima
+    del primo tick in attesa), mentre parità, digest e tutte le altre fasi
+    passano. È un controllo racy del probe a celle, che il suo autore sta
+    correggendo. Secondo run identico: exit0, 21/21, PASS. 0 correzioni
+    scartate (anche nell'epoca 2 a blocchi).
+- Non verificato: --render (Metal). Stesso schema, non toccato qui:
+  `AERProceduralMap::ConfigureTemplateFloors` crea `FixedMeshes`
+  (NewObject, Movable, BlockAll) senza nome né `SetNetAddressable`. Sulle mappe
+  template i pawn ci camminano sopra. Inoltre `ClearCells` e
+  `BuildCellComponents` riusano i nomi `Cells_P<id>_C<chunk>` senza liberarli
+  prima (finora senza errori osservati).
+
+## FixedMeshes delle mappe template come base di movimento in LAN — 17 ottobre 2026
+- Domanda: i gruppi `FixedMeshes` di `AERProceduralMap::ConfigureTemplateFloors`
+  (`NewObject<UInstancedStaticMeshComponent>(this)`, Movable, BlockAll per i
+  pezzi non visivi, nomi automatici) hanno lo stesso bug dei gruppi a blocchi?
+  Sì. A Dust town quasi tutta la città fissa (muri in pietra, scale, ponte di
+  Short A) è fatta di questi gruppi BlockAll.
+- Indizio già presente: anche nei log di test-dust-template.py --network del
+  15 ottobre l'host scriveva `FNetGUIDCache::SupportsObject: ...
+  ERProceduralMap_0.InstancedStaticMeshComponent_4 NOT Supported` mentre il
+  pawn dell'host camminava sul ponte (base replicata ai simulated proxy).
+- Riproduzione (ERDustTemplateProbe.{h,cpp}, test-dust-template.py --network):
+  - 3s dopo la fase 6 il server teletrasporta il primo client remoto sul
+    ponte di Short A sopra `TownCrossing` (`PlaceRemote`: `TeleportTo`,
+    `ForceClientAdjustment`); 3s dopo la fase 7, cioè dopo la rigenerazione
+    con seed 7919, fa lo stesso con l'ultimo client entrato (Late). Il
+    PlayerState scelto è replicato (`DeckPlayer`): i nomi `?Name=` vengono
+    riassegnati dal game mode, quindi si sceglie per ordine di ingresso.
+  - Il client scelto scrive `ER_DUST_CLIENT_BASE_PASS/FAIL` (entro 10s): a
+    terra, base di movimento di proprietà della mappa, entro 40cm dal punto.
+  - Lo script passa `p.NetShowCorrections 1` e fallisce se manca la riga
+    BASE_PASS, se un client contiene "could not resolve the new relative
+    movement base" o se l'host contiene `SupportsObject ... NOT Supported`.
+- Prima della correzione: exit1. Client iniziale 242 correzioni scartate,
+  Late 127. Entrambi restavano a terra vicino allo spawn (Z=94,65,
+  `base=IndestructibleFloor`) mentre il server li teneva sul ponte (Z=414).
+  Host 374 "NOT Supported": `InstancedStaticMeshComponent_4` (seed 42) e
+  `InstancedStaticMeshComponent_15` (seed 7919, i nomi automatici avanzano a
+  ogni rigenerazione).
+- Correzione (solo ERProceduralMap.cpp):
+  - nomi deterministici `TemplateFixed_<N>`, N = indice di creazione del
+    gruppo. L'ordine segue `Layout.FixedPieces`, identico su host e client per
+    lo stesso layout (stesso digest);
+  - `SetNetAddressable()`;
+  - in `ConfigureFloors`, prima di ricreare i gruppi, quelli vecchi vengono
+    rinominati (`DeadTemplateFixed_N`) dopo `DestroyComponent`, così i nomi
+    sono liberi. Il probe lo esercita: in fase 7 Late è sul `TemplateFixed_4`
+    del layout rigenerato.
+- Dopo la correzione:
+  - test-dust-template.py --network: exit0, PASS. Initial fase 6 e Late fase 7
+    `ER_DUST_CLIENT_BASE_PASS base=TemplateFixed_4` a Z=414,65 (server Z=414).
+    0 correzioni scartate, 0 "NOT Supported".
+  - test-dust-template.py (locale): exit0, PASS.
+  - test-map-template.py --network (Killhouse, usa anch'esso `FixedMeshes`):
+    exit0, PASS. 0 correzioni scartate, 0 "NOT Supported" (lo script non passa
+    `p.NetShowCorrections 1`).
+  - test-destruction.py: exit0, 20/20 Success.
+  - test-destruction-network.py: exit0, 21/21, `ER_BLOCK_NET_PROBE_COMPLETE
+    result=PASS epoch=3`, 0 correzioni scartate.
+- Non verificato: --render (Metal) e --loss. Nel probe Killhouse nessun pawn
+  remoto viene messo di proposito su un gruppo `FixedMeshes`.

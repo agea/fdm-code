@@ -20,7 +20,7 @@ def launch(role, url, render=False, extra=()):
     command = [str(exe), str(root / 'RespawnAndRage.uproject'), url, '-game', '-ERDustTemplateProbe',
                '-nosound', '-unattended', '-NoSplash', '-Multiprocess', '-stdout',
                '-FullStdOutLogOutput', '-windowed', '-ResX=1280', '-ResY=720',
-               '-ExecCmds=t.MaxFPS 60,sg.GlobalIlluminationQuality 0,sg.ReflectionQuality 0,sg.ShadowQuality 1']
+               '-ExecCmds=t.MaxFPS 60,sg.GlobalIlluminationQuality 0,sg.ReflectionQuality 0,sg.ShadowQuality 1,p.NetShowCorrections 1']
     if not render: command.append('-nullrhi')
     child = subprocess.Popen(command + list(extra), cwd=root, stdout=handle, stderr=subprocess.STDOUT)
     children.append(child)
@@ -56,6 +56,18 @@ try:
                 matched = f'ER_DUST_CLIENT_PASS phase={phase} digest={states.get(phase)} ' in client
                 print(role, phase, 'PASS' if matched else 'FAIL'); good &= matched
             good &= 'ER_DUST_CLIENT_FAIL' not in client and 'ER_BLOCK_NET_INCOMPATIBLE' not in client
+            # The remote pawn stands on the Short A deck, a runtime FixedMeshes group.
+            # Corrections relative to a group the client cannot resolve are silently dropped.
+            deck = 'ER_DUST_CLIENT_BASE_PASS phase=' + ('6' if role == 'initial' else '7') + ' ' in client
+            dropped = client.count('could not resolve the new relative movement base')
+            print(role, 'deck_movement_base', 'PASS' if deck else 'FAIL', 'unresolved_movement_base_corrections=' + str(dropped))
+            good &= deck and not dropped
+            for line in client.splitlines():
+                if 'ER_DUST_CLIENT_BASE_' in line: print(line)
+        unsupported = [line for line in text.splitlines() if 'SupportsObject' in line and 'NOT Supported' in line]
+        print('host_unsupported_objects=' + str(len(unsupported)))
+        for line in unsupported[:5]: print(line)
+        good &= not unsupported
     for line in text.splitlines():
         if 'ER_DUST_' in line: print(line)
     report = dict(result='PASS' if good else 'FAIL', network=args.network, render=args.render,

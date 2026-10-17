@@ -726,11 +726,7 @@ void AERPlayerController::ERBlockDamage(float Amount)
     FHitResult Hit;
     FCollisionQueryParams Params(SCENE_QUERY_STAT(ERBlockDebug), false, GetPawn());
     if (GetWorld()->LineTraceSingleByChannel(Hit, Eye, Eye + Aim.Vector() * 10000, ECC_GameTraceChannel1, Params))
-        if (auto* Room = Cast<AERBlockRoom>(Hit.GetActor()))
-        {
-            FERBlockId Id;
-            if (Room->ResolveHit(Hit, Id)) Room->ApplyBlockDamage(Id, Amount);
-        }
+        if (auto* Room = Cast<AERBlockRoom>(Hit.GetActor())) Room->ApplyHitDamage(Hit, Amount);
 #endif
 }
 void AERPlayerController::ERBlockDestroy()
@@ -824,6 +820,45 @@ void AERPlayerController::ERBlockExplosion(float Radius, float Damage)
         }
 #endif
 }
+void AERPlayerController::ERBlockGrenade()
+{
+#if !UE_BUILD_SHIPPING
+    if (!HasAuthority() || !GetPawn()) return;
+    FVector Eye; FRotator Aim;
+    GetPawn()->GetActorEyesViewPoint(Eye, Aim);
+    if (auto* Character = Cast<AERCharacter>(GetPawn())) Eye = Character->Camera->GetComponentLocation();
+    FHitResult Hit;
+    FCollisionQueryParams Query(SCENE_QUERY_STAT(ERBlockDebugGrenade), false, GetPawn());
+    if (GetWorld()->LineTraceSingleByChannel(Hit, Eye, Eye + Aim.Vector() * 10000, ECC_GameTraceChannel1, Query))
+        if (auto* Room = Cast<AERBlockRoom>(Hit.GetActor()))
+        {
+            const FVector Origin = Hit.ImpactPoint + Hit.ImpactNormal * 10;
+            const auto Result = AERBlockRoom::ApplyWorldExplosion(GetWorld(), Origin, FERBlockExplosionProfile(), GetPawn());
+            if (Result.Damaged > 0) Room->SpawnExplosionEffect(Origin);
+            UE_LOG(LogTemp, Display, TEXT("ER_BLOCK_GRENADE candidates=%d occluded=%d damaged=%d removed=%d rebuilt=%d query=%.2fms exposure=%.2fms mutation=%.2fms total=%.2fms"),
+                Result.Candidates, Result.Occluded, Result.Damaged, Result.Destroyed, Result.GroupsRebuilt, Result.QueryMs, Result.ExposureMs, Result.MutationMs, Result.TotalMs);
+        }
+#endif
+}
+void AERPlayerController::ERCellMode(int32 Enabled)
+{
+#if !UE_BUILD_SHIPPING
+    if (!HasAuthority() || !GetWorld()->GetMapName().Contains(TEXT("L_DestructionLab"))) return;
+    for (TActorIterator<AERBlockRoom> It(GetWorld()); It; ++It)
+    {
+        if (Cast<AERProceduralMap>(*It)) continue;
+        const bool bPrevious = It->bCellMode;
+        It->bCellMode = Enabled != 0;
+        if (!It->Regenerate()) { It->bCellMode = bPrevious; UE_LOG(LogTemp, Warning, TEXT("ER_CELL_MODE_REJECTED previous mode preserved")); continue; }
+        if (GetPawn())
+        {
+            GetPawn()->SetActorLocation(It->GetSpawnLocation(), false, nullptr, ETeleportType::TeleportPhysics);
+            GetPawn()->GetMovementComponent()->StopMovementImmediately();
+        }
+    }
+    for (TActorIterator<AERBlockTarget> It(GetWorld()); It; ++It) It->ResetHealth();
+#endif
+}
 void AERHUD::DrawHUD()
 {
     Super::DrawHUD();
@@ -840,7 +875,8 @@ void AERHUD::DrawHUD()
     {
         if(PC->IsBlockMapLoading())Text(TEXT("Synchronizing map..."),30,83,FLinearColor::Yellow,1);
         if(const auto* Map=Cast<AERProceduralMap>(*It))if(Map->LayoutConfig.TemplateAsset && !FParse::Param(FCommandLine::Get(),TEXT("ERBlockDebug")))continue;
-        Text(TEXT("DESTRUCTION LAB | ERBlockShot 100 10 / ERBlockExplosion 250 180 / ERBlockCollapseDemo"), 30, 105, FLinearColor::Yellow, 1);
+        Text(It->IsCellMode() ? TEXT("DESTRUCTION LAB 5cm CELLS | ERBlockGrenade / ERBlockShot 100 36 / ERBlockDamage 25 / ERCellMode 0")
+            : TEXT("DESTRUCTION LAB | ERBlockShot 100 10 / ERBlockExplosion 250 180 / ERBlockCollapseDemo / ERCellMode 1"), 30, 105, FLinearColor::Yellow, 1);
         if (const auto* Map=Cast<AERProceduralMap>(*It)) Text(Map->LayoutConfig.TemplateAsset ? TEXT("ERMapGenerate 42 8 1 | template seed"):TEXT("ERMapGenerate 42 6 3 | seed / rooms 6..10 / floors 1..3"), 30, 185, FLinearColor::Yellow, 1);
         Text(It->GetStatistics(), 30, 125, FLinearColor::White, .9f);
         Text(TEXT("Last block: ") + It->LastHit, 30, 145, FLinearColor::White, 1);

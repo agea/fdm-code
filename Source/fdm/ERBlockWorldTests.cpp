@@ -43,8 +43,8 @@ bool FERBlockStorageTest::RunTest(const FString& Parameters)
     {
         Id.Wall = Wall;
         const float Initial = World->Find(Id)->Health;
-        TestTrue(TEXT("Damage"), World->Damage(Id, 25));
-        TestEqual(TEXT("HP deducted once"), World->Find(Id)->Health, Initial - 25);
+        TestTrue(TEXT("Damage"), World->Damage(Id, 7.5f));
+        TestEqual(TEXT("HP deducted once"), World->Find(Id)->Health, Initial - 7.5f);
         TestTrue(TEXT("Cumulative damage state"), World->Find(Id)->State == EERBlockState::Damaged);
     }
     TestTrue(TEXT("Material resistance order"), World->Find(FERBlockId{0,0,0})->Health < World->Find(FERBlockId{1,0,0})->Health && World->Find(FERBlockId{1,0,0})->Health < World->Find(FERBlockId{2,0,0})->Health);
@@ -86,7 +86,7 @@ bool FERBlockCollisionTest::RunTest(const FString& Parameters)
     FERBlockId Target;
     TestTrue(TEXT("Resolve real trace"), Room->ResolveHit(Hit, Target));
     TestEqual(TEXT("Point damage consumed"), UGameplayStatics::ApplyPointDamage(Room, 10, FVector(0,-1,0), Hit, nullptr, nullptr, UDamageType::StaticClass()), 10.f);
-    TestEqual(TEXT("Correct logical health"), Room->BlockWorld->Find(Target)->Health, 20.f);
+    TestEqual(TEXT("Correct logical health"), Room->BlockWorld->Find(Target)->Health, 10.f);
     TArray<FERBlockId> Order;
     for (const auto& Block : Room->BlockWorld->GetBlocks()) Order.Add(Block.Id);
     FRandomStream Random(7919);

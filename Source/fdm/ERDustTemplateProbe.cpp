@@ -3,6 +3,7 @@
 #include "ERCharacter.h"
 #include "ERWeapon.h"
 #include "ERPlayerController.h"
+#include "GameFramework/PlayerState.h"
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -19,7 +20,7 @@ AERDustTemplateProbe::AERDustTemplateProbe()
 }
 void AERDustTemplateProbe::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
-    Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(AERDustTemplateProbe,SnapshotPhase);DOREPLIFETIME(AERDustTemplateProbe,ExpectedDigest);
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(AERDustTemplateProbe,SnapshotPhase);DOREPLIFETIME(AERDustTemplateProbe,ExpectedDigest);DOREPLIFETIME(AERDustTemplateProbe,DeckPlayer);
 }
 void AERDustTemplateProbe::Check(bool Good,const TCHAR* Label)
 {
@@ -29,6 +30,29 @@ void AERDustTemplateProbe::Publish(int32 Next,AERProceduralMap* Map)
 {
     Phase=Next;SnapshotPhase=Next;ExpectedDigest=Map->GetStateDigest();ForceNetUpdate();
     UE_LOG(LogTemp,Display,TEXT("ER_DUST_STATE phase=%d digest=%u epoch=%u"),Phase,ExpectedDigest,Map->GetMapEpoch());
+}
+// The Short A deck over the underpass is a BlockAll template FixedMeshes group.
+// A remote pawn put there is corrected relative to it, so the client must
+// resolve that runtime component by name.
+static FVector DeckStand(const UWorld* World,const FVector& P)
+{
+    FCollisionQueryParams Q(SCENE_QUERY_STAT(ERDustDeck),false);FHitResult Hit;
+    for(TActorIterator<APawn> Pawn(World);Pawn;++Pawn)Q.AddIgnoredActor(*Pawn);
+    return World->LineTraceSingleByChannel(Hit,P+FVector(0,0,500),P+FVector(0,0,200),ECC_WorldStatic,Q) ? Hit.ImpactPoint+FVector(0,0,94):P+FVector(0,0,414);
+}
+void AERDustTemplateProbe::PlaceRemote(bool Latest,const FVector& P)
+{
+    // Remote controllers in join order: the initial client first, the late one last.
+    AERCharacter* Target=nullptr;
+    for(FConstPlayerControllerIterator It=GetWorld()->GetPlayerControllerIterator();It;++It)
+    {
+        auto* C=It->Get() && !It->Get()->IsLocalController() ? Cast<AERCharacter>(It->Get()->GetPawn()):nullptr;
+        if(C){Target=C;if(!Latest)break;}
+    }
+    if(!Target || !Target->GetPlayerState())return;
+    auto* Move=Target->GetCharacterMovement();Target->TeleportTo(P,FRotator::ZeroRotator);Move->StopMovementImmediately();
+    Move->SetMovementMode(MOVE_Walking);Move->ForceClientAdjustment();DeckPlayer=Target->GetPlayerState();ForceNetUpdate();
+    UE_LOG(LogTemp,Display,TEXT("ER_DUST_REMOTE_PLACED name=%s pos=%s"),*DeckPlayer->GetPlayerName(),*P.ToString());
 }
 void AERDustTemplateProbe::Tick(float Delta)
 {
@@ -49,6 +73,19 @@ void AERDustTemplateProbe::Tick(float Delta)
             Good&=GetWorld()->LineTraceSingleByChannel(Hit,P+FVector(0,0,500),P+FVector(0,0,200),ECC_WorldStatic,Q) && FMath::IsNearlyEqual(Hit.ImpactPoint.Z,320.f,1.f);
             Good&=!GetWorld()->SweepSingleByChannel(Hit,P+FVector(-500,0,100),P+FVector(500,0,100),FQuat::Identity,ECC_Pawn,FCollisionShape::MakeCapsule(34,92.5),Q);
             UE_LOG(LogTemp,Display,TEXT("ER_DUST_CLIENT_%s phase=%d digest=%u epoch=%u"),Good ? TEXT("PASS"):TEXT("FAIL"),SnapshotPhase,ExpectedDigest,Map->GetMapEpoch());SeenPhase=SnapshotPhase;
+        }
+        // Phase 6 puts the initial client on the deck, phase 7 (after the seed rebuild) the late one.
+        auto* PC=GetWorld()->GetFirstPlayerController();auto* C=PC ? Cast<AERCharacter>(PC->GetPawn()):nullptr;
+        if((SnapshotPhase==6 || SnapshotPhase==7) && SeenPhase==SnapshotPhase && BaseChecked!=SnapshotPhase && C && PC->PlayerState && DeckPlayer==PC->PlayerState)
+        {
+            if(BaseClock<0)BaseClock=Elapsed;
+            const auto* Base=C->GetCharacterMovement()->GetMovementBase();const FVector Target=DeckStand(GetWorld(),L.TownCrossing);
+            const bool On=Base && Base->GetOwner()==Map && C->GetCharacterMovement()->IsMovingOnGround() && FVector::Dist2D(C->GetActorLocation(),Target)<40 && FMath::Abs(C->GetActorLocation().Z-Target.Z)<30;
+            if(On || Elapsed-BaseClock>10)
+            {
+                UE_LOG(LogTemp,Display,TEXT("ER_DUST_CLIENT_BASE_%s phase=%d name=%s base=%s pos=%s target=%s"),On ? TEXT("PASS"):TEXT("FAIL"),SnapshotPhase,*PC->PlayerState->GetPlayerName(),Base ? *Base->GetName():TEXT("none"),*C->GetActorLocation().ToString(),*Target.ToString());
+                BaseChecked=SnapshotPhase;BaseClock=-1;
+            }
         }
         return;
     }
@@ -150,7 +187,9 @@ void AERDustTemplateProbe::Tick(float Delta)
             PC->SetViewTarget(Camera);Capture(TEXT("DustTown-Plan-42.png"));
         }
     }
-    else if(Phase==6 && Elapsed-StageTime>30)
+    if((Phase==6 || Phase==7) && PlacedPhase!=Phase && Elapsed-StageTime>3)
+    {PlaceRemote(Phase==7,DeckStand(GetWorld(),L.TownCrossing));PlacedPhase=Phase;}
+    if(Phase==6 && Elapsed-StageTime>30)
     {
         Map->LayoutConfig.Seed=7919;Check(Map->Regenerate() && Map->BlockWorld->GetRemovedCount()==0,TEXT("seed_rebuilds_city_and_restores_cover"));Publish(7,Map);StageTime=Elapsed;
         Capture(TEXT("DustTown-Plan-7919.png"));

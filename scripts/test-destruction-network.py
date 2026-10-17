@@ -18,7 +18,7 @@ common=[str(exe),str(root/'RespawnAndRage.uproject'),'-game','-nosound','-unatte
 port='17786';children=[];handles=[];paths={}
 def launch(role,url,render=False,extra=None):
  path=out/(label+'-'+role+'.log');paths[role]=path;handle=path.open('w');handles.append(handle)
- cmd=common+[url,'-ExecCmds=t.MaxFPS 60,sg.GlobalIlluminationQuality 0,sg.ReflectionQuality 0,sg.ShadowQuality 1']
+ cmd=common+[url,'-ExecCmds=t.MaxFPS 60,sg.GlobalIlluminationQuality 0,sg.ReflectionQuality 0,sg.ShadowQuality 1,p.NetShowCorrections 1']
  if not render:cmd.append('-nullrhi')
  if extra:cmd.extend(extra)
  p=subprocess.Popen(cmd,cwd=root,stdout=handle,stderr=subprocess.STDOUT);children.append(p);return p
@@ -48,6 +48,9 @@ try:
    condition=any('ER_BLOCK_NET_CLIENT_PASS phase='+str(stage)+' ' in line and 'role='+role in line for line in logs[role].splitlines())
    print('ER_BLOCK_NET_RUN_'+('PASS' if condition else 'FAIL'),role,stage);passed&=condition
   passed&='ER_BLOCK_NET_CLIENT_FAIL' not in logs[role] and 'ER_BLOCK_NET_INCOMPATIBLE' not in logs[role]
+  # Corrections relative to a block group the client cannot resolve are silently dropped.
+  dropped=logs[role].count('could not resolve the new relative movement base')
+  print('ER_BLOCK_NET_RUN_'+('PASS' if not dropped else 'FAIL'),role,'unresolved_movement_base_corrections='+str(dropped));passed&=not dropped
  for line in server.splitlines():
   if 'ER_BLOCK_NET_PROBE_' in line or 'ER_BLOCK_NET_READY_FOR_' in line or 'ER_BLOCK_NET_REPORT ' in line:print(line)
  report={'result':'PASS' if passed else 'FAIL','render':args.render,'packet_loss':args.loss,'participants':4,'logs':{r:p.name for r,p in paths.items()},'method':'Listen host, initial remote, late remote after destruction/collapse, then dense late remote after complete wall removal; all remote clients verify full state digest and sampled real collision plus native mappings. Initial remote fires via owned pawn RPC and walks breach/stairs using real replicated character movement.'}

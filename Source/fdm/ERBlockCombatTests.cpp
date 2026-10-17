@@ -46,7 +46,7 @@ bool FERBlockCombatTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("Cross one drywall block"), Shot.Penetrations, 1);
     TestTrue(TEXT("Exit used once, target reached"), Shot.ExtraTraces == 1 && Shot.TerminalHit.GetActor() == Target);
     TestTrue(TEXT("Residual energy and actual damage to rear target"), FMath::IsNearlyEqual(Shot.RemainingEnergy, 85.f, .01f) && FMath::IsNearlyEqual(Target->Health, 491.5f, .01f));
-    TestEqual(TEXT("Penetration preserves damaged wall"), Room->BlockWorld->Find(Drywall)->Health, 25.f);
+    TestEqual(TEXT("Penetration preserves damaged wall"), Room->BlockWorld->Find(Drywall)->Health, 10.f);
     FHitResult Hit;
     TestTrue(TEXT("Intact collision still stops an ordinary trace"), World->LineTraceSingleByChannel(Hit, FVector(25,0,162.5), FVector(25,-350,162.5), ECC_GameTraceChannel1, Query) && Hit.GetActor() == Room);
     TestEqual(TEXT("No physical breach from low damage penetration"), Room->GetInstanceCount(), 504);
@@ -72,7 +72,7 @@ bool FERBlockCombatTest::RunTest(const FString& Parameters)
     FERBlockId Surface = Drywall;
     TestTrue(TEXT("Spatial query includes a near-face block even across centre cells"), Room->BlockWorld->QuerySphere(FVector(25,-250,162.5), 1).Contains(Surface));
     auto Batch = Room->ApplyDamageBatch({{Surface, 3, false}, {Surface, 4, false}});
-    TestTrue(TEXT("Duplicate events aggregated with no unnecessary rebuild"), Batch.Damaged == 1 && Batch.GroupsRebuilt == 0 && Room->BlockWorld->Find(Surface)->Health == 23);
+    TestTrue(TEXT("Duplicate events aggregated with no unnecessary rebuild"), Batch.Damaged == 1 && Batch.GroupsRebuilt == 0 && Room->BlockWorld->Find(Surface)->Health == 13);
     TestEqual(TEXT("Reject invalid explosion radius"), AERBlockRoom::ApplyWorldExplosion(World, FVector(25,-240,162.5), -1, 100).Damaged, 0);
     Reset();
     Batch = AERBlockRoom::ApplyWorldExplosion(World, FVector(25,-240,100), 220, 180);
@@ -85,9 +85,13 @@ bool FERBlockCombatTest::RunTest(const FString& Parameters)
     Reset();
     auto* Shielded = World->SpawnActor<AERBlockRoom>();
     Shielded->SetActorLocation(FVector(0,600,0)); Shielded->Regenerate();
+    // Opaque concrete: the snapshot alone must shield the rear room.
+    const float Transmission = Room->MaterialCatalog->Materials[2].ExplosionTransmission;
+    Room->MaterialCatalog->Materials[2].ExplosionTransmission = 0;
     Batch = AERBlockRoom::ApplyWorldExplosion(World, FVector(25,200,162.5), 250, 2000);
+    Room->MaterialCatalog->Materials[2].ExplosionTransmission = Transmission;
     TestTrue(TEXT("Blast destroys exposed concrete"), Room->BlockWorld->GetDestroyedCount() > 0);
-    TestTrue(TEXT("Concrete shields rear drywall against the same explosion, even if removed"), Batch.Occluded > 0 && Shielded->BlockWorld->Find(Surface)->Health == 30);
+    TestTrue(TEXT("Concrete shields rear drywall against the same explosion, even if removed"), Batch.Occluded > 0 && Shielded->BlockWorld->Find(Surface)->Health == 20);
     AERBlockRoom::ApplyWorldExplosion(World, FVector(25,200,162.5), 250, 2000);
     TestTrue(TEXT("A later blast can use the newly opened breach"), Shielded->BlockWorld->Find(Surface)->Health == 0);
     Shielded->Destroy();
@@ -98,7 +102,7 @@ bool FERBlockCombatTest::RunTest(const FString& Parameters)
     Target->SetActorLocation(FVector(25,-500,162.5));
     Shot = Fire(FVector(25,0,162.5), FVector(0,-1,0), 1000, 1000, 1);
     TestTrue(TEXT("Crossing cap stops before the next block; room components are never ignored"), Shot.bLimited && Shot.Penetrations == 1 && Shot.BlockHits == 1 && Target->Health == 500);
-    TestTrue(TEXT("Second block untouched at crossing cap"), Second->BlockWorld->GetBlocks().ContainsByPredicate([](const auto& Block) { return Block.Id.Wall == 2 && Block.Health == 300; }));
+    TestTrue(TEXT("Second block untouched at crossing cap"), Second->BlockWorld->GetBlocks().ContainsByPredicate([](const auto& Block) { return Block.Id.Wall == 2 && Block.Health == 600; }));
     TestTrue(TEXT("Final mappings valid"), Room->ValidateMappings() && Second->ValidateMappings());
     World->DestroyWorld(false);
     return true;

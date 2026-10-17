@@ -5,6 +5,7 @@
 #include "ERBlockCombat.h"
 #include "InstanceDataTypes.h"
 #include "ERBlockSupport.h"
+#include "ERCellWorld.h"
 #include "ERProceduralConfig.h"
 #include "ERBlockRoom.generated.h"
 
@@ -38,6 +39,9 @@ struct FERBlockNetworkDescriptor
     UPROPERTY() bool Procedural=false;
     UPROPERTY() bool Ceilings=true;
     UPROPERTY() TArray<uint32> PageVersions;
+    // Protocol 7: 5cm cells. BlockCount holds the cell count, PageVersions the shard versions.
+    UPROPERTY() bool Cells=false;
+    UPROPERTY() FERCellSettings CellSettings;
 };
 
 // Key lookup changes no enumeration order: groups still follow the first block
@@ -78,6 +82,9 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Blocks|Effects", meta=(ClampMin="0", ClampMax="64")) int32 MaxImpactEffects = 24;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Blocks|Effects", meta=(ClampMin="0")) float EffectDistance = 1500;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Blocks|Collapse") FERBlockCollapseSettings Collapse;
+    // Prototype: the lab walls as 5cm cells (chunk meshes + box collision) instead of blocks.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Blocks|Cells") bool bCellMode=false;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Blocks|Cells") FERCellSettings CellSettings;
     UFUNCTION(BlueprintCallable, Category="Blocks") bool Regenerate();
     void RequestSupportCheck();
     void StepSupport();
@@ -91,9 +98,30 @@ public:
     virtual void EndPlay(const EEndPlayReason::Type Reason) override;
     virtual float TakeDamage(float Amount, const FDamageEvent& Event, AController* Instigator, AActor* Causer) override;
     bool ResolveHit(const FHitResult& Hit, FERBlockId& Id) const;
+    bool IsCellMode() const { return bCellMode; }
+    const FERCellWorld& GetCellWorld() const { return CellWorld; }
+    bool ResolveCell(const FHitResult& Hit, FERCellId& Id) const;
+    // Blocks or cells under a hit, for point damage and console tools.
+    bool ApplyHitDamage(const FHitResult& Hit, float Amount);
+    FERBlockBatchResult ApplyCellBatch(const TMap<FERCellId, float>& Damage);
+    struct FERCellShotStep { bool bStop=true, bLimited=false; int32 Cells=0, Runs=0; FVector Exit=FVector::ZeroVector; };
+    // Voxel DDA through the hit panel: entry cost once per material run, energy per cm,
+    // each crossed cell damaged with the residual energy at its entry.
+    FERCellShotStep ShootCells(const FHitResult& Hit, const FVector& Cursor, const FVector& Ray, double Range, float Structural,
+        const FERBlockShotSettings& Settings, float& Energy, int32 RunsLeft);
+    // Pre-event snapshot only: never mutates. Query must ignore every cell chunk component.
+    void CollectCellExplosion(const FVector& Origin, const FERBlockExplosionProfile& Profile, const FCollisionQueryParams& Query,
+        TMap<FERCellId, float>& Out, FERBlockBatchResult& Result) const;
+    void GetCellComponents(TArray<UPrimitiveComponent*>& Out) const;
+    bool ValidateCells() const;
+    FString DescribeCell(const FERCellId& Id) const;
+    void SpawnCellImpact(EERBlockMaterial Material, const FVector& Position, const FVector& Normal);
+    void ReceiveCellShard(class AERCellNetShard* Shard);
     bool ApplyBlockDamage(const FERBlockId& Id, float Amount, bool bDestroy = false);
     FERBlockBatchResult ApplyDamageBatch(const TArray<FERBlockDamageRequest>& Requests);
     static FERBlockBatchResult ApplyWorldExplosion(UWorld* World, const FVector& Origin, float Radius, float Damage, AActor* IgnoredActor = nullptr);
+    // Structural blast: F(d) * profile * material multiplier * exposure per cell.
+    static FERBlockBatchResult ApplyWorldExplosion(UWorld* World, const FVector& Origin, const FERBlockExplosionProfile& Profile, AActor* IgnoredActor = nullptr);
     FTransform GetBlockTransform(const FERBlockId& Id) const;
     void SpawnBlockImpact(const FERBlockId& Id, const FVector& Position, const FVector& Normal);
     void SpawnExplosionEffect(const FVector& Origin);
@@ -128,8 +156,28 @@ protected:
     virtual void ConfigureFloors();
     virtual FString GetLayoutStatistics() const;
     virtual SIZE_T GetLayoutBytes() const { return 0; }
+    // Lab walls and two samples; templates/procedural maps are phase 2.
+    virtual void GenerateCellLayout(TArray<FERCellPanelDesc>& Out) const;
 private:
     friend class FERBlockNetTransactionTest;
+    friend class FERCellNetTransactionTest;
+    FERCellWorld CellWorld;
+    UPROPERTY() TArray<TObjectPtr<class UDynamicMeshComponent>> CellMeshes;
+    TMap<const UPrimitiveComponent*, int32> CellComponentChunks;
+    TArray<int32> ChunkQuads, ChunkBoxes;
+    TArray<TWeakObjectPtr<class AERCellNetShard>> AuthorityShards;
+    TMap<int32, TWeakObjectPtr<class AERCellNetShard>> ReceivedShards;
+    TArray<uint32> AppliedChunkRevisions;
+    bool GenerateCells();
+    void BuildCellComponents();
+    void ClearCells();
+    void RebuildCellChunk(int32 Chunk);
+    void PublishCellGeneration();
+    void PublishCellChanges(const TArray<int32>& Chunks);
+    void TryApplyCellNetwork();
+    bool OnRepCellDescriptor();
+    void SpawnMaterialImpact(const FERBlockMaterialProperties& Profile, bool bDecal, const FVector& Position, const FVector& Normal);
+    UFUNCTION(NetMulticast,Unreliable) void MulticastCellImpact(uint32 Epoch,uint8 Material,FVector Position,FVector Normal);
     UPROPERTY(ReplicatedUsing=OnRep_Network) FERBlockNetworkDescriptor Network;
     UFUNCTION() void OnRep_Network();
     TArray<TWeakObjectPtr<class AERBlockNetPage>> AuthorityPages;

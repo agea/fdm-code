@@ -526,3 +526,74 @@ real replicated character movement. It regenerates through three epochs and
 checks an explosion batch on all remotes. `--loss` configures3% incoming loss
 and40ms incoming lag on remote clients; `--render` uses Metal for host/initial
 remote and captures the building view. Actual outcomes belong in TEST_RESULTS.md.
+
+## Damage preset (17 October)
+
+Source: the user-supplied `RR_DANNI_MATERIALI_BLOCCHI_GRANATE.md`. It supersedes
+the HP/multiplier tables above (kept as history). These are gameplay presets to
+tune, not physical measurements. Type IDs, surfaces and decals are unchanged.
+
+| ID | Type | Meaning | HP | Bullet x | Explosion x | Blast transmission* |
+|---:|---|---|---:|---:|---:|---:|
+| 0 | Drywall | Plasterboard | 20 | 1.00 | 2.00 | 0.50 |
+| 1 | Brick | Hollow brick | 100 | 0.75 | 1.50 | 0.25 |
+| 2 | Concrete | Reinforced concrete | 600 | 0.10 | 0.50 | 0.05 |
+| 3 | Wood | 2cm panel | 40 | 1.00 | 1.50 | 0.50 |
+| 4 | Stone | Solid stone | 1000 | 0.05 | 0.20 | 0.02 |
+| 5 | Metal | Container sheet | 100 | 0.50 | 1.00 | 0.50 |
+| 6 | Glass | Ordinary glass, pane break | 8 | 1.00 | 3.00 | 0.90 |
+
+*Transmission is an untuned prototype coefficient that the source does not specify:
+the share of blast exposure an intact cell passes to cells behind it. Penetration
+energy (entry/per cm) is unchanged and separate from structural damage.
+
+**Open limitation: cell resolution.** The HP are calibrated for 5x5x5cm cells
+(5x5x2 wood). The engine still uses 50x20x25cm blocks (50x50x25 in templates),
+with one ISM instance per block, a 50k cap and 128-record pages. 5cm cells would
+mean 0.6-3.5M cells per map and need a separate chunk-voxel system: aggregated
+meshes/collision and sparse replication. Until then the preset applies provisionally
+per block. Breaches are coarser, and HP must be retuned when resolution changes.
+Plasterboard/sheet/glass thickness is not yet a construction parameter.
+
+- **Bullets:** `CellDamage = Structural x (residual/initial energy) x Bullet x`,
+  `HP = max(0, HP - CellDamage)`, fractions kept. `FERBlockShotSettings.StructuralDamage`
+  (with `bOverrideStructuralDamage`) is separate from character damage. Without an
+  override it starts from the weapon's `Damage`, as the source allows for the
+  prototype. Hit zones/headshots never apply to blocks. Penetration never removes
+  a cell.
+- **HE grenade:** `UERWeaponData.BlockExplosion` (`FERBlockExplosionProfile`), default
+  400 / min 0 / inner 25 / outer 200 / exponent 2. `F(d)` uses the cell-centre
+  distance: 1 to 25cm, `((200-d)/175)^2`, then 0 from 200cm.
+  `CellDamage = (Min + (Base-Min) F) x Explosion x x Exposure`. Character blast
+  damage and fragmentation radii are unchanged. Rockets and the console/probe
+  `ApplyWorldExplosion(radius, damage)` overload keep the previous linear envelope
+  via `FERBlockExplosionProfile::Linear`.
+- **Exposure:** one object multi-trace to the exposed face. Each intact cell crossed
+  multiplies exposure by its transmission, for up to `MaxShieldingLayers` (4).
+  Non-destructible geometry and indestructible cells occlude fully. Everything is
+  evaluated on the pre-event snapshot, then aggregated and applied as one batch:
+  order-independent, and excess damage never chains to neighbours.
+- **Glass:** when a section reaches 0 HP, the face-connected Glass sections of the
+  same wall (its pane) are removed. No other material uses this.
+- Migration: `scripts/setup_block_damage_preset.py` (`-run=pythonscript`, tag
+  `ERBlockDamagePresetVersion=1`) updates only HP, multipliers and transmission in
+  `DA_ER_BlockMaterials`. Surfaces, decals and impact systems are verified unchanged.
+- Automation: `DamagePreset`, `DamageLocalAndShielding` and `GlassPane`, plus the
+  updated existing tests, all in `test-destruction.py`.
+- The `--combat` lab probe now expects one rifle cartridge to remove only the drywall
+  cells it crosses (one, or two at a seam), and the real HE fuse to change nothing at or
+  beyond 200cm. The previous "no breach" and "more than the old blast" checks belonged
+  to the old values.
+
+## 5cm cell prototype (17 October)
+
+The approved plan is in [CELL_DESTRUCTION_PLAN.md](CELL_DESTRUCTION_PLAN.md) (option C).
+L_DestructionLab can now run as 5cm cells: start it with `-ERCellLab` or `?Cells=1`, or type
+`ERCellMode 1` / `ERCellMode 0` in the console. The walls become drywall partitions
+(2x1.25cm boards and a cavity), brick 20 (4 layers), concrete 20, plus a 2cm wood board and a
+0.2cm container sheet. That is 77,580 cells in 52 chunks, each chunk one dynamic mesh with
+visible faces only and aggregate-box collision. `ERBlockGrenade` applies the HE structural
+profile to the aimed wall; `ERBlockShot`, `ERBlockDamage` and real weapons/grenades use the
+cells. Collapse is off in this mode, and procedural maps and templates still use blocks.
+The calibration stamp, per-cm transmission, replication protocol 7 and the measured costs are
+documented in the plan (§8). Checks: `scripts/test-cell-destruction.py` and `--game`.

@@ -139,7 +139,12 @@ void AERBlockLabProbe::TickCombat(AERCharacter* Character, AERPlayerController* 
         const float Previous = Drywall->Health;
         const int32 Ammo = Character->Weapon->MagazineAmmo;
         Character->Weapon->StartFire(); Character->Weapon->StopFire();
-        Check(Drywall->Health < Previous && Character->Weapon->MagazineAmmo == Ammo - 1 && Room->GetInstanceCount() == 504, TEXT("authorized_weapon_penetrates_with_one_cartridge"));
+        // Preset: base Damage 36 structural removes the 20 HP drywall cell in one hit,
+        // and only the cells it crosses (two when real spread meets a seam);
+        // the bullet still reaches the rear target.
+        UE_LOG(LogTemp,Display,TEXT("ER_BLOCK_PROBE_WEAPON_SHOT target=%.1f->%.1f ammo=%d->%d instances=%d damage=%.1f %s"),Previous,Drywall->Health,Ammo,
+            Character->Weapon->MagazineAmmo,Room->GetInstanceCount(),Character->Weapon->Data ? Character->Weapon->Data->Damage : -1.f,*Room->LastCombat);
+        Check(Drywall->Health < Previous && Character->Weapon->MagazineAmmo == Ammo - 1 && Room->GetInstanceCount() >= 502 && Room->GetInstanceCount() <= 503, TEXT("authorized_weapon_removes_only_crossed_drywall_cells_with_one_cartridge"));
         if (FApp::CanEverRender()) FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir()/TEXT("Testing/Destruction-Penetration.png"), true, false);
         Phase = 1; Elapsed = 0;
     }
@@ -191,8 +196,13 @@ void AERBlockLabProbe::TickCombat(AERCharacter* Character, AERPlayerController* 
     else if (Phase == 5 && Elapsed > 1)
     {
         Check(Room->BlockWorld->GetDestroyedCount() > 10 && Room->ValidateMappings(), TEXT("real_he_fuse_damages_block_world"));
-        Check(Room->BlockWorld->GetDestroyedCount()>BaselineBlastDestroyed,TEXT("grenade_structural_boost_breaks_more_than_previous_damage"));
-        UE_LOG(LogTemp,Display,TEXT("ER_GRENADE_STRUCTURAL_COMPARE baseline=%d boosted=%d"),BaselineBlastDestroyed,Room->BlockWorld->GetDestroyedCount());
+        // The HE structural profile is local: nothing changes at or beyond its outer radius.
+        const FVector Blast(100,-230,110); bool Local=true;
+        for (const auto& Block : Room->BlockWorld->GetBlocks())
+            if (Block.Health < Room->MaterialCatalog->Find(Block.Material)->MaxHealth || !Block.IsAttached())
+                Local &= FVector::Distance(Blast, Room->GetBlockTransform(Block.Id).GetLocation()) < FERBlockExplosionProfile().OuterRadius;
+        Check(Local,TEXT("grenade_structural_profile_stays_within_outer_radius"));
+        UE_LOG(LogTemp,Display,TEXT("ER_GRENADE_STRUCTURAL_COMPARE legacy_linear=%d profile=%d"),BaselineBlastDestroyed,Room->BlockWorld->GetDestroyedCount());
         PC->ConsoleCommand(TEXT("ERBlockRegenerate"));
         Check(Room->GetInstanceCount() == 504 && Drywall->Health == 500 && Brick->Health == 500 && Concrete->Health == 500, TEXT("combat_regeneration_resets_targets_and_blocks"));
         UE_LOG(LogTemp, Display, TEXT("ER_BLOCK_PROBE_COMPLETE result=%s"), Failed ? TEXT("FAIL") : TEXT("PASS"));

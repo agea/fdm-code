@@ -43,6 +43,8 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite) EERPayload Payload = EERPayload::Bullet;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) float ExplosionRadius = 300;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) float ExplosionInnerRadius = 200;
+    // Structural blast for HE payloads, separate from character Damage/radii.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Explosion|Blocks") FERBlockExplosionProfile BlockExplosion;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) float FuseDuration = 3.5f;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) float ZoomFOV = 90;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Launch") float LaunchRangeMultiplier = 1.f;
@@ -169,6 +171,7 @@ public:
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Presentation") TSubclassOf<class AERSmokeCloud> SmokeCloudClass;
     float ExplosionRadius = 300;
     float ExplosionInnerRadius = 200;
+    FERBlockExplosionProfile BlockExplosion;
     float BlastArmorRatio = 1.6f;
     float FuseDuration = 3.5f;
     UPROPERTY(ReplicatedUsing=OnRep_Held) bool bHeld = false;

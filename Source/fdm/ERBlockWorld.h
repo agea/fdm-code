@@ -23,19 +23,40 @@ struct FERBlockId
     FString ToString() const { return FString::Printf(TEXT("W%d:C%d:R%d"), Wall, Column, Row); }
 };
 
+// Gameplay preset, not physical data. HP are per logical cell and calibrated
+// for 5cm cells; the current 50x20x25 blocks use them provisionally.
 USTRUCT(BlueprintType)
 struct FERBlockMaterialProperties
 {
     GENERATED_BODY()
     UPROPERTY(EditAnywhere, BlueprintReadWrite) EERBlockMaterial Type = EERBlockMaterial::Drywall;
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="1")) float MaxHealth = 30;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="1")) float MaxHealth = 20;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="0")) float BulletDamageScale = 1;
+    // Penetration energy stays independent from structural damage.
     UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="0")) float EntryEnergyCost = 5;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="0")) float EnergyCostPerCm = .5f;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="0")) float ExplosionDamageScale = 1;
+    // Fraction of blast exposure passed to cells behind this one. A prototype
+    // coefficient to tune, unrelated to the damage multipliers above.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="0", ClampMax="1")) float ExplosionTransmission = .25f;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> ImpactDecal;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UNiagaraSystem> ImpactSystem;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> Surface;
+};
+
+// Discretisation the cell HP were tuned for. Cell worlds whose settings differ
+// refuse to generate until HP are retuned and this stamp is updated with them.
+USTRUCT(BlueprintType)
+struct FERCellCalibration
+{
+    GENERATED_BODY()
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) float CellSize = 5;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) float WoodDepth = 2;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) float DrywallBoard = 1.25f;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) float SheetThickness = .2f;
+    // ExplosionTransmission is the share passed by this many cm of intact
+    // material; cells attenuate by the path length they actually cross.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="1")) float TransmissionReferenceCm = 20;
 };
 
 UCLASS(BlueprintType)
@@ -45,6 +66,7 @@ class FDM_API UERBlockMaterialCatalog : public UDataAsset
 public:
     UERBlockMaterialCatalog();
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<FERBlockMaterialProperties> Materials;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) FERCellCalibration CellCalibration;
     const FERBlockMaterialProperties* Find(EERBlockMaterial Type) const;
     bool IsValidCatalog() const;
 };
@@ -86,6 +108,8 @@ public:
     bool GenerateRoom(const FERBlockRoomConfig& Config, const UERBlockMaterialCatalog* Catalog);
     // Validates the complete replacement before touching live state.
     bool LoadLayout(const TArray<FERBlockRecord>& Records, float ChunkSize, const UERBlockMaterialCatalog* Catalog);
+    // Empty storage, used while the owning room holds 5cm cells instead.
+    void Reset();
     const TArray<FERBlockRecord>& GetBlocks() const { return Blocks; }
     const FERBlockRecord* Find(const FERBlockId& Id) const;
     bool Damage(const FERBlockId& Id, float Amount);
@@ -98,6 +122,9 @@ public:
     int32 GetRemovedCount() const { return DestroyedCount+DetachedCount; }
     uint64 GetDamageRevision() const { return DamageRevision; }
     TArray<FERBlockId> QuerySphere(const FVector& LocalOrigin, float LocalRadius) const;
+    // Attached Glass sections of the same wall face-connected to Id, sorted.
+    // Glass breaks as a pane; no other material uses this.
+    TArray<FERBlockId> CollectGlassPane(const FERBlockId& Id) const;
     SIZE_T GetStorageBytes() const;
     mutable FERBlockQueryProfile LastQuery;
     int32 GetDestroyedCount() const { return DestroyedCount; }

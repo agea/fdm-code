@@ -52,7 +52,7 @@ if game:
     prefix = 'ER_COLLAPSE_PROBE_' if args.collapse else 'ER_PROCEDURAL_PROBE_' if args.procedural else 'ER_BLOCK_PROBE_'
     passed = prefix + 'COMPLETE result=PASS' in output and prefix + 'FAIL' not in output
 else:
-    passed = all('Result={Success} Name={' + name + '}' in output for name in ['Storage', 'CollisionAndIdentity', 'BallisticsAndExplosion', 'ProceduralLayout', 'ProceduralCollision', 'StressAndBatchedIdentity', 'StructuralSupport', 'CollapseAndIdentity', 'MultiFloorLayout', 'MultiFloorCollision', 'NetworkTransactions', 'MapTemplate', 'DustTemplate'])
+    passed = all('Result={Success} Name={' + name + '}' in output for name in ['Storage', 'CollisionAndIdentity', 'BallisticsAndExplosion', 'ProceduralLayout', 'ProceduralCollision', 'StressAndBatchedIdentity', 'StructuralSupport', 'CollapseAndIdentity', 'MultiFloorLayout', 'MultiFloorCollision', 'NetworkTransactions', 'MapTemplate', 'DustTemplate', 'DamagePreset', 'DamageLocalAndShielding', 'GlassPane'])
     passed = passed and 'Result={Fail}' not in output
 print('Log:', log)
 raise SystemExit(0 if result.returncode == 0 and passed else 1)

@@ -177,7 +177,12 @@ bool AERProceduralMap::GenerateLogicalWorld()
 }
 void AERProceduralMap::ConfigureFloors()
 {
-    for(auto& Mesh:FixedMeshes) { RemoveInstanceComponent(Mesh); Mesh->DestroyComponent(); }
+    for(auto& Mesh:FixedMeshes)
+    {
+        RemoveInstanceComponent(Mesh); Mesh->DestroyComponent();
+        // Free the deterministic name before the replacement group claims it.
+        Mesh->Rename(*MakeUniqueObjectName(this, UInstancedStaticMeshComponent::StaticClass(), TEXT("DeadTemplateFixed")).ToString(), nullptr, REN_DontCreateRedirectors | REN_NonTransactional);
+    }
     FixedMeshes.Empty();FixedCollision->ClearInstances();Ceilings->SetHiddenInGame(false);
     if(LayoutConfig.TemplateAsset) {ConfigureTemplateFloors(); return;}
     // A foundation touches the underside of the 20cm interior floor slabs.
@@ -244,7 +249,10 @@ void AERProceduralMap::ConfigureTemplateFloors()
         for(auto& Existing:FixedMeshes)if(Existing->GetStaticMesh()==Asset && Existing->ComponentHasTag(TEXT("ERTemplateRoof"))==Piece.Roof && Existing->ComponentHasTag(TEXT("ERTemplateVisual"))==bool(Piece.Mesh || Piece.VisualOnly) && Existing->GetMaterial(0)==ExpectedSurface){Group=Existing;break;}
         if(!Group)
         {
-            Group=NewObject<UInstancedStaticMeshComponent>(this);AddInstanceComponent(Group);Group->SetMobility(EComponentMobility::Movable);
+            // Groups are created in FixedPieces order, identical on host and clients:
+            // pawns stand on them, so corrections carry them by name.
+            Group=NewObject<UInstancedStaticMeshComponent>(this,*FString::Printf(TEXT("TemplateFixed_%d"),FixedMeshes.Num()));AddInstanceComponent(Group);Group->SetMobility(EComponentMobility::Movable);
+            Group->SetNetAddressable();
             Group->SetupAttachment(RootComponent);Group->SetStaticMesh(Asset);Group->SetCollisionProfileName(Piece.Mesh || Piece.VisualOnly ? TEXT("NoCollision"):TEXT("BlockAll"));
             if(Piece.Mesh || Piece.VisualOnly)Group->ComponentTags.Add(TEXT("ERTemplateVisual"));
             if(Piece.Roof)Group->ComponentTags.Add(TEXT("ERTemplateRoof"));

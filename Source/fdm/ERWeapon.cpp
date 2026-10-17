@@ -210,7 +210,7 @@ void AERWeapon::ArmGrenade()
     auto* P=GetWorld()->SpawnActorDeferred<AERProjectile>(ProjectileClass,Transform,this,Character,ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
     if(!P) { bWantsFire=false;return; }
     P->Payload=Data->Payload;P->ThrownMesh=Data->ProjectileMesh?Data->ProjectileMesh:Data->Mesh;
-    P->Damage=Data->Damage;P->ExplosionRadius=Data->ExplosionRadius;P->ExplosionInnerRadius=Data->ExplosionInnerRadius;
+    P->Damage=Data->Damage;P->ExplosionRadius=Data->ExplosionRadius;P->ExplosionInnerRadius=Data->ExplosionInnerRadius;P->BlockExplosion=Data->BlockExplosion;
     P->BlastArmorRatio=ERWeaponBallistics::GrenadeArmorRatio(Data->ArmorRatio);
     P->FuseDuration=Data->FuseDuration;P->bHeld=true;
     P->Movement->InitialSpeed=0;P->Movement->MaxSpeed=10000.f;P->Movement->Velocity=FVector::ZeroVector;
@@ -388,6 +388,7 @@ void AERWeapon::TryFire()
             Projectile->ThrownMesh = Data->ProjectileMesh ? Data->ProjectileMesh : (Data->bOneHanded ? Data->Mesh : nullptr);
             Projectile->ExplosionRadius = Data->ExplosionRadius;
             Projectile->ExplosionInnerRadius = Data->ExplosionInnerRadius;
+            Projectile->BlockExplosion = Data->BlockExplosion;
             Projectile->BlastArmorRatio = ERWeaponBallistics::GrenadeArmorRatio(Data->ArmorRatio);
             Projectile->FuseDuration = Data->FuseDuration;
             const FVector LaunchVelocity=GetLaunchVelocity(LastShotDirection);
@@ -721,12 +722,13 @@ void AERProjectile::Detonate()
     if (Payload == EERPayload::HE || Payload == EERPayload::Rocket || Payload == EERPayload::LaunchedHE)
     {
         // Fragment injury range is larger than the local structural blast.
-        // Preserve the shared snapshot and the tuned building damage envelope.
-        AERBlockRoom::ApplyWorldExplosion(GetWorld(), Position + FVector::UpVector * 10,
-            Payload==EERPayload::Rocket?ExplosionRadius:FMath::Min(ExplosionRadius,350.f),
-            Damage*(Payload==EERPayload::Rocket?1.f:3.f), this);
-        UE_LOG(LogTemp,Display,TEXT("ER_GRENADE_STRUCTURE damage=%.1f radius=%.1f"),
-            Damage*(Payload==EERPayload::Rocket?1.f:3.f),Payload==EERPayload::Rocket?ExplosionRadius:FMath::Min(ExplosionRadius,350.f));
+        // HE uses its own structural profile; character damage above is
+        // unchanged. Rockets keep their previous linear building envelope.
+        const FERBlockExplosionProfile Structure=Payload==EERPayload::Rocket ?
+            FERBlockExplosionProfile::Linear(ExplosionRadius,Damage) : BlockExplosion;
+        AERBlockRoom::ApplyWorldExplosion(GetWorld(), Position + FVector::UpVector * 10, Structure, this);
+        UE_LOG(LogTemp,Display,TEXT("ER_GRENADE_STRUCTURE damage=%.1f inner=%.1f radius=%.1f exponent=%.2f"),
+            Structure.BaseDamage,Structure.InnerRadius,Structure.OuterRadius,Structure.FalloffExponent);
     }
     MulticastDetonate(Position, Payload);
     if (Payload==EERPayload::Smoke && SmokeCloudClass)

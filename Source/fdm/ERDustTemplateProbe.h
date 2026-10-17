@@ -23,6 +23,11 @@ private:
     bool ReachedUpper=false;
     bool CapturedGate=false;
     bool Failed=false;
+    // Remote pawns on the Short A deck (a runtime FixedMeshes group).
+    int32 PlacedPhase=0,BaseChecked=0;
+    float BaseClock=-1;
     void Check(bool Good,const TCHAR* Label);
     void Publish(int32 Next,class AERProceduralMap* Map);
+    UPROPERTY(Replicated) TObjectPtr<class APlayerState> DeckPlayer;
+    void PlaceRemote(bool Latest,const FVector& P);
 };

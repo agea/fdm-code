@@ -36,7 +36,7 @@ static void LogFirstPersonVertices(AERCharacter* Player)
     FBox Box(ForceInit);
     const FTransform View = Player->Camera->GetComponentTransform();
     const auto& LOD = Body->GetSkeletalMeshAsset()->GetResourceForRendering()->LODRenderData[0];
-    int32 Count = 0;
+    int32 Posed = 0;
     for (const auto& Section : LOD.RenderSections)
     {
         if (Body->IsMaterialSectionShown(Section.MaterialIndex,0))
@@ -44,11 +44,11 @@ static void LogFirstPersonVertices(AERCharacter* Player)
                 if (Vertices.IsValidIndex(V))
                 {
                     Box += View.InverseTransformPosition(Body->GetComponentTransform().TransformPosition(FVector(Vertices[V].Position)));
-                    ++Count;
+                    ++Posed;
                 }
     }
     UE_LOG(LogTemp,Display,TEXT("ER_FPS_GEOMETRY_POSED mesh=%s vertices=%d min=%s max=%s"),
-        *Body->GetSkeletalMeshAsset()->GetName(),Count,*Box.Min.ToString(),*Box.Max.ToString());
+        *Body->GetSkeletalMeshAsset()->GetName(),Posed,*Box.Min.ToString(),*Box.Max.ToString());
 }
 #endif
 

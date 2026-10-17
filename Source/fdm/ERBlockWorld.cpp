@@ -8,16 +8,20 @@ UERBlockMaterialCatalog::UERBlockMaterialCatalog()
     {
         FERBlockMaterialProperties& Entry = Materials.AddDefaulted_GetRef();
         Entry.Type = static_cast<EERBlockMaterial>(Index);
-        const float Health[] = {30,140,300,60,200,400,8};
+        // Drywall, Brick (hollow), Concrete (reinforced), Wood panel, Stone,
+        // Metal (container sheet), Glass (pane break).
+        const float Health[] = {20,100,600,40,1000,100,8};
         Entry.MaxHealth = Health[Index];
         const float EntryCost[] = {5,20,40,7,30,60,1};
         const float PerCm[] = {.5f,5,15,1.5f,7,15,.1f};
-        const float BulletScale[] = {.5f,1,1,1,1,.5f,2};
-        const float ExplosionScale[] = {2,.8f,.25f,1.2f,.5f,.35f,1.5f};
+        const float BulletScale[] = {1,.75f,.1f,1,.05f,.5f,1};
+        const float ExplosionScale[] = {2,1.5f,.5f,1.5f,.2f,1,3};
+        const float Transmission[] = {.5f,.25f,.05f,.5f,.02f,.5f,.9f};
         Entry.EntryEnergyCost = EntryCost[Index];
         Entry.EnergyCostPerCm = PerCm[Index];
         Entry.BulletDamageScale = BulletScale[Index];
         Entry.ExplosionDamageScale = ExplosionScale[Index];
+        Entry.ExplosionTransmission = Transmission[Index];
     }
 }
 const FERBlockMaterialProperties* UERBlockMaterialCatalog::Find(EERBlockMaterial Type) const
@@ -40,6 +44,7 @@ bool UERBlockMaterialCatalog::IsValidCatalog() const
         if (!Entry || !FMath::IsFinite(Entry->MaxHealth) || Entry->MaxHealth <= 0) return false;
         for (float Value : {Entry->BulletDamageScale, Entry->EntryEnergyCost, Entry->EnergyCostPerCm, Entry->ExplosionDamageScale})
             if (!FMath::IsFinite(Value) || Value < 0) return false;
+        if (!FMath::IsFinite(Entry->ExplosionTransmission) || Entry->ExplosionTransmission < 0 || Entry->ExplosionTransmission > 1) return false;
     }
     return true;
 }
@@ -141,6 +146,33 @@ TArray<FERBlockId> UERBlockWorld::QuerySphere(const FVector& LocalOrigin, float 
     LastQuery.Returned=Result.Num(); LastQuery.Ms=(FPlatformTime::Seconds()-Start)*1000;
     return Result;
 }
+TArray<FERBlockId> UERBlockWorld::CollectGlassPane(const FERBlockId& Id) const
+{
+    TArray<FERBlockId> Result;
+    const int32* Seed=Lookup.Find(Id);
+    if (!Seed || Blocks[*Seed].Material!=EERBlockMaterial::Glass) return Result;
+    TArray<int32> Glass;
+    for (int32 I=0;I<Blocks.Num();++I)
+        if (Blocks[I].Material==EERBlockMaterial::Glass && Blocks[I].Id.Wall==Id.Wall && (I==*Seed || Blocks[I].IsAttached())) Glass.Add(I);
+    // Sections of one wall share its rotation; touching boxes form the pane.
+    auto Touch=[&](int32 A,int32 B)
+    {
+        const FTransform& TA=Blocks[A].LocalTransform; const FTransform& TB=Blocks[B].LocalTransform;
+        if (!TA.GetRotation().Equals(TB.GetRotation(),1.e-3)) return false;
+        const FVector Delta=TA.GetRotation().UnrotateVector(TB.GetLocation()-TA.GetLocation()).GetAbs();
+        const FVector Reach=(TA.GetScale3D().GetAbs()+TB.GetScale3D().GetAbs())*50+FVector(1);
+        return Delta.X<=Reach.X && Delta.Y<=Reach.Y && Delta.Z<=Reach.Z;
+    };
+    TArray<int32> Open={*Seed}; TSet<int32> Seen={*Seed};
+    while (!Open.IsEmpty())
+    {
+        const int32 Current=Open.Pop();
+        if (Blocks[Current].IsAttached()) Result.Add(Blocks[Current].Id);
+        for (int32 Other:Glass) if (!Seen.Contains(Other) && Touch(Current,Other)) { Seen.Add(Other); Open.Add(Other); }
+    }
+    Result.Sort([](const auto& A,const auto& B){return A.Wall!=B.Wall ? A.Wall<B.Wall : A.Row!=B.Row ? A.Row<B.Row : A.Column<B.Column;});
+    return Result;
+}
 bool UERBlockWorld::LoadLayout(const TArray<FERBlockRecord>& Records, float ChunkSize, const UERBlockMaterialCatalog* Catalog)
 {
     if (!Catalog || !Catalog->IsValidCatalog() || Records.IsEmpty() || Records.Num() > 50000 || !FMath::IsFinite(ChunkSize) || ChunkSize < 100) return false;
@@ -164,6 +196,11 @@ bool UERBlockWorld::LoadLayout(const TArray<FERBlockRecord>& Records, float Chun
         MaxHalfDiagonal = FMath::Max(MaxHalfDiagonal, float(Block.LocalTransform.GetScale3D().Size() * 50));
     }
     return true;
+}
+
+void UERBlockWorld::Reset()
+{
+    Blocks.Empty(); Lookup.Empty(); SpatialIndex.Empty(); DestroyedCount = DetachedCount = 0; ++DamageRevision; MaxHalfDiagonal = 0;
 }
 
 SIZE_T UERBlockWorld::GetStorageBytes() const

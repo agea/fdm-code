@@ -7,6 +7,9 @@ struct FERBlockOperationProfile
 {
     double TotalMs=0, LogicalMs=0, GroupingMs=0, ClearMs=0, AddMs=0, MappingMs=0;
     int32 Groups=0, Uploaded=0;
+    // 5cm cells: greedy face mesh and box collision of rebuilt chunks.
+    double MeshMs=0, CollisionMs=0;
+    int32 Quads=0, Boxes=0;
 };
 struct FERBlockMemoryProfile
 {
@@ -15,6 +18,8 @@ struct FERBlockMemoryProfile
     int32 Debris=0, SimulatingDebris=0;
     uint64 ResidentBytes=0;
     int32 CollisionBodies=0, Components=0, Decals=0, Emitters=0, Bursts=0;
+    int64 Cells=0, RemovedCells=0;
+    int32 Quads=0, CollisionBoxes=0;
     SIZE_T TrackedBytes() const { return LogicalBytes+MappingBytes+LayoutBytes+InstanceResourceBytes+SupportBytes+NetworkBytes; }
 };
 struct FERBlockQueryProfile { double Ms=0; int32 Buckets=0, Examined=0, Returned=0; };

@@ -778,3 +778,60 @@ Grenades.fbx. Bake HE object F1 and bind owned HE/F1/SK_HE with M_HE_F1
 textures. setup_f1_grenade.py updates only HE art and removes the separate
 Flash sphere mesh from BP_ERGrenadeExplosion. Preserve PointLight flash,
 smoke/chips, Sonniss audio, fitted hands, fuse/damage/throw settings.
+
+
+## Block damage preset (17 October)
+
+- The user's RR_DANNI_MATERIALI_BLOCCHI_GRANATE.md is the source; details in
+  docs/PROCEDURAL_DESTRUCTION.md. HP/multipliers are a gameplay preset per
+  cell, calibrated for 5cm cells. The user chose to keep the 50x20x25 blocks for
+  now; 5cm cells are a separate voxel-chunk milestone. Do not silently reuse
+  these HP after changing resolution.
+- Keep character damage, structural damage and penetration energy separate.
+  Bullets: BlockShot.StructuralDamage (defaults to weapon Damage) x residual
+  energy x BulletDamageScale. No hit zones on blocks. HE: Data->BlockExplosion
+  (400/0/25/200/^2, cell-centre distance) x ExplosionDamageScale x exposure.
+  Rockets keep FERBlockExplosionProfile::Linear.
+- Exposure is computed on the pre-blast snapshot. Intact shielding cells multiply
+  it by their untuned ExplosionTransmission; other geometry occludes. Apply one
+  aggregated batch, with no chained excess. Only Glass breaks as a connected pane.
+- setup_block_damage_preset.py (ERBlockDamagePresetVersion=1) touches only
+  HP/multipliers/transmission of DA_ER_BlockMaterials. Run test-destruction.py
+  (DamagePreset/DamageLocalAndShielding/GlassPane), --combat, network and grenade
+  probes. Launched from an agent shell, a recent project in ~/Downloads can block
+  the editor home screen on a macOS privacy prompt until the user answers it.
+
+
+## 5cm cell prototype (17 October)
+
+- The user approved option C of docs/CELL_DESTRUCTION_PLAN.md: logical 5x5x5cm
+  cells (wood 5x5x2, drywall boards/sheet/glass thickness from FERCellSettings),
+  per-chunk alive bitsets plus sparse float HP, one UDynamicMeshComponent per
+  32x32-cell chunk with visible faces only and aggregate-box collision. It is a
+  mode of AERBlockRoom (bCellMode), not a second system; L_DestructionLab only
+  (-ERCellLab, ?Cells=1 or console ERCellMode 1). Procedural maps/templates and
+  removal of the per-block ISM path are later phases.
+- Cell HP are the spec values; FERCellCalibration in the catalog stamps the
+  resolution they were tuned for. A mismatch rejects generation with
+  ER_BLOCK_CALIBRATION_MISMATCH: never reuse HP after changing cell size or
+  construction thickness. Blast transmission is per TransmissionReferenceCm
+  (20) of intact material, applied by path length; MaxShieldingCm 40.
+- Bullets: voxel DDA through the hit panel, EntryEnergyCost once per material
+  run, EnergyCostPerCm by path, each crossed cell damaged with residual energy
+  at its entry. Grenades: pre-event snapshot, 9 static traces per candidate chunk
+  (ignoring cell components), voxel exposure, one aggregated batch.
+- Hits resolve cells from the impact point (never Hit.Item). Mesh and collision
+  rebuild together for dirty chunks and their face neighbours; deferred
+  automatic collision updates stay enabled on the components.
+- FDynamicMesh3 rules verified on Metal: Unreal front faces satisfy
+  GetTriNormal (edge2 x edge1) == normal; one overlay element per vertex (never
+  shared across quad corners); right-handed UV frames (mirror U on negative
+  faces). nullrhi tests cannot see these, so inspect --render captures.
+- Network protocol 7: descriptor (cell settings, layout digest, shard manifest)
+  plus AERCellNetShard fast arrays of RLE alive masks for modified chunks only.
+  HP never leave the server. Clients apply complete manifests only, fail closed.
+- Collapse is off in cell mode (logged ER_BLOCK_SUPPORT_UNAVAILABLE); support
+  over chunk components is phase 2. Glass is a single pane cell.
+- Verify with scripts/test-cell-destruction.py (four Cells automation tests) and
+  --game (real rifle, grenades, crouch/stand breaches, HE fuse, mode switching),
+  plus test-destruction.py regressions. Scaling: measure-cell-scaling.py.
