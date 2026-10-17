@@ -706,3 +706,17 @@ viewmodel sight anchors remain in use.
 
 Scoped launcher origin fix (16 October): native runtime/probe change only; uses
 existing FPS mesh muzzle offset and iron transforms. No binary asset changes.
+
+## Sonniss granate — 17 ottobre 2026
+Input utente grenade1.wav e smoke_1.wav, Sonniss GDC 2024 Game Audio Bundle.
+Originali e WAV runtime in Assets/weapons/SourceAssets/SonnissGDC2024.
+S_ER_GrenadeExplosion sostituisce il precedente campione; S_ER_SmokeRelease
+aggiunto in Effects/Grenade/Audio e collegato a BP_ERSmokeCloud. HE 2,361s;
+smoke 6s con fade 4,5..6s, entrambi mono PCM44,1kHz.
+
+## Modello HE F1 — 17 ottobre 2026
+F1 dal Grenades.fbx Riskyerick già acquisito: derivato HE ricostruito con
+3608 vertici, due ossa. Mesh /Game/EclipseRecoil/Weapons/Sketchfab/HE/F1/SK_HE,
+materiale M_HE_F1 con albedo/normal/roughness/metallic F1 forniti.
+Originali e vecchia RGD-5 conservati; DA_HE usa ora F1. FlashMesh nullo
+in BP_ERGrenadeExplosion elimina la sfera, mantenendo luce, fumo e detriti.

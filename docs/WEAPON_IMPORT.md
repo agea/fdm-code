@@ -26,7 +26,7 @@ with the server URL option `?ERLegacyArsenal=1` for its existing regression fixt
 | 6 | DJMaesen carbine | `scar20` | 80 | 0.25 | 1.650 | 0.98 |
 | 7 | DJMaesen sniper | `awp` | 115 | 1.46 | 1.950 | 0.99 |
 | 8 | user77 / JaumWF / DJMaesen Milkor M32 | Project HE launcher | 140 peak | 0.50 | 1.600 | n/a |
-| F | Riskyerick RGD-5 | Project HE | 140 peak | 0.80 | 1.600 | n/a |
+| F | Riskyerick F1 | Project HE | 140 peak | 0.80 | 1.600 | n/a |
 | G | Riskyerick M18 | Smoke | 0 | 0.80 | n/a | n/a |
 
 The downloaded worksheet snapshot is

@@ -1,4 +1,6 @@
 #include "ERSmokeCloud.h"
+#include "Components/AudioComponent.h"
+#include "Sound/SoundBase.h"
 #include "NiagaraComponent.h"
 #include "NiagaraSystem.h"
 #include "Engine/Blueprint.h"
@@ -76,6 +78,15 @@ void AERSmokeCloud::BeginPlay()
     {
         StartedAtServerTime=ServerNow(); SetLifeSpan(Duration);
         ShapePhase=FVector(FMath::FRandRange(0.f,100.f),FMath::FRandRange(0.f,100.f),FMath::FRandRange(0.f,100.f));
+    }
+    if(GetNetMode()!=NM_DedicatedServer && ReleaseSound)
+    {
+        const float Age=FMath::Max(0.f,float(ServerNow()-StartedAtServerTime));
+        if(Age<ReleaseSound->GetDuration())
+            ReleaseAudio=UGameplayStatics::SpawnSoundAtLocation(this,ReleaseSound,GetActorLocation(),FRotator::ZeroRotator,
+                .65f,1.f,Age,ReleaseAttenuation,ReleaseConcurrency,true);
+        UE_LOG(LogTemp,Display,TEXT("ER_SMOKE_AUDIO sound=%s started=%d spatial=%d concurrency=%d age=%.2f"),
+            *GetNameSafe(ReleaseSound),ReleaseAudio && ReleaseAudio->IsPlaying(),ReleaseAttenuation!=nullptr,ReleaseConcurrency!=nullptr,Age);
     }
     SetActorEnableCollision(false);
     Fumes->Deactivate(); Fumes->SetComponentTickEnabled(false);
@@ -260,6 +271,7 @@ void AERSmokeCloud::Tick(float DeltaSeconds)
 
 void AERSmokeCloud::EndPlay(const EEndPlayReason::Type Reason)
 {
+    if(ReleaseAudio) ReleaseAudio->Stop();
     Super::EndPlay(Reason);
 }
 void AERSmokeCloud::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const

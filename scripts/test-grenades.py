@@ -51,6 +51,8 @@ try:
         }
     if args.audio:
         checks['explosion_audio_started']='ER_GRENADE_AUDIO sound=S_ER_GrenadeExplosion started=1 spatial=1 concurrency=1' in server
+        checks['smoke_audio_started']='ER_SMOKE_AUDIO sound=S_ER_SmokeRelease started=1 spatial=1 concurrency=1' in server
+        checks['remote_smoke_audio_asset']='ER_SMOKE_AUDIO sound=S_ER_SmokeRelease' in remote
         checks['remote_audio_asset']='ER_GRENADE_AUDIO sound=S_ER_GrenadeExplosion' in remote
     if args.render:
         checks['fresh_captures']=all((logs/'Grenades'/name).exists() and (logs/'Grenades'/name).stat().st_mtime>=started for name in (['Cook00_Ready.png','Cook01_Held.png','Cook02_Released.png','Cook03_RemoteReady.png'] if args.combat else ['01_Bounce.png','02_HE.png','02_HE_After.png','03_ClosedWall.png','04_OpenWindow.png','05_InsideSmoke.png','06_HE_Dispersed.png']))

@@ -1994,3 +1994,15 @@ authoritative eye/aim, with first-person FOV correction and full projectile
 depth. Origin blends during raising/lowering. The existing obstruction sweep
 and blocked-muzzle fallback still prevent firing through nearby geometry.
 Six-degree elevation, scoped range bonus, contact damage and fuse are retained.
+
+## Audio granate — 17 ottobre 2026
+Su richiesta: grenade1.wav per HE (intero, 2,361s), smoke_1.wav per fumogena
+(6s, dissolvenza lineare 4,5..6s). Originali preservati in SourceAssets privati
+SonnissGDC2024; runtime mono PCM16 44,1kHz. Release locale alla nascita della
+nuvola replicata, offset per arrivo tardivo e stop alla rimozione.
+
+## F1 e rimozione sfera HE — 17 ottobre 2026
+Sostituita RGD-5 con F1 dal medesimo Grenades.fbx; texture F1 del pacchetto.
+Migrazione setup_f1_grenade.py aggiorna solo mesh e idle modello, mantenendo
+pose mani e parametri HE. Rimossa la mesh sferica Flash; luce del bagliore,
+fumo, detriti e suono Sonniss mantenuti.

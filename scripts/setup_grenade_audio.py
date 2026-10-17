@@ -1,10 +1,10 @@
-"""Import the credited public Freesound HQ preview and bind owned explosion audio."""
+"""Import user-supplied Sonniss HE and smoke audio."""
 from pathlib import Path
 import unreal as ue
 project = Path(ue.Paths.convert_relative_path_to_full(ue.Paths.project_dir()))
 folder = '/Game/EclipseRecoil/Effects/Grenade/Audio'
 tools = ue.AssetToolsHelpers.get_asset_tools()
-source = project/'Assets/weapons/SourceAssets/Freesound/162363/ER_Grenade_Explosion.wav'
+source = project/'Assets/weapons/SourceAssets/SonnissGDC2024/ER_Grenade_Explosion.wav'
 task = ue.AssetImportTask()
 for key, value in dict(filename=str(source), destination_path=folder,
                        destination_name='S_ER_GrenadeExplosion', automated=True,
@@ -38,6 +38,26 @@ ue.BlueprintEditorLibrary.compile_blueprint(bp)
 for obj in [sound, atten, concurrency, bp]:
     assert ue.EditorAssetLibrary.save_loaded_asset(obj, only_if_is_dirty=False)
 assert sound.get_editor_property('num_channels') == 1
-assert .5 < sound.get_editor_property('duration') < .8
+assert 2.3 < sound.get_editor_property('duration') < 2.4
 assert ue.get_default_object(bp.generated_class()).get_editor_property('explosion_sound') == sound
 ue.log('ER_GRENADE_AUDIO_READY mono=1 duration=%.3f inner_cm=500 falloff_cm=7500 concurrency=8' % sound.get_editor_property('duration'))
+
+task = ue.AssetImportTask()
+for key, value in dict(filename=str(source.parent/'ER_Smoke_Release.wav'), destination_path=folder,
+                       destination_name='S_ER_SmokeRelease', automated=True, replace_existing=True, save=True).items():
+    task.set_editor_property(key, value)
+tools.import_asset_tasks([task])
+smoke = ue.load_asset(folder+'/S_ER_SmokeRelease')
+smoke.set_editor_property('looping', False)
+smoke.set_editor_property('loading_behavior', ue.SoundWaveLoadingBehavior.FORCE_INLINE)
+smoke.set_sound_asset_compression_type(ue.SoundAssetCompressionType.PCM)
+smoke_bp = ue.load_asset('/Game/EclipseRecoil/Effects/Smoke/BP_ERSmokeCloud')
+ue.BlueprintEditorLibrary.compile_blueprint(smoke_bp)
+for key, value in dict(release_sound=smoke, release_attenuation=atten, release_concurrency=concurrency).items():
+    ue.get_default_object(smoke_bp.generated_class()).set_editor_property(key, value)
+ue.BlueprintEditorLibrary.compile_blueprint(smoke_bp)
+for obj in [smoke, smoke_bp]:
+    assert ue.EditorAssetLibrary.save_loaded_asset(obj, only_if_is_dirty=False)
+assert smoke.get_editor_property('num_channels') == 1
+assert 5.99 < smoke.get_editor_property('duration') < 6.01
+ue.log('ER_SMOKE_AUDIO_READY duration=6 fade_start=4.5 fade_duration=1.5')

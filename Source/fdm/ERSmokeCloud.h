@@ -15,6 +15,10 @@ public:
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> VolumeMaterial;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) TObjectPtr<class UStaticMesh> VolumeMesh;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) TObjectPtr<class UNiagaraSystem> System;
+    UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) TObjectPtr<class USoundBase> ReleaseSound;
+    UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) TObjectPtr<class USoundAttenuation> ReleaseAttenuation;
+    UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) TObjectPtr<class USoundConcurrency> ReleaseConcurrency;
+    UPROPERTY(Transient) TObjectPtr<class UAudioComponent> ReleaseAudio;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) FVector SimSize = FVector(800,800,400);
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) int32 GridResolution = 40;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) float Duration = 12;

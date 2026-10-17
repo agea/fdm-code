@@ -38,7 +38,7 @@ profiles=[
     dict(key='Carbine',prefix='62977',name='Carbine · SCAR-20',row='scar20',legacy='M4_8',ammo=20,reserve=90,auto=True,spread=.16,reload=3.1,zoom=35),
     dict(key='Sniper',prefix='eae1',name='Sniper · AWP',row='awp',legacy='M107',ammo=5,reserve=30,spread=.12,reload=2.5,zoom=20),
     dict(key='Launcher',prefix='c1ec',name='Milkor M32 MGL',legacy='RPG7',payload='LAUNCHED_HE',damage=140,interval=.5,ammo=6,reserve=12,spread=.3,speed=1750,reload=5.5),
-    dict(key='HE',prefix='287306',name='RGD-5 · HE',legacy='Grenade_RGD5',one=True,payload='HE',damage=140,interval=.8,ammo=10,reserve=0,spread=0,speed=880),
+    dict(key='HE',prefix='287306',name='F1 · HE',legacy='Grenade_RGD5',one=True,payload='HE',damage=140,interval=.8,ammo=10,reserve=0,spread=0,speed=880),
     dict(key='Smoke',prefix='287306',name='M18 · Smoke',legacy='Grenade_Smoke',one=True,payload='SMOKE',damage=0,interval=.8,ammo=10,reserve=0,spread=0,speed=880),
 ]
 for profile in profiles:profile['name']=weapon_names[profile['key']]
@@ -86,12 +86,12 @@ maps={
     'Carbine':('carbineColor.png','carbineNormal.png',None,'carbineMetallic.png'),
     'Sniper':('sniperColor.png','sniperNormal.png','sniperRoughness.png','sniperMetallic.png'),
     'Launcher':('Parte01_Diffuse.png','Parte01_Normal_DirectX.png','Parte01_Glossiness.png',None),
-    'HE':('RGD_albedo.jpg','RGD_normal.png','RGD_roughness.jpg','RGD_metallic.jpg'),
+    'HE':('F1_albedo.jpg','F1_normal.png','F1_roughness.jpg','F1_metallic.jpg'),
     'Smoke':('DefaultMaterial_albedo.jpg','DefaultMaterial_normal.png','DefaultMaterial_roughness.jpg','DefaultMaterial_metallic.jpg'),
 }
 
 def material(directory,key,files,suffix=''):
-    name='M_'+key+suffix; path=folder+'/'+key+'/'+name
+    name='M_'+key+('_F1' if key=='HE' else '')+suffix; path=folder+'/'+key+'/'+name
     result=ue.load_asset(path)
     if result and not repair_materials:return result
     if result:ue.MaterialEditingLibrary.delete_all_material_expressions(result)
@@ -154,7 +154,7 @@ for profile in sorted(profiles,key=lambda item:item['key']!='Assault'):
     # Interchange mesh reimport preserves existing animation packages/reference
     # poses. These calibrated derivatives need a fresh skeleton and clip set.
     version='/V4' if key in ('Assault','SMG') else '/V3'
-    model_folder=folder+'/'+key+(version if key not in ('HE','Smoke') else '')
+    model_folder=folder+'/'+key+('/F1' if key=='HE' else version if key!='Smoke' else '')
     mesh=import_file(root/manifest['fbx'],model_folder,'SK_'+key,options)
     files=maps.get(key)
     if not files:raise RuntimeError('Launcher material mapping must be supplied after original inspection')

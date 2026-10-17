@@ -25,7 +25,7 @@ models = [
     ('Sniper', 'eae1', 'sniper', 1, dict(Idle=(1, 2), Fire=(1, 61), Reload=(62, 116), Source=(1, 196))),
     ('Launcher', 'c1ec', 'GL_base', 1, dict(Idle=(2, 3), Fire=(2, 13), Reload=(14, 212), Source=(2, 321))),
     ('Projectile', 'c1ec', 'GL_slug1', 1, dict(Idle=(2, 3))),
-    ('HE', '287306', 'RGD-5', 1, dict(Idle=(1, 2))),
+    ('HE', '287306', 'F1', 1, dict(Idle=(1, 2))),
     ('Smoke', '287306', 'M18', 1, dict(Idle=(1, 2))),
 ]
 

@@ -765,3 +765,16 @@ launcher muzzle from raised FPS rig in camera-local coordinates, then transform
 through authoritative eye/aim and matching FOV projection. Ignore first-person
 depth scale for a full-sized projectile; blend from ordinary hip origin. Retain
 eye-to-muzzle obstruction sweep/fallback and server-only launch direction.
+
+Grenade audio (17 October): user-supplied Sonniss grenade1.wav replaces the
+HE sample (full2.361s); smoke_1.wav binds BP_ERSmokeCloud ReleaseSound.
+Private SourceAssets/SonnissGDC2024 retains originals and mono PCM44.1kHz
+runtime copies. Smoke is trimmed6s with baked linear fade4.5..6s, no loop;
+replicated cloud plays once per peer with late-arrival offset and stops on
+cleanup. setup_grenade_audio.py imports both; verify grenades --render --audio.
+
+HE art (17 October): user selected F1 instead of RGD-5 from the supplied
+Grenades.fbx. Bake HE object F1 and bind owned HE/F1/SK_HE with M_HE_F1
+textures. setup_f1_grenade.py updates only HE art and removes the separate
+Flash sphere mesh from BP_ERGrenadeExplosion. Preserve PointLight flash,
+smoke/chips, Sonniss audio, fitted hands, fuse/damage/throw settings.

@@ -130,3 +130,9 @@ Imported the public HQ MP3 preview, converted to mono44.1kHz PCM16 WAV
 Downloaded preview, WAV, source-page snapshot, hashes and credit are retained
 in private `Assets/weapons/SourceAssets/Freesound/162363`. Derived Unreal assets
 are under `/Game/EclipseRecoil/Effects/Grenade/Audio`.
+
+## Sonniss GDC 2024 audio supplied by user (17 October 2026)
+grenade1.wav and smoke_1.wav supplied directly from the user’s Sonniss GDC 2024
+bundle folder. Originals and derivatives remain in the private weapons mount,
+SourceAssets/SonnissGDC2024. No separate license receipt supplied or verified
+in this change. The previous Freesound source and credit remain historical.

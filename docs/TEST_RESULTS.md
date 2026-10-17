@@ -2983,3 +2983,28 @@ spawn/speed, rifle armor/reload and shotgun anatomical/cover checks.
 
 Logs: `Saved/Testing/scopes-host.log`, `scopes-render-host.log` and matching
 client logs. Build retained as `Saved/Testing/launcher-origin-build.log`.
+
+## Audio Sonniss HE/fumogena — 17 ottobre 2026
+- Editor Mac Development: Succeeded (28,83s).
+- setup_grenade_audio.py eseguito in Unreal: exit 0, script successfully,
+  0 errors/0 warnings; SoundWave HE 2,361s, smoke 6s, mono PCM44,1kHz.
+- scripts/test-grenades.py --render --audio: exit 0, tutti i 12 check PASS.
+  Host conferma started=1, spatial=1, concurrency=1 per entrambi; client
+  headless/nosound conferma asset e percorso remoto (non ascolto remoto).
+  Gameplay probe PASS, colori remoti e cleanup12s PASS, capture fresche.
+- WAV smoke verificato: 264600 campioni, fade lineare 4,5..6s, ultimo campione0.
+  Verifica strumentale della riproduzione; nessuna valutazione uditiva dichiarata.
+
+## F1 / HE senza sfera — 17 ottobre 2026
+- Blender bake HE: F1 estratta dal FBX originale, 3608 vertici / due ossa.
+- setup_f1_grenade.py: import e salvataggio Unreal completati (exit0).
+  Primo tentativo fermato dalla clip idle senza suffisso atteso; corretta
+  la gestione del modello statico, migrazione rieseguita con successo.
+  Controlli: FlashMesh nullo, audio Sonniss preservato, burst e chips presenti.
+- test-grenades.py --render --audio dopo la migrazione: exit0, 12/12 PASS;
+  HE e smoke started=1 sul host, controlli remoti e capture fresche PASS.
+- test-reference-weapons.py --render: exit0, probe PASS, tutti gli slot
+  remoti PASS, shader Metal e capture modelli/reload PASS.
+- Ispezionate Slot_08.png (F1 impugnata, texture e replica visibili) e
+  Grenades/02_HE.png (detriti, nessuna mesh sferica). La cattura HE è
+  successiva al flash breve; la luce resta invariata nel codice runtime.
