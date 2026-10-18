@@ -3307,10 +3307,11 @@ the engine, loaded the requested map and had no missing Slate image resources.
 These checks cover startup/loading; interactive gameplay and Intel runtime were
 not exercised. Distribution notarization was not performed.
 
-The build helper in `unreal-wine-builder` works around the UE5.8.3/macOS27/Xcode27
+The local build helper `scripts/package-macos.py` works around the UE5.8.3/macOS27/Xcode27
 closed-stdin issue by running ApplePostBuildSync outside UBA. The installed
 engine was not patched. Logs, receipt and the private 3.2 GiB app are retained
-under that repository's ignored `.work/macos/20261018-135549`; generated scratch
+in the local build workspace; the corrected app is now retained under
+`../builds/macos/20261018-175348-retina/dist/RespawnAndRage.app`. Generated scratch
 files were removed after verification to recover disk space.
 
 ## 18 October 2026 — Finder icon and Retina packaging correction

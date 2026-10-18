@@ -4,8 +4,8 @@
 
 A tactical multiplayer FPS for quick deathmatch sessions with friends, compact
 maps and server-authoritative gunplay. Built with Unreal Engine **5.8.3**;
-currently playable locally and over LAN through the macOS arm64 Editor runtime.
-Packaging and distribution are deferred.
+playable locally and over LAN. Standalone macOS universal packaging is available;
+see [local macOS build instructions](docs/BUILD.md).
 
 Code is public in **respawn-and-rage/core**; licensed content is held in three private
 submodules for characters, weapons and maps. A public code clone needs asset
@@ -18,6 +18,17 @@ git lfs install
 python3 scripts/setup-assets.py --init
 python3 scripts/setup-assets.py --check
 ```
+
+To build a standalone macOS app locally (Intel + Apple Silicon):
+
+```sh
+python3 scripts/package-macos.py --check
+python3 scripts/package-macos.py
+```
+
+The app and logs are written outside the repository under
+`../builds/macos/<timestamp>/`. See [the build guide](docs/BUILD.md) for
+prerequisites, disk space, architecture options, resuming and cleanup.
 
 Open `RespawnAndRage.uproject` with Unreal 5.8.3, or run `scripts/open-editor.command`.
 Run `scripts/play.command` to play in a separate window using the Editor runtime.
