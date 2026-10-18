@@ -3287,3 +3287,28 @@ Catture --render su Metal di mappe procedurali, Killhouse e Dust, ispezionate a 
 - Dopo la correzione del tetto, binario finale senza diagnostica: test-destruction.py
   11/11 Success; test-map-template.py --gallery PASS; test-map-template.py --render
   --network PASS. Il ritaglio del tetto Omega è pulito.
+
+## 18 October 2026 — Standalone macOS universal package
+
+User authorized standalone packaging. UE 5.8.3 / Xcode 27.1 produced a
+Development `.app` with `x86_64 arm64` verified by `lipo`. Editor module,
+native game targets, cook, stage, package and archive completed. Cook reported
+zero errors and one legacy `Paragon_Proto_Retarget` Rig-class warning.
+
+The initial package exposed missing loose menu background / Dock icon files.
+`fdm.Build.cs` now declares `Branding/background.jpg` and `Branding/icon.png`
+as NonUFS runtime dependencies; the build tools include exactly those runtime
+branding files in snapshots, preserving the authoring originals separately.
+The corrected app passes `codesign --verify --deep --strict`.
+
+Packaged-app tests used Metal offscreen and isolated user preferences, loading
+L_MainMenu and L_Depot and requesting clean exit: both returned zero, initialized
+the engine, loaded the requested map and had no missing Slate image resources.
+These checks cover startup/loading; interactive gameplay and Intel runtime were
+not exercised. Distribution notarization was not performed.
+
+The build helper in `unreal-wine-builder` works around the UE5.8.3/macOS27/Xcode27
+closed-stdin issue by running ApplePostBuildSync outside UBA. The installed
+engine was not patched. Logs, receipt and the private 3.2 GiB app are retained
+under that repository's ignored `.work/macos/20261018-135549`; generated scratch
+files were removed after verification to recover disk space.
