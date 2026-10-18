@@ -55,6 +55,25 @@ Open `dist/RespawnAndRage.app` in Finder after a successful build. The receipt
 records the engine version, source commit, commands and verified architectures.
 The output contains private licensed assets; keep it out of public source commits.
 
+## Game version
+
+Every native Game or Editor build stamps `YYYY.MM.DD.<8-character-commit>` using
+the build machine's local calendar date and the source checkout's HEAD. The main
+menu shows it at the bottom right over the background. For example:
+`2026.10.18.b3e95fe`. Uncommitted edits do not change the hash.
+
+Unreal's pre-build step runs `scripts/stamp-build-version.py` (Python 3 on PATH;
+`python3` on macOS/Linux, `python` on Windows). It generates the ignored
+`Build/GameVersion.txt`, staged as a loose runtime dependency on all platforms.
+The app reads this packaged file, so its version stays fixed after installation
+and requires no Git or Python at runtime. Builds that skip compilation also skip
+the pre-build step and retain the existing stamp.
+
+The Mac helper carries the original full commit into isolated snapshots in an
+ignored `Build/SourceCommit.txt`; it also records the displayed version in the
+receipt. Source exports without `.git` must supply this file with the original
+full commit hash before building. A missing identity fails the stamping step.
+
 ## Options
 
 ```sh

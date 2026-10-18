@@ -15,7 +15,7 @@ bool FERMapTemplateTest::RunTest(const FString& Parameters)
     TestNotNull(TEXT("Factory shell mesh"),Template->ShellWallMesh.Get());TestTrue(TEXT("composition variation enabled"),Template->Variation.Enabled);
     FERProceduralConfig C;C.TemplateAsset=Template;FERBlockRoomConfig B;FERProceduralLayout A,Again;
     TSet<FString> Dimensions,Compositions,BaseFrames;TSet<int32> ModuleTypes,RoomCounts;
-    int64 MinCells=MAX_int64,MaxCells=0;
+    int64 MinCells=MAX_int64,MaxTemplateCells=0;
     auto CellCount=[](const FERProceduralLayout& L){int64 N=0;for(const auto& P:L.Panels)N+=int64(FMath::RoundToInt(P.Size.X/P.Cell.X))*FMath::RoundToInt(P.Size.Y/P.Cell.Y)*FMath::RoundToInt(P.Size.Z/P.Cell.Z);return N;};
     for(int32 Seed=0;Seed<512;++Seed)
     {
@@ -24,13 +24,13 @@ bool FERMapTemplateTest::RunTest(const FString& Parameters)
         Dimensions.Add(A.ArenaSize.ToString());RoomCounts.Add(A.Rooms.Num());
         FString Choices;for(auto Kind:A.ModuleKinds){Choices+=FString::FromInt(uint8(Kind));ModuleTypes.Add(uint8(Kind));}Compositions.Add(Choices);
         BaseFrames.Add(A.Bases[0].Frame.ToString()+A.Bases[0].Size.ToString());
-        const int64 Cells=CellCount(A);MinCells=FMath::Min(MinCells,Cells);MaxCells=FMath::Max(MaxCells,Cells);
+        const int64 Cells=CellCount(A);MinCells=FMath::Min(MinCells,Cells);MaxTemplateCells=FMath::Max(MaxTemplateCells,Cells);
         TestTrue(TEXT("through rooms included"),A.Rooms.Num()>=2);TestTrue(TEXT("bounded cell count"),Cells<=8000000 && A.Panels.Num()<=4096);
     }
     TestTrue(TEXT("many arena dimensions"),Dimensions.Num()>100);TestTrue(TEXT("many compositions"),Compositions.Num()>200);
     TestTrue(TEXT("base frames and proportions vary"),BaseFrames.Num()>100);TestEqual(TEXT("seven obstacle families"),ModuleTypes.Num(),7);
-    TestTrue(TEXT("room count varies"),RoomCounts.Num()>1);TestTrue(TEXT("amount of cover varies"),MaxCells-MinCells>50000);
-    AddInfo(FString::Printf(TEXT("ER_TEMPLATE_VARIATION seeds=512 dimensions=%d compositions=%d base_frames=%d room_counts=%d cells=%lld..%lld"),Dimensions.Num(),Compositions.Num(),BaseFrames.Num(),RoomCounts.Num(),MinCells,MaxCells));
+    TestTrue(TEXT("room count varies"),RoomCounts.Num()>1);TestTrue(TEXT("amount of cover varies"),MaxTemplateCells-MinCells>50000);
+    AddInfo(FString::Printf(TEXT("ER_TEMPLATE_VARIATION seeds=512 dimensions=%d compositions=%d base_frames=%d room_counts=%d cells=%lld..%lld"),Dimensions.Num(),Compositions.Num(),BaseFrames.Num(),RoomCounts.Num(),MinCells,MaxTemplateCells));
     UWorld::InitializationValues V;V.AllowAudioPlayback(false).CreateNavigation(false).CreateAISystem(false).CreateFXSystem(false).EnableTraceCollision(true);
     auto* World=UWorld::CreateWorld(EWorldType::Game,false,NAME_None,nullptr,true,ERHIFeatureLevel::Num,&V);if(!World)return false;
     auto* Map=World->SpawnActor<AERProceduralMap>();Map->LayoutConfig=C;

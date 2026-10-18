@@ -3,6 +3,7 @@
 #include "ERMouseResponse.h"
 #include "Misc/App.h"
 #include "Misc/Paths.h"
+#include "Misc/FileHelper.h"
 #include "Brushes/SlateDynamicImageBrush.h"
 #include "Widgets/Images/SImage.h"
 #include "Widgets/Layout/SScaleBox.h"
@@ -58,6 +59,10 @@ void ERSetMacGameIcon(const FString& IconPath);
 void UERGameInstance::Init()
 {
     Super::Init();
+    if (!FFileHelper::LoadFileToString(BuildVersion, *(FPaths::ProjectDir() / TEXT("Build/GameVersion.txt"))))
+        BuildVersion = TEXT("unversioned");
+    BuildVersion.TrimStartAndEndInline();
+    UE_LOG(LogTemp, Display, TEXT("ER_BUILD_VERSION %s"), *BuildVersion);
     FInternationalization::Get().SetCurrentLanguage(TEXT("en"));
 #if PLATFORM_MAC
     // Local -game runs use the Editor executable, so also set this process's Dock icon.
@@ -707,11 +712,18 @@ void AERPlayerController::ShowMenu(bool bShow)
             .Clipping(EWidgetClipping::ClipToBounds)
             .Visibility(EVisibility::HitTestInvisible)
             [SNew(SImage).Image(&BackgroundBrush)]]
-        + SOverlay::Slot().Padding(24)
+        + SOverlay::Slot().Padding(24,24,24,42)
         [SNew(SHorizontalBox)
             + SHorizontalBox::Slot().FillWidth(1.1f).Padding(0,0,8,0)[Column(GamePanel)]
             + SHorizontalBox::Slot().FillWidth(1).Padding(8,0)[Column(Panel)]
-            + SHorizontalBox::Slot().FillWidth(1).Padding(8,0,0,0)[Column(SetupPanel)]];
+            + SHorizontalBox::Slot().FillWidth(1).Padding(8,0,0,0)[Column(SetupPanel)]]
+        + SOverlay::Slot().HAlign(HAlign_Right).VAlign(VAlign_Bottom).Padding(16,8)
+        [SNew(STextBlock)
+            .Text(FText::FromString(GI->BuildVersion))
+            .Font(FCoreStyle::GetDefaultFontStyle("Regular", 11))
+            .ColorAndOpacity(FLinearColor(.85f,.85f,.85f,.9f))
+            .ShadowOffset(FVector2D(1,1)).ShadowColorAndOpacity(FLinearColor::Black)
+            .Visibility(EVisibility::HitTestInvisible)];
     GetWorld()->GetGameViewport()->AddViewportWidgetContent(MenuWidget.ToSharedRef(), 20);
     // GameAndUI lets Esc reach Enhanced Input while the menu owns the mouse.
     SetInputMode(FInputModeGameAndUI().SetWidgetToFocus(FocusWidget).SetHideCursorDuringCapture(false));

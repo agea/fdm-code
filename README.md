@@ -29,6 +29,8 @@ python3 scripts/package-macos.py
 The app and logs are written outside the repository under
 `../builds/macos/<timestamp>/`. See [the build guide](docs/BUILD.md) for
 prerequisites, disk space, architecture options, resuming and cleanup.
+Each build stamps `YYYY.MM.DD.<commit hash>`; the main menu displays the version
+at the bottom right. See [build version details](docs/BUILD.md#game-version).
 
 Open `RespawnAndRage.uproject` with Unreal 5.8.3, or run `scripts/open-editor.command`.
 Run `scripts/play.command` to play in a separate window using the Editor runtime.

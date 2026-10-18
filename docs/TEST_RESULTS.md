@@ -3332,3 +3332,27 @@ old viewport 1210x782 and the corrected Retina viewport 2419x1564. Both load the
 menu and exit zero. The corrected 3D scene remains capped at 1670x1080 through
 the existing resolution governor; UI retains the Retina backing resolution.
 The previous app was retained to avoid changing the user's running process.
+
+
+## 18 October 2026 — Build version in the main menu
+
+Game and Editor target pre-build steps generate an ignored Build/GameVersion.txt
+with local build date and the first eight source HEAD characters. The Mac helper
+preserves the original full commit in Git-free snapshots and records the version
+in its receipt. NonUFS staging carries the stamp on all platforms; packaged Mac
+validation now requires an identical copy. No Git/Python is used at runtime.
+
+- Native Mac Editor Development arm64 compilation: PASS (18.67 s). Renamed
+  a test-local MaxCells variable to avoid a pre-existing unity-build shadow error.
+- Incremental up-to-date build: PASS (3.02 s), stamping still executed with zero
+  compilation actions.
+- Checkout commit lookup, Git-free snapshot stamp, unchanged-file timestamp and
+  rejection of invalid commit hashes: PASS.
+- Metal offscreen Main Menu startup/clean exit: PASS, exit zero. Runtime logged
+  ER_BUILD_VERSION 2026.10.18.b3e95fe5. Saved/Testing/BuildVersion/menu.png
+  visually confirms the version at bottom right, on the background below the
+  three menu panels; generated stamp/source identity are Git-ignored.
+
+This check used the Editor game runtime. A new standalone package, Linux/Windows
+execution and packaged-file validation have not been run for this revision;
+the previously built app remains unchanged.

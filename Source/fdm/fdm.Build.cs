@@ -6,6 +6,7 @@ public class fdm : ModuleRules
         // Slate and the native Dock icon read these loose files at runtime.
         RuntimeDependencies.Add("$(ProjectDir)/Branding/background.jpg", StagedFileType.NonUFS);
         RuntimeDependencies.Add("$(ProjectDir)/Branding/icon.png", StagedFileType.NonUFS);
+        RuntimeDependencies.Add("$(ProjectDir)/Build/GameVersion.txt", StagedFileType.NonUFS);
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
         PublicDependencyModuleNames.AddRange(new [] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "UMG", "Slate", "SlateCore", "AIModule", "Niagara" });
         PrivateDependencyModuleNames.Add("RenderCore");

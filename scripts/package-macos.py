@@ -11,6 +11,7 @@ import shutil
 import signal
 import subprocess
 import time
+import importlib.util
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 p = argparse.ArgumentParser(description=__doc__)
@@ -65,6 +66,8 @@ if a.resume:
     previous = json.loads((run_dir / 'receipt.json').read_text())
     if previous.get('scratch_removed'):
         raise ValueError('This successful build was cleaned to recover disk space; start a fresh build instead of resuming')
+    if not (snapshot / 'scripts/stamp-build-version.py').is_file():
+        raise ValueError('This snapshot predates build version stamping; start a fresh build')
     expected_arches = 'arm64+x64' if a.architecture == 'universal' else a.architecture
     if previous['architecture'] != expected_arches or not (snapshot / 'RespawnAndRage.uproject').is_file():
         raise ValueError('Resume architecture or project mismatch')
@@ -84,6 +87,12 @@ else:
     branding.mkdir(exist_ok=True)
     for name in ('background.jpg', 'icon.png'):
         (copy_file if use_clones else shutil.copy2)(project / 'Branding' / name, branding / name)
+    # Preserve the checkout identity without copying .git or requiring it at runtime.
+    (snapshot / 'Build').mkdir(exist_ok=True)
+    (snapshot / 'Build/SourceCommit.txt').write_text(
+        subprocess.check_output(['git', '-C', str(project), 'rev-parse', 'HEAD'], text=True).strip() + '\n')
+    (snapshot / 'scripts').mkdir(exist_ok=True)
+    shutil.copy2(project / 'scripts/stamp-build-version.py', snapshot / 'scripts/stamp-build-version.py')
 uproject = snapshot / 'RespawnAndRage.uproject'
 archive = run_dir / 'dist'
 logs = run_dir / 'build.log'
@@ -113,7 +122,11 @@ if a.xcode_stdin_workaround:
                 f'-remoteini={snapshot}']
     commands[-1] = ['-skipbuild' if x == '-build' else x for x in commands[-1]]
     commands[-1:-1] = [game_build, finalize]
-receipt = {'project_head': subprocess.check_output(['git','-C',str(project),'rev-parse','HEAD'],text=True).strip(),
+spec = importlib.util.spec_from_file_location('stamp_build_version', snapshot / 'scripts/stamp-build-version.py')
+version_module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(version_module)
+game_version = version_module.stamp(snapshot)
+receipt = {'project_head': version_module.source_commit(snapshot), 'game_version': game_version,
            'engine_version': '5.8.3', 'architecture': arches,
            'xcode_stdin_workaround': a.xcode_stdin_workaround, 'apfs_clones': use_clones, 'project_snapshot': str(snapshot), 'archive': str(archive), 'commands': commands,
            'status': 'running', 'distribution_signing': 'Not configured'}
@@ -150,6 +163,9 @@ try:
             raise RuntimeError('Packaged app does not enable Retina; check project Info.Template.plist')
         if not (app / 'Contents/Resources/AppIcon.icns').is_file():
             raise RuntimeError('Packaged app icon is missing')
+        packaged_version = app / 'Contents/UE/RespawnAndRage/Build/GameVersion.txt'
+        if not packaged_version.is_file() or packaged_version.read_text().strip() != (snapshot / 'Build/GameVersion.txt').read_text().strip():
+            raise RuntimeError('Packaged game version is missing or differs from the build stamp')
         binary = app / 'Contents/MacOS' / executable
         actual = subprocess.check_output(['lipo', '-archs', str(binary)], text=True).strip()
         for required in arches.split('+'):
@@ -158,6 +174,7 @@ try:
                 raise RuntimeError(f'Packaged binary missing {required}: {actual}')
         receipt['verified_binary_architectures'] = actual
     receipt['status'] = 'packaged'
+    receipt['game_version'] = (snapshot / 'Build/GameVersion.txt').read_text().strip()
 except BaseException:
     receipt['status'] = 'failed'
     raise

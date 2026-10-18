@@ -13,6 +13,7 @@ class FDM_API UERGameInstance : public UGameInstance
 public:
     UPROPERTY(BlueprintReadWrite) FString LocalName = TEXT("Recruit");
     UPROPERTY(BlueprintReadOnly) FString LastError;
+    UPROPERTY(BlueprintReadOnly) FString BuildVersion;
     virtual void Init() override;
     virtual void Shutdown() override;
     void Host(int32 BotCount = 0, bool bStationaryTarget = false);

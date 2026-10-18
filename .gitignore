@@ -6,6 +6,8 @@
 /.idea/
 /dist/
 /BuildArtifacts/
+/Build/GameVersion.txt
+/Build/SourceCommit.txt
 /*.sln
 /*.xcworkspace/
 /*.xcodeproj/
