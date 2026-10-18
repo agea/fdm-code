@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Derive local Unreal branding from the user-supplied originals (Pillow)."""
 from pathlib import Path
+import json
 
 from PIL import Image
 
@@ -22,6 +23,21 @@ def save(image, relative, **options):
     print(f"{relative}: {image.width}x{image.height}")
 
 
+def mac_asset_catalog(icon):
+    catalog = ROOT / "Build/Mac/Resources/Assets.xcassets"
+    appicon = catalog / "AppIcon.appiconset"
+    appicon.mkdir(parents=True, exist_ok=True)
+    info = {"author": "xcode", "version": 1}
+    (catalog / "Contents.json").write_text(json.dumps({"info": info}, indent=2) + "\n")
+    images = []
+    for size in (16, 32, 128, 256, 512):
+        for scale in (1, 2):
+            name = f"icon_{size}x{size}" + ("@2x" if scale == 2 else "") + ".png"
+            icon.resize((size * scale, size * scale), Image.Resampling.LANCZOS).save(appicon / name, optimize=True)
+            images.append({"filename": name, "idiom": "mac", "scale": f"{scale}x", "size": f"{size}x{size}"})
+    (appicon / "Contents.json").write_text(json.dumps({"images": images, "info": info}, indent=2) + "\n")
+
+
 if __name__ == "__main__":
     save(resized("logo.png", (1024, 1024)), "Branding/logo.png", optimize=True)
     save(resized("splash.png", (2560, 1441)).convert("RGB"),
@@ -29,6 +45,7 @@ if __name__ == "__main__":
     icon = resized("icon.png", (1024, 1024))
     save(icon, "Branding/icon.png", optimize=True)
     save(icon, "Build/Mac/Application.icns")
+    mac_asset_catalog(icon)
     save(icon, "Build/Windows/Application.ico",
          sizes=[(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)])
     splash = resized("splash.png", (1600, 900)).convert("RGB")

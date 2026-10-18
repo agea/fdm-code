@@ -15,6 +15,20 @@ SUBMODULES = {'Assets/characters', 'Assets/weapons', 'Assets/maps'}
 # User-supplied game branding and its prepared derivatives, 16 October 2026.
 # Pin both path and bytes: this is not permission for arbitrary binary assets.
 PUBLIC_BRANDING = {
+    # Derived from the existing user-provided icon; Retina packaging, 18 October.
+    'Build/Mac/Resources/Assets.xcassets/AppIcon.appiconset/Contents.json': '13b1c7461192863c9f3ab3ceab313acd6f6531898360983495bf13d48dfc967f',
+    'Build/Mac/Resources/Assets.xcassets/AppIcon.appiconset/icon_128x128.png': 'bbf54f2e642f8e09ed47c56094f774faf00fe21aec5c33c80b8c722852682563',
+    'Build/Mac/Resources/Assets.xcassets/AppIcon.appiconset/icon_128x128@2x.png': '0df29e9caa13b07a55787e18d8072476c14f30bb92459fa942dfc04000584a6a',
+    'Build/Mac/Resources/Assets.xcassets/AppIcon.appiconset/icon_16x16.png': '7834f7ca94e62b732a280b396f6154c7e588fa2c1a9451b732ed2802ca13a38d',
+    'Build/Mac/Resources/Assets.xcassets/AppIcon.appiconset/icon_16x16@2x.png': '43a582b51dafd11441c5f9f35e22c593bedd8c8d14b7be65190b23a9e7bd22aa',
+    'Build/Mac/Resources/Assets.xcassets/AppIcon.appiconset/icon_256x256.png': '0df29e9caa13b07a55787e18d8072476c14f30bb92459fa942dfc04000584a6a',
+    'Build/Mac/Resources/Assets.xcassets/AppIcon.appiconset/icon_256x256@2x.png': 'a13f7be156e1e0c17a892b50926a3c2a16061f239ef4d9dc45936941c0699924',
+    'Build/Mac/Resources/Assets.xcassets/AppIcon.appiconset/icon_32x32.png': '43a582b51dafd11441c5f9f35e22c593bedd8c8d14b7be65190b23a9e7bd22aa',
+    'Build/Mac/Resources/Assets.xcassets/AppIcon.appiconset/icon_32x32@2x.png': 'd109f87fc24b9cb08edd3412e31773e94f763f78b70fb118d2e721c373ea8831',
+    'Build/Mac/Resources/Assets.xcassets/AppIcon.appiconset/icon_512x512.png': 'a13f7be156e1e0c17a892b50926a3c2a16061f239ef4d9dc45936941c0699924',
+    'Build/Mac/Resources/Assets.xcassets/AppIcon.appiconset/icon_512x512@2x.png': '10320d04e40b2685e42e012586f23189a729a9dc34c425fd590492d58c2126d5',
+    'Build/Mac/Resources/Assets.xcassets/Contents.json': 'f5fb0e1f3a8142892ed092efb5955c1c2cc537003a89ad7bbdb9dade7fe8985f',
+    'Build/Mac/Resources/Info.Template.plist': '62d6341c5d79a25e70b46413ecffeed4b4aa457869129adbaaeda01c43f4798a',
     'Branding/Originals/icon.png': '02af44bd47fd2183c5a48135377c0fb912d8ccdc012b5dfcc8b5bd1aca5736d5',
     'Branding/Originals/logo.png': 'c59c323dd69b356a575331386155e3e597e8174d2a3b630246cb49047012ebdf',
     'Branding/Originals/splash.png': '205a1e94c9be875585c24494a968e2bafb5753d419f487392a45bc8f9dca6828',
