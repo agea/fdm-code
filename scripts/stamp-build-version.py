@@ -19,7 +19,7 @@ def source_commit(project):
 
 
 def stamp(project):
-    version = datetime.now().strftime('%Y.%m.%d.') + source_commit(project)[:8]
+    version = datetime.now().strftime('%y.%m.%d.') + source_commit(project)[:8]
     path = project / 'Build/GameVersion.txt'
     path.parent.mkdir(parents=True, exist_ok=True)
     contents = version + '\n'

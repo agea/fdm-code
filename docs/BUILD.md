@@ -57,10 +57,10 @@ The output contains private licensed assets; keep it out of public source commit
 
 ## Game version
 
-Every native Game or Editor build stamps `YYYY.MM.DD.<8-character-commit>` using
+Every native Game or Editor build stamps `YY.MM.DD.<8-character-commit>` using
 the build machine's local calendar date and the source checkout's HEAD. The main
 menu shows it at the bottom right over the background. For example:
-`2026.10.18.b3e95fe`. Uncommitted edits do not change the hash.
+`26.10.18.b3e95fe5`. Uncommitted edits do not change the hash.
 
 Unreal's pre-build step runs `scripts/stamp-build-version.py` (Python 3 on PATH;
 `python3` on macOS/Linux, `python` on Windows). It generates the ignored
