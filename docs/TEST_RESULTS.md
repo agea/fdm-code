@@ -3223,3 +3223,67 @@ client logs. Build retained as `Saved/Testing/launcher-origin-build.log`.
     result=PASS epoch=3`, 0 correzioni scartate.
 - Non verificato: --render (Metal) e --loss. Nel probe Killhouse nessun pawn
   remoto viene messo di proposito su un gruppo `FixedMeshes`.
+
+## Celle 5cm ovunque, blocchi rimossi, crollo sulle celle — 18 ottobre 2026
+Richiesta dell'utente: togliere i vecchi blocchi dappertutto e portare il crollo
+sulle celle. Rimossi gruppi ISM, record/ID a blocchi, pagine protocollo 6, grafo di
+supporto a blocchi, sonda e test a blocchi; le mappe generano pannelli di celle.
+- Editor Mac Development: Succeeded.
+- test-destruction.py: 11/11 Success (Cells.StorageAndCalibration, MeshAndCollision,
+  BallisticsAndBlast, NetworkTransactions, DamagePreset, ProceduralLayout,
+  ProceduralCollision, MultiFloorLayout, MultiFloorCollision, MapTemplate,
+  DustTemplate). Celle: piano 10 stanze 1,71M; 3 piani 2,42–2,45M; Killhouse
+  0,46–1,37M su 512 semi.
+- --game (laboratorio a celle) PASS; --collapse PASS (demo: 2 isole da 551 celle,
+  frammenti che cadono davvero, limiti 8/passo e 64 globali anche su due stanze;
+  guscio intero da 1,69M celle staccato in 52 passi, p95 13 ms, picco 121 ms);
+  --procedural PASS (la breccia percorribile è su una parete sottile: col preset
+  il mattone da 20cm non si apre con un'esplosione sola).
+- test-destruction-stress.py --samples 3 --label cells18oct: PASS, 414 righe.
+  Chunk 160cm: generazione 151 ms, rimozione singola p95 0,33 ms, 256 celle
+  sparse 34 ms, verifica di supporto 9,9 ms, granata 5,8 ms, memoria 33,5 MiB
+  (25,7 MiB copie CPU delle mesh), 704 corpi.
+- test-cell-network.py PASS (crollo replicato ai client); test-destruction-network.py
+  PASS (3 epoche, 2,45M celle, 1162 chunk, 10 shard, late e dense join coerenti);
+  test-map-template.py --network PASS; test-dust-template.py --network PASS.
+  Con --loss (3% perdita, 40 ms): test-destruction-network.py e test-cell-network.py PASS.
+- Non verificato in questa tornata: --render (Metal) delle mappe procedurali e template
+  a celle; il laboratorio a celle era stato ispezionato su Metal il 17 ottobre.
+  Corretti nelle sonde: nome del giocatore inviato una sola volta (sovrascritto da
+  "Recruit") e una cella di finestra con il vetro nello stesso piano della tavola.
+
+## Catture Metal delle mappe a celle, fessure nelle template — 18 ottobre 2026
+
+Catture --render su Metal di mappe procedurali, Killhouse e Dust, ispezionate a vista.
+- Procedurale (Room, Corridor, Breach): illuminazione e materiali corretti, aperture di
+  porte e finestre corrette, bordi della breccia a gradini da 5cm su parete di legno.
+- Killhouse: le misure derivano da Source (x2,54), quindi quasi nessun pezzo è un
+  multiplo di 5cm. Il port troncava ogni pezzo a celle intere: le catture mostravano
+  una riga di luce tra pezzi impilati (fessure da 2,5cm, attraverso cui si vede) e le
+  casse più sottili di 5cm sparivano. Correzione: ogni pezzo mantiene il volume esatto
+  e ogni asse ha round(L/5cm) celle uguali (FERCellWorld::FitCell). Dopo la correzione
+  le casse a sinistra dello spawn ricompaiono; seme della sonda: celle da 813.792 a 815.712.
+- MapTemplate ora verifica che non ci siano fessure sotto i 5cm tra pezzi affacciati
+  (pannelli e pezzi fissi allineati agli assi, 6 semi). Controprova: reintroducendo il
+  troncamento il test fallisce (fessure da 2,50cm sul seme 42); con la correzione passa.
+- Riga di puntini chiari nella cattura del tetto Omega: non dipende dalle celle.
+  Una diagnostica temporanea con raggi dai pixel (poi rimossa) mostra che i puntini
+  cadono sul pavimento oltre la porta posteriore (Y≈3410), visto sotto l'architrave.
+  Il raggio verso il sole da quei punti passa esattamente al giunto tra la cima della
+  parete del capannone (Y 3700, fino a Z 1050) e il tetto. Le tegole del tetto
+  (RoofMesh) coprivano solo l'interno dell'arena e toccavano la parete lungo uno
+  spigolo, quindi la shadow map lasciava passare una lama di sole. Lato Alpha pulito
+  perché il sole arriva da +Y. Correzione: le tegole coprono Size+40 come il soffitto
+  di collisione, cioè anche la cima delle pareti da 20cm. Dopo la correzione la riga
+  non c'è più. Una sovrapposizione di 0,2mm tra i quad (ipotesi T-junction) non
+  cambiava nulla ed è stata tolta.
+- Dust (WoodenGates, Underpass, ShortA, Plan 42/7919): corretta. Ha solo ~15–18k celle
+  distruttibili. Le viste dall'alto Plan sono a ~21 FPS con risoluzione dinamica 512x288,
+  e ShortA una volta a 20 FPS; non è stato confrontato con l'epoca a blocchi.
+- Binario finale: test-destruction.py 11/11 Success; test-map-template.py --gallery PASS;
+  --procedural --render PASS. Dopo la correzione delle fessure (binario con la
+  sovrapposizione, che riguarda solo il render): test-dust-template.py --render PASS,
+  test-dust-template.py --render --network PASS, test-map-template.py --render --network PASS.
+- Dopo la correzione del tetto, binario finale senza diagnostica: test-destruction.py
+  11/11 Success; test-map-template.py --gallery PASS; test-map-template.py --render
+  --network PASS. Il ritaglio del tetto Omega è pulito.

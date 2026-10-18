@@ -37,12 +37,6 @@ struct FERBlockExplosionProfile
     { FERBlockExplosionProfile P; P.BaseDamage=Damage; P.InnerRadius=0; P.OuterRadius=Radius; P.FalloffExponent=1; return P; }
     bool IsValid() const;
 };
-struct FERBlockDamageRequest
-{
-    FERBlockId Id;
-    float Damage = 0;
-    bool bDestroy = false;
-};
 struct FERBlockBatchResult
 {
     double TotalMs=0, QueryMs=0, ExposureMs=0, MutationMs=0;
@@ -61,10 +55,6 @@ struct FERBlockShotResult
 };
 namespace ERBlockCombat
 {
-    // Centred 100cm cube transformed into an oriented block volume. Distances
-    // remain world centimetres, including rotated/scaled room actors.
-    bool IntersectBlock(const FTransform& Transform, const FVector& Start, const FVector& UnitDirection,
-        double MaxDistance, double& EntryDistance, double& ExitDistance);
     FERBlockShotResult ContinueShot(UWorld* World, const FHitResult& InitialHit, const FVector& Start,
         const FVector& Direction, float Range, float Damage, const FERBlockShotSettings& Settings,
         const FCollisionQueryParams& Query, AController* Instigator, AActor* Causer);

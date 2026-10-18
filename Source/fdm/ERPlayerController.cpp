@@ -840,25 +840,6 @@ void AERPlayerController::ERBlockGrenade()
         }
 #endif
 }
-void AERPlayerController::ERCellMode(int32 Enabled)
-{
-#if !UE_BUILD_SHIPPING
-    if (!HasAuthority() || !GetWorld()->GetMapName().Contains(TEXT("L_DestructionLab"))) return;
-    for (TActorIterator<AERBlockRoom> It(GetWorld()); It; ++It)
-    {
-        if (Cast<AERProceduralMap>(*It)) continue;
-        const bool bPrevious = It->bCellMode;
-        It->bCellMode = Enabled != 0;
-        if (!It->Regenerate()) { It->bCellMode = bPrevious; UE_LOG(LogTemp, Warning, TEXT("ER_CELL_MODE_REJECTED previous mode preserved")); continue; }
-        if (GetPawn())
-        {
-            GetPawn()->SetActorLocation(It->GetSpawnLocation(), false, nullptr, ETeleportType::TeleportPhysics);
-            GetPawn()->GetMovementComponent()->StopMovementImmediately();
-        }
-    }
-    for (TActorIterator<AERBlockTarget> It(GetWorld()); It; ++It) It->ResetHealth();
-#endif
-}
 void AERHUD::DrawHUD()
 {
     Super::DrawHUD();
@@ -875,8 +856,7 @@ void AERHUD::DrawHUD()
     {
         if(PC->IsBlockMapLoading())Text(TEXT("Synchronizing map..."),30,83,FLinearColor::Yellow,1);
         if(const auto* Map=Cast<AERProceduralMap>(*It))if(Map->LayoutConfig.TemplateAsset && !FParse::Param(FCommandLine::Get(),TEXT("ERBlockDebug")))continue;
-        Text(It->IsCellMode() ? TEXT("DESTRUCTION LAB 5cm CELLS | ERBlockGrenade / ERBlockShot 100 36 / ERBlockDamage 25 / ERCellMode 0")
-            : TEXT("DESTRUCTION LAB | ERBlockShot 100 10 / ERBlockExplosion 250 180 / ERBlockCollapseDemo / ERCellMode 1"), 30, 105, FLinearColor::Yellow, 1);
+        Text(TEXT("DESTRUCTION LAB 5cm CELLS | ERBlockGrenade / ERBlockShot 100 36 / ERBlockDamage 25 / ERBlockCollapseDemo"), 30, 105, FLinearColor::Yellow, 1);
         if (const auto* Map=Cast<AERProceduralMap>(*It)) Text(Map->LayoutConfig.TemplateAsset ? TEXT("ERMapGenerate 42 8 1 | template seed"):TEXT("ERMapGenerate 42 6 3 | seed / rooms 6..10 / floors 1..3"), 30, 185, FLinearColor::Yellow, 1);
         Text(It->GetStatistics(), 30, 125, FLinearColor::White, .9f);
         Text(TEXT("Last block: ") + It->LastHit, 30, 145, FLinearColor::White, 1);
@@ -1034,13 +1014,18 @@ void AERPlayerController::ERBlockCollapseDemo()
 #if !UE_BUILD_SHIPPING
     if (!HasAuthority()) return;
     TActorIterator<AERBlockRoom> It(GetWorld());
-    if (It)
+    if (!It) return;
+    // Cut a ring through every layer of the lab's south wall (wall 0), 20cm deep
+    // below: the 145x95cm inside loses all support, collapses and has room to fall.
+    TMap<FERCellId, float> Ring;
+    const auto& Cells = It->GetCellWorld();
+    for (int32 P = 0; P < Cells.GetPanels().Num(); ++P)
     {
-        TArray<FERBlockDamageRequest> Ring;
-        for (int32 C=3;C<=7;++C) for (int32 R=5;R<=9;++R)
-            if (C==3 || C==7 || R==5 || R==9) if (It->BlockWorld->Find({0,C,R})) Ring.Add({{0,C,R},0,true});
-        It->ApplyDamageBatch(Ring);
+        if (Cells.GetPanels()[P].Id / 8 != 0) continue;
+        for (int32 X = 30; X <= 60; ++X) for (int32 Z = 17; Z <= 40; ++Z) for (int32 Y = 0; Y < Cells.GetPanels()[P].Dims.Y; ++Y)
+            if (X == 30 || X == 60 || Z <= 20 || Z == 40) Ring.Add({P, X, Y, Z}, TNumericLimits<float>::Max());
     }
+    It->ApplyCellBatch(Ring);
 #endif
 }
 

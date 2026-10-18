@@ -14,5 +14,6 @@ private:
     float Elapsed=0;
     bool Failed=false;
     FVector Destination=FVector::ZeroVector;
+    int32 BreachRoom=0;
     void Check(bool Value,const TCHAR* Label);
 };

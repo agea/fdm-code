@@ -17,11 +17,14 @@ void ClearBit(TArray<uint64>& Bits, int32 I) { Bits[I >> 6] &= ~(1ull << (I & 63
 void FERCellWorld::AddConstruction(int32 WallId, EERBlockMaterial Material, const FTransform& Slot, const FVector& S,
     const FERCellSettings& Set, TArray<FERCellPanelDesc>& Out)
 {
+    // Lengths that are not whole cells (template pieces) keep their exact volume:
+    // round(L / CellSize) equal cells per axis, never a gap or a dropped strip.
+    const FVector Cell(FitCell(S.X, Set.CellSize), 0, FitCell(S.Z, Set.CellSize));
     auto Add = [&](int32 Layer, float Y, float Depth, float CellDepth, bool bPane)
     {
         auto& P = Out.AddDefaulted_GetRef();
         P.Id = WallId * 8 + Layer; P.Material = Material; P.Transform = FTransform(FVector(0, Y, 0)) * Slot;
-        P.Size = FVector(S.X, Depth, S.Z); P.Cell = bPane ? P.Size : FVector(Set.CellSize, CellDepth, Set.CellSize); P.bPane = bPane;
+        P.Size = FVector(S.X, Depth, S.Z); P.Cell = bPane ? P.Size : FVector(Cell.X, CellDepth, Cell.Z); P.bPane = bPane;
     };
     const float T = S.Y;
     switch (Material)
@@ -37,7 +40,7 @@ void FERCellWorld::AddConstruction(int32 WallId, EERBlockMaterial Material, cons
     case EERBlockMaterial::Wood: { const float W = FMath::Min(Set.WoodDepth, T); Add(0, (T - W) * .5f, W, W, false); break; }
     case EERBlockMaterial::Metal: { const float W = FMath::Min(Set.SheetThickness, T); Add(0, (T - W) * .5f, W, W, false); break; }
     case EERBlockMaterial::Glass: { const float W = FMath::Min(Set.GlassThickness, T); Add(0, (T - W) * .5f, W, W, true); break; }
-    default: { const int32 N = FMath::Max(1, FMath::RoundToInt(T / Set.CellSize)); Add(0, 0, T, T / N, false); }
+    default: Add(0, 0, T, FitCell(T, Set.CellSize), false);
     }
 }
 
@@ -54,7 +57,7 @@ bool FERCellWorld::Build(const TArray<FERCellPanelDesc>& Desc, const FERCellSett
     }
     if (S.ChunkCells < 4 || S.ChunkCells > 64 || Desc.IsEmpty() || Desc.Num() > 4096 || !(S.MinCollisionThickness > 0)) { Error = TEXT("invalid cell settings or panel count"); return false; }
     TArray<FERCellPanel> NewPanels; TArray<FERCellChunk> NewChunks; TSet<int32> Ids;
-    int64 Cells = 0;
+    int64 Cells = 0, Voids = 0;
     uint32 H = HashCombineFast(7, ::GetTypeHash(S.ChunkCells));
     auto Mix = [&H](double V) { H = HashCombineFast(H, ::GetTypeHash(FMath::RoundToInt64(V * 1000))); };
     for (const auto& D : Desc)
@@ -88,9 +91,22 @@ bool FERCellWorld::Build(const TArray<FERCellPanelDesc>& Desc, const FERCellSett
                 C.Alive.Init(~0ull, FMath::DivideAndRoundUp(Bits, 64));
                 if (Bits & 63) C.Alive.Last() = (1ull << (Bits & 63)) - 1;
                 C.AliveCount = Bits;
+                for (const FBox2D& Hole : D.Holes)
+                {
+                    // Cells whose centre lies inside the opening never exist.
+                    const int32 HX0 = FMath::Max(C.X0, FMath::CeilToInt(Hole.Min.X / D.Cell.X - .5)), HX1 = FMath::Min(C.X0 + C.SX - 1, FMath::FloorToInt(Hole.Max.X / D.Cell.X - .5));
+                    const int32 HZ0 = FMath::Max(C.Z0, FMath::CeilToInt(Hole.Min.Y / D.Cell.Z - .5)), HZ1 = FMath::Min(C.Z0 + C.SZ - 1, FMath::FloorToInt(Hole.Max.Y / D.Cell.Z - .5));
+                    for (int32 Z = HZ0; Z <= HZ1; ++Z) for (int32 Y = 0; Y < N.Y; ++Y) for (int32 X = HX0; X <= HX1; ++X)
+                    {
+                        const int32 I = CellIndex(C, X - C.X0, Y, Z - C.Z0);
+                        if (TestBit(C.Alive, I)) { ClearBit(C.Alive, I); --C.AliveCount; ++Voids; }
+                    }
+                }
                 C.Bounds = FBox(FVector(C.X0 * D.Cell.X, 0, C.Z0 * D.Cell.Z), FVector((C.X0 + C.SX) * D.Cell.X, D.Size.Y, (C.Z0 + C.SZ) * D.Cell.Z)).TransformBy(D.Transform);
             }
-        H = HashCombineFast(H, ::GetTypeHash(D.Id)); H = HashCombineFast(H, ::GetTypeHash(uint8(D.Material))); H = HashCombineFast(H, ::GetTypeHash(D.bPane | (D.bIndestructible << 1)));
+        H = HashCombineFast(H, ::GetTypeHash(D.Id)); H = HashCombineFast(H, ::GetTypeHash(uint8(D.Material)));
+        H = HashCombineFast(H, ::GetTypeHash(D.bPane | (D.bIndestructible << 1) | (D.bAnchorBottom << 2) | (D.bAnchored << 3)));
+        for (const FBox2D& Hole : D.Holes) { Mix(Hole.Min.X); Mix(Hole.Min.Y); Mix(Hole.Max.X); Mix(Hole.Max.Y); }
         for (const FVector& V : {D.Transform.GetLocation(), D.Transform.GetRotation().GetAxisX(), D.Transform.GetRotation().GetAxisZ(), D.Size, D.Cell}) { Mix(V.X); Mix(V.Y); Mix(V.Z); }
     }
     for (int32 I = 0; I < 7; ++I)
@@ -100,13 +116,13 @@ bool FERCellWorld::Build(const TArray<FERCellPanelDesc>& Desc, const FERCellSett
         for (float V : {P->MaxHealth, P->BulletDamageScale, P->EntryEnergyCost, P->EnergyCostPerCm, P->ExplosionDamageScale, P->ExplosionTransmission}) Mix(V);
     }
     for (float V : {K.CellSize, K.WoodDepth, K.DrywallBoard, K.SheetThickness, K.TransmissionReferenceCm, S.MinCollisionThickness}) Mix(V);
-    Panels = MoveTemp(NewPanels); Chunks = MoveTemp(NewChunks); ChunkCells = S.ChunkCells; CellCount = Cells; RemovedCount = 0; LayoutDigest = H;
+    Panels = MoveTemp(NewPanels); Chunks = MoveTemp(NewChunks); ChunkCells = S.ChunkCells; CellCount = Cells - Voids; VoidCount = Voids; RemovedCount = DetachedCount = 0; LayoutDigest = H;
     return true;
 }
 
 void FERCellWorld::Reset()
 {
-    Panels.Empty(); Chunks.Empty(); CellCount = RemovedCount = 0; LayoutDigest = 0;
+    Panels.Empty(); Chunks.Empty(); CellCount = RemovedCount = DetachedCount = VoidCount = 0; LayoutDigest = 0;
 }
 
 bool FERCellWorld::IsValid(const FERCellId& Id) const
@@ -141,6 +157,30 @@ FBox FERCellWorld::GetCellBox(const FERCellId& Id) const
 FVector FERCellWorld::GetCellCenter(const FERCellId& Id) const
 {
     return Panels[Id.Panel].Transform.TransformPosition(GetCellBox(Id).GetCenter());
+}
+bool FERCellWorld::IsAnchored(const FERCellId& Id) const
+{
+    if (!IsValid(Id)) return false;
+    const auto& P = Panels[Id.Panel];
+    return P.bAnchored || P.bIndestructible || (P.bAnchorBottom && Id.Z == 0);
+}
+FERCellBatchResult FERCellWorld::DetachCells(const TArray<FERCellId>& Ids)
+{
+    FERCellBatchResult Result;
+    TSet<int32> Dirty, Changed;
+    for (const auto& Id : Ids)
+    {
+        if (!IsAlive(Id) || Panels[Id.Panel].bIndestructible) continue;
+        const int32 ChunkIndex = GetChunkIndex(Id.Panel, Id.X, Id.Z);
+        auto& C = Chunks[ChunkIndex];
+        const int32 Index = CellIndex(C, Id.X - C.X0, Id.Y, Id.Z - C.Z0);
+        ClearBit(C.Alive, Index); --C.AliveCount; ++C.Revision; ++RemovedCount; ++DetachedCount; ++Result.Destroyed; Result.Last = Id;
+        if (const int32 D = FindDamaged(C, Index); D != INDEX_NONE) C.Damaged.RemoveAt(D);
+        Changed.Add(ChunkIndex); MarkDirty(Id.Panel, Id.X, Id.Z, Dirty);
+    }
+    Result.DirtyChunks = Dirty.Array(); Result.DirtyChunks.Sort();
+    Result.ChangedChunks = Changed.Array(); Result.ChangedChunks.Sort();
+    return Result;
 }
 void FERCellWorld::MarkDirty(int32 Panel, int32 X, int32 Z, TSet<int32>& Dirty) const
 {

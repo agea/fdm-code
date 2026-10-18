@@ -50,7 +50,7 @@ private:
     bool bFailed = false;
     // Client side.
     FString Role;
-    bool bHelloSent = false, bWalking = false;
+    bool bHelloSent = false, bWalking = false, bCollapseStarted = false;
     int32 ClientPhase = -1;
     float PhaseElapsed = 0;
     double WalkReportedAt = 0;

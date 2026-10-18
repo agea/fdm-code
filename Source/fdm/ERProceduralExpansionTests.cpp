@@ -1,6 +1,5 @@
 #include "ERProceduralMap.h"
 #include "ERBlockCombat.h"
-#include "Components/InstancedStaticMeshComponent.h"
 #include "Misc/AutomationTest.h"
 #include "Engine/World.h"
 #if WITH_DEV_AUTOMATION_TESTS
@@ -13,14 +12,17 @@ bool FERExpansionLayoutTest::RunTest(const FString& Parameters)
         C.Floors=Floors;C.Seed=Seed;FERProceduralLayout A,Again;
         TestTrue(TEXT("multifloor build"),ERProcedural::Build(C,B,A));TestTrue(TEXT("repeat"),ERProcedural::Build(C,B,Again));
         TestEqual(TEXT("rooms on every floor"),A.Rooms.Num(),Floors*6);TestEqual(TEXT("stair connections"),A.StairRoutes.Num(),Floors-1);
-        TestEqual(TEXT("equal block count"),A.Blocks.Num(),Again.Blocks.Num());TSet<FERBlockId> IDs;TSet<EERBlockMaterial> Materials;
-        for(int32 I=0;I<A.Blocks.Num();++I)
+        TestEqual(TEXT("equal panel count"),A.Panels.Num(),Again.Panels.Num());TSet<int32> IDs;TSet<EERBlockMaterial> Materials;
+        for(int32 I=0;I<A.Panels.Num();++I)
         {
-            const auto& R=A.Blocks[I];TestFalse(TEXT("unique ID across floors/panes"),IDs.Contains(R.Id));IDs.Add(R.Id);Materials.Add(R.Material);
-            TestTrue(TEXT("stable generated data"),R.Id==Again.Blocks[I].Id && R.LocalTransform.Equals(Again.Blocks[I].LocalTransform));
-            TestTrue(TEXT("upper base courses anchored to static slab"),R.LocalTransform.GetLocation().Z<320 || R.Id.Row!=0 || R.bStructuralAnchor);
+            const auto& P=A.Panels[I];TestFalse(TEXT("unique ID across floors/panes"),IDs.Contains(P.Id));IDs.Add(P.Id);Materials.Add(P.Material);
+            TestTrue(TEXT("stable generated data"),P.Id==Again.Panels[I].Id && P.Transform.Equals(Again.Panels[I].Transform) && P.Size==Again.Panels[I].Size);
+            TestTrue(TEXT("every wall and pane rests on its slab or frame"),P.bAnchorBottom);
         }
         TestEqual(TEXT("all seven materials"),Materials.Num(),7);
+        FERCellWorld Cells;FString Error;
+        TestTrue(TEXT("multifloor cells within budget"),Cells.Build(A.Panels,FERCellSettings(),GetDefault<UERBlockMaterialCatalog>(),Error));
+        AddInfo(FString::Printf(TEXT("ER_MULTIFLOOR_CELLS floors=%d seed=%d panels=%d chunks=%d cells=%lld"),Floors,Seed,Cells.GetPanels().Num(),Cells.GetChunks().Num(),Cells.GetCellCount()));
         TArray<FERLayoutRect> Slabs=A.Rooms;Slabs.Append(A.Corridors);
         for(int32 I=0;I<Slabs.Num();++I)for(int32 J=I+1;J<Slabs.Num();++J)
         {
@@ -57,17 +59,28 @@ bool FERExpansionCollisionTest::RunTest(const FString& Parameters)
             if(World->SweepSingleByChannel(Hit,A,B,FQuat::Identity,ECC_Pawn,Capsule,Q))AddError(FString::Printf(TEXT("Stair step-up clearance %s -> %s hit %s at %s"),*A.ToString(),*B.ToString(),*GetNameSafe(Hit.GetComponent()),*Hit.ImpactPoint.ToString()));
         }
     }
+    const auto& Cells=Map->GetCellWorld();
     for(auto Material:{EERBlockMaterial::Wood,EERBlockMaterial::Stone,EERBlockMaterial::Metal,EERBlockMaterial::Glass})
     {
-        const auto* Record=Map->BlockWorld->GetBlocks().FindByPredicate([&](const auto& R){return R.Material==Material;});
-        TestNotNull(TEXT("new material instantiated"),Record);if(!Record)continue;
-        const auto T=Map->GetBlockTransform(Record->Id);const auto P=T.GetLocation(),N=T.GetRotation().GetAxisY();FERBlockId Id;
-        TestTrue(TEXT("new material physical hit and identity"),World->LineTraceSingleByChannel(Hit,P+N*11,P-N*11,ECC_GameTraceChannel1,Q)&&Map->ResolveHit(Hit,Id)&&Id==Record->Id);
-        TestTrue(TEXT("new material can take damage"),Map->ApplyBlockDamage(Id,1));
-        TestTrue(TEXT("profile health exact"),Map->BlockWorld->Find(Id)->Health==Map->MaterialCatalog->Find(Material)->MaxHealth-1);
+        const int32 Panel=Cells.GetPanels().IndexOfByPredicate([&](const auto& P){return P.Material==Material && (P.bPane || (P.Dims.X>8 && P.Dims.Z>8));});
+        TestTrue(TEXT("new material instantiated"),Panel!=INDEX_NONE);if(Panel==INDEX_NONE)continue;
+        const auto& P=Cells.GetPanels()[Panel];
+        // An exposed outer-face cell (openings are absent cells; neighbours may abut a face).
+        const FVector N=-P.Transform.GetRotation().GetAxisY();
+        FERCellId Id{Panel,0,0,0},Found;bool bHit=false;
+        for(int32 Z=FMath::Min(2,P.Dims.Z-1);Z<P.Dims.Z && !bHit;Z+=3)for(int32 X=P.Dims.X/2;X<P.Dims.X && !bHit;X+=3)
+        {
+            Id={Panel,X,0,Z};if(!Cells.IsAlive(Id))continue;
+            const FVector C=Cells.GetCellCenter(Id);
+            bHit=World->LineTraceSingleByChannel(Hit,C+N*12,C,ECC_GameTraceChannel1,Q)&&Map->ResolveCell(Hit,Found)&&Found==Id;
+        }
+        TestTrue(TEXT("new material physical hit and identity"),bHit);
+        TMap<FERCellId,float> Damage;Damage.Add(Id,1);
+        TestTrue(TEXT("new material can take damage"),Map->ApplyCellBatch(Damage).Damaged==1);
+        TestTrue(TEXT("profile health exact"),Cells.GetHealth(Id)==Map->MaterialCatalog->Find(Material)->MaxHealth-1);
     }
     Map->RequestSupportCheck();int32 Steps=0;while(Map->IsSupportPending() && Steps++<10000)Map->StepSupport();
-    TestEqual(TEXT("upper floors have structural footing"),Map->BlockWorld->GetDetachedCount(),0);
-    TestTrue(TEXT("multifloor mappings"),Map->ValidateMappings());World->DestroyWorld(false);return true;
+    TestEqual(TEXT("upper floors have structural footing"),Cells.GetDetachedCount(),int64(0));
+    TestTrue(TEXT("multifloor chunks"),Map->ValidateCells());World->DestroyWorld(false);return true;
 }
 #endif

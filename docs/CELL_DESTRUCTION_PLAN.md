@@ -1,7 +1,7 @@
 # Respawn & Rage — plan: from 50x20x25 blocks to 5cm cells
 
-Status: **option C approved and prototyped on L_DestructionLab** (17 October, see §8).
-Procedural maps and templates still use 50x20x25 blocks (phase 2).
+Status: **5cm cells everywhere** (18 October, §9): lab, procedural/multi-floor, Killhouse and Dust.
+The 50x20x25 block path is removed and collapse is ported to cells. §8 is the 17 October lab prototype.
 Source: the user's `RR_DANNI_MATERIALI_BLOCCHI_GRANATE.md`, sections 2 and 7, plus the
 [damage preset](PROCEDURAL_DESTRUCTION.md#damage-preset-17-october) that is already applied
 provisionally per block. Numbers marked *measured* come from runs on this machine (M2 Pro,
@@ -300,13 +300,79 @@ the 1-2.5 ms `TMap` damage aggregation; a real LAN run in cell mode (the protoco
 only tested in-process); support/collapse over chunk components; and phase 2
 (procedural maps and templates with constructions, crates as 2 cm shells).
 
+## 9. Cells everywhere (18 October, measured)
+
+The user asked to remove the old blocks everywhere and chose to port collapse now. Phase 2
+and 3 of this plan are done:
+- **Procedural maps:** walls become constructions with door and window openings as absent
+  cells, plus one glass pane per window.
+- **Template pieces:** keep their exact volume; each axis is divided into
+  round(L / 5 cm) equal cells (`FERCellWorld::FitCell`), so for example a 297.18 cm
+  length gets 59 cells of 5.04 cm. Massive materials become layered slabs, thin
+  materials become boards, and volumetric wood crates become 2 cm shells. The first
+  port truncated pieces to whole 5 cm cells; the Metal captures showed 2.5 cm
+  see-through slits between stacked pieces, and pieces thinner than 5 cm vanished.
+  The MapTemplate test now rejects any slit under 5 cm between facing pieces.
+- **Removed:** ISM block groups, block records/IDs, protocol 6 pages, the block support
+  graph and the block lab probe/tests. Seven block tests were replaced by cell versions.
+
+| Map | Panels | Chunks | Cells |
+|---|---:|---:|---:|
+| Lab | 8 | 52 | 77,580 |
+| Procedural 8/10 rooms, 1 floor | 70 / 82 | 620 / 704 | 1.29M / 1.71M |
+| Procedural 6 rooms, 2 / 3 floors (7 materials, glass) | 104 / 156 | ~780 / ~1,170 | 1.62–1.65M / 2.42–2.45M |
+| Killhouse, 512 seeds | — | — | 0.46M–1.37M |
+
+Stress benchmark on the 10-room map (1.71M cells), 3 samples × 2 seeds; the block
+values are from the 17 October run on the same map (10k blocks):
+
+| Operation | 80cm chunks | **160cm chunks** | 320cm chunks | Blocks (chunk 400) |
+|---|---:|---:|---:|---:|
+| Generation | 373 ms | **151 ms** | 116 ms | 49 ms |
+| Single removal, median / p95 | 0.14 / 0.35 ms | **0.19 / 0.33 ms** | 0.56 / 0.70 ms | 0.016 / 0.034 ms |
+| 256 scattered cells (216 chunks at 160cm) | 30 ms | **34 ms** | 54 ms | 1.8 ms |
+| Support check after that batch | 4.0 ms | **9.9 ms** | 17.4 ms | — |
+| HE grenade, room wall | 6.2 ms | **5.8 ms** | 5.9 ms | 0.43 ms (linear 250) |
+| Chaos bodies / components | 2,696 | **704** | 194 | 9,949 / 92 |
+| Tracked memory | 107 MiB | **33.5 MiB** | 15 MiB | 4.1 MiB |
+
+Most of the tracked memory is the CPU copy of each chunk's `FDynamicMesh3` (25.7 MB at
+160cm; about 36 KB per chunk regardless of content). Logical cell storage is 0.33 MB, and
+the support graph with its contacts takes 7.4 MB. Removing many isolated cells is slower
+than with blocks because every touched chunk rebuilds its mesh and body (about 0.15 ms each).
+Grenades touch few chunks, so they stay at about 6 ms.
+
+Collapse, measured by the `--collapse` probe:
+- **Lab demo** (ring in the drywall partition): two islands of 551 cells each, graph build
+  1.4 ms, evaluation 0.3–0.8 ms, one Chaos fragment per component that really falls.
+- **Lattice cut:** 53,750 unsupported cells in 1,110 components, evaluation 7 ms.
+  Debris caps hold: 8 per step and 64 global, also across two rooms.
+- **Whole 10-room shell without footings** (1.69M cells): contact build 40 ms, one
+  evaluation 106 ms, detachment over 52 steps (32,768 cells per step, p95 13–14 ms, peak
+  116–121 ms), completed in about 2.8 s.
+
+Network with real processes: `test-cell-network.py` (lab, including collapse replicated to
+clients), `test-destruction-network.py` (procedural building: 3 epochs, 2.45M cells, 1,162
+chunks, 10 shards, initial, late and dense joins consistent), and Killhouse and Dust with
+`--network` all pass, and both LAN tests pass with `--loss` too.
+
+Breach rules under the preset are unchanged: one grenade opens drywall, wood and sheet.
+Twenty-centimetre brick needs several, and even the old linear 2400 blast opens only a
+1.2 m hole in it. Concrete and stone resist. Probes that must walk through a breach now
+pick thin constructions.
+
 ## Reproduce
 
 ```sh
 python3 scripts/test-destruction-stress.py --samples 8 --label preset17oct
 python3 -I scripts/model-cell-destruction.py Saved/Testing/cell-destruction-model.json
-python3 scripts/test-cell-destruction.py
-python3 scripts/test-cell-destruction.py --game
+python3 scripts/test-destruction.py
+python3 scripts/test-destruction.py --game
+python3 scripts/test-destruction.py --collapse
+python3 scripts/test-destruction.py --procedural
+python3 scripts/test-destruction-stress.py --samples 3 --label cells18oct
+python3 scripts/test-cell-network.py
+python3 scripts/test-destruction-network.py
 ```
 
 `scripts/measure-ism-cell-scaling.py` and `scripts/measure-cell-scaling.py` run inside the

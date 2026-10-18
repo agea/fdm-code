@@ -93,6 +93,9 @@ changing server/client collision. The proxy is a box approximation, not exact
 per-triangle vendor collision. Fixed art remains indestructible. Map loading
 never re-enables collision on the tagged visual ISMs. Roof art has its own tag
 so the probe can make an overhead cutaway without hiding other fixed geometry.
+Roof tiles span the arena plus the 20cm shell walls (Size+40, like the collision
+ceiling). A roof that only meets the wall tops along an edge leaks a line of
+sunlight through the shadow map onto the floor (18 October Metal captures).
 
 The protocol6 descriptor includes the selected template asset. Layout digest
 includes template identity/revision/symmetry, logical records, fixed volumes,

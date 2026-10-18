@@ -21,7 +21,7 @@ def run(size, chunk):
     unreal.SystemLibrary.collect_garbage()
     before=rss()
     cfg=room.get_editor_property('config'); cfg.block_size=unreal.Vector(*size); cfg.chunk_size=chunk
-    room.set_editor_property('config',cfg)
+    room.set_editor_property('config',cfg); room.set_editor_property('cell_mode',False)  # the lab defaults to cells
     t=time.perf_counter(); ok=room.regenerate(); gen=(time.perf_counter()-t)*1000
     after=rss()
     comps=room.get_components_by_class(unreal.InstancedStaticMeshComponent)

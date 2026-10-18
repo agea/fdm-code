@@ -802,15 +802,43 @@ smoke/chips, Sonniss audio, fitted hands, fuse/damage/throw settings.
   the editor home screen on a macOS privacy prompt until the user answers it.
 
 
+## 5cm cells everywhere (18 October)
+
+- The user asked to remove the old blocks everywhere and to port collapse to
+  cells. Every AERBlockRoom/AERProceduralMap (lab, procedural/multi-floor,
+  Killhouse, Dust) is now 5cm cells only. ISM block groups, FERBlockRecord/
+  FERBlockId, AERBlockNetPage (protocol 6), FERBlockSupportGraph and the block
+  lab probe/tests are gone. UERBlockWorld stays only as an empty legacy
+  subobject so saved maps load. The descriptor is protocol 7 only.
+- Layouts emit FERCellPanelDesc: procedural walls via FERCellWorld::AddConstruction
+  with door/window openings as Holes (absent cells, never "destroyed"), glass panes
+  per window resting on their frame; template pieces via ERProcedural::AddPieceCells
+  (massive slabs, boards, 2cm shells for volumetric thin-material crates). Pieces
+  keep their exact validated volume: each axis holds round(L/5cm) equal cells
+  (FERCellWorld::FitCell). Never truncate to whole 5cm cells: Source-derived sizes
+  then leave see-through slits between stacked pieces (MapTemplate asserts none).
+  Wall slot thickness is Config.BlockSize.Y.
+- Support (FERCellSupport): nodes are face-connected components inside a chunk,
+  edges per chunk pair (grid neighbours and precomputed panel face contacts),
+  refreshed only for chunks whose revision changed; union-find from anchors
+  (bAnchorBottom/bAnchored/indestructible/ground rows). Evaluation runs on the
+  50ms timer, never in a blast snapshot; detachment is bounded per step
+  (RemovalsPerStep components, 32768 cells) with one cosmetic debris cube per
+  component (multicast, cap 8/step, 64 global). Detached cells replicate as masks.
+- Under the preset one grenade opens drywall/wood/sheet; 20cm brick needs
+  several, concrete/stone resist by design. Probes pick breachable walls.
+- Verify: test-destruction.py (11 automation tests), --game (cell lab), --collapse,
+  --procedural, test-destruction-stress.py, test-cell-network.py,
+  test-destruction-network.py, test-map-template.py --network,
+  test-dust-template.py --network. --combat now runs the cell lab probe too.
+
 ## 5cm cell prototype (17 October)
 
 - The user approved option C of docs/CELL_DESTRUCTION_PLAN.md: logical 5x5x5cm
   cells (wood 5x5x2, drywall boards/sheet/glass thickness from FERCellSettings),
   per-chunk alive bitsets plus sparse float HP, one UDynamicMeshComponent per
   32x32-cell chunk with visible faces only and aggregate-box collision. It is a
-  mode of AERBlockRoom (bCellMode), not a second system; L_DestructionLab only
-  (-ERCellLab, ?Cells=1 or console ERCellMode 1). Procedural maps/templates and
-  removal of the per-block ISM path are later phases.
+  mode of AERBlockRoom; superseded on 18 October by cells everywhere (above).
 - Cell HP are the spec values; FERCellCalibration in the catalog stamps the
   resolution they were tuned for. A mismatch rejects generation with
   ER_BLOCK_CALIBRATION_MISMATCH: never reuse HP after changing cell size or
@@ -830,8 +858,8 @@ smoke/chips, Sonniss audio, fitted hands, fuse/damage/throw settings.
 - Network protocol 7: descriptor (cell settings, layout digest, shard manifest)
   plus AERCellNetShard fast arrays of RLE alive masks for modified chunks only.
   HP never leave the server. Clients apply complete manifests only, fail closed.
-- Collapse is off in cell mode (logged ER_BLOCK_SUPPORT_UNAVAILABLE); support
-  over chunk components is phase 2. Glass is a single pane cell.
+- Glass is a single pane cell. (Collapse was off in the 17 October prototype;
+  ported to cells on 18 October, see above.)
 - Verify with scripts/test-cell-destruction.py (four Cells automation tests) and
   --game (real rifle, grenades, crouch/stand breaches, HE fuse, mode switching),
   plus test-destruction.py regressions. Scaling: measure-cell-scaling.py.

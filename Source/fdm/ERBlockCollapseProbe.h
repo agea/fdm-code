@@ -2,6 +2,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
 #include "ERBlockCollapseProbe.generated.h"
+// Opt-in real-game probe of structural collapse over 5cm cells (L_DestructionLab).
 UCLASS(NotBlueprintable)
 class AERBlockCollapseProbe:public AActor
 {

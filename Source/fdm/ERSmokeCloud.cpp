@@ -11,7 +11,6 @@
 #include "ERCharacter.h"
 #include "ERMatch.h"
 #include "ERBlockRoom.h"
-#include "ERBlockWorld.h"
 #include "NiagaraDataInterfaceRenderTargetVolume.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/Texture2D.h"
@@ -241,11 +240,10 @@ void AERSmokeCloud::Tick(float DeltaSeconds)
     {
         uint64 Revision=0;
         for(TActorIterator<AERBlockRoom> It(GetWorld());It;++It)
-            if(It->BlockWorld)
             {
                 Revision=HashCombineFast(Revision,It->GetMapEpoch());
                 Revision=HashCombineFast(Revision,It->HasAuthority()?It->GetMapSequence():It->GetAppliedMapSequence());
-                Revision=HashCombineFast(Revision,It->BlockWorld->GetRemovedCount()+It->BlockWorld->GetBlocks().Num());
+                Revision=HashCombineFast(Revision,uint64(It->GetCellWorld().GetCellCount()));
                 Revision=HashCombineFast(Revision,uint64(It->GetCellWorld().GetRemovedCount()));
             }
         if(GeometryRevision!=Revision) { GeometryRevision=Revision; RebuildContainment(); }

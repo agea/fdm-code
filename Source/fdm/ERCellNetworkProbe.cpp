@@ -21,7 +21,7 @@ namespace
 {
     const FVector DrywallGrenade(-100, -240, 110), BrickGrenade(240, 0, 110), WoodGrenade(-130, -155, 110);
     constexpr int32 Final = 13;
-    int64 RemovedOf(const AERBlockRoom* Room) { return Room->IsCellMode() ? Room->GetCellWorld().GetRemovedCount() : Room->BlockWorld->GetRemovedCount(); }
+    int64 RemovedOf(const AERBlockRoom* Room) { return Room->GetCellWorld().GetRemovedCount(); }
     AERBlockRoom* FindLabRoom(UWorld* World)
     {
         for (TActorIterator<AERBlockRoom> It(World); It; ++It) if (!Cast<AERProceduralMap>(*It)) return *It;
@@ -63,7 +63,7 @@ namespace
         {
             GClient.AppliedEpoch = Room->GetMapEpoch(); GClient.AppliedSequence = Room->GetAppliedMapSequence();
             UE_LOG(LogTemp, Display, TEXT("ER_CELL_NET_APPLIED role=%s epoch=%u sequence=%u digest=%u cells=%d removed=%lld gated_ticks=%d"),
-                *GClient.Role, GClient.AppliedEpoch, GClient.AppliedSequence, Room->GetStateDigest(), Room->IsCellMode(), RemovedOf(Room), GClient.GatedTicks);
+                *GClient.Role, GClient.AppliedEpoch, GClient.AppliedSequence, Room->GetStateDigest(), 1, RemovedOf(Room), GClient.GatedTicks);
         }
     }
 }
@@ -133,7 +133,7 @@ bool AERCellNetworkProbe::ShardChunks(AERBlockRoom* Room, int32& Count, uint32& 
     const auto& Cells = Room->GetCellWorld();
     for (TActorIterator<AERCellNetShard> S(GetWorld()); S; ++S)
     {
-        if (S->Room != Room || S->Header.Epoch != Room->GetMapEpoch() || !Room->IsCellMode()) continue;
+        if (S->Room != Room || S->Header.Epoch != Room->GetMapEpoch()) continue;
         for (const auto& Item : S->Chunks.Items)
         {
             Chunks.Add(Item.Chunk); Bytes += Item.Mask.Num() + 8;
@@ -235,14 +235,13 @@ void AERCellNetworkProbe::Advance(int32 Next, float Seconds)
     int32 MaskBytes = 0; bool bOnlyModified = true;
     ShardChunks(Room, ExpectedChunks, ExpectedChunkHash, &MaskBytes, &bOnlyModified);
     Check(bOnlyModified, TEXT("authority_shards_carry_only_modified_chunks"));
-    if (Room->IsCellMode())
     {
         int32 Samples = 0; const int32 Mismatches = CellParity(Room, Samples);
         Check(Mismatches == 0 && Samples > 0 && Room->ValidateCells(), TEXT("authority_cell_collision_parity"));
     }
     Deadline = GetWorld()->GetTimeSeconds() + Seconds; ForceNetUpdate();
     UE_LOG(LogTemp, Display, TEXT("ER_CELL_NET_PHASE %d epoch=%u sequence=%u digest=%u cells=%d removed=%lld shard_chunks=%d/%d mask_bytes=%d"), Phase, ExpectedEpoch, ExpectedSequence, ExpectedDigest,
-        Room->IsCellMode(), ExpectedRemoved, ExpectedChunks, Room->GetCellWorld().GetChunks().Num(), MaskBytes);
+        1, ExpectedRemoved, ExpectedChunks, Room->GetCellWorld().GetChunks().Num(), MaskBytes);
 }
 void AERCellNetworkProbe::ReceiveReport(AERCellNetworkReporter* Reporter, int32 Stage, uint32 Epoch, uint32 Sequence, uint32 Digest, bool bPassed)
 {
@@ -322,12 +321,8 @@ void AERCellNetworkProbe::ClientTick(float DeltaSeconds)
     }
     int32 Chunks = 0, Samples = 0, Mismatches = 0; uint32 Hash = 0; bool bOnlyModified = true;
     ShardChunks(Room, Chunks, Hash, nullptr, &bOnlyModified);
-    if (Room->IsCellMode())
-    {
-        Mismatches = CellParity(Room, Samples);
-        bPassed &= Mismatches == 0 && Samples > 0 && Room->ValidateCells();
-    }
-    else bPassed &= Room->ValidateMappings() && Room->GetInstanceCount() == Room->BlockWorld->GetBlocks().Num() - Room->BlockWorld->GetRemovedCount();
+    Mismatches = CellParity(Room, Samples);
+    bPassed &= Mismatches == 0 && Samples > 0 && Room->ValidateCells();
     bPassed &= GClient.GateViolations == 0 && Chunks == ExpectedChunks && Hash == ExpectedChunkHash && bOnlyModified && RemovedOf(Room) == ExpectedRemoved;
     // Gating is enforced by GateViolations on every gated tick. Zero gated ticks is
     // legal: descriptor and shards can arrive in the same frame, before any tick.
@@ -344,7 +339,7 @@ void AERCellNetworkProbe::ClientTick(float DeltaSeconds)
     Reports.Add(FString::FromInt(Phase));
     Reporter->ServerReport(Phase, Room->GetMapEpoch(), Room->GetMapSequence(), Room->GetStateDigest(), bPassed);
     UE_LOG(LogTemp, Display, TEXT("ER_CELL_NET_CLIENT_%s phase=%d role=%s epoch=%u sequence=%u digest=%u cells=%d removed=%lld shard_chunks=%d parity_samples=%d mismatches=%d gated_ticks=%d gate_violations=%d%s"),
-        bPassed ? TEXT("PASS") : TEXT("FAIL"), Phase, *Role, Room->GetMapEpoch(), Room->GetMapSequence(), Room->GetStateDigest(), Room->IsCellMode(), RemovedOf(Room), Chunks, Samples, Mismatches,
+        bPassed ? TEXT("PASS") : TEXT("FAIL"), Phase, *Role, Room->GetMapEpoch(), Room->GetMapSequence(), Room->GetStateDigest(), 1, RemovedOf(Room), Chunks, Samples, Mismatches,
         GClient.GatedTicks, GClient.GateViolations, *Detail);
 }
 void AERCellNetworkProbe::Tick(float DeltaSeconds)
@@ -370,7 +365,7 @@ void AERCellNetworkProbe::Tick(float DeltaSeconds)
     {
         if (Room->GetMapEpoch() == PublishedEpoch && Room->GetMapSequence() == PublishedSequence) return;
         PublishedEpoch = Room->GetMapEpoch(); PublishedSequence = Room->GetMapSequence();
-        UE_LOG(LogTemp, Display, TEXT("ER_CELL_NET_PUBLISHED epoch=%u sequence=%u digest=%u cells=%d removed=%lld"), PublishedEpoch, PublishedSequence, Room->GetStateDigest(), Room->IsCellMode(), RemovedOf(Room));
+        UE_LOG(LogTemp, Display, TEXT("ER_CELL_NET_PUBLISHED epoch=%u sequence=%u digest=%u cells=%d removed=%lld"), PublishedEpoch, PublishedSequence, Room->GetStateDigest(), 1, RemovedOf(Room));
     };
     LogPublished();
     auto Blast = [this, Room](const TCHAR* Label, const FVector& Origin)
@@ -393,7 +388,7 @@ void AERCellNetworkProbe::Tick(float DeltaSeconds)
         const auto* Mode = GetWorld()->GetAuthGameMode<AERGameMode>();
         if (!Host.IsValid() || !Initial || !Initial->GetPawn() || !Mode || !Mode->IsMatchInProgress()) return;
         const auto& Cells = Room->GetCellWorld();
-        Check(Room->IsCellMode() && Cells.GetCellCount() == 77580 && Room->ValidateCells() && Room->GetInstanceCount() == 0, TEXT("listen_host_runs_5cm_cell_lab"));
+        Check(Cells.GetCellCount() == 77580 && Room->ValidateCells(), TEXT("listen_host_runs_5cm_cell_lab"));
         Check(Room->GetNetworkPageCount() == FMath::DivideAndRoundUp(Cells.GetChunks().Num(), AERCellNetShard::Capacity) && Room->GetMapEpoch() > 0, TEXT("protocol7_shard_manifest"));
         Advance(1, 60);
     }
@@ -442,14 +437,16 @@ void AERCellNetworkProbe::Tick(float DeltaSeconds)
     else if (Phase == 8 && Reported(TEXT("initial"), 8) && Reported(TEXT("late"), 8))
     {
         Check(Late != nullptr, TEXT("late_join_matches_destroyed_cell_snapshot"));
-        Host->ConsoleCommand(TEXT("ERCellMode 0"));
-        Check(!Room->IsCellMode() && Room->GetInstanceCount() == 504 && Room->ValidateMappings() && Room->GetMapEpoch() == ExpectedEpoch + 1, TEXT("console_cell_mode_0_publishes_block_epoch"));
+        Host->ConsoleCommand(TEXT("ERBlockRegenerate"));
+        Check(Room->GetCellWorld().GetRemovedCount() == 0 && Room->ValidateCells() && Room->GetMapEpoch() == ExpectedEpoch + 1, TEXT("console_regenerate_publishes_cell_epoch"));
         Advance(9);
     }
     else if (Phase == 9 && Reported(TEXT("initial"), 9) && Reported(TEXT("late"), 9))
     {
-        Host->ConsoleCommand(TEXT("ERCellMode 1"));
-        Check(Room->IsCellMode() && Room->GetCellWorld().GetRemovedCount() == 0 && Room->ValidateCells() && Room->GetMapEpoch() == ExpectedEpoch + 1, TEXT("console_cell_mode_1_publishes_cell_epoch"));
+        // Authority collapse: detached cells replicate as ordinary chunk masks.
+        if (!bCollapseStarted) { bCollapseStarted = true; Host->ConsoleCommand(TEXT("ERBlockCollapseDemo")); return; }
+        if (Room->IsSupportPending()) return;
+        Check(Room->GetCellWorld().GetDetachedCount() == 2 * 29 * 19 && Room->ValidateCells(), TEXT("authority_collapse_detaches_isolated_patch"));
         Advance(10);
     }
     else if (Phase == 10 && Reported(TEXT("initial"), 10) && Reported(TEXT("late"), 10))
@@ -460,7 +457,7 @@ void AERCellNetworkProbe::Tick(float DeltaSeconds)
     else if (Phase == 11 && Reported(TEXT("initial"), 11) && Reported(TEXT("late"), 11))
     {
         Host->ConsoleCommand(TEXT("ERBlockRegenerate"));
-        Check(Room->IsCellMode() && Room->GetCellWorld().GetRemovedCount() == 0 && Room->GetMapEpoch() == ExpectedEpoch + 1, TEXT("console_regenerate_publishes_clean_epoch"));
+        Check(Room->GetCellWorld().GetRemovedCount() == 0 && Room->GetMapEpoch() == ExpectedEpoch + 1, TEXT("console_regenerate_publishes_clean_epoch"));
         Advance(12);
     }
     else if (Phase == 12 && Reported(TEXT("initial"), 12) && Reported(TEXT("late"), 12))

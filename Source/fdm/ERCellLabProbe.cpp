@@ -69,7 +69,7 @@ void AERCellLabProbe::Tick(float DeltaSeconds)
     {
         int64 Expected = 0;
         for (const auto& P : Cells.GetPanels()) Expected += int64(P.Dims.X) * P.Dims.Y * P.Dims.Z;
-        Check(GetNetMode() == NM_Standalone && Room->IsCellMode() && Room->GetInstanceCount() == 0 && Room->BlockWorld->GetBlocks().IsEmpty(), TEXT("lab_runs_in_5cm_cell_mode"));
+        Check(GetNetMode() == NM_Standalone && Cells.GetCellCount() > 0, TEXT("lab_runs_in_5cm_cells"));
         Check(Cells.GetCellCount() == Expected && Expected == 77580 && Cells.GetPanels().Num() == 8 && Room->ValidateCells(), TEXT("lab_cells_panels_chunks_and_components"));
         Check(Character->GetActorLocation().Z > 90 && Character->GetActorLocation().Z < 101, TEXT("pawn_supported_by_floor"));
         const auto& G = Room->GenerationProfile; const auto M = Room->GetMemoryProfile();
@@ -185,16 +185,13 @@ void AERCellLabProbe::Tick(float DeltaSeconds)
             }
         }
         Check(Cells.GetRemovedCount() > 500 && bLocal && Room->ValidateCells(), TEXT("real_he_fuse_breaches_cells_within_outer_radius"));
-        PC->ConsoleCommand(TEXT("ERCellMode 0"));
-        Check(!Room->IsCellMode() && Room->GetInstanceCount() == 504 && Room->ValidateMappings() && Cells.GetCellCount() == 0, TEXT("console_switches_back_to_blocks"));
-        Capture(Character, PC, TEXT("Blocks-Overview.png"), FVector(170, 170, 100), -135, 8);
+        Phase = 8; Elapsed = 0;
     }
     else if (Phase == 8)
     {
-        PC->ConsoleCommand(TEXT("ERCellMode 1"));
         const int32 Components = Room->GetInstanceComponents().Num();
         PC->ConsoleCommand(TEXT("ERBlockRegenerate")); PC->ConsoleCommand(TEXT("ERBlockRegenerate"));
-        Check(Room->IsCellMode() && Room->ValidateCells() && Room->GetInstanceComponents().Num() == Components && Cells.GetRemovedCount() == 0 && Character->GetActorLocation().Size2D() < 1,
+        Check(Room->ValidateCells() && Room->GetInstanceComponents().Num() == Components && Cells.GetRemovedCount() == 0 && Character->GetActorLocation().Size2D() < 1,
             TEXT("cell_regeneration_reuses_no_stale_components_and_safe_spawn"));
         UE_LOG(LogTemp, Display, TEXT("ER_CELL_PROBE_COMPLETE result=%s grenades=%d"), Failed ? TEXT("FAIL") : TEXT("PASS"), Grenades);
         SetActorTickEnabled(false);

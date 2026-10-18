@@ -15,7 +15,6 @@
 #include "ERArsenalProbe.h"
 #include "ERGrenadeProbe.h"
 #include "ERReferenceWeaponProbe.h"
-#include "ERBlockLabProbe.h"
 #include "ERCellLabProbe.h"
 #include "ERProceduralMap.h"
 #include "ERProceduralProbe.h"
@@ -71,9 +70,6 @@ void AERGameMode::InitGame(const FString& MapName, const FString& Options, FStri
             It->LayoutConfig.AdditionalMaterials=UGameplayStatics::GetIntOption(Options,TEXT("MapMaterials"),It->LayoutConfig.AdditionalMaterials)!=0;
             It->LayoutConfig.WindowGlass=UGameplayStatics::GetIntOption(Options,TEXT("MapGlass"),It->LayoutConfig.WindowGlass)!=0;
         }
-    // 5cm cell prototype: ?Cells=1 or -ERCellLab on the destruction lab only.
-    if (MapName.Contains(TEXT("L_DestructionLab")) && (UGameplayStatics::GetIntOption(Options, TEXT("Cells"), 0) != 0 || FParse::Param(FCommandLine::Get(), TEXT("ERCellLab"))))
-        for (TActorIterator<AERBlockRoom> It(GetWorld()); It; ++It) if (!Cast<AERProceduralMap>(*It)) It->bCellMode = true;
     bStationaryBots = UGameplayStatics::ParseOption(Options, TEXT("ERBotMode")).Equals(TEXT("Target"), ESearchCase::IgnoreCase);
     DesiredBots = FMath::Clamp(UGameplayStatics::GetIntOption(Options, TEXT("ERBots"), 0), 0, bStationaryBots ? 2 * ERSkins::Count : 3);
     bMovementBots = UGameplayStatics::ParseOption(Options, TEXT("ERBotMode")).Equals(TEXT("Movement"), ESearchCase::IgnoreCase);
@@ -167,7 +163,6 @@ void AERGameMode::BeginPlay()
 #if !UE_BUILD_SHIPPING
     if (GetWorld()->GetMapName().Contains(TEXT("L_Killhouse")) && FParse::Param(FCommandLine::Get(),TEXT("ERMapTemplateProbe"))) GetWorld()->SpawnActor<AERMapTemplateProbe>();
     if (GetWorld()->GetMapName().Contains(TEXT("L_DustMirror")) && FParse::Param(FCommandLine::Get(),TEXT("ERDustTemplateProbe"))) GetWorld()->SpawnActor<AERDustTemplateProbe>();
-    if (GetNetMode() == NM_Standalone && GetWorld()->GetMapName().Contains(TEXT("L_DestructionLab")) && FParse::Param(FCommandLine::Get(), TEXT("ERBlockLabProbe"))) GetWorld()->SpawnActor<AERBlockLabProbe>();
     if (GetNetMode() == NM_Standalone && GetWorld()->GetMapName().Contains(TEXT("L_DestructionLab")) && FParse::Param(FCommandLine::Get(), TEXT("ERCellLabProbe"))) GetWorld()->SpawnActor<AERCellLabProbe>();
     if (GetNetMode() == NM_Standalone && GetWorld()->GetMapName().Contains(TEXT("L_ProceduralLab")) && FParse::Param(FCommandLine::Get(), TEXT("ERProceduralProbe"))) GetWorld()->SpawnActor<AERProceduralProbe>();
     if (GetNetMode() == NM_Standalone && GetWorld()->GetMapName().Contains(TEXT("L_ProceduralLab")) && FParse::Param(FCommandLine::Get(), TEXT("ERBlockStressProbe"))) GetWorld()->SpawnActor<AERBlockStressProbe>();

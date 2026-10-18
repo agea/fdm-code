@@ -15,7 +15,8 @@ bool FERMapTemplateTest::RunTest(const FString& Parameters)
     TestNotNull(TEXT("Factory shell mesh"),Template->ShellWallMesh.Get());TestTrue(TEXT("composition variation enabled"),Template->Variation.Enabled);
     FERProceduralConfig C;C.TemplateAsset=Template;FERBlockRoomConfig B;FERProceduralLayout A,Again;
     TSet<FString> Dimensions,Compositions,BaseFrames;TSet<int32> ModuleTypes,RoomCounts;
-    int32 MinBlocks=MAX_int32,MaxBlocks=0;
+    int64 MinCells=MAX_int64,MaxCells=0;
+    auto CellCount=[](const FERProceduralLayout& L){int64 N=0;for(const auto& P:L.Panels)N+=int64(FMath::RoundToInt(P.Size.X/P.Cell.X))*FMath::RoundToInt(P.Size.Y/P.Cell.Y)*FMath::RoundToInt(P.Size.Z/P.Cell.Z);return N;};
     for(int32 Seed=0;Seed<512;++Seed)
     {
         C.Seed=Seed;
@@ -23,13 +24,13 @@ bool FERMapTemplateTest::RunTest(const FString& Parameters)
         Dimensions.Add(A.ArenaSize.ToString());RoomCounts.Add(A.Rooms.Num());
         FString Choices;for(auto Kind:A.ModuleKinds){Choices+=FString::FromInt(uint8(Kind));ModuleTypes.Add(uint8(Kind));}Compositions.Add(Choices);
         BaseFrames.Add(A.Bases[0].Frame.ToString()+A.Bases[0].Size.ToString());
-        MinBlocks=FMath::Min(MinBlocks,A.Blocks.Num());MaxBlocks=FMath::Max(MaxBlocks,A.Blocks.Num());
-        TestTrue(TEXT("through rooms included"),A.Rooms.Num()>=2);TestTrue(TEXT("bounded block count"),A.Blocks.Num()<=50000);
+        const int64 Cells=CellCount(A);MinCells=FMath::Min(MinCells,Cells);MaxCells=FMath::Max(MaxCells,Cells);
+        TestTrue(TEXT("through rooms included"),A.Rooms.Num()>=2);TestTrue(TEXT("bounded cell count"),Cells<=8000000 && A.Panels.Num()<=4096);
     }
     TestTrue(TEXT("many arena dimensions"),Dimensions.Num()>100);TestTrue(TEXT("many compositions"),Compositions.Num()>200);
     TestTrue(TEXT("base frames and proportions vary"),BaseFrames.Num()>100);TestEqual(TEXT("seven obstacle families"),ModuleTypes.Num(),7);
-    TestTrue(TEXT("room count varies"),RoomCounts.Num()>1);TestTrue(TEXT("amount of cover varies"),MaxBlocks-MinBlocks>1000);
-    AddInfo(FString::Printf(TEXT("ER_TEMPLATE_VARIATION seeds=512 dimensions=%d compositions=%d base_frames=%d room_counts=%d blocks=%d..%d"),Dimensions.Num(),Compositions.Num(),BaseFrames.Num(),RoomCounts.Num(),MinBlocks,MaxBlocks));
+    TestTrue(TEXT("room count varies"),RoomCounts.Num()>1);TestTrue(TEXT("amount of cover varies"),MaxCells-MinCells>50000);
+    AddInfo(FString::Printf(TEXT("ER_TEMPLATE_VARIATION seeds=512 dimensions=%d compositions=%d base_frames=%d room_counts=%d cells=%lld..%lld"),Dimensions.Num(),Compositions.Num(),BaseFrames.Num(),RoomCounts.Num(),MinCells,MaxCells));
     UWorld::InitializationValues V;V.AllowAudioPlayback(false).CreateNavigation(false).CreateAISystem(false).CreateFXSystem(false).EnableTraceCollision(true);
     auto* World=UWorld::CreateWorld(EWorldType::Game,false,NAME_None,nullptr,true,ERHIFeatureLevel::Num,&V);if(!World)return false;
     auto* Map=World->SpawnActor<AERProceduralMap>();Map->LayoutConfig=C;
@@ -46,11 +47,32 @@ bool FERMapTemplateTest::RunTest(const FString& Parameters)
     {
         C.Seed=Seed;
         if(!TestTrue(TEXT("Template build"),ERProcedural::Build(C,B,A)))continue;
-        TestTrue(TEXT("Repeat seed"),ERProcedural::Build(C,B,Again));TestEqual(TEXT("Stable record count"),A.Blocks.Num(),Again.Blocks.Num());
+        TestTrue(TEXT("Repeat seed"),ERProcedural::Build(C,B,Again));TestEqual(TEXT("Stable panel count"),A.Panels.Num(),Again.Panels.Num());
         TestTrue(TEXT("stable dimensions"),A.ArenaSize.Equals(Again.ArenaSize));
         TSet<FString> Symmetry;
-        for(const auto& R:A.Blocks)Symmetry.Add(Key(R.LocalTransform.GetLocation(),R.LocalTransform.GetScale3D(),uint8(R.Material)));
-        for(const auto& R:A.Blocks){auto P=R.LocalTransform.GetLocation();P.X=-P.X;P.Y=-P.Y;if(!Symmetry.Contains(Key(P,R.LocalTransform.GetScale3D(),uint8(R.Material)))){AddError(TEXT("Unpaired destructible geometry"));break;}}
+        auto PanelBox=[](const FERCellPanelDesc& P){return FBox(FVector::ZeroVector,P.Size).TransformBy(P.Transform);};
+        for(const auto& R:A.Panels){const FBox Box=PanelBox(R);Symmetry.Add(Key(Box.GetCenter(),Box.GetSize(),uint8(R.Material)));}
+        for(const auto& R:A.Panels){const FBox Box=PanelBox(R);auto P=Box.GetCenter();P.X=-P.X;P.Y=-P.Y;if(!Symmetry.Contains(Key(P,Box.GetSize(),uint8(R.Material)))){AddError(TEXT("Unpaired destructible geometry"));break;}}
+        // Facing pieces must not leave a see-through slit narrower than a cell.
+        {
+            TArray<FBox> Boxes;for(const auto& R:A.Panels)Boxes.Add(PanelBox(R));
+            const int32 Destructible=Boxes.Num();
+            for(const auto& R:A.FixedPieces)if(!R.VisualOnly && R.Transform.GetRotation().IsIdentity(1.e-4))Boxes.Add(FBox(-R.Transform.GetScale3D()*50,R.Transform.GetScale3D()*50).ShiftBy(R.Transform.GetLocation()));
+            int32 Slits=0;
+            for(int32 I=0;I<Destructible;++I)for(int32 J=I+1;J<Boxes.Num();++J)
+            {
+                int32 GapAxis=INDEX_NONE;double Gap=0;bool Facing=true;
+                for(int32 Axis=0;Axis<3 && Facing;++Axis)
+                {
+                    const double G=FMath::Max(Boxes[J].Min[Axis]-Boxes[I].Max[Axis],Boxes[I].Min[Axis]-Boxes[J].Max[Axis]);
+                    if(G>.01){if(GapAxis!=INDEX_NONE)Facing=false;GapAxis=Axis;Gap=G;}
+                }
+                if(!Facing || GapAxis==INDEX_NONE || Gap>=5)continue;
+                bool Overlap=true;for(int32 Axis=0;Axis<3;++Axis)if(Axis!=GapAxis)Overlap&=FMath::Min(Boxes[I].Max[Axis],Boxes[J].Max[Axis])-FMath::Max(Boxes[I].Min[Axis],Boxes[J].Min[Axis])>1;
+                if(Overlap && Slits++<12)AddError(FString::Printf(TEXT("ER_TEMPLATE_SLIT seed=%d axis=%d gap=%.2f a=%s b=%s%s"),Seed,GapAxis,Gap,*Boxes[I].ToString(),*Boxes[J].ToString(),J>=Destructible ? TEXT(" fixed"):TEXT("")));
+            }
+            TestEqual(TEXT("no see-through slit between facing pieces"),Slits,0);
+        }
         Symmetry.Empty();
         for(const auto& R:A.FixedPieces)Symmetry.Add(Key(R.Transform.GetLocation(),R.Transform.GetScale3D(),uint8(R.Material)));
         for(const auto& R:A.FixedPieces){auto P=R.Transform.GetLocation();P.X=-P.X;P.Y=-P.Y;if(!Symmetry.Contains(Key(P,R.Transform.GetScale3D(),uint8(R.Material)))){AddError(TEXT("Unpaired fixed geometry"));break;}}
@@ -60,14 +82,14 @@ bool FERMapTemplateTest::RunTest(const FString& Parameters)
             auto Expected=A.AlphaSpawns[I].GetLocation();Expected.X=-Expected.X;Expected.Y=-Expected.Y;
             TestTrue(TEXT("opposing team spawns have equal geometry distance"),Expected.Equals(A.OmegaSpawns[I].GetLocation(),.001));
         }
-        TSet<FERBlockId> IDs;
-        for(int32 I=0;I<A.Blocks.Num();++I)
+        TSet<int32> IDs;
+        for(int32 I=0;I<A.Panels.Num();++I)
         {
-            const auto& R=A.Blocks[I];TestFalse(TEXT("unique block ID"),IDs.Contains(R.Id));IDs.Add(R.Id);
-            TestTrue(TEXT("deterministic blocks"),R.Id==Again.Blocks[I].Id && R.LocalTransform.Equals(Again.Blocks[I].LocalTransform));
+            const auto& R=A.Panels[I];TestFalse(TEXT("unique panel ID"),IDs.Contains(R.Id));IDs.Add(R.Id);
+            TestTrue(TEXT("deterministic panels"),R.Id==Again.Panels[I].Id && R.Transform.Equals(Again.Panels[I].Transform) && R.Size==Again.Panels[I].Size);
             TestTrue(TEXT("project destructible material"),R.Material==EERBlockMaterial::Wood || R.Material==EERBlockMaterial::Concrete);
         }
-        Map->LayoutConfig=C;TestTrue(TEXT("Template collision generation"),Map->Regenerate());TestTrue(TEXT("mapping"),Map->ValidateMappings());
+        Map->LayoutConfig=C;TestTrue(TEXT("Template collision generation"),Map->Regenerate());TestTrue(TEXT("cell chunks"),Map->ValidateCells());
         const uint32 Digest=Map->GetLayoutDigest();if(Seed==0)FirstDigest=Digest;else TestTrue(TEXT("seed varies geometry digest"),FirstDigest!=Digest);
         for(const auto* Starts:{&A.AlphaSpawns,&A.OmegaSpawns})for(const auto& S:*Starts)
         {
@@ -124,16 +146,22 @@ bool FERMapTemplateTest::RunTest(const FString& Parameters)
                 TestTrue(TEXT("walkable roof visual equals solid collision"),ISM && ISM->GetStaticMesh()==Map->BlockMesh);
             }
         }
-        const auto R=Map->BlockWorld->GetBlocks()[0];const FVector P=R.LocalTransform.GetLocation();
-        const FVector N=R.LocalTransform.GetScale3D().X<R.LocalTransform.GetScale3D().Y ? FVector(1,0,0):FVector(0,1,0);
-        FERBlockId Resolved;
-        TestTrue(TEXT("panel hit resolves logical identity"),World->LineTraceSingleByChannel(Hit,P+N*45,P-N*45,ECC_GameTraceChannel1,Q) && Map->ResolveHit(Hit,Resolved) && Resolved==R.Id);
-        TestTrue(TEXT("panel damage removes block"),Map->ApplyBlockDamage(R.Id,0,true));TestTrue(TEXT("mapping after damage"),Map->ValidateMappings());
-        TestFalse(TEXT("destroyed panel collision absent"),World->LineTraceSingleByChannel(Hit,P+N*9,P-N*9,ECC_GameTraceChannel1,Q));
+        const auto& Cells=Map->GetCellWorld();
+        const int32 First=Cells.GetPanels().IndexOfByPredicate([](const auto& P){return P.Dims.X>4 && P.Dims.Z>4 && P.Transform.GetRotation().GetAxisZ().Z>.99;});
+        if(TestTrue(TEXT("destructible panel present"),First!=INDEX_NONE))
+        {
+            const auto& Panel=Cells.GetPanels()[First];const FERCellId Id{First,Panel.Dims.X/2,0,Panel.Dims.Z/2};
+            const FVector P=Cells.GetCellCenter(Id),N=-Panel.Transform.GetRotation().GetAxisY(),Face=P+N*Panel.Cell.Y*.5;
+            FERCellId Resolved;
+            TestTrue(TEXT("panel hit resolves logical identity"),World->LineTraceSingleByChannel(Hit,Face+N*20,P,ECC_GameTraceChannel1,Q) && Map->ResolveCell(Hit,Resolved) && Resolved==Id);
+            TMap<FERCellId,float> Remove;Remove.Add(Id,TNumericLimits<float>::Max());
+            TestTrue(TEXT("panel damage removes cell"),Map->ApplyCellBatch(Remove).Destroyed==1);TestTrue(TEXT("chunks after damage"),Map->ValidateCells());
+            TestFalse(TEXT("destroyed cell collision absent"),World->LineTraceSingleByChannel(Hit,Face+N*.5,P,ECC_GameTraceChannel1,Q));
+        }
         const int32 Components=Map->GetInstanceComponents().Num();TestTrue(TEXT("regenerate damaged template"),Map->Regenerate());
         TestEqual(TEXT("fixed components not leaked"),Map->GetInstanceComponents().Num(),Components);TestEqual(TEXT("same seed restores digest"),Map->GetLayoutDigest(),Digest);
     }
-    C.Floors=2;const auto Count=A.Blocks.Num();TestFalse(TEXT("unsupported floor count rejected atomically"),ERProcedural::Build(C,B,A));TestEqual(TEXT("old data retained"),A.Blocks.Num(),Count);
+    C.Floors=2;const auto Count=A.Panels.Num();TestFalse(TEXT("unsupported floor count rejected atomically"),ERProcedural::Build(C,B,A));TestEqual(TEXT("old data retained"),A.Panels.Num(),Count);
     C.Floors=1;auto* Invalid=DuplicateObject<UERMapTemplate>(Template,GetTransientPackage());C.TemplateAsset=Invalid;Invalid->Variation.BaseDepth=FVector2D(200,400);
     TestFalse(TEXT("unsafe variant dimensions rejected"),ERProcedural::Build(C,B,A));
     Invalid->Variation.Enabled=false;Invalid->Pieces[0].WalkableSurface=true;Invalid->Pieces[0].Destructible=false;Invalid->Pieces[0].FixedMesh=Template->Variation.CargoMesh;

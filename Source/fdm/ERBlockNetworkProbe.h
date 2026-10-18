@@ -1,7 +1,6 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "ERBlockWorld.h"
 #include "ERBlockNetworkProbe.generated.h"
 // Explicitly enabled three-peer and dense late-join regression, never normal play.
 UCLASS(NotBlueprintable)
@@ -19,7 +18,8 @@ private:
     UPROPERTY(Replicated) uint32 ExpectedEpoch=0;
     UPROPERTY(Replicated) uint32 ExpectedSequence=0;
     UPROPERTY(Replicated) uint32 ExpectedDigest=0;
-    UPROPERTY(Replicated) FERBlockId ShotId;
+    UPROPERTY(Replicated) int32 ShotPanel=INDEX_NONE;
+    UPROPERTY(Replicated) FIntVector ShotCell=FIntVector::ZeroValue;
     UPROPERTY(Replicated) FVector FireFrom;
     UPROPERTY(Replicated) FVector WalkEnd;
     UPROPERTY(Replicated) FRotator FireAim;
@@ -27,8 +27,9 @@ private:
     TWeakObjectPtr<class AERPlayerController> Host,Initial,Late,Dense;
     TSet<FString> Reports;
     uint32 ShotsBefore=0;
-    double Deadline=0,NextDiagnostic=0;
-    bool Failed=false,LateAnnounced=false,NameSent=false;
+    int64 RemovedBefore=0,ExpectedDetached=0;
+    double Deadline=0,NextDiagnostic=0,NextName=0;
+    bool Failed=false,LateAnnounced=false;
     int32 ClientPhase=-1,Waypoint=0;
     float PhaseElapsed=0;
     FString Role;

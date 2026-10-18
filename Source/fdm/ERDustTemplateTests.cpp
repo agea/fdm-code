@@ -42,7 +42,7 @@ bool FERDustTemplateTest::RunTest(const FString& Parameters)
         C.Seed=Seed;Map->LayoutConfig=C;
         if(!TestTrue(TEXT("physical town generation"),Map->Regenerate()))continue;
         ERProcedural::Build(C,B,L);ERProcedural::Build(C,B,Again);
-        TestTrue(TEXT("valid mappings"),Map->ValidateMappings());TestEqual(TEXT("deterministic geometry"),L.FixedPieces.Num(),Again.FixedPieces.Num());
+        TestTrue(TEXT("valid mappings"),Map->ValidateCells());TestEqual(TEXT("deterministic geometry"),L.FixedPieces.Num(),Again.FixedPieces.Num());
         for(int32 I=0;I<L.FixedPieces.Num();++I)TestTrue(TEXT("repeat seed gives identical city"),L.FixedPieces[I].Transform.Equals(Again.FixedPieces[I].Transform));
         const FVector P=L.TownCrossing;
         TestFalse(TEXT("lower CT route stays open under Short A"),World->SweepSingleByChannel(Hit,P+FVector(-600,0,100),P+FVector(600,0,100),FQuat::Identity,ECC_Pawn,Capsule,Q));

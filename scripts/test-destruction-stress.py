@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
-"""Profile and stress real block ISM/Chaos operations in the saved procedural map.
+"""Profile and stress real 5cm cell operations (chunk meshes, box collision, support)
+in the saved procedural map.
 
-Sequential deterministic cases: two seeds x three chunk sizes, one warmup then
-measured samples. Raw CSV and summaries stay in Saved/Testing. No packaging.
+Sequential deterministic cases: two seeds x three chunk sizes (16/32/64 cells =
+80/160/320cm), one warmup then measured samples. Raw CSV and summaries stay in
+Saved/Testing. No packaging. Column meaning for cells: clear_ms=mesh, add_ms=chunk
+components, mapping_ms=collision, groups=chunks rebuilt, uploaded=quads.
 """
 from pathlib import Path
 import argparse
@@ -48,23 +51,23 @@ with raw.open() as stream: rows=list(csv.DictReader(stream))
 for row in rows:
  if int(row['tracked_bytes'])!=sum(int(row[key]) for key in ['logical_bytes','layout_bytes','mapping_bytes','instance_bytes','support_bytes','network_bytes']):
   raise SystemExit('FAIL: tracked-memory columns do not add up')
-expected=args.samples*6*53
+expected=args.samples*6*23
 if len(rows)!=expected:raise SystemExit(f'FAIL: CSV contains {len(rows)} rows, expected {expected}')
 summary={'label':args.label,'rhi':rhi,'samples_per_case':args.samples,'warmup_per_case':1,'cases':[],
- 'method':'Game-thread synchronous calls. ISM clear/add include synchronous Chaos. Excludes deferred physics/render/GPU and validation, GC, logging and memory snapshots. Tracked bytes are exclusive reported ISM resources plus owned arrays/maps, support graph and network snapshot buffers. ISM body counts exclude temporary debris, reported separately; debris engine/Chaos heaps, shared meshes/textures, total engine heaps and GPU allocations are excluded. Process resident bytes include the entire Unreal process.'}
+ 'method':'Game-thread synchronous calls on 5cm cells. Mesh/collision rebuild include synchronous dynamic-mesh and Chaos body recreation. Excludes deferred physics/render/GPU and validation, GC, logging and memory snapshots. Tracked bytes are owned cell storage, chunk mesh CPU copies (FDynamicMesh3), mappings, support graph and network shard buffers; GPU buffers, debris Chaos heaps, shared meshes/textures and total engine heaps are excluded. Process resident bytes include the entire Unreal process.'}
 for seed in [42,7919]:
- for chunk in [200,400,800]:
+ for chunk in [80,160,320]:
   case={'seed':seed,'rooms':10,'chunk_cm':chunk,'operations':{}}
   for operation in sorted({r['operation'] for r in rows}):
    selected=[r for r in rows if int(r['seed'])==seed and int(r['chunk_cm'])==chunk and r['operation']==operation]
    if not selected:continue
    values=sorted(float(r['total_ms']) for r in selected)
    profile={'n':len(values),'median_ms':round(statistics.median(values),6),'p95_ms':round(values[math.ceil(len(values)*.95)-1],6),'max_ms':round(max(values),6)}
-   for key in ['logical_ms','clear_ms','add_ms','mapping_ms','groups','uploaded','removed','candidates','examined','tracked_bytes','logical_bytes','layout_bytes','mapping_bytes','instance_bytes','collision_bodies','components','resident_bytes','support_bytes','debris','simulating_debris','network_bytes']:
+   for key in ['logical_ms','clear_ms','add_ms','mapping_ms','groups','uploaded','removed','candidates','examined','tracked_bytes','logical_bytes','layout_bytes','mapping_bytes','instance_bytes','collision_bodies','components','resident_bytes','support_bytes','debris','simulating_debris','network_bytes','cells','collision_boxes']:
     profile['median_'+key]=statistics.median(float(r[key]) for r in selected)
    case['operations'][operation]=profile
   summary['cases'].append(case)
 (logs/(label+'-summary.json')).write_text(json.dumps(summary,indent=2)+'\n')
 for case in summary['cases']:
- op=case['operations'];print(f"seed={case['seed']} chunk={case['chunk_cm']} generation={op['generation']['median_ms']:.3f}ms single_p95={op['single']['p95_ms']:.3f}ms batch256={op['batch256']['median_ms']:.3f}ms tracked={op['generation']['median_tracked_bytes']/1048576:.2f}MiB")
+ op=case['operations'];print(f"seed={case['seed']} chunk={case['chunk_cm']} cells={op['generation']['median_cells']:.0f} generation={op['generation']['median_ms']:.3f}ms single_p95={op['single']['p95_ms']:.3f}ms batch256={op['batch256']['median_ms']:.3f}ms support={op['support']['median_ms']:.3f}ms grenade={op['grenade_he']['median_ms']:.3f}ms tracked={op['generation']['median_tracked_bytes']/1048576:.2f}MiB")
 print('CSV:',raw,'\nLog:',log)

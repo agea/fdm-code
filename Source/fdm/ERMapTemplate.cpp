@@ -4,7 +4,7 @@
 
 namespace ERProcedural
 {
-bool BuildTemplate(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProceduralLayout& Out)
+bool BuildTemplate(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProceduralLayout& Out,const FERCellSettings& Cells)
 {
     const auto* T=C.TemplateAsset.Get();
     if(!T || T->TemplateId.IsEmpty() || T->Revision<1 || C.Floors!=1 || B.BlockSize!=FVector(50,20,25) ||
@@ -66,18 +66,11 @@ bool BuildTemplate(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERP
                 const FQuat R=Piece.RotationYaw!=0 ? PhysicalRotation:FQuat::Identity;
                 L.FixedPieces.Add({FTransform(R,Center,Piece.Size/100),Piece.Material,Piece.FixedMesh,Rotation,false,Piece.VisualOnly,Piece.FixedSurface});continue;
             }
-            const int32 NX=FMath::CeilToInt(Piece.Size.X/50),NY=FMath::CeilToInt(Piece.Size.Y/50),NZ=FMath::CeilToInt(Piece.Size.Z/25);
-            if(int64(NX)*NY*NZ+L.Blocks.Num()>50000)return false;
-            for(int32 X=0;X<NX;++X)for(int32 Y=0;Y<NY;++Y)for(int32 Z=0;Z<NZ;++Z)
-            {
-                const FVector Cell(FMath::Min(50.,Piece.Size.X-X*50),FMath::Min(50.,Piece.Size.Y-Y*50),FMath::Min(25.,Piece.Size.Z-Z*25));
-                auto& R=L.Blocks.AddDefaulted_GetRef();R.Id={Wall,X*NY+Y,Z};R.Material=Piece.Material;
-                FVector Position=Original-Piece.Size*.5+FVector(X*50,Y*50,Z*25)+Cell*.5;
-                if(Copy){Position.X=-Position.X;Position.Y=-Position.Y;}
-                R.LocalTransform=FTransform(FQuat::Identity,Position,Cell/100);
-                // Slabs/steps are fixed support; upper parapets anchor to the base roof.
-                R.bStructuralAnchor=Piece.Anchored && Z==0;
-            }
+            // Mirror the exact original volume: equal-cell division keeps paired cells symmetric.
+            FBox Cell(Original-Piece.Size*.5,Original+Piece.Size*.5);
+            if(Copy)Cell=FBox(FVector(-Cell.Max.X,-Cell.Max.Y,Cell.Min.Z),FVector(-Cell.Min.X,-Cell.Min.Y,Cell.Max.Z));
+            // Slabs/steps are fixed support; upper parapets anchor to the base roof.
+            AddPieceCells(Wall,Piece.Material,Cell,Piece.Anchored,Cells,L.Panels);
             ++Wall;
         }
     }
@@ -110,7 +103,9 @@ bool BuildTemplate(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERP
     if(T->RoofMesh)
     {
         const int32 NX=FMath::CeilToInt(Size.X/500),NY=FMath::CeilToInt(Size.Y/500);
-        const FVector Cell(Size.X/NX,Size.Y/NY,20);
+        // Tiles reach the outer faces of the 20cm shell walls, like the collision ceiling:
+        // a roof that only touches the wall top along an edge leaks a sunlight line.
+        const FVector Cell((Size.X+40)/NX,(Size.Y+40)/NY,20);
         for(int32 X=0;X<NX;++X)for(int32 Y=0;Y<NY;++Y)L.FixedPieces.Add({FTransform(FQuat::Identity,FVector((X-(NX-1)*.5)*Cell.X,(Y-(NY-1)*.5)*Cell.Y,Size.Z+10),Cell/100),EERBlockMaterial::Metal,T->RoofMesh,(T->RoofMesh->GetBoundingBox().GetSize().X<T->RoofMesh->GetBoundingBox().GetSize().Y ? FRotator(90,0,0):FRotator(0,0,90)),true,true});
     }
     auto Clear=[&](FVector P)
@@ -150,7 +145,7 @@ bool BuildTemplate(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERP
     if(!ClearPath(Patrol,true))return false;
     for(const auto& Route:L.RoomAccessRoutes)if(!ClearPath(Route,false))return false;
     L.Spawn=L.AlphaSpawns[0].GetLocation();L.Routes.Add({L.Spawn,Patrol[0]});L.Routes.Add(Patrol);L.Routes.Add({L.OmegaSpawns[0].GetLocation(),Patrol.Last()});
-    if(L.Blocks.IsEmpty() || L.FixedPieces.Num()>2048)return false;
+    if(L.Panels.IsEmpty() || L.FixedPieces.Num()>2048)return false;
     Out=MoveTemp(L);return true;
 }
 }

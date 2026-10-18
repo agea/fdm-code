@@ -29,6 +29,11 @@ struct FERCellPanelDesc
     FVector Size = FVector::ZeroVector;
     FVector Cell = FVector::ZeroVector;
     bool bPane = false, bIndestructible = false;
+    // Openings (doors, windows) as panel-local X/Z rectangles: cells whose centre
+    // lies inside are absent from generation, never counted as destroyed.
+    TArray<FBox2D> Holes;
+    // Support: the bottom row rests on the ground or a fixed slab; or every cell is fixed.
+    bool bAnchorBottom = false, bAnchored = false;
 };
 struct FERCellPanel : FERCellPanelDesc
 {
@@ -68,6 +73,8 @@ public:
     // Layers of one construction inside a wall slot (origin at the slot's minimum corner).
     static void AddConstruction(int32 WallId, EERBlockMaterial Material, const FTransform& Slot, const FVector& SlotSize,
         const FERCellSettings& Settings, TArray<FERCellPanelDesc>& Out);
+    // Cell edge that divides Length into round(Length / CellSize) equal cells (at least one).
+    static double FitCell(double Length, double CellSize) { return Length / FMath::Max(1, FMath::RoundToInt(Length / CellSize)); }
     // Validates everything before replacing live state.
     bool Build(const TArray<FERCellPanelDesc>& Desc, const FERCellSettings& Settings, const UERBlockMaterialCatalog* Catalog, FString& Error);
     void Reset();
@@ -75,6 +82,10 @@ public:
     const TArray<FERCellChunk>& GetChunks() const { return Chunks; }
     int64 GetCellCount() const { return CellCount; }
     int64 GetRemovedCount() const { return RemovedCount; }
+    int64 GetDetachedCount() const { return DetachedCount; }
+    int64 GetVoidCount() const { return VoidCount; }
+    // Fixed support: indestructible/anchored panels, anchored bottom rows.
+    bool IsAnchored(const FERCellId& Id) const;
     bool IsAlive(int32 Panel, int32 X, int32 Y, int32 Z) const;
     bool IsAlive(const FERCellId& Id) const { return IsAlive(Id.Panel, Id.X, Id.Y, Id.Z); }
     bool IsValid(const FERCellId& Id) const;
@@ -85,6 +96,8 @@ public:
     FBox GetCellBox(const FERCellId& Id) const; // panel-local
     // Order-independent authority damage; values >= FLT_MAX destroy the cell.
     FERCellBatchResult ApplyDamage(const TMap<FERCellId, float>& Damage);
+    // Structural collapse: removes alive cells regardless of HP, counted as detached.
+    FERCellBatchResult DetachCells(const TArray<FERCellId>& Ids);
     // Grid cells crossed by the room-local segment A-B inside one panel, in order.
     // T0/T1 are segment parameters in [0,1]; return false from Visit to stop.
     void Traverse(int32 Panel, const FVector& A, const FVector& B, TFunctionRef<bool(const FIntVector&, double, double)> Visit) const;
@@ -104,7 +117,7 @@ private:
     TArray<FERCellChunk> Chunks;
     float MaxHealth[7] = {};
     int32 ChunkCells = 32;
-    int64 CellCount = 0, RemovedCount = 0;
+    int64 CellCount = 0, RemovedCount = 0, DetachedCount = 0, VoidCount = 0;
     uint32 LayoutDigest = 0;
     void MarkDirty(int32 Panel, int32 X, int32 Z, TSet<int32>& Dirty) const;
 };

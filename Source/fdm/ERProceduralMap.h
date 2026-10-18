@@ -23,7 +23,8 @@ struct FERProceduralLayout
     TArray<FERLayoutWall> Walls;
     TArray<FERLayoutOpening> Openings;
     TArray<TArray<FVector>> Routes; // Room centre -> branch -> common hall centre.
-    TArray<FERBlockRecord> Blocks;
+    // Destructible 5cm-cell panels (wall constructions, openings as holes).
+    TArray<FERCellPanelDesc> Panels;
     TArray<FTransform> Steps,StairSupports;
     TArray<TArray<FVector>> StairRoutes;
     TArray<FERLayoutFixedPiece> FixedPieces;
@@ -41,12 +42,15 @@ struct FERProceduralLayout
 };
 namespace ERProcedural
 {
-    bool Build(const FERProceduralConfig& Config, const FERBlockRoomConfig& Blocks, FERProceduralLayout& Out);
+    bool Build(const FERProceduralConfig& Config, const FERBlockRoomConfig& Blocks, FERProceduralLayout& Out, const FERCellSettings& Cells = FERCellSettings());
+    // Axis-aligned destructible box as cell panels: massive slabs, boards in thin
+    // slots, 2cm shells (four sides and a top) for volumetric thin-material pieces.
+    void AddPieceCells(int32 Id, EERBlockMaterial Material, const FBox& Box, bool bAnchoredBase, const FERCellSettings& Cells, TArray<FERCellPanelDesc>& Out);
     bool BuildTemplateVariants(const class UERMapTemplate& Template,int32 Seed,TArray<struct FERMapTemplatePiece>& Pieces,FERProceduralLayout& Layout,TArray<FVector>& Patrol);
     bool BuildDustTown(const class UERMapTemplate& Template,int32 Seed,TArray<struct FERMapTemplatePiece>& Pieces,FERProceduralLayout& Layout,TArray<FVector>& Patrol);
 }
 
-// Reuses all logical identity, ISM, hitscan and explosion behaviour of the lab.
+// Reuses the lab's 5cm cells, hitscan, explosion, support and replication.
 UCLASS(Blueprintable)
 class FDM_API AERProceduralMap : public AERBlockRoom
 {

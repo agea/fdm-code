@@ -5,11 +5,11 @@
 #include "ERBotController.h"
 #include "EngineUtils.h"
 
-namespace ERProcedural { bool BuildTemplate(const FERProceduralConfig&,const FERBlockRoomConfig&,FERProceduralLayout&); }
+namespace ERProcedural { bool BuildTemplate(const FERProceduralConfig&,const FERBlockRoomConfig&,FERProceduralLayout&,const FERCellSettings&); }
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
 
-static bool BuildLevel(const FERProceduralConfig& C, const FERBlockRoomConfig& B, FERProceduralLayout& Out,bool StairEntrance,bool ReturnEntrance)
+static bool BuildLevel(const FERProceduralConfig& C, const FERBlockRoomConfig& B, FERProceduralLayout& Out,bool StairEntrance,bool ReturnEntrance,const FERCellSettings& Cells)
 {
     // Bounded, aligned MVP. Reject unsupported dimensions before allocating.
     const FVector S = B.BlockSize;
@@ -71,63 +71,53 @@ static bool BuildLevel(const FERProceduralConfig& C, const FERBlockRoomConfig& B
         L.Routes.Add({Center,FVector(X,Top ? Near-50 : -Near+50,100),FVector(X,0,100)});
         if (Index == 0) L.Spawn = Center;
     }
-    // Clip a grid column at every aperture jamb, including the hall's 25cm
-    // offset. Stable IDs still refer to the original column; subcolumns have
-    // unique monotonically assigned indices on that wall, independent of ISM.
+    // Each wall slot becomes its construction's cell panels; openings are holes
+    // (door jambs stay exact: openings lie on the 25cm grid, cells on 5cm).
+    const float T=B.BlockSize.Y;
     for (int32 W=0; W<L.Walls.Num(); ++W)
     {
-        const auto& WallDef = L.Walls[W];
-        TArray<float> Cuts{0,WallDef.Length};
-        for (float X=50; X<WallDef.Length; X+=50) Cuts.Add(X);
-        for (const auto& O : L.Openings) if (O.Wall==W) { Cuts.Add(O.Along); Cuts.Add(O.Along+O.Width); }
-        Cuts.Sort();
-        for (int32 I=Cuts.Num()-1; I>0; --I) if (FMath::IsNearlyEqual(Cuts[I],Cuts[I-1])) Cuts.RemoveAt(I);
-        for (int32 Column=0; Column<Cuts.Num()-1; ++Column)
-            for (int32 Row=0; Row<int32(B.Height/25); ++Row)
-            {
-                const float Along=(Cuts[Column]+Cuts[Column+1])*.5f, Z=Row*25+12.5f;
-                bool Open=false;
-                for (const auto& O:L.Openings) if (O.Wall==W && Along>O.Along && Along<O.Along+O.Width && Z>O.Sill && Z<O.Sill+O.Height) { Open=true; break; }
-                if (Open) continue;
-                FERBlockRecord& Record=L.Blocks.AddDefaulted_GetRef();
-                Record.Id.Wall=W; Record.Id.Column=Column; Record.Id.Row=Row; Record.Material=WallDef.Material;
-                Record.LocalTransform=FTransform(WallDef.Direction.Rotation(),WallDef.Start+WallDef.Direction*Along+FVector(0,0,Z),FVector(Cuts[Column+1]-Cuts[Column],20,25)/100);
-            }
+        const auto& D=L.Walls[W];
+        const FRotator R=D.Direction.Rotation();
+        const FVector Across=R.RotateVector(FVector(0,1,0));
+        const int32 First=L.Panels.Num();
+        FERCellWorld::AddConstruction(W,D.Material,FTransform(R,D.Start-Across*T*.5f),FVector(D.Length,T,B.Height),Cells,L.Panels);
+        for (int32 P=First; P<L.Panels.Num(); ++P)
+        {
+            L.Panels[P].bAnchorBottom=true;
+            for (const auto& O:L.Openings) if (O.Wall==W) L.Panels[P].Holes.Add(FBox2D(FVector2D(O.Along,O.Sill-D.Start.Z),FVector2D(O.Along+O.Width,O.Sill-D.Start.Z+O.Height)));
+        }
     }
     if (C.WindowGlass)
         for (const auto& O:L.Openings) if (O.bWindow)
         {
-            const auto& WallDef=L.Walls[O.Wall];
-            for (int32 Col=0;Col<int32(O.Width/50);++Col) for(int32 Row=0;Row<int32(O.Height/25);++Row)
-            {
-                auto& R=L.Blocks.AddDefaulted_GetRef();R.Id={O.Wall,100000+Col,int32(O.Sill/25)+Row};R.Material=EERBlockMaterial::Glass;
-                R.LocalTransform=FTransform(WallDef.Direction.Rotation(),WallDef.Start+WallDef.Direction*(O.Along+Col*50+25)+FVector(0,0,O.Sill+Row*25+12.5),FVector(.5,.02,.25));
-            }
+            // One pane per window, resting on its fixed frame.
+            const auto& D=L.Walls[O.Wall];
+            const FRotator R=D.Direction.Rotation();
+            const FVector Across=R.RotateVector(FVector(0,1,0));
+            const int32 First=L.Panels.Num();
+            FERCellWorld::AddConstruction(100000+O.Wall,EERBlockMaterial::Glass,FTransform(R,D.Start-Across*T*.5f+D.Direction*O.Along+FVector(0,0,O.Sill)),FVector(O.Width,T,O.Height),Cells,L.Panels);
+            for (int32 P=First; P<L.Panels.Num(); ++P) L.Panels[P].bAnchorBottom=true;
         }
-    if (L.Blocks.Num()>50000) return false;
     Out=MoveTemp(L); return true;
 }
-bool ERProcedural::Build(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProceduralLayout& Out)
+bool ERProcedural::Build(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProceduralLayout& Out,const FERCellSettings& Cells)
 {
-    if(C.TemplateAsset) return BuildTemplate(C,B,Out);
+    if(C.TemplateAsset) return BuildTemplate(C,B,Out,Cells);
     if (C.Floors<1 || C.Floors>3 || (C.Floors>1 && C.BranchLength<250)) return false;
     FERProceduralLayout L;
     const float Stride=B.Height+20;
     for (int32 Level=0;Level<C.Floors;++Level)
     {
         FERProceduralConfig Single=C;Single.Floors=C.Floors;Single.Seed=int32(uint32(C.Seed)+uint32(Level)*7919u);
-        FERProceduralLayout Part;if (!BuildLevel(Single,B,Part,Level<C.Floors-1,Level>0)) return false;
+        FERProceduralLayout Part;if (!BuildLevel(Single,B,Part,Level<C.Floors-1,Level>0,Cells)) return false;
         const float Base=Level*Stride;const int32 WallOffset=L.Walls.Num(),RoomOffset=L.Rooms.Num();
         for (auto R:Part.Rooms){R.Z=Base;R.Level=Level;R.Room+=RoomOffset;L.Rooms.Add(R);}
         for (auto R:Part.Corridors){R.Z=Base;R.Level=Level;L.Corridors.Add(R);}
         for (auto W:Part.Walls){W.Start.Z+=Base;L.Walls.Add(W);}
         for (auto O:Part.Openings){O.Wall+=WallOffset;O.Sill+=Base;L.Openings.Add(O);}
         for (auto Route:Part.Routes){for(auto& P:Route)P.Z+=Base;L.Routes.Add(MoveTemp(Route));}
-        for (auto R:Part.Blocks)
-        {
-            R.Id.Wall+=WallOffset;auto P=R.LocalTransform.GetLocation();P.Z+=Base;R.LocalTransform.SetLocation(P);
-            R.bStructuralAnchor=Level>0 && R.Id.Row==0;L.Blocks.Add(R);
-        }
+        // Upper walls rest on their static slab: bottom rows stay anchored.
+        for (auto P:Part.Panels){P.Id+=WallOffset*8;P.Transform.AddToTranslation(FVector(0,0,Base));L.Panels.Add(MoveTemp(P));}
         if (Level==0)L.Spawn=Part.Spawn;
     }
     // A straight 20cm-rise stair with an adjacent return lane. Lower hall
@@ -153,8 +143,45 @@ bool ERProcedural::Build(const FERProceduralConfig& C,const FERBlockRoomConfig& 
         Route.Append({FVector(End-75,0,Top+100),FVector(End-75,LaneY,Top+100),FVector(-400,LaneY,Top+100),FVector(-400,0,Top+100)});
         L.StairRoutes.Add(MoveTemp(Route));
     }
-    if(L.Blocks.Num()>50000)return false;
     Out=MoveTemp(L);return true;
+}
+void ERProcedural::AddPieceCells(int32 Id, EERBlockMaterial Material, const FBox& Box, bool bAnchoredBase, const FERCellSettings& Cells, TArray<FERCellPanelDesc>& Out)
+{
+    // Exact validated volume: each axis holds round(L/CellSize) equal cells, so stacked
+    // pieces keep touching (Source-derived sizes are rarely whole 5cm multiples).
+    const FBox& B=Box;
+    const FVector Size=B.GetSize();
+    if (Size.GetMin()<.1) return;
+    const bool bGround=B.Min.Z<=.01, bThin=Material==EERBlockMaterial::Wood || Material==EERBlockMaterial::Drywall || Material==EERBlockMaterial::Metal || Material==EERBlockMaterial::Glass;
+    const int32 First=Out.Num();
+    if (!bThin || FMath::Min(Size.X,Size.Y)<=30)
+    {
+        // Slab or wall: X along the longer horizontal side.
+        if (Size.X>=Size.Y) FERCellWorld::AddConstruction(Id,Material,FTransform(B.Min),Size,Cells,Out);
+        else FERCellWorld::AddConstruction(Id,Material,FTransform(FRotator(0,90,0),FVector(B.Max.X,B.Min.Y,B.Min.Z)),FVector(Size.Y,Size.X,Size.Z),Cells,Out);
+        for (int32 P=First;P<Out.Num();++P) Out[P].bAnchorBottom=bGround || bAnchoredBase;
+        return;
+    }
+    // Hollow crate: boards of the construction thickness, never a solid block of wood.
+    const float W=Material==EERBlockMaterial::Wood ? Cells.WoodDepth : Material==EERBlockMaterial::Drywall ? Cells.DrywallBoard : Material==EERBlockMaterial::Metal ? Cells.SheetThickness : Cells.GlassThickness;
+    auto Board=[&](int32 Layer, const FBox& Part, int32 Thin, bool bBottom)
+    {
+        const FVector S=Part.GetSize();
+        FERCellPanelDesc& P=Out.AddDefaulted_GetRef();
+        P.Id=Id*8+Layer; P.Material=Material; P.bAnchorBottom=bBottom;
+        // Local Y is the thin axis; frames are right-handed rotations.
+        if (Thin==1) { P.Transform=FTransform(Part.Min); P.Size=S; }
+        else if (Thin==0) { P.Transform=FTransform(FMatrix(FVector(0,1,0),FVector(-1,0,0),FVector(0,0,1),FVector(Part.Max.X,Part.Min.Y,Part.Min.Z))); P.Size=FVector(S.Y,S.X,S.Z); }
+        else { P.Transform=FTransform(FMatrix(FVector(1,0,0),FVector(0,0,1),FVector(0,-1,0),FVector(Part.Min.X,Part.Max.Y,Part.Min.Z))); P.Size=FVector(S.X,S.Z,S.Y); }
+        P.Transform.SetScale3D(FVector::OneVector);
+        P.Cell=FVector(FERCellWorld::FitCell(P.Size.X,Cells.CellSize),P.Size.Y,FERCellWorld::FitCell(P.Size.Z,Cells.CellSize));
+    };
+    const bool bBottom=bGround || bAnchoredBase;
+    Board(0,FBox(B.Min,FVector(B.Max.X,B.Min.Y+W,B.Max.Z)),1,bBottom);
+    Board(1,FBox(FVector(B.Min.X,B.Max.Y-W,B.Min.Z),B.Max),1,bBottom);
+    Board(2,FBox(B.Min,FVector(B.Min.X+W,B.Max.Y,B.Max.Z)),0,bBottom);
+    Board(3,FBox(FVector(B.Max.X-W,B.Min.Y,B.Min.Z),B.Max),0,bBottom);
+    Board(4,FBox(FVector(B.Min.X,B.Min.Y,B.Max.Z-W),B.Max),2,false);
 }
 AERProceduralMap::AERProceduralMap()
 {
@@ -170,9 +197,9 @@ AERProceduralMap::AERProceduralMap()
 bool AERProceduralMap::GenerateLogicalWorld()
 {
     FERProceduralLayout Next;
-    if (!ERProcedural::Build(LayoutConfig,Config,Next) || !BlockWorld->LoadLayout(Next.Blocks,Config.ChunkSize,MaterialCatalog)) return false;
-    // Live block state already belongs to BlockWorld; retain only layout metadata.
-    Next.Blocks.Empty();
+    if (!ERProcedural::Build(LayoutConfig,Config,Next,CellSettings) || !BuildCellWorld(Next.Panels)) return false;
+    // Live cell state belongs to the cell world; retain only layout metadata.
+    Next.Panels.Empty();
     Layout=MoveTemp(Next); return true;
 }
 void AERProceduralMap::ConfigureFloors()
@@ -218,7 +245,7 @@ FString AERProceduralMap::GetLayoutStatistics() const
 
 SIZE_T AERProceduralMap::GetLayoutBytes() const
 {
-    SIZE_T Bytes=Layout.FixedPieces.GetAllocatedSize()+Layout.AlphaSpawns.GetAllocatedSize()+Layout.OmegaSpawns.GetAllocatedSize()+Layout.Rooms.GetAllocatedSize()+Layout.Corridors.GetAllocatedSize()+Layout.Walls.GetAllocatedSize()+Layout.Openings.GetAllocatedSize()+Layout.Routes.GetAllocatedSize()+Layout.Blocks.GetAllocatedSize()+Layout.Steps.GetAllocatedSize()+Layout.StairSupports.GetAllocatedSize()+Layout.StairRoutes.GetAllocatedSize();
+    SIZE_T Bytes=Layout.FixedPieces.GetAllocatedSize()+Layout.AlphaSpawns.GetAllocatedSize()+Layout.OmegaSpawns.GetAllocatedSize()+Layout.Rooms.GetAllocatedSize()+Layout.Corridors.GetAllocatedSize()+Layout.Walls.GetAllocatedSize()+Layout.Openings.GetAllocatedSize()+Layout.Routes.GetAllocatedSize()+Layout.Panels.GetAllocatedSize()+Layout.Steps.GetAllocatedSize()+Layout.StairSupports.GetAllocatedSize()+Layout.StairRoutes.GetAllocatedSize();
     for(const auto& Route:Layout.StairRoutes) Bytes+=Route.GetAllocatedSize();
     Bytes+=Layout.Bases.GetAllocatedSize()+Layout.ModuleKinds.GetAllocatedSize()+Layout.RoomAccessRoutes.GetAllocatedSize();
     Bytes+=Layout.TownBuildings.GetAllocatedSize()+Layout.TownCourts.GetAllocatedSize()+Layout.TownGates.GetAllocatedSize()+Layout.TownStreetNames.GetAllocatedSize()+Layout.UpperRoute.GetAllocatedSize()+Layout.LowerRoute.GetAllocatedSize();

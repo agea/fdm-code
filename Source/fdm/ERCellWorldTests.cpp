@@ -22,7 +22,7 @@ AERBlockRoom* SpawnCellRoom(UWorld* World, FVector Location = FVector::ZeroVecto
 {
     FActorSpawnParameters Params; Params.bDeferConstruction = true;
     auto* Room = World->SpawnActor<AERBlockRoom>(Location, FRotator::ZeroRotator, Params);
-    Room->bCellMode = true; Room->Config.BlockSize.Y = Thickness;
+    Room->Config.BlockSize.Y = Thickness;
     Room->FinishSpawning(FTransform(Location));
     Room->Regenerate();
     return Room;
@@ -139,8 +139,7 @@ bool FERCellMeshCollisionTest::RunTest(const FString& Parameters)
     UWorld* World = CreateCellWorld(); if (!World) return false;
     auto* Room = SpawnCellRoom(World);
     const auto& W = Room->GetCellWorld();
-    TestTrue(TEXT("cell room generated and validated"), Room->IsCellMode() && W.GetCellCount() == 77580 && Room->ValidateCells());
-    TestEqual(TEXT("no block instances in cell mode"), Room->GetInstanceCount(), 0);
+    TestTrue(TEXT("cell room generated and validated"), W.GetCellCount() == 77580 && Room->ValidateCells());
     // Random removals, then compare the aggregates with brute force.
     FRandomStream Random(17);
     TMap<FERCellId, float> Remove;
@@ -279,9 +278,10 @@ bool FERCellCombatTest::RunTest(const FString& Parameters)
     auto* RoomB = SpawnCellRoom(World, FVector(5000, 0, 0));
     TMap<FERCellId, float> Forward, Reverse; FERBlockBatchResult Ignored;
     FCollisionQueryParams Query(SCENE_QUERY_STAT(ERCellOrder), false);
+    Room->Regenerate(); RoomB->Regenerate();
+    // Regeneration replaces the chunk components: collect them afterwards.
     TArray<UPrimitiveComponent*> Components; Room->GetCellComponents(Components); RoomB->GetCellComponents(Components);
     for (auto* C : Components) Query.AddIgnoredComponent(C);
-    Room->Regenerate(); RoomB->Regenerate();
     Room->CollectCellExplosion(FVector(240, 0, 110), FERBlockExplosionProfile(), Query, Forward, Ignored);
     TArray<FERCellId> Keys; Forward.GetKeys(Keys); Keys.Sort();
     for (int32 I = Keys.Num() - 1; I >= 0; --I) Reverse.Add(Keys[I], Forward[Keys[I]]);
@@ -318,7 +318,7 @@ bool FERCellNetTransactionTest::RunTest(const FString& Parameters)
     N.Epoch = 1; N.Protocol = 7; N.Cells = true; N.CellSettings = Server->CellSettings; N.Blocks = Server->Config;
     N.BlockCount = int32(Server->GetCellWorld().GetCellCount()); N.LayoutDigest = Server->GetLayoutDigest(); N.Sequence = 1; N.PageVersions.Init(1, Shards);
     Client->OnRep_Network();
-    TestTrue(TEXT("client built cells from the descriptor"), Client->IsCellMode() && !Client->bNetworkError);
+    TestTrue(TEXT("client built cells from the descriptor"), Client->GetCellWorld().GetCellCount() > 0 && !Client->bNetworkError);
     TestFalse(TEXT("collision gated before the snapshot"), Client->IsMapReady());
     TArray<AERCellNetShard*> Pages;
     for (int32 I = 0; I < Shards; ++I)

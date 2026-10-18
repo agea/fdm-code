@@ -22,4 +22,3 @@ struct FERBlockMemoryProfile
     int32 Quads=0, CollisionBoxes=0;
     SIZE_T TrackedBytes() const { return LogicalBytes+MappingBytes+LayoutBytes+InstanceResourceBytes+SupportBytes+NetworkBytes; }
 };
-struct FERBlockQueryProfile { double Ms=0; int32 Buckets=0, Examined=0, Returned=0; };

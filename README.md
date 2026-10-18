@@ -268,6 +268,14 @@ The prone world pose is procedural, layered over the existing team skeletons.
 
 ## Procedural destruction laboratory
 
+Since 18 October every destructible map (laboratory, procedural building,
+Killhouse, Dust) is made of logical 5 cm cells: one mesh with visible faces only
+and one box-collision body per 32×32-cell chunk, structural support over cell
+components, and replication of modified chunks only. The 50×20×25 cm block path
+(ISM instances, protocol 6 pages) was removed; the milestone notes below keep its
+history and measurements. Plan, costs and results:
+[CELL_DESTRUCTION_PLAN.md](docs/CELL_DESTRUCTION_PLAN.md).
+
 The block-destruction prototype reuses this UE 5.8.3 project in a separate
 standalone 5×5×3 m room. Run `scripts/play.command` and choose
 **LABORATORIO DISTRUZIONE** in the main menu after generating the owned lab assets.

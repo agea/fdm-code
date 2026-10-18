@@ -100,8 +100,6 @@ public:
     UFUNCTION(Exec) void ERBlockExplosion(float Radius = 250, float Damage = 180);
     // HE structural profile (400/25/200/^2) 10cm before the aimed surface.
     UFUNCTION(Exec) void ERBlockGrenade();
-    // Destruction lab: 1 = 5cm cells (prototype), 0 = 50x20x25 blocks. Regenerates.
-    UFUNCTION(Exec) void ERCellMode(int32 Enabled = 1);
 private:
     uint32 AcknowledgedBlockEpoch=0;
     bool bBlockMapLoading=false;

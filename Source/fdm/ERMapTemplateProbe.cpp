@@ -23,7 +23,7 @@ void AERMapTemplateProbe::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& 
 void AERMapTemplateProbe::Check(bool Condition,const TCHAR* Label)
 {Failed|=!Condition;UE_LOG(LogTemp,Display,TEXT("ER_TEMPLATE_PROBE_%s %s"),Condition ? TEXT("PASS"):TEXT("FAIL"),Label);}
 void AERMapTemplateProbe::Publish(int32 Next,AERProceduralMap* Map)
-{Phase=Next;ExpectedDigest=Map->GetStateDigest();ForceNetUpdate();UE_LOG(LogTemp,Display,TEXT("ER_TEMPLATE_STATE phase=%d digest=%u epoch=%u blocks=%d"),Phase,ExpectedDigest,Map->GetMapEpoch(),Map->GetInstanceCount());}
+{Phase=Next;ExpectedDigest=Map->GetStateDigest();ForceNetUpdate();UE_LOG(LogTemp,Display,TEXT("ER_TEMPLATE_STATE phase=%d digest=%u epoch=%u blocks=%d"),Phase,ExpectedDigest,Map->GetMapEpoch(),int32(Map->GetCellWorld().GetCellCount()-Map->GetCellWorld().GetRemovedCount()));}
 void AERMapTemplateProbe::Tick(float Delta)
 {
     Super::Tick(Delta);Elapsed+=Delta;
@@ -34,16 +34,19 @@ void AERMapTemplateProbe::Tick(float Delta)
     {
         if(Phase && SeenPhase!=Phase && Map->IsSnapshotCurrent() && Map->GetStateDigest()==ExpectedDigest)
         {
-            bool Good=Map->ValidateMappings();FHitResult Hit;FCollisionQueryParams Q(SCENE_QUERY_STAT(ERTemplatePeer),false);
+            bool Good=Map->ValidateCells();FHitResult Hit;FCollisionQueryParams Q(SCENE_QUERY_STAT(ERTemplatePeer),false);
             // Sample the fixed shell and surviving logical collision after deltas.
             const float Edge=Map->GetLayout().ArenaSize.X*.5;
             Good &= GetWorld()->LineTraceSingleByChannel(Hit,FVector(Edge-100,0,800),FVector(Edge+100,0,800),ECC_WorldStatic,Q);
             int32 Samples=0;
-            for(const auto& B:Map->BlockWorld->GetBlocks())if(B.IsAttached() && ++Samples<=20)
+            const auto& Cells=Map->GetCellWorld();
+            for(int32 P=0;P<Cells.GetPanels().Num() && Samples<20;++P)
             {
-                const FVector P=B.LocalTransform.GetLocation();
-                const FVector N=B.LocalTransform.GetScale3D().X<B.LocalTransform.GetScale3D().Y ? FVector(1,0,0):FVector(0,1,0);
-                Good &= GetWorld()->LineTraceSingleByChannel(Hit,P+N*45,P-N*45,ECC_GameTraceChannel1,Q);
+                const auto& Panel=Cells.GetPanels()[P];const FERCellId Id{P,Panel.Dims.X/2,0,Panel.Dims.Z/2};
+                if(!Cells.IsAlive(Id) || Panel.Transform.GetRotation().GetAxisZ().Z<.99)continue;
+                ++Samples;
+                const FVector C=Map->GetActorTransform().TransformPosition(Cells.GetCellCenter(Id)),N=-Map->GetActorTransform().TransformVectorNoScale(Panel.Transform.GetRotation().GetAxisY());
+                Good &= GetWorld()->LineTraceSingleByChannel(Hit,C+N*(Panel.Cell.Y*.5+20),C,ECC_GameTraceChannel1,Q);
             }
             UE_LOG(LogTemp,Display,TEXT("ER_TEMPLATE_CLIENT_%s phase=%d digest=%u epoch=%u"),Good ? TEXT("PASS"):TEXT("FAIL"),Phase,ExpectedDigest,Map->GetMapEpoch());SeenPhase=Phase;
         }
@@ -56,7 +59,7 @@ void AERMapTemplateProbe::Tick(float Delta)
     const float ShotAt=Network ? 35.f:12.f, SnapshotAt=ShotAt+6, RegenerateAt=SnapshotAt+(Network ? 30.f:18.f);
     if(Phase==0 && Elapsed>3)
     {
-        Check(Map->ValidateMappings() && Map->GetLayout().AlphaSpawns.Num()==10 && Map->GetLayout().OmegaSpawns.Num()==10,TEXT("template_spawn_bands_and_mappings"));
+        Check(Map->ValidateCells() && Map->GetLayout().AlphaSpawns.Num()==10 && Map->GetLayout().OmegaSpawns.Num()==10,TEXT("template_spawn_bands_and_mappings"));
         Check(C->GetActorLocation().Z>90 && C->GetActorLocation().Z<101,TEXT("actual_pawn_supported_on_floor"));
         C->TeleportTo(Map->GetLayout().Routes[1][0]+FVector(0,50,0),FRotator(0,90,0));C->GetCharacterMovement()->StopMovementImmediately();
         PC->SetControlRotation(FRotator(0,90,0));Publish(1,Map);
@@ -71,19 +74,23 @@ void AERMapTemplateProbe::Tick(float Delta)
             const auto& Base=Map->GetLayout().Bases[0];
             const float Yaw=Base.Frame.Rotator().Yaw+180;
             C->TeleportTo(Base.Point(FVector(0,Base.Size.Y*.5-100,100)),FRotator(0,Yaw,0));C->GetCharacterMovement()->StopMovementImmediately();PC->SetControlRotation(FRotator(0,Yaw,0));
-            FHitResult Hit;FERBlockId Id;FCollisionQueryParams Q(SCENE_QUERY_STAT(ERTemplateShot),false,C);
+            FHitResult Hit;FERCellId Id;FCollisionQueryParams Q(SCENE_QUERY_STAT(ERTemplateShot),false,C);
             const FVector Eye=C->Camera->GetComponentLocation();
-            const bool Found=GetWorld()->LineTraceSingleByChannel(Hit,Eye,Eye+FVector(-1200,0,0),ECC_GameTraceChannel1,Q) && Map->ResolveHit(Hit,Id);
+            const bool Found=GetWorld()->LineTraceSingleByChannel(Hit,Eye,Eye+FVector(-1200,0,0),ECC_GameTraceChannel1,Q) && Map->ResolveCell(Hit,Id);
             Check(Found,TEXT("bunker_panel_authoritative_hit_identity"));
             if(Found)
             {
-                TArray<FERBlockDamageRequest> Preparation;
-                for(const auto& Block:Map->BlockWorld->GetBlocks())if(Block.Id.Wall==Id.Wall && FMath::Abs(Block.LocalTransform.GetLocation().Z-Hit.ImpactPoint.Z)<100)
-                    Preparation.Add({Block.Id,Block.Health-1,false});
-                Map->ApplyDamageBatch(Preparation);
+                // A band of the hit panel 1 HP from removal, so real spread still breaks cells.
+                TMap<FERCellId,float> Preparation;const auto& Cells=Map->GetCellWorld();const auto& Panel=Cells.GetPanels()[Id.Panel];
+                for(int32 Z=0;Z<Panel.Dims.Z;++Z)for(int32 Y=0;Y<Panel.Dims.Y;++Y)for(int32 X=0;X<Panel.Dims.X;++X)
+                {
+                    const FERCellId Cell{Id.Panel,X,Y,Z};
+                    if(Cells.IsAlive(Cell) && FMath::Abs(Map->GetActorTransform().TransformPosition(Cells.GetCellCenter(Cell)).Z-Hit.ImpactPoint.Z)<100)Preparation.Add(Cell,Cells.GetHealth(Cell)-1);
+                }
+                Map->ApplyCellBatch(Preparation);
             }
             const uint32 Before=C->Weapon->AuthorizedShotCount;C->Weapon->StartFire();C->Weapon->StopFire();
-            Check(C->Weapon->AuthorizedShotCount==Before+1 && Map->BlockWorld->GetDestroyedCount()>0,TEXT("real_weapon_destroys_template_panel"));
+            Check(C->Weapon->AuthorizedShotCount==Before+1 && Map->GetCellWorld().GetRemovedCount()>0,TEXT("real_weapon_destroys_template_panel"));
             if(Found)AERBlockRoom::ApplyWorldExplosion(GetWorld(),Hit.ImpactPoint+Hit.ImpactNormal*25,250,2400,C);
             Publish(2,Map);
             if(FApp::CanEverRender())FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir()/TEXT("Testing/Killhouse-Breach.png"),true,false);
@@ -91,7 +98,7 @@ void AERMapTemplateProbe::Tick(float Delta)
     }
     else if(Phase==2 && Elapsed>SnapshotAt)
     {
-        Check(Map->BlockWorld->GetRemovedCount()>1 && Map->ValidateMappings(),TEXT("explosion_and_collapse_keep_mappings"));Publish(3,Map);
+        Check(Map->GetCellWorld().GetRemovedCount()>1 && Map->ValidateCells(),TEXT("explosion_and_collapse_keep_mappings"));Publish(3,Map);
         C->TeleportTo(Map->GetLayout().StairRoutes[0][0],FRotator(0,90,0));C->GetCharacterMovement()->StopMovementImmediately();PC->SetControlRotation(FRotator(0,90,0));
     }
     else if(Phase==3 && Elapsed<=RegenerateAt)
@@ -125,7 +132,7 @@ void AERMapTemplateProbe::Tick(float Delta)
     {
         Check(C->GetActorLocation().Y>Map->GetLayout().StairRoutes[2].Last().Y-50 && C->GetActorLocation().Z>Map->GetLayout().StairRoutes[2].Last().Z-20,TEXT("actual_pawn_climbs_watch_platform_stairs"));
         const uint32 Old=Map->GetLayoutDigest();PC->ConsoleCommand(TEXT("ERMapGenerate 7919 8 1"));
-        Check(Map->LayoutConfig.Seed==7919 && Old!=Map->GetLayoutDigest() && Map->BlockWorld->GetRemovedCount()==0,TEXT("console_seed_regeneration_and_damage_reset"));
+        Check(Map->LayoutConfig.Seed==7919 && Old!=Map->GetLayoutDigest() && Map->GetCellWorld().GetRemovedCount()==0,TEXT("console_seed_regeneration_and_damage_reset"));
         Publish(4,Map);
         if(FApp::CanEverRender())
         {

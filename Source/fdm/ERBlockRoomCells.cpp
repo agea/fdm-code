@@ -3,7 +3,6 @@
 #include "ERBlockRoom.h"
 #include "ERCellMesher.h"
 #include "ERCellNetShard.h"
-#include "ERBlockNetPage.h"
 #include "ERPlayerController.h"
 #include "ERProceduralMap.h"
 #include "Components/DynamicMeshComponent.h"
@@ -19,41 +18,14 @@
 using UE::Geometry::FDynamicMesh3;
 using UE::Geometry::FIndex3i;
 
-void AERBlockRoom::GenerateCellLayout(TArray<FERCellPanelDesc>& Out) const
-{
-    const float T = Config.BlockSize.Y, H = Config.Height, I = Config.InteriorSize;
-    for (int32 Wall = 0; Wall < 4; ++Wall)
-    {
-        // Same footprint and materials as GenerateRoom: returns own the corners.
-        const bool bAlongY = Wall % 2 != 0;
-        const float Length = I + (bAlongY ? 2 * T : 0), Offset = (I + T) * .5f;
-        const FTransform Slot = bAlongY ? FTransform(FRotator(0, 90, 0), FVector((Wall == 1 ? Offset : -Offset) + T * .5f, -Length * .5f, 0))
-                                        : FTransform(FRotator::ZeroRotator, FVector(-Length * .5f, (Wall == 0 ? -Offset : Offset) - T * .5f, 0));
-        FERCellWorld::AddConstruction(Wall, static_cast<EERBlockMaterial>(Wall % 3), Slot, FVector(Length, T, H), CellSettings, Out);
-    }
-    // Free-standing samples of the thin constructions, west half of the room.
-    const FVector Sample(150, T, 225);
-    FERCellWorld::AddConstruction(4, EERBlockMaterial::Wood, FTransform(FRotator(0, 90, 0), FVector(-150 + T * .5f, -230, 0)), Sample, CellSettings, Out);
-    FERCellWorld::AddConstruction(5, EERBlockMaterial::Metal, FTransform(FRotator(0, 90, 0), FVector(-150 + T * .5f, 80, 0)), Sample, CellSettings, Out);
-}
-
-bool AERBlockRoom::GenerateCells()
-{
-    FString Error = TEXT("cell layouts for procedural maps and templates are phase 2");
-    TArray<FERCellPanelDesc> Desc;
-    if (!Cast<AERProceduralMap>(this)) GenerateCellLayout(Desc);
-    if (Desc.IsEmpty() || !CellWorld.Build(Desc, CellSettings, MaterialCatalog, Error))
-    {
-        UE_LOG(LogTemp, Error, TEXT("ER_CELL_GENERATION_REJECTED %s"), *Error);
-        return false;
-    }
-    BlockWorld->Reset();
-    return true;
-}
-
 void AERBlockRoom::ClearCells()
 {
-    for (auto& Mesh : CellMeshes) if (Mesh) { RemoveInstanceComponent(Mesh); Mesh->DestroyComponent(); }
+    for (auto& Mesh : CellMeshes) if (Mesh)
+    {
+        RemoveInstanceComponent(Mesh); Mesh->DestroyComponent();
+        // Free the deterministic, net-addressable name before a regeneration reuses it.
+        Mesh->Rename(*MakeUniqueObjectName(this, UDynamicMeshComponent::StaticClass(), TEXT("DeadCells")).ToString(), nullptr, REN_DontCreateRedirectors | REN_NonTransactional);
+    }
     CellMeshes.Reset(); CellComponentChunks.Reset(); ChunkQuads.Reset(); ChunkBoxes.Reset(); AppliedChunkRevisions.Reset();
 }
 
@@ -141,7 +113,7 @@ void AERBlockRoom::RebuildCellChunk(int32 Index)
 
 bool AERBlockRoom::ResolveCell(const FHitResult& Hit, FERCellId& Id) const
 {
-    if (!bCellMode || Hit.GetActor() != this) return false;
+    if (Hit.GetActor() != this) return false;
     const int32* Chunk = CellComponentChunks.Find(Hit.GetComponent());
     if (!Chunk || !CellWorld.GetChunks().IsValidIndex(*Chunk)) return false;
     const FTransform& Actor = GetActorTransform();
@@ -151,15 +123,18 @@ bool AERBlockRoom::ResolveCell(const FHitResult& Hit, FERCellId& Id) const
 
 bool AERBlockRoom::ApplyHitDamage(const FHitResult& Hit, float Amount)
 {
-    if (!bCellMode)
-    {
-        FERBlockId Id;
-        return ResolveHit(Hit, Id) && ApplyBlockDamage(Id, Amount);
-    }
     FERCellId Id;
     if (!ResolveCell(Hit, Id)) return false;
     TMap<FERCellId, float> Damage; Damage.Add(Id, Amount);
     return ApplyCellBatch(Damage).Damaged > 0;
+}
+
+FTransform AERBlockRoom::GetCellTransform(const FERCellId& Id) const
+{
+    if (!CellWorld.IsValid(Id)) return FTransform::Identity;
+    const auto& P = CellWorld.GetPanels()[Id.Panel];
+    const FBox Box = CellWorld.GetCellBox(Id);
+    return FTransform(P.Transform.GetRotation(), P.Transform.TransformPosition(Box.GetCenter()), Box.GetSize() / 100) * GetActorTransform();
 }
 
 FString AERBlockRoom::DescribeCell(const FERCellId& Id) const
@@ -173,7 +148,7 @@ FERBlockBatchResult AERBlockRoom::ApplyCellBatch(const TMap<FERCellId, float>& D
 {
     TRACE_CPUPROFILER_EVENT_SCOPE(ERCell_ApplyBatch);
     FERBlockBatchResult Result;
-    if (!bCellMode || !CanMutateBlocks() || Damage.IsEmpty()) return Result;
+    if (!CanMutateBlocks() || Damage.IsEmpty()) return Result;
     const double Start = FPlatformTime::Seconds();
     RebuildProfile = {}; UpdateProfile = {};
     const auto Batch = CellWorld.ApplyDamage(Damage);
@@ -186,6 +161,7 @@ FERBlockBatchResult AERBlockRoom::ApplyCellBatch(const TMap<FERCellId, float>& D
     if (Batch.Damaged > 0) LastHit = DescribeCell(Batch.Last);
     PublishCellChanges(Batch.ChangedChunks);
     LastUpdateMs = float((FPlatformTime::Seconds() - Start) * 1000); UpdateProfile.TotalMs = LastUpdateMs;
+    if (Batch.Destroyed > 0) { ++DamageRevision; RequestSupportCheck(); }
     return Result;
 }
 
@@ -244,7 +220,7 @@ void AERBlockRoom::CollectCellExplosion(const FVector& Origin, const FERBlockExp
     TRACE_CPUPROFILER_EVENT_SCOPE(ERCell_CollectExplosion);
     const FTransform& Actor = GetActorTransform();
     const double Scale = Actor.GetScale3D().GetAbs().GetMin();
-    if (!bCellMode || !MaterialCatalog || Scale < .0001 || !Profile.IsValid()) return;
+    if (!MaterialCatalog || Scale < .0001 || !Profile.IsValid()) return;
     const double QueryStart = FPlatformTime::Seconds();
     const FVector Local = Actor.InverseTransformPosition(Origin);
     const double Radius = Profile.OuterRadius / Scale;
@@ -343,7 +319,7 @@ void AERBlockRoom::GetCellComponents(TArray<UPrimitiveComponent*>& Out) const
 bool AERBlockRoom::ValidateCells() const
 {
     const auto& Chunks = CellWorld.GetChunks();
-    if (!bCellMode || CellMeshes.Num() != Chunks.Num() || CellComponentChunks.Num() != Chunks.Num()) return false;
+    if (CellMeshes.Num() != Chunks.Num() || CellComponentChunks.Num() != Chunks.Num()) return false;
     TArray<ERCellMesh::FQuad> Quads; TArray<FBox> Boxes;
     for (int32 I = 0; I < Chunks.Num(); ++I)
     {
@@ -375,12 +351,12 @@ void AERBlockRoom::MulticastCellImpact_Implementation(uint32 Epoch, uint8 Materi
 
 void AERBlockRoom::PublishCellGeneration()
 {
-    for (auto& P : AuthorityPages) if (P.IsValid()) P->Destroy();
     for (auto& S : AuthorityShards) if (S.IsValid()) S->Destroy();
-    AuthorityPages.Empty(); AuthorityShards.Empty();
+    AuthorityShards.Empty();
     const uint32 Epoch = Network.Epoch + 1;
     Network = {}; Network.Epoch = Epoch ? Epoch : 1; Network.Protocol = 7; Network.Cells = true; Network.CellSettings = CellSettings;
     Network.Blocks = Config; Network.BlockCount = int32(CellWorld.GetCellCount()); Network.LayoutDigest = GetLayoutDigest(); Network.Sequence = 1;
+    if (auto* Map = Cast<AERProceduralMap>(this)) { Network.Procedural = true; Network.Layout = Map->LayoutConfig; Network.Ceilings = Map->bCeilings; }
     // Untouched chunks never travel: shards start empty and only carry modified masks.
     const int32 Count = FMath::DivideAndRoundUp(CellWorld.GetChunks().Num(), AERCellNetShard::Capacity);
     Network.PageVersions.Init(1, Count); AuthorityShards.SetNum(Count);
@@ -417,9 +393,11 @@ void AERBlockRoom::PublishCellChanges(const TArray<int32>& Changed)
 
 bool AERBlockRoom::OnRepCellDescriptor()
 {
-    if (Network.Protocol != 7 || Network.BlockCount <= 0 || Network.BlockCount > 8000000 || Cast<AERProceduralMap>(this))
+    auto* Map = Cast<AERProceduralMap>(this);
+    if (Network.Protocol != 7 || !Network.Cells || Network.BlockCount <= 0 || Network.BlockCount > 8000000 || Network.Procedural != (Map != nullptr))
     { bNetworkError = true; UE_LOG(LogTemp, Error, TEXT("ER_BLOCK_NET_INCOMPATIBLE descriptor")); return false; }
-    Config = Network.Blocks; CellSettings = Network.CellSettings; bCellMode = true;
+    Config = Network.Blocks; CellSettings = Network.CellSettings;
+    if (Map) { Map->LayoutConfig = Network.Layout; Map->bCeilings = Network.Ceilings; }
     bApplyingNetwork = true; const bool bBuilt = Regenerate(); bApplyingNetwork = false; SetMapCollision(false);
     if (!bBuilt || CellWorld.GetCellCount() != Network.BlockCount || GetLayoutDigest() != Network.LayoutDigest ||
         Network.PageVersions.Num() != FMath::DivideAndRoundUp(CellWorld.GetChunks().Num(), AERCellNetShard::Capacity))
@@ -440,7 +418,7 @@ void AERBlockRoom::ReceiveCellShard(AERCellNetShard* Shard)
 
 void AERBlockRoom::TryApplyCellNetwork()
 {
-    if (HasAuthority() || bNetworkError || !Network.Cells || BuiltEpoch == 0 || BuiltEpoch != Network.Epoch || AppliedSequence == Network.Sequence) return;
+    if (HasAuthority() || bNetworkError || BuiltEpoch == 0 || BuiltEpoch != Network.Epoch || AppliedSequence == Network.Sequence) return;
     // The entire manifest must match before logical state or collision changes.
     for (int32 I = 0; I < Network.PageVersions.Num(); ++I)
     {

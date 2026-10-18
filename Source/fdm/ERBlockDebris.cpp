@@ -15,9 +15,9 @@ AERBlockDebris::AERBlockDebris()
     Mesh->SetCanEverAffectNavigation(false);
     Mesh->SetLinearDamping(.25f);Mesh->SetAngularDamping(1);
 }
-void AERBlockDebris::Initialize(UStaticMesh* Geometry,UMaterialInterface* Surface,const FERBlockId& Id,const FTransform& Transform,float Lifetime,float SettleAfter)
+void AERBlockDebris::Initialize(UStaticMesh* Geometry,UMaterialInterface* Surface,const FTransform& Transform,float Lifetime,float SettleAfter)
 {
-    SourceId=Id;Life=FMath::Clamp(Lifetime,1.f,20.f);Settle=FMath::Clamp(SettleAfter,.1f,Life);
+    Life=FMath::Clamp(Lifetime,1.f,20.f);Settle=FMath::Clamp(SettleAfter,.1f,Life);
     Mesh->SetStaticMesh(Geometry);if (Surface) Mesh->SetMaterial(0,Surface);
     FTransform T=Transform;T.SetScale3D(T.GetScale3D()*.92);SetActorTransform(T);
 }

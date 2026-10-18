@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Run the 5cm cell prototype checks: automation tests and the real-game lab probe.
 
-L_DestructionLab is started with -ERCellLab (same as the ?Cells=1 travel option).
+Every destruction map runs on 5cm cells; this script is kept as a focused entry point.
 No packaging or publication; logs and captures stay in Saved/Testing.
 """
 from pathlib import Path
@@ -25,7 +25,7 @@ game = args.game or args.render
 log = logs / ('cells-' + ('gallery' if args.render else 'game' if game else 'automation') + '.log')
 if game:
     command = [str(editor), str(project / 'RespawnAndRage.uproject'), '/Game/EclipseRecoil/Maps/L_DestructionLab?Primary=0',
-               '-game', '-ERCellLab', '-ERCellLabProbe', '-windowed', '-ResX=1280', '-ResY=720',
+               '-game', '-ERCellLabProbe', '-windowed', '-ResX=1280', '-ResY=720',
                '-ExecCmds=t.MaxFPS 60,sg.GlobalIlluminationQuality 0,sg.ReflectionQuality 0,sg.ShadowQuality 1'] + flags
 else:
     command = [str(editor), str(project / 'RespawnAndRage.uproject'), '/Engine/Maps/Entry',

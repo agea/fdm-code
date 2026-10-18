@@ -585,11 +585,33 @@ Plasterboard/sheet/glass thickness is not yet a construction parameter.
   beyond 200cm. The previous "no breach" and "more than the old blast" checks belonged
   to the old values.
 
+## 5cm cells everywhere (18 October)
+
+At the user's request the old 50x20x25 cm blocks are gone from every map. The lab,
+the procedural (multi-floor, LAN) building, Killhouse and Dust all generate 5 cm cells:
+wall constructions with door/window openings as absent cells, one glass pane per
+window, template pieces at their exact volume with round(L/5 cm) equal cells per axis
+(2 cm wood shells for crates). The block
+sections above remain as history; their figures and limits describe the removed path.
+
+- **Console:** `ERBlockGrenade` (HE structural profile), `ERBlockShot`, `ERBlockDamage`,
+  `ERBlockExplosion` (linear rocket envelope), `ERBlockCollapseDemo` (cuts a ring in
+  the lab's south wall; its inside collapses), `ERBlockRegenerate`, `ERBlockStats`,
+  `ERMapGenerate`. `ERCellMode` and `?Cells=` no longer exist.
+- **Collapse:** support over connected cell components per chunk, incremental per
+  changed chunk, with precomputed contacts between touching panels. Ground rows, slab
+  footings and window frames anchor. The 50 ms timer, coalescing, per-step budgets
+  (components and 32768 cells) and bounded cosmetic debris (8 per step, 64 global)
+  keep the Milestone 5 rules. Detached cells replicate as ordinary chunk masks.
+- **Network:** protocol 7 only. The descriptor plus shards carry the alive masks of
+  modified chunks. HP stay on the server.
+- Measured costs, scaling and breach behaviour per material are in
+  [CELL_DESTRUCTION_PLAN.md](CELL_DESTRUCTION_PLAN.md) §8-9.
+
 ## 5cm cell prototype (17 October)
 
 The approved plan is in [CELL_DESTRUCTION_PLAN.md](CELL_DESTRUCTION_PLAN.md) (option C).
-L_DestructionLab can now run as 5cm cells: start it with `-ERCellLab` or `?Cells=1`, or type
-`ERCellMode 1` / `ERCellMode 0` in the console. The walls become drywall partitions
+(Superseded on 18 October: cells are now the only mode, see above.) In the lab the walls are drywall partitions
 (2x1.25cm boards and a cavity), brick 20 (4 layers), concrete 20, plus a 2cm wood board and a
 0.2cm container sheet. That is 77,580 cells in 52 chunks, each chunk one dynamic mesh with
 visible faces only and aggregate-box collision. `ERBlockGrenade` applies the HE structural
