@@ -56,7 +56,9 @@ try:
     print("\n".join(markers))
     client_output = (logs / "movement-client.log").read_text(errors="replace")
     print("\n".join(line for line in client_output.splitlines() if "ER_MOVEMENT_CLIENT_" in line))
-    success = (args.base_only or "ER_MOVEMENT_CLIENT_PASS owner_and_simulated_proxy_prone" in client_output) and "ER_MOVEMENT_CLIENT_FAIL" not in client_output and "ER_MOVEMENT_COMPLETE PASS" in output and "ER_MOVEMENT_FAIL" not in output
+    success = (args.base_only or all(marker in client_output for marker in (
+        "ER_MOVEMENT_CLIENT_PASS owner_and_simulated_proxy_prone",
+        "ER_MOVEMENT_CLIENT_PASS owner_sprint_has_extra_spread"))) and "ER_MOVEMENT_CLIENT_FAIL" not in client_output and "ER_MOVEMENT_COMPLETE PASS" in output and "ER_MOVEMENT_FAIL" not in output
     print("Logs:", logs)
     sys.exit(0 if success else 1)
 finally:

@@ -131,8 +131,14 @@ black at 10% opacity. Soft Canvas edges smooth each dot; TSR and Mac high-DPI
 rendering are enabled for the scene and HUD. The ring
 widens with real rifle spread: crouching improves accuracy, movement and
 jumping reduce it, and sustained fire builds spread that recovers after release.
+Sprinting adds further spread to every weapon as actual speed rises from 10 to
+18 km/h, including while aiming.
 Its radius includes a fixed readability margin; it indicates accuracy rather
-than marking the exact screen boundary of the hitscan cone.
+than marking the exact screen boundary of the hitscan cone. The ring and round
+count stay visible while aiming, including optical scopes; Assault Rifle and
+Grenade Launcher also retain the central crosshair in iron sights.
+Sniper Rifle and Marksman Rifle have wider hip-fire spread and a small movement
+penalty while crouching or crawling in scope; settled stationary aim stays precise.
 
 For solo testing, use **Locale**, set the Alpha/Omega bot counts and choose
 **Fermi**, **Solo movimento**, or **Movimento e sparo**. Zero bots is supported.

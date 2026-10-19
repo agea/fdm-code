@@ -37,6 +37,10 @@ reviewing their new repository ownership.
 - Rifle spread is real and server sampled; the ammo reticle reads that same
   cone plus replicated owner burst state against the synchronized server clock.
   Keep posture, speed, airborne and burst penalties shared with the HUD.
+  Sprint adds up to 1.5 degrees beyond the ordinary cone cap, scaled by actual
+  horizontal speed between 10 and 18km/h (19 October). Apply to all weapons,
+  including optical/iron aiming; ordinary run/walk and low-posture tuning stay
+  unchanged. Never flatten this penalty with the ordinary 10-degree clamp.
   No client-selected shot direction or cosmetic-only dispersion indicator.
 - Enhanced Input lives on the controller so dead players can request respawn.
 - Crouch accepts Ctrl and C. `scripts/fix_controls.py` adds C to an existing
@@ -725,10 +729,13 @@ Rifle scopes (16 October): only Assault/Carbine/Sniper active data opt in via
 ScopeMode (iron/optical); visible labels remain Assault/Sniper/Marksman. Right
 click toggles Assault; optical cycles40/10/off with FOV/90 sensitivity. Server
 owns level/settle/cone, no client directions. Assault retains ordinary spread;
-optical stationary recovered aim reaches zero after.16/.25s, hip cones3/6deg.
-Sniper retains zoom after shots, Marksman exits. Hide normal centre reticle and
-ammo ring on optical rifles, including hipfire. Move complete FPS rig for iron
-sights, never independently detach gun/hands. Scope tuning/setup must preserve
+optical stationary recovered aim reaches zero after.16/.25s, hip cones5/8deg
+(19 October accuracy revision, Sniper/Marksman respectively).
+Sniper retains zoom after shots, Marksman exits. Hide the normal centre reticle
+on optical rifles, including hipfire; keep the ammo/spread ring and count in all
+aiming modes (19 October revision). Assault/launcher retain the central crosshair
+in iron sights. Move complete FPS rig for iron sights, never independently detach
+gun/hands. Scope tuning/setup must preserve
 source art and other weapon balance. Run test-scopes.py --render and retain
 reference/accuracy/network/legacy-arsenal regressions; inspect actual captures.
 
@@ -747,12 +754,16 @@ and lowers over.2s with smoothstep and matched FOV/sensitivity; cap integration
 at50ms per frame so a hitch cannot skip the whole animation. Launcher anchor
 2.5cm below centre with3deg upward rig pitch; preserve complete-rig grips.
 Optical standing movement keeps focus blurred; server motion timestamps delay
-recovery until actual stopping. Grounded crouch focus25ms, crouch-walking
-Marksman zero spread after focus; no airborne exemption. Sniper crouch reduces
+recovery until actual stopping. Grounded crouch focus25ms; the 19 October
+accuracy revision gives both optical rifles real crouch/crawl movement spread
+through ScopedLowMovingSpreadDegrees (.8/1.2 at 10km/h, crawl x.65), while
+stationary low-posture scopes remain precise. No airborne exemption. Sniper crouch reduces
 burst/cosmetic recoil x.2 and accelerates recovery x4; standing auto bloom now
 .5deg/shot, delay.3s, recovery6deg/s. Blur reads focus plus real bloom.
 These requested rules are not an assertion of CS parity. Verify intermediate
 enter/exit captures, grounded/moving/crouch server cones and accuracy regressions.
+Use setup_optical_accuracy.py for the narrow two-asset hip/low-motion migration;
+scope_profiles.py also preserves these values during future scope/import setup.
 
 Launcher/player contact refinement (16 October): launch LaunchedHE six degrees above
 authorized aim (clamp pitch +/-89); scope still multiplies horizontal velocity x1.5.

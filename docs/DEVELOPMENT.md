@@ -908,6 +908,14 @@ open-source del codice è stata scelta implicitamente.
 - Dispersione segue l'altezza effettiva e la transizione prona; la posizione
   completa usa il 65% del moltiplicatore accovacciato. HUD mostra sprint e recupero.
   La verifica grafica opzionale `ERPostureGallery` usa i personaggi Alpha/Omega.
+- Revisione 19 ottobre: tutte le armi aggiungono fino a **1,5°** di semiangolo
+  al cono durante lo sprint, proporzionale alla velocità orizzontale effettiva
+  tra 10 e 18km/h. La penalità segue accelerazione e frenata; fino alla corsa
+  normale resta zero. Viene sommata dopo il limite ordinario di10°, così anche
+  Sniper/Marksman già al limite peggiorano in sprint (massimo totale11,5°).
+  Vale anche in mira: server e corona leggono lo stesso `GetSpreadDegrees`.
+  Nessun nuovo parametro replicato, modifica alle tempistiche dello sprint o
+  rigenerazione dei data asset.
 
 
 ## Hitscan ed effetti dei colpi — 14 ottobre 2026
@@ -1897,8 +1905,10 @@ centre the muzzle; hide the cropped forearms in this gun-only view, preserving
 both grip transforms and all server shot origins. Its
 spread is unchanged. Optical rifles cycle90/40/10/90, scale mouse sensitivity
 by FOV/90 and hide FPS arms/gun behind a circular black mask with fine black
-crosslines. Normal centre crosshair, ammo ring and centre count are hidden for
-optical rifles even without zoom; corner ammo/HP remain available.
+crosslines. The normal centre crosshair is hidden for optical rifles even
+without zoom; corner ammo/HP remain available. The 19 October revision keeps
+the ammo/spread ring and its count visible in every aiming mode, including
+optical scopes, and retains the central crosshair in Assault/launcher iron sights.
 
 Weapon-owned reliable RPCs validate active slot, alive/match/reload/traversal;
 level replicates, owner receives synchronized settle start. Settling adds real
@@ -1972,6 +1982,17 @@ recovery x4 with at most.025s delay. Its standing burst gains.5deg per shot,
 up to3deg, waits.3s and recovers6deg/s; walking adds further burst growth.
 Scope crossline blur reads the same focus and burst state. Camera recoil stays
 cosmetic, reduced in amplitude and recovered faster while scoped crouching.
+
+Accuracy revision (19 October): Sniper/Marksman hip cones increase from3/6 to
+5/8 degrees half-angle in every posture. Scoped crouch and crawl now add a
+small real movement cone for both rifles, superseding the Marksman's zero-motion
+exemption above. Weapon data owns ScopedLowMovingSpreadDegrees (.8/1.2 degrees
+at10km/h, scaled by actual speed; crawl additionally x.65). At normal100cm/s
+crouch speed this adds .288/.432 degrees, at55cm/s crawl .103/.154 degrees.
+Stopping restores zero settled base spread; focus, low-posture burst recovery
+and recoil rules stay as before. Shots and HUD share GetSpreadDegrees.
+setup_optical_accuracy.py changes only these two accuracy properties in the
+existing Carbine/Sniper data assets; scope_profiles.py retains the new defaults.
 
 These are requested gameplay rules, not a claim of exact Counter-Strike parity.
 Shared scope tuning/setup updates the existing four data assets only.

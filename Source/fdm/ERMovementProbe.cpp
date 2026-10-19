@@ -89,6 +89,16 @@ void AERMovementProbe::Tick(float DeltaTime)
             if(Phase==33 || Phase==36)
             {Send(.05f,EKeys::W,IE_Pressed);Send(.12f,EKeys::W,IE_Released);Send(.22f,EKeys::W,IE_Pressed);}
             if(Phase==35 || Phase==37)Send(.05f,EKeys::W,IE_Released);
+            if(Phase==33 && Elapsed>1.2f && Peak==0 && M->Velocity.Size2D()>490 && C->Weapon)
+            {
+                const FVector SprintVelocity=M->Velocity;
+                const float SprintCone=C->Weapon->GetSpreadDegrees();
+                M->Velocity=SprintVelocity.GetSafeNormal2D()*(1000.f/3.6f);
+                const float RunCone=C->Weapon->GetSpreadDegrees();M->Velocity=SprintVelocity;
+                UE_LOG(LogTemp,Display,TEXT("ER_MOVEMENT_CLIENT_%s owner_sprint_has_extra_spread run=%.3f sprint=%.3f"),
+                    SprintCone>RunCone+1.4f?TEXT("PASS"):TEXT("FAIL"),RunCone,SprintCone);
+                Peak=1;
+            }
             if (Phase == 37 && Elapsed > 1.6f && Peak == 0)
             {
                 const bool OwnerReady = FMath::IsNearlyEqual(C->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight(),34.f,.1f) && M->IsProne();
@@ -308,7 +318,19 @@ void AERMovementProbe::Tick(float DeltaTime)
         }
         if (Phase == 33)
         {
-            if (Elapsed > 1.5f && Peak == 0) { Check(Remote->IsSprinting() && FMath::IsNearlyEqual(Remote->Velocity.Size2D(),500.f,2),TEXT("remote double-W intent: 18 km/h sprint")); Peak=1; }
+            if (Elapsed > 1.5f && Peak == 0)
+            {
+                Check(Remote->IsSprinting() && FMath::IsNearlyEqual(Remote->Velocity.Size2D(),500.f,2),TEXT("remote double-W intent: 18 km/h sprint"));
+                auto* Weapon=Client->Weapon.Get();const float SprintCone=Weapon->GetSpreadDegrees();
+                const FVector SprintVelocity=Remote->Velocity;Remote->Velocity=SprintVelocity.GetSafeNormal2D()*(1000.f/3.6f);
+                const float RunCone=Weapon->GetSpreadDegrees();Remote->Velocity=SprintVelocity;
+                Check(SprintCone>RunCone+1.4f,TEXT("actual remote sprint adds real dispersion beyond ordinary running"));
+                const uint32 Shots=Weapon->AuthorizedShotCount;
+                Client->ServerStartFire();Client->ServerStopFire();
+                Check(Weapon->AuthorizedShotCount==Shots+1 && FMath::IsNearlyEqual(Weapon->LastShotSpreadDegrees,SprintCone,.001f),
+                    TEXT("actual sprint shot samples the same widened cone as the HUD"));
+                Peak=1;
+            }
             if (Elapsed > 5.8f) { Check(Peak==1 && !Remote->IsSprinting() && Remote->GetRecoveryRemaining()>8 && Remote->GetRecoveryRemaining()<10,TEXT("sprint ends at 5 seconds; 10 second recovery")); Advance(); }
         }
         else if (Phase == 34 && Elapsed > 10.5f)

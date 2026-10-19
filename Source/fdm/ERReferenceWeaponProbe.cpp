@@ -409,7 +409,7 @@ void AERReferenceWeaponProbe::TickScopes()
         M->Velocity=FVector::ZeroVector;
         Check(Bolt->GetScopeSettle()>.8f,TEXT("standing_stop_requires_real_focus_recovery"));
         M->bWantsToCrouch=true;M->Velocity=FVector(90,0,0);
-        Check(Bolt->GetScopeSettle()==0.f && Bolt->GetSpreadDegrees()==0.f,TEXT("crouch_walking_marksman_is_fully_precise"));
+        Check(Bolt->GetScopeSettle()==0.f && Bolt->GetSpreadDegrees()>.2f && Bolt->GetSpreadDegrees()<.6f,TEXT("crouch_walking_marksman_has_moderate_real_spread"));
         Bolt->ScopeChangedServerTime=Now-.03;
         Check(Bolt->GetScopeSettle()==0.f,TEXT("crouch_scope_focus_finishes_within_thirty_ms"));
         H->ServerSelectWeapon(5);auto* Auto=H->Weapon.Get();Auto->ServerCycleScope();Auto->ScopeChangedServerTime=Now-10;
@@ -422,6 +422,31 @@ void AERReferenceWeaponProbe::TickScopes()
         Check(Auto->GetScopeBlur()>.7f && Auto->GetSpreadDegrees()>3.f,TEXT("walking_auto_sniper_has_large_real_spread_and_blur"));
         Auto->BloomAtLastShot=0;Auto->LastSpreadShotServerTime=Now-10;
         M->Velocity=FVector::ZeroVector;M->bWantsToCrouch=false;Auto->ClearScope();
+        const auto SavedPosture=M->Locomotion;
+        for(int32 Slot : {5,6})
+        {
+            H->ServerSelectWeapon(Slot);auto* Optical=H->Weapon.Get();
+            Optical->ClearScope();Optical->BloomAtLastShot=0;Optical->LastSpreadShotServerTime=Now-10;
+            M->Locomotion.HalfHeight=92.5f;M->Locomotion.ProneBlend=0;M->bWantsToCrouch=false;M->Velocity=FVector::ZeroVector;
+            const float HipSpread=Slot==5?5.f:8.f;
+            Check(FMath::IsNearlyEqual(Optical->GetSpreadDegrees(),HipSpread,.001f),FString::Printf(TEXT("optical_%d_saved_wider_hip_cone"),Slot));
+            M->Locomotion.HalfHeight=62.5f;M->bWantsToCrouch=true;M->Velocity=FVector(100,0,0);
+            Check(Optical->GetSpreadDegrees()>HipSpread,FString::Printf(TEXT("optical_%d_crouch_hip_motion_adds_spread"),Slot));
+            Optical->ServerCycleScope();Optical->ScopeChangedServerTime=Now-10;
+            const float CrouchMotion=Optical->GetSpreadDegrees();
+            Check(CrouchMotion>.2f && CrouchMotion<.6f,FString::Printf(TEXT("optical_%d_scoped_crouch_motion_is_moderate"),Slot));
+            M->Locomotion.HalfHeight=34;M->Locomotion.ProneBlend=1;M->Velocity=FVector(55,0,0);
+            const float CrawlMotion=Optical->GetSpreadDegrees();
+            Check(CrawlMotion>.08f && CrawlMotion<CrouchMotion,FString::Printf(TEXT("optical_%d_scoped_crawl_has_smaller_nonzero_cone"),Slot));
+            M->Velocity=FVector::ZeroVector;
+            Check(Optical->GetSpreadDegrees()<.001f,FString::Printf(TEXT("optical_%d_stationary_prone_scope_stays_precise"),Slot));
+            M->Locomotion.HalfHeight=62.5f;M->Locomotion.ProneBlend=0;
+            Check(Optical->GetSpreadDegrees()<.001f,FString::Printf(TEXT("optical_%d_stationary_crouch_scope_stays_precise"),Slot));
+            Optical->ClearScope();M->Locomotion.HalfHeight=34;M->Locomotion.ProneBlend=1;M->Velocity=FVector(55,0,0);
+            Check(Optical->GetSpreadDegrees()>HipSpread,FString::Printf(TEXT("optical_%d_crawl_hip_motion_adds_spread"),Slot));
+            UE_LOG(LogTemp,Display,TEXT("ER_SCOPE_ACCURACY slot=%d hip=%.3f crouch=%.3f crawl=%.3f"),Slot,HipSpread,CrouchMotion,CrawlMotion);
+        }
+        M->Locomotion=SavedPosture;M->Velocity=FVector::ZeroVector;M->bWantsToCrouch=false;
         C->Health->ProtectionEndServerTime=Now+120;
         Phase=100;Deadline=Now+60;ForceNetUpdate();return;
     }
@@ -431,7 +456,7 @@ void AERReferenceWeaponProbe::TickScopes()
     auto* C=CastChecked<AERCharacter>(Client->GetPawn());auto* W=C->Weapon.Get();
     const uint8 Expected[]={0,1,0,0,1,2,0,0,1,2,0,1,0,0,1,1,0,0,0,0,1,1,0,0,0,0};
     Check(W->ScopeLevel==Expected[Phase-100],FString::Printf(TEXT("scope_server_level_%d"),Phase));
-    if(Phase==103 || Phase==107)Check(W->GetSpreadDegrees()>=3.f,TEXT("optical_hipfire_has_large_spread"));
+    if(Phase==103 || Phase==107)Check(FMath::IsNearlyEqual(W->GetSpreadDegrees(),Phase==103?5.f:8.f,.001f),TEXT("optical_owner_has_updated_hip_spread"));
     if(Phase==104 || Phase==108)
         Check(W->GetSpreadDegrees()<.001f && W->GetScopeFOV()==40.f,TEXT("settled_stationary_scope_is_straight_fov40"));
     if(Phase==105 || Phase==109)Check(W->GetScopeFOV()==10.f,TEXT("second_zoom_fov10"));

@@ -156,7 +156,11 @@ float AERWeapon::GetSpreadDegrees() const
 {
     const auto* Character = Cast<AERCharacter>(GetOwner());
     if (!Data || !Character) return 0;
-    const float SpeedFraction = FMath::Clamp(Character->GetVelocity().Size2D() / (1000.f / 3.6f), 0.f, 1.f);
+    const float Speed = Character->GetVelocity().Size2D();
+    const float SpeedFraction = FMath::Clamp(Speed / (1000.f / 3.6f), 0.f, 1.f);
+    // Extra physical speed beyond the normal run widens every weapon's cone.
+    // Apply after the ordinary cap so sprint also penalizes already-inaccurate rifles.
+    const float Sprint = 1.5f * FMath::GetMappedRangeValueClamped(FVector2D(1000.f / 3.6f,1800.f / 3.6f),FVector2D(0,1),Speed);
     const auto* Movement = Cast<UERMovement>(Character->GetCharacterMovement());
     const float Ladder = Movement->IsOnLadder() && Data->bOneHanded && Data->Payload==EERPayload::Bullet ?
         Data->LadderMovingSpreadDegrees * FMath::Clamp((FMath::Abs(Character->GetVelocity().Z)-5.f)/(144.f-5.f),0.f,1.f) : 0.f;
@@ -167,12 +171,13 @@ float AERWeapon::GetSpreadDegrees() const
     {
         const float Base = ScopeLevel ? Data->NoScopeSpreadDegrees * GetScopeSettle() : Data->NoScopeSpreadDegrees;
         const bool Low=ScopeLevel && IsPrecisionCrouched();
-        // Grounded crouch-walking with the bolt rifle has no movement/burst penalty.
-        if(Low && Data->bUnscopeAfterShot)return Base;
-        const float Motion=Low?.08f*SpeedFraction:Data->ScopedRunningSpreadDegrees*SpeedFraction*Posture;
-        return FMath::Clamp(Base + Motion + Air + Ladder + GetBloomDegrees(),0.f,10.f);
+        const float LowMotion=Data->ScopedLowMovingSpreadDegrees*SpeedFraction*FMath::Lerp(1.f,.65f,Movement->Locomotion.ProneBlend);
+        const float Motion=Low?LowMotion:Data->ScopedRunningSpreadDegrees*SpeedFraction*Posture;
+        // Keep the bolt rifle's recovered low-posture burst behavior, with real motion spread.
+        const float Bloom=Low && Data->bUnscopeAfterShot?0.f:GetBloomDegrees();
+        return FMath::Clamp(Base + Motion + Air + Ladder + Bloom,0.f,10.f) + Sprint;
     }
-    return FMath::Clamp((Data->StandingSpreadDegrees + Data->RunningSpreadDegrees * SpeedFraction) * Posture + Air + Ladder + GetBloomDegrees(), 0.f, 10.f);
+    return FMath::Clamp((Data->StandingSpreadDegrees + Data->RunningSpreadDegrees * SpeedFraction) * Posture + Air + Ladder + GetBloomDegrees(), 0.f, 10.f) + Sprint;
 }
 bool AERWeapon::CanFight() const
 {

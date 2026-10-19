@@ -59,6 +59,8 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Scope") float ScopeSettleDuration = .2f;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Scope") float NoScopeSpreadDegrees = 5.f;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Scope") float ScopedRunningSpreadDegrees = 2.f;
+    // Grounded crouch/crawl motion coefficient at 10 km/h; crawling scales it by .65.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Scope", meta=(ClampMin="0", ClampMax="10")) float ScopedLowMovingSpreadDegrees = .8f;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) float Damage = 36;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Ballistics") float ArmorRatio = 2;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Ballistics") float RangeModifier = 1;

@@ -3645,3 +3645,77 @@ centrali. Ingressi, nascondigli, percorsi e accessi agli edifici/scale riservati
 
 Ricevuta: `docs/INTERMEDIATE_COVER_RESULTS.json`; prove e immagini in
 `Saved/Testing/intermediate-cover-*`. Nessun packaging o pubblicazione.
+
+## Indicatori colpi/dispersione in scope — 19 ottobre 2026
+
+L'anello e il contatore restano visibili con tutte le armi, anche nelle ottiche;
+Assault Rifle e Grenade Launcher conservano la croce centrale durante la mira.
+Il raggio continua a leggere dispersione reale, FOV corrente e stato replicato.
+
+- Editor Mac arm64 Development: **PASS**, 25,91s, con i warning di deprecazione
+  esistenti in altri file (`Saved/Testing/scoped-reticle-build.log`).
+- `test-scopes.py --render`: **PASS**, due peer reali, 26 stati/input replicati,
+  FOV, allineamento mire, transizioni e catture Metal aggiornate. Anche i controlli
+  server di precisione, colpi e lancio in mira sono passati.
+- Ispezionate `Scope_101`, `104`, `109`, `115`, `120` e `121`: anello e numero
+  nelle ottiche, croce centrale con Assault/launcher, munizioni dopo lo sparo
+  aggiornate a 19 per Sniper e a 5 per launcher.
+- Primo avvio interrotto dalla chiusura della finestra prima dell'ingresso del
+  client; non contato come prova riuscita. Ripetizione completa finale passata.
+- `git diff --check`: **PASS**. Modifica limitata alla presentazione HUD;
+  nessuna rigenerazione degli asset o modifica alla balistica.
+
+Log: `Saved/Testing/scoped-reticle-scopes.log`, `scopes-render-{host,client}.log`.
+Schermate: `Saved/Testing/Scopes/Scope_100..125.png` e `Transition_*.png`.
+
+## Dispersione Sniper/Marksman — 19 ottobre 2026
+
+- Editor Mac arm64 Development: **PASS**, 32,97s (`optical-accuracy-build.log`),
+  warning di deprecazione preesistenti in altri file.
+- `setup_optical_accuracy.py`: **PASS**, salvati tramite Unreal soltanto
+  DA_Carbine (Sniper) e DA_Sniper (Marksman). Coni base senza mirino5/8 gradi;
+  nuovi coefficienti di movimento in mira accovacciati/sdraiati .8/1.2.
+- `test-scopes.py --render`: **PASS**, 26 stati reali del client, FOV,
+  allineamento mire, transizioni, precisione e comportamento dei colpi.
+  Il probe server verifica entrambe le armi in posture controllate: crouch
+  a100cm/s .288/.432 gradi, crawl a55cm/s .103/.154 gradi, ritorno a zero
+  con ottica assestata da fermi. Senza mirino il movimento aumenta ancora il
+  cono in entrambe le posture. Client fresco: dispersione base5/8 confermata.
+- Catture Metal `Scope_103.png` e `Scope_107.png` ispezionate: anelli senza
+  mirino più ampi e contatori ancora visibili.
+- `test-network.py --accuracy`: **PASS**, compresa replica munizioni/bloom e
+  recupero sul clock server dell'owner.
+- `test-reference-weapons.py`: **PASS**, tutti i dieci slot remoti e controlli
+  esistenti di munizioni, danno, armatura, pellet, copertura e launcher.
+- `test-network.py`: **PASS**, danno/copertura, munizioni, squadre, protezione,
+  morte/corpi, respawn e reset del round.
+- `test-arsenal.py`: **PASS**, fixture precedente, cambio slot/rotella,
+  ricariche, ordigni ed effetti replicati.
+
+Log: `Saved/Testing/optical-accuracy-{build,assets,scopes,accuracy,reference,network,arsenal}.log`,
+`scopes-render-{host,client}.log`. Sintassi Python e whitespace verificati.
+
+## Dispersione aggiuntiva in sprint — 19 ottobre 2026
+
+Penalità comune basata sulla velocità orizzontale reale: zero fino a10km/h,
++0,75° a14km/h e +1,5° a18km/h, poi limitata a1,5°. Viene aggiunta dopo il
+limite ordinario del cono, così anche Marksman già a10° peggiora in sprint.
+Server e HUD condividono il calcolo, anche in mira; segue accelerazione/frenata.
+
+- Editor Mac arm64 Development: **PASS**, 29,22s (`sprint-accuracy-build.log`).
+- `test-network.py --accuracy`: **PASS**. Tutte le sette armi da tiro attive,
+  comprese Assault/launcher in mira e le due ottiche: incremento progressivo,
+  limite oltre18km/h e rimozione del surplus tornando alla corsa normale.
+  Passati anche i controlli esistenti su colpi, bloom e replica all'owner.
+- `test-movement.py --posture-only`: **PASS**, due peer con input W reali.
+  Owner: cono .730° alla corsa normale contro2.230° durante lo sprint.
+  Sul server il colpo realmente sparato in sprint legge lo stesso cono ampliato.
+  Sprint/recupero, interruzioni, crouch/prone e input C/Ctrl restano verificati.
+- `test-reference-weapons.py`: **PASS**, dieci slot remoti e combattimento del
+  catalogo corrente.
+- `test-arsenal.py`: **PASS**, fixture precedente, cambio armi/rotella,
+  ricariche, ordigni ed effetti replicati.
+
+Log: `Saved/Testing/sprint-accuracy-{build,accuracy,movement,reference,arsenal}.log` e relativi
+`accuracy-{host,client}.log`, `movement-{host,client}.log`.
+Nessun nuovo asset o campo replicato; sintassi Python e whitespace verificati.

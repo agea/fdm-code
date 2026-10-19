@@ -933,10 +933,10 @@ void AERHUD::DrawHUD()
         Text(Sprint > 0 ? FString::Printf(TEXT("SPRINT %.1f s"), Sprint) : (Recovery > 0 ? FString::Printf(TEXT("RECOVERY %.1f s"), Recovery) : TEXT("SPRINT READY  |  double-tap W")), 30, H-100, FLinearColor(.6f,.8f,1), 1.f);
         if (Movement->bProneWanted || Movement->IsProne()) Text(TEXT("PRONE  |  C / Ctrl to stand up"), 30, H-125, FLinearColor::White, 1.f);
         const bool bOptical = Character->Weapon && Character->Weapon->HasOpticalScope();
-        if (!bOptical && !(Character->Weapon && Character->Weapon->ScopeLevel))
+        if (!bOptical)
         {
-        DrawLine(W/2-8,H/2,W/2-3,H/2,FLinearColor::White); DrawLine(W/2+3,H/2,W/2+8,H/2,FLinearColor::White);
-        DrawLine(W/2,H/2-8,W/2,H/2-3,FLinearColor::White); DrawLine(W/2,H/2+3,W/2,H/2+8,FLinearColor::White);
+            DrawLine(W/2-8,H/2,W/2-3,H/2,FLinearColor::White); DrawLine(W/2+3,H/2,W/2+8,H/2,FLinearColor::White);
+            DrawLine(W/2,H/2-8,W/2,H/2-3,FLinearColor::White); DrawLine(W/2,H/2+3,W/2,H/2+8,FLinearColor::White);
         }
         Text(FString::Printf(TEXT("HP  %.0f   AP  %.0f"), Character->Health->Health, Character->Health->Armor), 30, H-65, FLinearColor(.4f,1,.7f), 2.f);
         if (const auto* Weapon = Character->Weapon.Get())
@@ -956,8 +956,7 @@ void AERHUD::DrawHUD()
             const bool bUnavailable = Character->IsWeaponStowed() || Weapon->bReloading || Cast<UERMovement>(Character->GetCharacterMovement())->bHighClimb;
             const FLinearColor AmmoColor = bUnavailable ? FLinearColor(1.f,.7f,.25f,.8f) :
                 (Remaining <= Capacity / 5 ? FLinearColor(1.f,.4f,.18f,.95f) : FLinearColor(.8f,.95f,1.f,.9f));
-            if (!bOptical && !Weapon->ScopeLevel)
-            {
+            // Keep ammunition and the real spread cone visible through every aiming mode.
             for (int32 I = 0; I < Capacity; ++I)
             {
                 const float Angle = -PI * .5f + (2.f * PI * I) / Capacity;
@@ -1000,7 +999,6 @@ void AERHUD::DrawHUD()
             float TextW = 0, TextH = 0;
             GetTextSize(CenterAmmo, TextW, TextH, nullptr, .9f*Scale);
             Text(CenterAmmo,W*.5f-TextW*.5f,H*.5f+ReticleRadius+10.f*Scale,AmmoColor,.9f*Scale);
-            }
 #if !UE_BUILD_SHIPPING
             if (FParse::Param(FCommandLine::Get(), TEXT("ERAccuracyAudit")) && GetWorld()->GetTimeSeconds() >= NextReticleAuditAt)
             {

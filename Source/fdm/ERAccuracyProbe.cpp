@@ -71,6 +71,28 @@ void AERAccuracyProbe::Tick(float DeltaTime)
         Host->SetControlRotation(FRotator::ZeroRotator); Host->ClientSetRotation(FRotator::ZeroRotator);
         Client->SetControlRotation(FRotator(0,180,0)); Client->ClientSetRotation(FRotator(0,180,0));
         H->Health->ProtectionEndServerTime=C->Health->ProtectionEndServerTime=Now+60;
+        const FVector SavedVelocity=Move->Velocity;
+        for(int32 Slot=0;Slot<H->Inventory.Num();++Slot)
+        {
+            auto* Weapon=H->Inventory[Slot].Get();
+            if(!Weapon || !Weapon->Data || Weapon->Data->Payload==EERPayload::Melee || AERWeapon::IsHandGrenade(Weapon->Data->Payload))continue;
+            H->ServerSelectWeapon(Slot);
+            for(int32 Aim=0;Aim<=(Weapon->Data->ScopeMode?1:0);++Aim)
+            {
+                if(Aim)Weapon->ServerCycleScope();
+                Move->Velocity=FVector(1000.f/3.6f,0,0);const float RunCone=Weapon->GetSpreadDegrees();
+                Move->Velocity=FVector(1400.f/3.6f,0,0);const float MidCone=Weapon->GetSpreadDegrees();
+                Move->Velocity=FVector(500,0,0);const float SprintCone=Weapon->GetSpreadDegrees();
+                Move->Velocity=FVector(700,0,0);const float OverSpeedCone=Weapon->GetSpreadDegrees();
+                const bool Wider=FMath::IsNearlyEqual(MidCone-RunCone,.75f,.001f) && FMath::IsNearlyEqual(SprintCone-RunCone,1.5f,.001f);
+                Check(Wider,TEXT("all_ranged_weapons_sprint_widens_hip_and_aim_cones"));
+                Check(FMath::IsNearlyEqual(OverSpeedCone,SprintCone,.001f),TEXT("sprint_penalty_is_bounded_above_eighteen_kmh"));
+                Move->Velocity=FVector(1000.f/3.6f,0,0);
+                Check(FMath::IsNearlyEqual(Weapon->GetSpreadDegrees(),RunCone,.001f),TEXT("return_to_normal_run_clears_extra_sprint_spread"));
+                UE_LOG(LogTemp,Display,TEXT("ER_SPRINT_CONE slot=%d aim=%d run=%.3f mid=%.3f sprint=%.3f"),Slot,Aim,RunCone,MidCone,SprintCone);
+            }
+        }
+        Move->Velocity=SavedVelocity;H->ServerSelectWeapon(4);
         Advance(1,.5f); return;
     }
     if (Phase==3 || Phase==4) H->AddMovementInput(FVector(1,0,0));
