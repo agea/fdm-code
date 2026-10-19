@@ -302,7 +302,14 @@ void AERBlockRoom::SpawnCellDebris(const TArray<FERCellDebris>& Debris)
         auto* Actor=GetWorld()->SpawnActorDeferred<AERBlockDebris>(AERBlockDebris::StaticClass(),D.Transform,this,nullptr,ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
         if (!Actor) continue;
         const auto* Profile=MaterialCatalog->Find(EERBlockMaterial(D.Material));
-        Actor->Initialize(BlockMesh,Profile ? Profile->Surface.Get() : nullptr,D.Transform,Collapse.DebrisLifetime,Collapse.DebrisSettleAfter);
+        auto* Surface=Profile ? Profile->Surface.Get():nullptr;
+        // The existing debris payload contains its original centre. Resolve the
+        // local panel palette on each peer without changing the network schema.
+        const FVector Center=GetActorTransform().InverseTransformPosition(D.Transform.GetLocation());
+        for(const auto& P:CellWorld.GetPanels())if(P.Surface && uint8(P.Material)==D.Material &&
+            FBox(FVector::ZeroVector,P.Size).ExpandBy(.01).IsInsideOrOn(P.Transform.InverseTransformPosition(Center)))
+        {Surface=P.Surface;break;}
+        Actor->Initialize(BlockMesh,Surface,D.Transform,Collapse.DebrisLifetime,Collapse.DebrisSettleAfter);
         Actor->FinishSpawning(Actor->GetActorTransform());OwnedDebris.Add(Actor);++LastSpawned;++Global;
     }
 }

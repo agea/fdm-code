@@ -13,7 +13,22 @@ bool AERCellNetShard::SetChunk(int32 Chunk, uint32 Revision, TArray<uint8>&& Mas
     if (!Item) { Item = &Chunks.Items.AddDefaulted_GetRef(); Item->Chunk = Chunk; }
     Item->Revision = Revision; Item->Mask = MoveTemp(Mask);
     Chunks.MarkItemDirty(*Item);
+    Header.ChunkCount=Chunks.Items.Num();Header.PayloadDigest=ComputePayloadDigest();
     return true;
+}
+uint32 AERCellNetShard::ComputePayloadDigest() const
+{
+    // Fast-array order can differ between peers. The header and the complete
+    // array must describe the same transaction before any mask is committed.
+    TArray<int32> Order;for(int32 I=0;I<Chunks.Items.Num();++I)Order.Add(I);
+    Order.Sort([&](int32 A,int32 B){return Chunks.Items[A].Chunk<Chunks.Items[B].Chunk;});
+    uint32 H=0;
+    for(int32 I:Order)
+    {
+        const auto& Item=Chunks.Items[I];H=HashCombineFast(H,GetTypeHash(Item.Chunk));H=HashCombineFast(H,GetTypeHash(Item.Revision));
+        H=FCrc::MemCrc32(Item.Mask.GetData(),Item.Mask.Num(),H);
+    }
+    return H;
 }
 SIZE_T AERCellNetShard::GetPayloadBytes() const
 {

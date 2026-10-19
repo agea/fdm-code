@@ -1,0 +1,68 @@
+#pragma once
+#include "ERProceduralMap.h"
+#include "Engine/World.h"
+#include "Components/DynamicMeshComponent.h"
+
+// Deterministic authority cuts for probes: gameplay still uses real shot/blast
+// damage. These isolate structural connectivity and route changes in tests.
+namespace ERIndustrialTest
+{
+// Palette identity is part of the layout digest; verify the actual rendered chunks as well.
+inline bool FactoryPaletteMatches(AERProceduralMap& Map)
+{
+    const auto* T=Map.LayoutConfig.TemplateAsset.Get();
+    if(!T || !T->CentralBuilding.SteelSurface || T->CentralBuilding.ContainerSurfaces.IsEmpty())return false;
+    const auto& V=T->CentralBuilding;
+    TMap<FString,UMaterialInterface*> Expected;
+    for(const auto& P:Map.GetCellWorld().GetPanels())if(P.Material==EERBlockMaterial::Metal)
+    {
+        if(P.Strength==8 ? !V.ContainerSurfaces.Contains(P.Surface):P.Surface!=V.SteelSurface)return false;
+        Expected.Add(FString::Printf(TEXT("Cells_P%d"),P.Id),P.Surface);
+    }
+    TInlineComponentArray<UDynamicMeshComponent*> Components(&Map);int32 Matched=0;
+    for(const auto* Mesh:Components)
+    {
+        FString Key,Chunk;
+        if(Mesh->GetName().Split(TEXT("_C"),&Key,&Chunk))
+            if(auto* Surface=Expected.Find(Key)){if(Mesh->GetMaterial(0)!=*Surface)return false;++Matched;}
+        if(Mesh->GetName().StartsWith(TEXT("IndustrialFenceMetal_")) && Mesh->GetMaterial(0)!=V.SteelSurface)return false;
+    }
+    return Matched>0;
+}
+inline FERBlockBatchResult Cut(AERProceduralMap& Map,const FTransform& Frame,const FBox& Region,EERBlockMaterial Material)
+{
+    TMap<FERCellId,float> Damage;const auto& W=Map.GetCellWorld();
+    const FBox Broad=Region.TransformBy(Frame);
+    for(int32 Index=0;Index<W.GetPanels().Num();++Index)
+    {
+        const auto& P=W.GetPanels()[Index];if(P.Material!=Material || !P.Bounds.Intersect(Broad))continue;
+        const FBox Local=Region.TransformBy(Frame*P.Transform.Inverse());FIntVector Lo,Hi;
+        for(int32 A=0;A<3;++A){Lo[A]=FMath::Max(0,FMath::FloorToInt(Local.Min[A]/P.Cell[A]));Hi[A]=FMath::Min(P.Dims[A]-1,FMath::FloorToInt(Local.Max[A]/P.Cell[A]));}
+        for(int32 Z=Lo.Z;Z<=Hi.Z;++Z)for(int32 Y=Lo.Y;Y<=Hi.Y;++Y)for(int32 X=Lo.X;X<=Hi.X;++X)
+        {
+            const FERCellId Id{Index,X,Y,Z};
+            if(W.IsAlive(Id) && Region.IsInsideOrOn(Frame.InverseTransformPosition(W.GetCellCenter(Id))))Damage.Add(Id,TNumericLimits<float>::Max());
+        }
+    }
+    return Map.ApplyCellBatch(Damage);
+}
+inline void Settle(AERProceduralMap& Map)
+{for(int32 I=0;I<512 && Map.IsSupportPending();++I)Map.StepSupport();}
+inline bool ContainerBlocked(UWorld& World,const FERLayoutContainer& C,const FCollisionQueryParams& Q)
+{
+    FHitResult Hit;const float Z=-C.Size.Z*.5+100;
+    return World.SweepSingleByChannel(Hit,C.Frame.TransformPosition({0,-C.Size.Y*.5-100,Z}),C.Frame.TransformPosition({0,C.Size.Y*.5+100,Z}),FQuat::Identity,ECC_Pawn,FCollisionShape::MakeCapsule(34,92.5),Q);
+}
+inline bool BridgeSupported(UWorld& World,FVector Top,const FCollisionQueryParams& Q)
+{return World.LineTraceTestByChannel(Top+FVector(0,0,130),Top-FVector(0,0,5),ECC_WorldStatic,Q);}
+inline FVector BreachPoint(const FERProceduralLayout& L)
+{return FVector(-L.CentralBuildingSize.X*.5-950,0,0);}
+inline bool WallBlocked(UWorld& World,FVector P,const FCollisionQueryParams& Q)
+{FHitResult Hit;return World.SweepSingleByChannel(Hit,P+FVector(0,-100,100),P+FVector(0,100,100),FQuat::Identity,ECC_Pawn,FCollisionShape::MakeCapsule(34,92.5),Q);}
+inline void BreachContainer(AERProceduralMap& Map,const FERLayoutContainer& C)
+{Cut(Map,C.Frame,FBox(FVector(-120,-C.Size.Y*.5-2,-C.Size.Z*.5-1),FVector(120,C.Size.Y*.5+2,100)),EERBlockMaterial::Metal);}
+inline void CutBridgeSupports(AERProceduralMap& Map,FVector Top)
+{Cut(Map,FTransform(FVector(Top.X,Top.Y,0)),FBox(FVector(-105,-610,0),FVector(105,610,80)),EERBlockMaterial::Wood);}
+inline void BreachWall(AERProceduralMap& Map)
+{Cut(Map,FTransform(BreachPoint(Map.GetLayout())),FBox(FVector(-100,-20,0),FVector(100,20,245)),EERBlockMaterial::Brick);}
+}

@@ -1,5 +1,8 @@
 #include "ERMovement.h"
 #include "ERCharacter.h"
+#include "ERWeapon.h"
+#include "ERLadder.h"
+#include "EngineUtils.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/GameStateBase.h"
 #include "Net/UnrealNetwork.h"
@@ -17,9 +20,9 @@ public:
     float Elapsed = 0, Duration = 0;
     double Retry = 0;
     FERLocomotionState Posture;
-    bool PreviousSprint = false;
+    bool PreviousSprint = false, LadderNeedsRelease = false;
     double SprintRequest = 0;
-    virtual void Clear() override { Super::Clear(); Walk = Climb = High = Sprint = Prone = false; Elapsed = Duration = 0; Retry = 0; Start = End = FVector::ZeroVector; Posture = FERLocomotionState(); PreviousSprint = false; SprintRequest = 0; }
+    virtual void Clear() override { Super::Clear(); Walk = Climb = High = Sprint = Prone = false; Elapsed = Duration = 0; Retry = 0; Start = End = FVector::ZeroVector; Posture = FERLocomotionState(); PreviousSprint = LadderNeedsRelease = false; SprintRequest = 0; }
     virtual uint8 GetCompressedFlags() const override
     {
         return Super::GetCompressedFlags() | (Walk ? FLAG_Custom_0 : 0) | (Climb ? FLAG_Custom_1 : 0) | (Sprint ? FLAG_Custom_2 : 0) | (Prone ? FLAG_Custom_3 : 0);
@@ -33,15 +36,17 @@ public:
     {
         Super::SetMoveFor(Character, Delta, Accel, Data);
         const auto* Move = Cast<UERMovement>(Character->GetCharacterMovement());
+        LadderNeedsRelease=Move->bLadderNeedsRelease;
         Posture = Move->Locomotion; PreviousSprint = Move->bPreviousSprintHeld; SprintRequest = Move->SprintRequestUntil;
         Walk = Move->bWalkHeld; Climb = Move->bClimbHeld; Sprint = Move->bSprintHeld; Prone = Move->bProneWanted;
-        bForceNoCombine |= Move->IsChangingPosture() || Sprint || Move->GetRecoveryRemaining() > 0;
+        bForceNoCombine |= Move->IsTraversing() || Move->IsChangingPosture() || Sprint || Move->GetRecoveryRemaining() > 0;
         Start=Move->TraversalStart; End=Move->TraversalEnd; Elapsed=Move->TraversalElapsed; Duration=Move->TraversalDuration; Retry=Move->RetryAfter; High=Move->bHighClimb;
     }
     virtual void PrepMoveFor(ACharacter* Character) override
     {
         Super::PrepMoveFor(Character);
         auto* Move = Cast<UERMovement>(Character->GetCharacterMovement());
+        Move->bLadderNeedsRelease=LadderNeedsRelease;
         Move->Locomotion = Posture; Move->bPreviousSprintHeld = PreviousSprint; Move->SprintRequestUntil = SprintRequest;
         Character->GetCapsuleComponent()->SetCapsuleHalfHeight(Posture.HalfHeight, true);
         Move->ApplyPosturePresentation();
@@ -69,7 +74,8 @@ UERMovement::UERMovement()
 }
 float UERMovement::GetMaxSpeed() const
 {
-    if (IsTraversing()) return 0;
+    if (IsOnLadder()) return LadderSpeed();
+    if (IsMantling()) return 0;
     if (IsChangingPosture()) return 45.f;
     if (IsProne()) return 55.f;
     if (Locomotion.HalfHeight < 92.f) return MaxWalkSpeedCrouched;
@@ -137,8 +143,17 @@ bool UERMovement::FindLedge(FVector& Destination, float& Height) const
 }
 void UERMovement::UpdateCharacterStateBeforeMovement(float DeltaSeconds)
 {
+    if(Acceleration.IsNearlyZero())bLadderNeedsRelease=false;
     UpdatePosture(DeltaSeconds);
     UpdateSprint();
+    if(!IsTraversing() && (IsMovingOnGround() || IsFalling()) && GetWorld()->GetTimeSeconds()>=RetryAfter && CanClimbLadder())
+        if(auto* Ladder=FindLadder(true))
+        {
+            const FVector Local=Ladder->GetActorTransform().InverseTransformPosition(UpdatedComponent->GetComponentLocation());
+            FHitResult Hit;
+            SafeMoveUpdatedComponent(Ladder->ClimbPosition(Local.Z-CharacterOwner->GetCapsuleComponent()->GetScaledCapsuleHalfHeight(),CharacterOwner->GetCapsuleComponent()->GetScaledCapsuleHalfHeight())-UpdatedComponent->GetComponentLocation(),UpdatedComponent->GetComponentQuat(),true,Hit);
+            if(!Hit.IsValidBlockingHit()){Velocity=FVector::ZeroVector;SetMovementMode(MOVE_Custom,2);}
+        }
     if (IsTraversing() || (!IsMovingOnGround() && !IsFalling()) || Acceleration.IsNearlyZero() || GetWorld()->GetTimeSeconds() < RetryAfter) return;
     if (FVector::DotProduct(Acceleration.GetSafeNormal2D(), CharacterOwner->GetActorForwardVector()) < .5f) return;
     FVector Destination; float Height;
@@ -151,7 +166,8 @@ void UERMovement::UpdateCharacterStateBeforeMovement(float DeltaSeconds)
 }
 void UERMovement::PhysCustom(float DeltaTime, int32 Iterations)
 {
-    if (!IsTraversing()) { Super::PhysCustom(DeltaTime, Iterations); return; }
+    if(IsOnLadder()){PhysLadder(DeltaTime,Iterations);return;}
+    if (!IsMantling()) { Super::PhysCustom(DeltaTime, Iterations); return; }
     // Simulated proxies use the server's replicated position and smoothing.
     if (CharacterOwner->GetLocalRole() == ROLE_SimulatedProxy) return;
     if (TraversalDuration <= SMALL_NUMBER)
@@ -293,6 +309,12 @@ void UERMovement::SimulateMovement(float DeltaSeconds)
 }
 bool UERMovement::DoJump(bool bReplayingMoves, float DeltaTime)
 {
+    if(IsOnLadder())
+    {
+        const auto* Ladder=FindLadder();
+        const FVector Out=Ladder ? Ladder->GetActorForwardVector():-CharacterOwner->GetActorForwardVector();
+        bLadderNeedsRelease=true;SetMovementMode(MOVE_Falling);Velocity=Out*180+FVector(0,0,180);RetryAfter=GetWorld()->GetTimeSeconds()+.6;return true;
+    }
     return Locomotion.HalfHeight >= 92.f && !bProneWanted && !IsChangingPosture() && Super::DoJump(bReplayingMoves, DeltaTime);
 }
 void UERMovement::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -313,4 +335,85 @@ bool UERMovement::ClientUpdatePositionAfterServerUpdate()
     bPreviousSprintHeld = PreviousSprint; SprintRequestUntil = Request;
     Locomotion.SprintUntil = SprintUntil; Locomotion.RecoverUntil = RecoverUntil;
     return Updated;
+}
+
+void UERMovement::OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode)
+{
+    Super::OnMovementModeChanged(PreviousMovementMode,PreviousCustomMode);
+    if(auto* C=Cast<AERCharacter>(CharacterOwner); C && C->HasAuthority() && C->IsWeaponStowed())
+        C->Weapon->Cancel();
+}
+bool UERMovement::CanClimbLadder() const
+{
+    const auto* C=Cast<AERCharacter>(CharacterOwner);
+    return C && !C->Health->bDead && Locomotion.HalfHeight>=92 && !bProneWanted && !bWantsToCrouch &&
+        !IsChangingPosture();
+}
+float UERMovement::LadderSpeed() const
+{
+    const auto* C=Cast<AERCharacter>(CharacterOwner);
+    return C && C->CanHoldWeaponOnLadder() ? 144.f:180.f;
+}
+AERLadder* UERMovement::FindLadder(bool Entry) const
+{
+    if(!CharacterOwner || !UpdatedComponent || (Entry && bLadderNeedsRelease))return nullptr;
+    const float Half=CharacterOwner->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+    AERLadder* Best=nullptr;float Distance=MAX_flt;
+    for(TActorIterator<AERLadder> It(GetWorld());It;++It)
+    {
+        if(It->IsActorBeingDestroyed())continue;
+        const FVector P=It->GetActorTransform().InverseTransformPosition(UpdatedComponent->GetComponentLocation());
+        const float Feet=P.Z-Half;
+        const bool FromRoof=Entry && FMath::Abs(Feet-It->DeckHeight)<15 && P.X>=-130 && P.X<30;
+        if(FMath::Abs(P.Y)>60 || (P.X<30 && !FromRoof) || P.X>115 || Feet< -35 || Feet>It->Height+8)continue;
+        const FVector Toward=FromRoof ? It->GetActorForwardVector():-It->GetActorForwardVector();
+        if(Entry && (Acceleration.IsNearlyZero() || FVector::DotProduct(Acceleration.GetSafeNormal2D(),Toward)<.5f))continue;
+        if(!It->HasRung(Feet))continue;
+        const float D=FMath::Square(P.X-55)+FMath::Square(P.Y);
+        if(D<Distance){Distance=D;Best=*It;}
+    }
+    return Best;
+}
+void UERMovement::PhysLadder(float DeltaTime,int32 Iterations)
+{
+    if(CharacterOwner->GetLocalRole()==ROLE_SimulatedProxy)return;
+    auto* Ladder=FindLadder();
+    if(!Ladder || !CanClimbLadder())
+    {bLadderNeedsRelease=true;SetMovementMode(MOVE_Falling);RetryAfter=GetWorld()->GetTimeSeconds()+.35;StartNewPhysics(DeltaTime,Iterations);return;}
+    const float Half=CharacterOwner->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+    const FVector Local=Ladder->GetActorTransform().InverseTransformPosition(UpdatedComponent->GetComponentLocation());
+    const float Input=FMath::Clamp(FVector::DotProduct(Acceleration,-Ladder->GetActorForwardVector())/GetMaxAcceleration(),-1.f,1.f);
+    const float Feet=Local.Z-Half,Next=Feet+Input*LadderSpeed()*DeltaTime;
+    FVector Target=Ladder->ClimbPosition(FMath::Clamp(Next,0.f,Ladder->Height),Half);
+    // The rails project above the parapet. Sweep across only after clearing it.
+    if(Next>=Ladder->Height && Input>0)
+    {
+        Target=Ladder->Landing(Half);Target.Z=UpdatedComponent->GetComponentLocation().Z;
+        TraversalStart=UpdatedComponent->GetComponentLocation();TraversalEnd=Target;
+        TraversalElapsed=0;TraversalDuration=.45f;bHighClimb=false;
+        Velocity=FVector::ZeroVector;SetMovementMode(MOVE_Custom,3);
+        return;
+    }
+    FHitResult Hit;const FVector Before=UpdatedComponent->GetComponentLocation();
+    SafeMoveUpdatedComponent(Target-Before,UpdatedComponent->GetComponentQuat(),true,Hit);
+    Velocity=(UpdatedComponent->GetComponentLocation()-Before)/FMath::Max(DeltaTime,SMALL_NUMBER);
+    if(Next<=0 && Input<0){bLadderNeedsRelease=true;SetMovementMode(MOVE_Falling);Velocity=FVector::ZeroVector;RetryAfter=GetWorld()->GetTimeSeconds()+.5;}
+}
+
+void UERMovement::PhysFalling(float DeltaTime,int32 Iterations)
+{
+    // UE integrates velocity for the whole substep before the impact sweep.
+    // Bound that velocity by energy at the actual impact position, so a long
+    // frame cannot turn a safe drop into damage or inflate a six-meter fall.
+    TGuardValue<bool> Measuring(bMeasuringFall,true);
+    TGuardValue<float> Height(FallFrameZ,UpdatedComponent->GetComponentLocation().Z);
+    TGuardValue<float> Speed(FallFrameVelocityZ,Velocity.Z);
+    Super::PhysFalling(DeltaTime,Iterations);
+}
+float UERMovement::LandingSpeed() const
+{
+    const float Down=FMath::Max(0.f,-Velocity.Z);
+    if(!bMeasuringFall || !UpdatedComponent)return Down;
+    const float Energy=FMath::Square(FallFrameVelocityZ)+2*FMath::Abs(GetGravityZ())*(FallFrameZ-UpdatedComponent->GetComponentLocation().Z);
+    return FMath::Min(Down,FMath::Sqrt(FMath::Max(0.f,Energy)));
 }

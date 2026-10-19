@@ -8,6 +8,33 @@ UENUM(BlueprintType)
 enum class EERTemplateSymmetry : uint8 { None, HalfTurn };
 
 UENUM(BlueprintType)
+enum class EERMapArchetype : uint8 { LegacyAssembly, CentralBuilding };
+
+UENUM(BlueprintType)
+enum class EERCrossingRule : uint8 { Seeded, OpenYard, ClimbableWall, FencedCrossings };
+
+// Gameplay rules and industrial art are independent from any particular seed.
+USTRUCT(BlueprintType)
+struct FERCentralBuildingRecipe
+{
+    GENERATED_BODY()
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) FVector2D ArenaMin=FVector2D(6400,8400);
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) FVector2D ArenaMax=FVector2D(8000,10000);
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) FVector2D BuildingWidth=FVector2D(1800,2400);
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) FVector2D BuildingDepth=FVector2D(2200,3000);
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="1",ClampMax="3")) int32 MinFloors=1;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="1",ClampMax="3")) int32 MaxFloors=3;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UStaticMesh> FenceMesh;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UStaticMesh> ContainerMesh;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UStaticMesh> TankMesh;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UStaticMesh> BarrelMesh;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> DeckSurface;
+    // Visual palette only: steel calibration and container reinforcement are unchanged.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> SteelSurface;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<TObjectPtr<class UMaterialInterface>> ContainerSurfaces;
+};
+
+UENUM(BlueprintType)
 enum class EERTemplateModule : uint8 { Room, LCover, UCover, StaggeredWalls, Cargo, Tanks, Crates };
 
 // Reference-plan coordinates are percentages, X east, Y south. Shared axis
@@ -96,12 +123,17 @@ struct FERMapTemplatePiece
     UPROPERTY(EditAnywhere, BlueprintReadWrite) bool Destructible=true;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) bool Mirrored=false;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) bool Anchored=false;
-    // Walkable decks/treads must be solid authored boxes, not fitted open art.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="1",ClampMax="16")) float Strength=1;
+    // Fixed boxes or horizontal destructible construction panels, never fitted art.
     UPROPERTY(EditAnywhere, BlueprintReadWrite) bool WalkableSurface=false;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) FRotator MeshRotation=FRotator::ZeroRotator;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) float RotationYaw=0;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) bool VisualOnly=false;
+    // Permanent movement barrier; visible metal has separate perforated collision.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) bool PawnBarrier=false;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> FixedSurface;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> CellSurface;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> MirroredCellSurface;
     // Fixed industrial art is fitted to Size; the authored box owns collision.
     // Destructible geometry always uses the project's block mesh/catalog.
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UStaticMesh> FixedMesh;
@@ -113,6 +145,12 @@ class FDM_API UERMapTemplate : public UDataAsset
     GENERATED_BODY()
 public:
     UFUNCTION(BlueprintCallable, Category="Template") bool ValidateLayout(int32 Seed=42) const;
+    // PCG/PCGEx authoring receives the same validated recipe as runtime collision.
+    UFUNCTION(BlueprintCallable, Category="Template|PCG") class UPCGDataAsset* CreatePCGPreview(int32 Seed=42) const;
+    UFUNCTION(BlueprintCallable, Category="Template|PCG") class UPCGDataAsset* SavePCGPreview(const FString& PackageName,int32 Seed=42) const;
+    UFUNCTION(BlueprintCallable, Category="Template|Maintenance") static bool DeleteArchivedProceduralLab();
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) EERMapArchetype Archetype=EERMapArchetype::LegacyAssembly;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) FERCentralBuildingRecipe CentralBuilding;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) FString TemplateId;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) FString SourceReference;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) int32 Revision=1;

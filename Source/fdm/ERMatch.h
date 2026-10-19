@@ -71,6 +71,7 @@ public:
     int32 GetNumTestBots() const { return TestBots.Num(); }
     static FString SanitizeName(const FString& Name);
 private:
+    friend class AERIndustrialMapProbe;
     EERTeam NextTieTeam = EERTeam::Alpha;
     int32 DesiredBots = 0;
     bool bStationaryBots = false;

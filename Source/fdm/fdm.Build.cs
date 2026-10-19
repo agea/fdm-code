@@ -9,9 +9,10 @@ public class fdm : ModuleRules
         RuntimeDependencies.Add("$(ProjectDir)/Build/GameVersion.txt", StagedFileType.NonUFS);
         PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
         PublicDependencyModuleNames.AddRange(new [] { "Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "UMG", "Slate", "SlateCore", "AIModule", "Niagara" });
-        PrivateDependencyModuleNames.Add("RenderCore");
+        PrivateDependencyModuleNames.AddRange(new [] { "RenderCore", "RHI" });
         PrivateDependencyModuleNames.Add("ApplicationCore");
         PrivateDependencyModuleNames.Add("PhysicsCore");
+        PrivateDependencyModuleNames.AddRange(new [] { "PCG", "PCGExCore" });
         PrivateDependencyModuleNames.AddRange(new [] { "GeometryCore", "GeometryFramework", "NetCore" });
         if (Target.bBuildEditor) PrivateDependencyModuleNames.AddRange(new [] { "MeshDescription", "StaticMeshDescription", "SkeletalMeshDescription", "AnimationCore", "AssetRegistry", "NiagaraEditor" });
     }

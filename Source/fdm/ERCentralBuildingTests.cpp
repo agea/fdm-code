@@ -1,0 +1,234 @@
+#include "ERProceduralMap.h"
+#include "ERMapCatalog.h"
+#include "Misc/AutomationTest.h"
+#include "Engine/World.h"
+#include "ERCharacter.h"
+#include "ERMovement.h"
+#include "ERLadder.h"
+#include "ERIndustrialFence.h"
+#include "ERIndustrialMapTestUtils.h"
+#include "Components/DynamicMeshComponent.h"
+#include "DynamicMesh/DynamicMesh3.h"
+#include "PCGDataAsset.h"
+#include "Materials/Material.h"
+#if WITH_DEV_AUTOMATION_TESTS
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FERCentralBuildingLayoutTest,"EclipseRecoil.Destruction.CentralBuildingLayout",EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
+bool FERCentralBuildingLayoutTest::RunTest(const FString& Parameters)
+{
+    auto* T=NewObject<UERMapTemplate>();T->TemplateId=TEXT("test.central");T->Archetype=EERMapArchetype::CentralBuilding;T->Symmetry=EERTemplateSymmetry::HalfTurn;T->ArenaSize=FVector(8000,10000,1600);
+    T->CentralBuilding.SteelSurface=NewObject<UMaterial>(T,TEXT("TestGraySteel"));
+    for(int32 I=0;I<4;++I)T->CentralBuilding.ContainerSurfaces.Add(NewObject<UMaterial>(T,*FString::Printf(TEXT("TestPaint%d"),I)));
+    FERProceduralConfig C;C.TemplateAsset=T;FERBlockRoomConfig B;FERProceduralLayout L,Again;
+    TSet<FString> Shapes,Compositions;TSet<int32> Rules,Floors,SecondaryFloors,Angles,Materials;bool Tower=false,Building=false,AsymmetricPaint=false;
+    auto Key=[](FVector Center,FVector Size,uint8 M){return FString::Printf(TEXT("%d:%d:%d/%d:%d:%d/%d"),FMath::RoundToInt(Center.X*1000),FMath::RoundToInt(Center.Y*1000),FMath::RoundToInt(Center.Z*1000),FMath::RoundToInt(Size.X*1000),FMath::RoundToInt(Size.Y*1000),FMath::RoundToInt(Size.Z*1000),M);};
+    TArray<int32> Seeds;for(int32 I=0;I<512;++I)Seeds.Add(I);Seeds.Append({7919,-17,INT32_MIN,INT32_MAX});
+    for(int32 Seed:Seeds)
+    {
+        C.Seed=Seed;
+        if(!ERProcedural::Build(C,B,L)){AddError(FString::Printf(TEXT("Central layout rejected seed=%d"),Seed));return false;}
+        Shapes.Add(L.ArenaSize.ToString()+L.CentralBuildingSize.ToString());Rules.Add(uint8(L.CrossingRule));Floors.Add(L.BuildingFloors);
+        FString Composition;for(auto K:L.ModuleKinds)Composition+=FString::FromInt(uint8(K));Compositions.Add(Composition);
+        TestEqual(TEXT("10 starts per team"),L.AlphaSpawns.Num(),10);TestEqual(TEXT("paired starts"),L.OmegaSpawns.Num(),10);
+        for(int32 I=0;I<10;++I){auto P=L.AlphaSpawns[I].GetLocation();P.X=-P.X;P.Y=-P.Y;TestTrue(TEXT("equal spawn geometry"),P.Equals(L.OmegaSpawns[I].GetLocation()));}
+        for(const auto& P:L.Panels)if(P.Material==EERBlockMaterial::Metal)
+            TestTrue(TEXT("steel and containers use separate visual surfaces"),P.Strength==8 ? T->CentralBuilding.ContainerSurfaces.Contains(P.Surface):P.Surface==T->CentralBuilding.SteelSurface);
+        TMap<FString,UMaterialInterface*> Painted;
+        for(const auto& P:L.Panels)if(P.Strength==8)
+        {
+            const auto Box=FBox(FVector::ZeroVector,P.Size).TransformBy(P.Transform);
+            Painted.Add(Key(Box.GetCenter(),Box.GetSize(),uint8(P.Material)),P.Surface);
+        }
+        for(const auto& P:L.Panels)if(P.Strength==8)
+        {
+            const auto Box=FBox(FVector::ZeroVector,P.Size).TransformBy(P.Transform);auto Center=Box.GetCenter();Center.X=-Center.X;Center.Y=-Center.Y;
+            if(auto* Other=Painted.Find(Key(Center,Box.GetSize(),uint8(P.Material))))AsymmetricPaint|=*Other!=P.Surface;
+        }
+        TSet<FString> Solids;
+        for(const auto& P:L.Panels){const auto Box=FBox(FVector::ZeroVector,P.Size).TransformBy(P.Transform);Solids.Add(Key(Box.GetCenter(),Box.GetSize(),uint8(P.Material)));}
+        for(const auto& P:L.Panels){const auto Box=FBox(FVector::ZeroVector,P.Size).TransformBy(P.Transform);auto V=Box.GetCenter();V.X=-V.X;V.Y=-V.Y;if(!Solids.Contains(Key(V,Box.GetSize(),uint8(P.Material)))){AddError(TEXT("unpaired cell geometry"));return false;}}
+        Solids.Reset();
+        for(const auto& P:L.FixedPieces)Solids.Add(Key(P.Transform.GetLocation(),P.Transform.GetScale3D(),uint8(P.Material)));
+        for(const auto& P:L.FixedPieces){auto V=P.Transform.GetLocation();V.X=-V.X;V.Y=-V.Y;if(!Solids.Contains(Key(V,P.Transform.GetScale3D(),uint8(P.Material)))){AddError(TEXT("unpaired fixed collision"));return false;}}
+        int32 Flights=L.BuildingFloors*2+L.WallAccessFlights.Num(),Ladders=2+L.SecondaryStructures.Num();
+        for(const auto& S:L.SecondaryStructures){if(S.LadderAccess)Ladders+=S.Floors;else Flights+=S.Floors;
+            TestTrue(TEXT("towers and compact buildings prefer ladders"),S.LadderAccess==(S.Tower || S.Size.X<800 || S.Size.Y<1150));SecondaryFloors.Add(S.Floors);Tower|=S.Tower;Building|=!S.Tower;Materials.Add(uint8(S.Material));}
+        for(float A:L.CoverAngles)Angles.Add(FMath::RoundToInt(FMath::Fmod(A+180,180)));
+        TestEqual(TEXT("main and large buildings retain stairs"),L.StairRoutes.Num(),Flights);
+        TestEqual(TEXT("every compact storey and paired exterior has a ladder"),L.Ladders.Num(),Ladders);
+        for(int32 I=0;I<L.Ladders.Num();I+=2)
+            TestTrue(TEXT("ladder access is half-turn symmetric"),(L.Ladders[I].Frame*FTransform(FRotator(0,180,0))).Equals(L.Ladders[I+1].Frame));
+        TestTrue(TEXT("paired destructible containers"),L.Containers.Num()>=2 && L.Containers.Num()%2==0);
+        if(L.CrossingRule==EERCrossingRule::FencedCrossings)TestEqual(TEXT("roof and two side crossings"),L.CrossingRoutes.Num(),3);
+    }
+    TestTrue(TEXT("cosmetic container rolls can differ across symmetric geometry"),AsymmetricPaint);
+    TestTrue(TEXT("hundreds of different building/arena dimensions"),Shapes.Num()>450);
+    TestTrue(TEXT("over a hundred distinct cover compositions"),Compositions.Num()>100);
+    TestEqual(TEXT("all crossing rules sampled"),Rules.Num(),3);TestEqual(TEXT("one to three floors sampled"),Floors.Num(),3);
+    TestEqual(TEXT("secondary buildings vary across three storeys"),SecondaryFloors.Num(),3);
+    TestTrue(TEXT("buildings and climbable towers sampled"),Tower && Building);
+    TestTrue(TEXT("secondary wall materials vary"),Materials.Num()>=2);
+    TestTrue(TEXT("oblique rectangular cover across multiple angles"),Angles.Num()>=5);
+    C.Seed=42;TestTrue(TEXT("first deterministic build"),ERProcedural::Build(C,B,L));TestTrue(TEXT("repeat"),ERProcedural::Build(C,B,Again));
+    TestEqual(TEXT("panel count stable"),L.Panels.Num(),Again.Panels.Num());
+    for(int32 I=0;I<L.Panels.Num();++I)TestTrue(TEXT("panel identity and transform stable"),L.Panels[I].Id==Again.Panels[I].Id && L.Panels[I].Transform.Equals(Again.Panels[I].Transform) && L.Panels[I].Size==Again.Panels[I].Size && L.Panels[I].Surface==Again.Panels[I].Surface);
+    for(int32 I=0;I<L.FixedPieces.Num();++I)TestTrue(TEXT("fixed collision stable"),L.FixedPieces[I].Transform.Equals(Again.FixedPieces[I].Transform));
+    const int32 Count=L.Panels.Num();T->CentralBuilding.MaxFloors=4;
+    TestFalse(TEXT("invalid recipe rejected"),ERProcedural::Build(C,B,L));TestEqual(TEXT("rejection is atomic"),L.Panels.Num(),Count);
+    T->CentralBuilding.MaxFloors=3;C.CrossingOverride=4;TestFalse(TEXT("invalid descriptor rule rejected"),ERProcedural::Build(C,B,L));
+    TestEqual(TEXT("only production archetype in rotation"),ERMaps::Rotation().Num(),1);
+    TestTrue(TEXT("depot excluded from rotation"),!ERMaps::At(1).InRotation);
+    auto* Preview=T->CreatePCGPreview(42);TestNotNull(TEXT("PCGEx authoring data"),Preview);
+    if(Preview)TestTrue(TEXT("spawns, crossings and fixed volumes exported"),Preview->Data.TaggedData.Num()>=4);
+    AddInfo(FString::Printf(TEXT("ER_CENTRAL_LAYOUT seeds=%d shapes=%d cover_compositions=%d"),Seeds.Num(),Shapes.Num(),Compositions.Num()));
+    return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FERCentralBuildingCollisionTest,"EclipseRecoil.Destruction.CentralBuildingCollision",EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
+bool FERCentralBuildingCollisionTest::RunTest(const FString& Parameters)
+{
+    auto* T=NewObject<UERMapTemplate>();T->TemplateId=TEXT("test.central.physics");T->Archetype=EERMapArchetype::CentralBuilding;T->Symmetry=EERTemplateSymmetry::HalfTurn;T->ArenaSize=FVector(8000,10000,1600);
+    UWorld::InitializationValues V;V.AllowAudioPlayback(false).CreateNavigation(false).CreateAISystem(false).CreateFXSystem(false).EnableTraceCollision(true);
+    auto* World=UWorld::CreateWorld(EWorldType::Game,false,NAME_None,nullptr,true,ERHIFeatureLevel::Num,&V);if(!World)return false;
+    auto* Map=World->SpawnActor<AERProceduralMap>();Map->LayoutConfig.TemplateAsset=T;Map->bCeilings=false;
+    auto* Pawn=World->SpawnActor<AERCharacter>(FVector(-20000,0,100),FRotator::ZeroRotator);
+    FCollisionQueryParams Q(SCENE_QUERY_STAT(ERCentralTest),false);Q.AddIgnoredActor(Pawn);FHitResult Hit;
+    const auto Capsule=FCollisionShape::MakeCapsule(34,92.5);
+    for(int32 Rule=1;Rule<=3;++Rule)for(int32 Floors=1;Floors<=3;++Floors)
+    {
+        T->CentralBuilding.MinFloors=T->CentralBuilding.MaxFloors=Floors;Map->LayoutConfig.CrossingOverride=Rule;
+        if(!TestTrue(TEXT("physical generation"),Map->Regenerate()))continue;
+        const auto& L=Map->GetLayout();TestTrue(TEXT("valid cell chunks"),Map->ValidateCells());
+        int32 ExpectedLadders=2+L.SecondaryStructures.Num();
+        for(const auto& S:L.SecondaryStructures)if(S.LadderAccess)ExpectedLadders+=S.Floors;
+        TestEqual(TEXT("paired interior and exterior ladders"),L.Ladders.Num(),ExpectedLadders);
+        for(const auto& Desc:L.Ladders)
+        {
+            auto* Ladder=World->SpawnActor<AERLadder>(AERLadder::StaticClass(),Desc.Frame);
+            Ladder->Height=Desc.Height;Ladder->DeckHeight=Desc.DeckHeight;
+            for(float Z=0;Z<=Desc.Height;Z+=25)
+            {
+                TestTrue(TEXT("real destructible rungs cover climb"),Ladder->HasRung(Z));
+                TestFalse(TEXT("standing capsule clears exterior ladder"),World->OverlapBlockingTestByChannel(Ladder->ClimbPosition(Z+2.5f,92.5f),FQuat::Identity,ECC_Pawn,Capsule,Q));
+            }
+            const FVector Exit=Ladder->Landing(92.5f);
+            TestFalse(TEXT("ladder landing clears standing capsule"),World->OverlapBlockingTestByChannel(Exit,FQuat::Identity,ECC_Pawn,Capsule,Q));
+            TestTrue(TEXT("ladder landing has a real floor"),World->LineTraceSingleByChannel(Hit,Exit,Exit-FVector(0,0,120),ECC_WorldStatic,Q));
+            Ladder->Destroy();
+        }
+        TInlineComponentArray<UDynamicMeshComponent*> Metal(Map);int32 WireParts=0;
+        for(auto* Part:Metal)if(Part->GetName().StartsWith(TEXT("IndustrialFenceMetal_")))
+        {++WireParts;Part->ProcessMesh([&](const UE::Geometry::FDynamicMesh3& Mesh){TestTrue(TEXT("wire collision parts stay below cook limit"),Mesh.TriangleCount()>0 && Mesh.TriangleCount()<60000);});}
+        TestTrue(TEXT("wire cooked as bounded parts"),WireParts>1);
+        for(const auto* Starts:{&L.AlphaSpawns,&L.OmegaSpawns})for(const auto& S:*Starts)
+        {TestFalse(TEXT("spawn capsule clear"),World->OverlapBlockingTestByChannel(S.GetLocation(),FQuat::Identity,ECC_Pawn,Capsule,Q));TestTrue(TEXT("spawn supported"),World->LineTraceSingleByChannel(Hit,S.GetLocation(),S.GetLocation()-FVector(0,0,120),ECC_WorldStatic,Q));}
+        for(const auto& Route:L.CrossingRoutes)for(int32 I=1;I<Route.Num();++I)
+            TestFalse(TEXT("crossing has standing clearance"),World->SweepSingleByChannel(Hit,Route[I-1],Route[I],FQuat::Identity,ECC_Pawn,Capsule,Q));
+        for(const auto& Route:L.StairRoutes)for(int32 I=1;I<Route.Num();++I)
+        {
+            const FVector P=Route[I];TestFalse(FString::Printf(TEXT("standing headroom rule=%d floors=%d p=%s"),Rule,Floors,*P.ToString()),World->OverlapBlockingTestByChannel(P,FQuat::Identity,ECC_Pawn,Capsule,Q));
+            TestTrue(TEXT("every stair tread has solid support"),World->LineTraceSingleByChannel(Hit,P,P-FVector(0,0,145),ECC_WorldStatic,Q));
+        }
+        const float X=-L.CentralBuildingSize.X*.5-400;
+        const bool Blocked=World->SweepSingleByChannel(Hit,{X,-200,100},{X,200,100},FQuat::Identity,ECC_Pawn,Capsule,Q);
+        TestEqual(TEXT("outside crossing obeys rule"),Blocked,Rule!=1);
+        if(Rule==2)
+        {
+            auto* Move=Cast<UERMovement>(Pawn->GetCharacterMovement());Pawn->SetActorLocation({X-250,-55,100});Pawn->SetActorRotation(FRotator(0,90,0));
+            // Use the movement component's real 150cm ledge query.
+            Move->SetMovementMode(MOVE_Walking);Move->bClimbHeld=true;
+            FVector Landing;float Height=0;TestFalse(TEXT("3m wall cannot be climbed directly from ground"),Move->FindLedge(Landing,Height));
+            TestEqual(TEXT("wall has four ground access points"),L.ClimbPoints.Num(),4);
+            for(float Wing:{X,-X})
+            {
+                TestTrue(TEXT("wall reaches 3m"),World->LineTraceSingleByChannel(Hit,{Wing-250,-60,299},{Wing-250,60,299},ECC_Pawn,Q));
+                TestFalse(TEXT("above wall is clear"),World->LineTraceSingleByChannel(Hit,{Wing-250,-60,301},{Wing-250,60,301},ECC_Pawn,Q));
+            }
+        }
+        if(Rule==3)
+        {
+            TestTrue(TEXT("central ground route sealed"),World->LineTraceSingleByChannel(Hit,{0,-100,100},{0,100,100},ECC_Pawn,Q));
+            FERCellId Id;TestFalse(TEXT("fixed separator is not a destructible chunk"),Map->ResolveCell(Hit,Id));
+        }
+        // Every rule uses the same physical wire on its perimeter. Trace an
+        // isolated panel from both sides, including an actual diamond aperture.
+        const auto* Fence=L.FixedPieces.FindByPredicate([&](const auto& P){return P.PawnBarrier && P.Transform.GetLocation().Y<-L.ArenaSize.Y*.5+10 && P.Transform.GetLocation().Z<101;});
+        if(TestNotNull(TEXT("perimeter wire panel"),Fence))
+        {
+            const FVector Center=Fence->Transform.GetLocation();const float W=Fence->Transform.GetScale3D().X*100;
+            auto Shot=[&](FVector P,bool Reverse=false,ECollisionChannel Channel=ECC_GameTraceChannel1)
+            {return World->LineTraceSingleByChannel(Hit,P+FVector(0,Reverse ? 60:-60,0),P+FVector(0,Reverse ? -60:60,0),Channel,Q);};
+            TestTrue(TEXT("bullet strikes metal post"),Shot(Center+FVector(-W*.5+2,0,0)));
+            TestTrue(TEXT("bullet strikes wire"),Shot(Center));
+            TestTrue(TEXT("bullet strikes ascending wire"),Shot(Center+FVector(4,0,4)));
+            TestTrue(TEXT("bullet strikes descending wire"),Shot(Center+FVector(4,0,-4)));
+            FERCellId Id;TestFalse(TEXT("wire is indestructible"),Map->ResolveCell(Hit,Id));
+            TestTrue(TEXT("wire blocks shots from reverse side"),Shot(Center,true));
+            TestFalse(TEXT("bullet passes diamond aperture"),Shot(Center+FVector(0,0,ERIndustrialFence::PitchCm*.5)));
+            TestFalse(TEXT("aperture works from reverse side"),Shot(Center+FVector(0,0,ERIndustrialFence::PitchCm*.5),true));
+            TestTrue(TEXT("metal also occludes visibility/blast queries"),Shot(Center,false,ECC_Visibility));
+            TestFalse(TEXT("apertures transmit visibility/blast queries"),Shot(Center+FVector(0,0,ERIndustrialFence::PitchCm*.5),false,ECC_Visibility));
+            TestTrue(TEXT("blast object query hits physical metal"),World->LineTraceSingleByObjectType(Hit,Center-FVector(0,60,0),Center+FVector(0,60,0),FCollisionObjectQueryParams(ECC_WorldStatic),Q));
+            TestFalse(TEXT("blast object query passes diamond aperture"),World->LineTraceSingleByObjectType(Hit,Center+FVector(0,-60,8),Center+FVector(0,60,8),FCollisionObjectQueryParams(ECC_WorldStatic),Q));
+            int32 BlockedShots=0;
+            for(int32 I=0;I<256;++I)BlockedShots+=Shot(Center+FVector(-15.5+(I%16)*2,0,-15.5+(I/16)*2));
+            TestTrue(TEXT("wire field is partially permeable"),BlockedShots>0 && BlockedShots<128);
+        }
+        const auto& Container=L.Containers[0];
+        TestTrue(TEXT("container stops bullets"),World->LineTraceSingleByChannel(Hit,Container.Frame.TransformPosition({0,-Container.Size.Y*.5-50,0}),Container.Frame.TransformPosition({0,Container.Size.Y*.5+50,0}),ECC_GameTraceChannel1,Q));
+        FERCellId ContainerCell;TestTrue(TEXT("container collision resolves destructible steel"),Map->ResolveCell(Hit,ContainerCell));
+        if(Map->ResolveCell(Hit,ContainerCell))TestEqual(TEXT("steel is reinforced separately from shared profiles"),Map->GetCellWorld().GetPanels()[ContainerCell.Panel].Strength,8.f);
+    }
+    World->DestroyWorld(false);return true;
+}
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FERCentralBuildingEvolutionTest,"EclipseRecoil.Destruction.CentralBuildingEvolution",EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
+bool FERCentralBuildingEvolutionTest::RunTest(const FString& Parameters)
+{
+    auto* T=NewObject<UERMapTemplate>();T->TemplateId=TEXT("test.central.evolution");T->Archetype=EERMapArchetype::CentralBuilding;T->Symmetry=EERTemplateSymmetry::HalfTurn;T->ArenaSize={8000,10000,1600};
+    UWorld::InitializationValues V;V.AllowAudioPlayback(false).CreateNavigation(false).CreateAISystem(false).CreateFXSystem(false).EnableTraceCollision(true);
+    auto* World=UWorld::CreateWorld(EWorldType::Game,false,NAME_None,nullptr,true,ERHIFeatureLevel::Num,&V);if(!World)return false;
+    auto* Map=World->SpawnActor<AERProceduralMap>();Map->LayoutConfig.TemplateAsset=T;Map->LayoutConfig.CrossingOverride=2;Map->bCeilings=false;Map->Collapse.DebrisPerStep=0;
+    TestTrue(TEXT("evolution map generated"),Map->Regenerate());
+    for(int32 Seed:{42,10,16,7919})
+    {
+        Map->LayoutConfig.Seed=Seed;if(!Map->Regenerate()){AddError(TEXT("evolution generation failed"));continue;}
+        Map->RequestSupportCheck();ERIndustrialTest::Settle(*Map);
+        TestEqual(TEXT("intact secondary structures and access need no artificial anchors"),Map->GetCellWorld().GetDetachedCount(),int64(0));
+    }
+    const auto& L=Map->GetLayout();FCollisionQueryParams Q(SCENE_QUERY_STAT(ERIndustrialEvolution),false);FHitResult Hit;FERCellId Id;
+    if(L.Containers.IsEmpty() || L.WallBridges.Num()!=2){World->DestroyWorld(false);return false;}
+    if(!L.Ladders.IsEmpty())
+    {
+        const auto Desc=L.Ladders[0];
+        auto* Ladder=World->SpawnActor<AERLadder>(AERLadder::StaticClass(),Desc.Frame);
+        Ladder->Height=Desc.Height;Ladder->DeckHeight=Desc.DeckHeight;
+        TestTrue(TEXT("intact ladder has real rung"),Ladder->HasRung(90));
+        ERIndustrialTest::Cut(*Map,Desc.Frame,FBox(FVector(-5,-38,149),FVector(5,38,151)),EERBlockMaterial::Metal);
+        TestFalse(TEXT("destroyed steel rung interrupts climbing"),Ladder->HasRung(90));
+        Ladder->Destroy();
+    }
+    const auto Container=L.Containers[0];
+    const FVector A=Container.Frame.TransformPosition({0,-Container.Size.Y*.5-50,0}),B=Container.Frame.TransformPosition({0,Container.Size.Y*.5+50,0});
+    TestTrue(TEXT("reinforced container initially blocks a standing crossing"),ERIndustrialTest::ContainerBlocked(*World,Container,Q));
+    if(World->LineTraceSingleByChannel(Hit,A,B,ECC_GameTraceChannel1,Q) && Map->ResolveCell(Hit,Id))
+    {
+        const float Before=Map->GetCellWorld().GetHealth(Id);float Energy=100;
+        const auto Shot=Map->ShootCells(Hit,A,(B-A).GetSafeNormal(),500,36,FERBlockShotSettings(),Energy,8);
+        TestTrue(TEXT("reinforced steel stops rifle penetration"),Shot.bStop);
+        TestTrue(TEXT("rifle damages steel without erasing it"),Map->GetCellWorld().IsAlive(Id) && Map->GetCellWorld().GetHealth(Id)<Before);
+        TestTrue(TEXT("container is substantially tougher than the sheet default"),Before>=800);
+    }
+    else AddError(TEXT("container shot missed destructible steel"));
+    ERIndustrialTest::BreachContainer(*Map,Container);ERIndustrialTest::Settle(*Map);
+    TestFalse(TEXT("container damage creates a real capsule-sized passage"),ERIndustrialTest::ContainerBlocked(*World,Container,Q));
+    TestTrue(TEXT("bridge initially carries the player"),ERIndustrialTest::BridgeSupported(*World,L.WallBridges[0],Q));
+    const auto Detached=Map->GetCellWorld().GetDetachedCount();ERIndustrialTest::CutBridgeSupports(*Map,L.WallBridges[0]);ERIndustrialTest::Settle(*Map);
+    TestTrue(TEXT("removing timber supports triggers actual detachment"),Map->GetCellWorld().GetDetachedCount()>Detached);
+    TestFalse(TEXT("destroyed access loses its walkable bridge"),ERIndustrialTest::BridgeSupported(*World,L.WallBridges[0],Q));
+    TestTrue(TEXT("opposite bridge remains available"),ERIndustrialTest::BridgeSupported(*World,L.WallBridges[1],Q));
+    TestTrue(TEXT("brick separator initially blocks ground"),ERIndustrialTest::WallBlocked(*World,ERIndustrialTest::BreachPoint(L),Q));
+    ERIndustrialTest::BreachWall(*Map);ERIndustrialTest::Settle(*Map);
+    TestFalse(TEXT("brick damage opens a new ground route"),ERIndustrialTest::WallBlocked(*World,ERIndustrialTest::BreachPoint(L),Q));
+    TestTrue(TEXT("cell state remains valid after route changes"),Map->ValidateCells());
+    World->DestroyWorld(false);return true;
+}
+#endif

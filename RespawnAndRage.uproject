@@ -4,6 +4,8 @@
   "Category": "",
   "Description": "Respawn & Rage — Serious guns. Questionable players",
   "Plugins": [
+    { "Name": "PCG", "Enabled": true },
+    { "Name": "PCGExtendedToolkit", "Enabled": true },
     {
       "Name": "NiagaraFluids",
       "Enabled": true

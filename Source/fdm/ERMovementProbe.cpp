@@ -1,6 +1,8 @@
 #include "ERMovementProbe.h"
 #include "ERCharacter.h"
 #include "ERMovement.h"
+#include "ERWeapon.h"
+#include "Components/InstancedStaticMeshComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/BoxComponent.h"
 #include "Camera/CameraComponent.h"
@@ -10,7 +12,25 @@
 #include "EngineUtils.h"
 #include "InputKeyEventArgs.h"
 #include "GameFramework/PlayerController.h"
-AERMovementProbe::AERMovementProbe() { bReplicates = true; bAlwaysRelevant = true; PrimaryActorTick.bCanEverTick = true; }
+AERMovementProbe::AERMovementProbe()
+{
+    bReplicates=true;bAlwaysRelevant=true;PrimaryActorTick.bCanEverTick=true;
+    Fixture=CreateDefaultSubobject<UInstancedStaticMeshComponent>(TEXT("MovementFixture"));RootComponent=Fixture;
+    static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Engine/BasicShapes/Cube.Cube"));
+    Fixture->SetStaticMesh(Cube.Object);Fixture->SetCollisionProfileName(TEXT("BlockAll"));Fixture->SetMobility(EComponentMobility::Movable);
+}
+void AERMovementProbe::BeginPlay()
+{
+    Super::BeginPlay();
+    // Temporary collision fixture replaces the retired laboratory asset.
+    for(TActorIterator<AActor> It(GetWorld());It;++It)if(*It!=this && !Cast<APawn>(*It) && !Cast<AERWeapon>(*It))It->SetActorEnableCollision(false);
+    auto Box=[&](FVector P,FVector Size){Fixture->AddInstance(FTransform(FQuat::Identity,P,Size/100));};
+    Box({500,0,-25},{3400,4600,50});
+    for(int32 I=0;I<20;++I){const float H=(I+1)*10;Box({float(I/5)*650,float(I%5-2)*650,H*.5f},{200,200,H});}
+    Box({-1200,0,125},{50,4600,250});Box({2200,0,125},{50,4600,250});
+    Box({500,-2300,125},{3400,50,250});Box({500,2300,125},{3400,50,250});
+    Box({-100000,0,90},{500,500,20}); // index25: shared, initially parked ceiling
+}
 void AERMovementProbe::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const { Super::GetLifetimeReplicatedProps(OutLifetimeProps); DOREPLIFETIME(AERMovementProbe,Phase); }
 void AERMovementProbe::Check(bool Value,const FString& Label)
 {
@@ -30,11 +50,11 @@ void AERMovementProbe::Tick(float DeltaTime)
             auto* M = Cast<UERMovement>(C->GetCharacterMovement());
             M->bWalkHeld = Phase == 26;
             M->bClimbHeld = Phase >= 28;
-            if (LocalPhase != Phase) { LocalPhase=Phase; Elapsed=0; C->StopJumping(); }
+            if (LocalPhase != Phase) { LocalPhase=Phase; Elapsed=0; C->StopJumping(); if(C->Controller)C->Controller->SetControlRotation(FRotator::ZeroRotator); }
             const float Previous = Elapsed; Elapsed += DeltaTime;
-            if (Phase == 29 && Previous < .25f && Elapsed >= .25f) C->Jump();
+            if (Phase == 29 && Previous < .6f && Elapsed >= .6f) C->Jump();
             const float TargetX = Phase == 27 ? 650.f : (Phase == 28 ? 1300.f : 1950.f);
-            if (Phase < 27 || (Elapsed > .25f && C->GetActorLocation().X < TargetX-30)) C->AddMovementInput(FVector(1,0,0));
+            if (Phase < 27 || (Elapsed > (Phase==29 ? .6f:.25f) && C->GetActorLocation().X < TargetX-30)) C->AddMovementInput(FVector(1,0,0));
         }
         if (C && Phase >= 33 && Phase <= 39)
         {
@@ -42,12 +62,33 @@ void AERMovementProbe::Tick(float DeltaTime)
             if (LocalPhase != Phase)
             {
                 LocalPhase = Phase; Elapsed = 0; Peak = 0;
+                if(C->Controller)C->Controller->SetControlRotation(FRotator::ZeroRotator);
                 M->bWalkHeld = false; M->bClimbHeld = false;
-                M->bSprintHeld = Phase == 33 || Phase == 34 || Phase == 36;
-                M->bProneWanted = Phase == 37;
-                C->UnCrouch();
+                C->StopJumping();
+                if(Phase==39)
+                {
+                    const FVector P=C->GetActorLocation();
+                    Fixture->UpdateInstanceTransform(25,FTransform(FQuat::Identity,FVector(-100000,0,90),FVector(5,5,.2)),false,true,true);
+                }
+                // These phases isolate continuous posture intent and physical
+                // clearance. Phases40..43 separately drive real C/Ctrl bindings.
+                if(Phase>=37){M->bProneWanted=Phase==37;C->UnCrouch();}
             }
-            Elapsed += DeltaTime;
+            const float Previous=Elapsed;Elapsed+=DeltaTime;
+            if(Phase==37 && Previous<1.5f && Elapsed>=1.5f)
+            {
+                const FVector P=C->GetActorLocation();
+                Fixture->UpdateInstanceTransform(25,FTransform(FQuat::Identity,FVector(P.X,P.Y,90),FVector(5,5,.2)),false,true,true);
+            }
+            auto Send=[&](float At,FKey Key,EInputEvent Event)
+            {
+                if(Previous>=At || Elapsed<At)return;
+                FInputKeyEventArgs Args;Args.Key=Key;Args.Event=Event;Args.AmountDepressed=Event==IE_Released?0.f:1.f;
+                Args.EventTimestamp=FPlatformTime::Cycles64();Cast<APlayerController>(C->Controller)->InputKey(Args);
+            };
+            if(Phase==33 || Phase==36)
+            {Send(.05f,EKeys::W,IE_Pressed);Send(.12f,EKeys::W,IE_Released);Send(.22f,EKeys::W,IE_Pressed);}
+            if(Phase==35 || Phase==37)Send(.05f,EKeys::W,IE_Released);
             if (Phase == 37 && Elapsed > 1.6f && Peak == 0)
             {
                 const bool OwnerReady = FMath::IsNearlyEqual(C->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight(),34.f,.1f) && M->IsProne();
@@ -58,7 +99,7 @@ void AERMovementProbe::Tick(float DeltaTime)
                 UE_LOG(LogTemp,Display,TEXT("ER_MOVEMENT_CLIENT_%s owner_and_simulated_proxy_prone"),OwnerReady && ProxyReady ? TEXT("PASS") : TEXT("FAIL"));
                 Peak = 1;
             }
-            if (Phase >= 33 && Phase <= 36 && (Phase != 34 || Elapsed < 1.f || Elapsed > 9.f)) C->AddMovementInput(FVector(1,0,0));
+
         }
         if (C && Phase >= 40 && Phase <= 43)
         {
@@ -86,8 +127,15 @@ void AERMovementProbe::Tick(float DeltaTime)
     {
         for (FConstPlayerControllerIterator It=GetWorld()->GetPlayerControllerIterator(); It; ++It)
         {
-            if (It->Get()->IsLocalController()) Host = Cast<AERCharacter>(It->Get()->GetPawn());
-            else Client = Cast<AERCharacter>(It->Get()->GetPawn());
+            auto* Candidate=Cast<AERCharacter>(It->Get()->GetPawn());
+            if(!Candidate)continue;
+            auto Park=[&](float Y)
+            {
+                Candidate->TeleportTo(FVector(-700,Y,95),FRotator::ZeroRotator,false,true);
+                Candidate->GetCharacterMovement()->StopMovementImmediately();Candidate->GetCharacterMovement()->SetMovementMode(MOVE_Walking);
+            };
+            if(It->Get()->IsLocalController()){if(!Host)Park(-1900);Host=Candidate;}
+            else {if(!Client)Park(1900);Client=Candidate;}
         }
         if (!Host || !Client) return;
         if (FParse::Param(FCommandLine::Get(),TEXT("ERPostureProbe")))
@@ -97,6 +145,11 @@ void AERMovementProbe::Tick(float DeltaTime)
         }
     }
     auto* Move = Cast<UERMovement>(Host->GetCharacterMovement());
+    if(Phase==33 && FParse::Param(FCommandLine::Get(),TEXT("ERMovementBaseProbe")))
+    {
+        UE_LOG(LogTemp,Display,TEXT("ER_MOVEMENT_COMPLETE %s"),Failed?TEXT("FAIL"):TEXT("PASS"));
+        FPlatformMisc::RequestExit(false);return;
+    }
     if (Phase == 0)
     {
         Check(Move != nullptr && FMath::IsNearlyEqual(Host->GetCapsuleComponent()->GetUnscaledCapsuleHalfHeight()*2,185),TEXT("standing capsule 185cm; custom movement loaded"));
@@ -136,7 +189,7 @@ void AERMovementProbe::Tick(float DeltaTime)
         {
             LocalPhase = Phase;
             Move->StopMovementImmediately(); Move->SetMovementMode(MOVE_Walking); Move->bWalkHeld=false; Move->bClimbHeld=Height>80;
-            Host->StopJumping(); Host->TeleportTo(FVector(X-175,Y,95),FRotator::ZeroRotator);
+            Host->StopJumping(); Host->TeleportTo(FVector(X-(Height>150 ? 140:175),Y,95),FRotator::ZeroRotator);
             Host->Controller->SetControlRotation(FRotator::ZeroRotator);
 
         }
@@ -157,6 +210,13 @@ void AERMovementProbe::Tick(float DeltaTime)
         if (LocalPhase != Phase)
         {
             LocalPhase=Phase;
+            // The host finished its last case on the 200cm block. Clear that
+            // landing before testing the client: FindLedge must reject pawns.
+            if(Phase==25)
+            {
+                Host->TeleportTo(FVector(-700,-1900,95),FRotator::ZeroRotator,false,true);
+                Move->StopMovementImmediately();Move->SetMovementMode(MOVE_Walking);Host->ResetJumpState();
+            }
             Client->TeleportTo(FVector(-700,1900,95),FRotator::ZeroRotator);
             Client->Controller->SetControlRotation(FRotator::ZeroRotator);
         }
@@ -178,7 +238,7 @@ void AERMovementProbe::Tick(float DeltaTime)
             LocalPhase=Phase;
             Client->GetCharacterMovement()->StopMovementImmediately();
             Client->GetCharacterMovement()->SetMovementMode(MOVE_Walking);
-            Client->TeleportTo(FVector(X-175,Y,95),FRotator::ZeroRotator);
+            Client->TeleportTo(FVector(X-(Height>150 ? 140:175),Y,95),FRotator::ZeroRotator);
             Client->ForceNetUpdate();
         }
         SawTraversal |= Cast<UERMovement>(Client->GetCharacterMovement())->IsTraversing();
@@ -245,15 +305,6 @@ void AERMovementProbe::Tick(float DeltaTime)
             }
             if (Phase == 37) Move->bProneWanted = true;
             if (Phase == 39) Move->bProneWanted = false;
-            if (Phase == 38)
-            {
-                PostureRoof = GetWorld()->SpawnActor<AActor>();
-                auto* Box = NewObject<UBoxComponent>(PostureRoof);
-                PostureRoof->SetRootComponent(Box); Box->SetBoxExtent(FVector(250,250,10));
-                Box->SetCollisionProfileName(TEXT("BlockAll")); Box->RegisterComponent();
-                const FVector P = Client->GetActorLocation();
-                PostureRoof->SetActorLocation(FVector(P.X,P.Y,90));
-            }
         }
         if (Phase == 33)
         {
@@ -273,7 +324,14 @@ void AERMovementProbe::Tick(float DeltaTime)
         }
         else if (Phase == 37)
         {
-            if (Elapsed > .25f && Peak == 0) { Check(Remote->Locomotion.HalfHeight > 34 && Remote->Locomotion.HalfHeight < 92.5f,TEXT("remote prone transition takes time")); Peak=1; }
+            // Let physics publish the low ceiling while already prone, before
+            // the next phase requests standing on either peer.
+            if(Elapsed-DeltaTime<1.5f && Elapsed>=1.5f)
+            {
+                const FVector P=Client->GetActorLocation();
+                Fixture->UpdateInstanceTransform(25,FTransform(FQuat::Identity,FVector(P.X,P.Y,90),FVector(5,5,.2)),false,true,true);
+            }
+            if (Elapsed > .5f && Peak == 0) { Check(Remote->Locomotion.HalfHeight > 34 && Remote->Locomotion.HalfHeight < 92.5f,TEXT("remote prone transition takes time")); Peak=1; }
             if (Elapsed > 1.8f)
             {
                 FVector Eye; FRotator View; Client->GetActorEyesViewPoint(Eye,View);
@@ -293,8 +351,9 @@ void AERMovementProbe::Tick(float DeltaTime)
         }
         else if (Phase == 38 && Elapsed > 1.5f)
         {
+
             Check(Remote->IsProne() && FMath::IsNearlyEqual(Remote->Locomotion.HalfHeight,34.f,.1f),TEXT("blocked ceiling prevents standing from prone"));
-            PostureRoof->Destroy(); Advance();
+            Fixture->UpdateInstanceTransform(25,FTransform(FQuat::Identity,FVector(-100000,0,90),FVector(5,5,.2)),false,true,true);Advance();
         }
         else if (Phase == 39 && Elapsed > 1.8f)
         {

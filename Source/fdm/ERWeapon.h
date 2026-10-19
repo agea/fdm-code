@@ -76,6 +76,8 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Accuracy", meta=(ClampMin="0", ClampMax="10")) float StandingSpreadDegrees = .18f;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Accuracy", meta=(ClampMin="0", ClampMax="1")) float CrouchSpreadMultiplier = .6f;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Accuracy", meta=(ClampMin="0", ClampMax="10")) float RunningSpreadDegrees = .55f;
+    // Additional pistol cone half-angle at full ladder speed; stationary rungs add none.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Accuracy", meta=(ClampMin="0", ClampMax="10")) float LadderMovingSpreadDegrees = .6f;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Accuracy", meta=(ClampMin="0", ClampMax="10")) float AirborneSpreadDegrees = .9f;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Accuracy", meta=(ClampMin="0", ClampMax="10")) float BloomPerShotDegrees = .12f;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Accuracy", meta=(ClampMin="0", ClampMax="10")) float MaxBloomDegrees = .75f;

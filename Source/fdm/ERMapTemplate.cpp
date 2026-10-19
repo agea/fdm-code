@@ -8,16 +8,25 @@ bool BuildTemplate(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERP
 {
     const auto* T=C.TemplateAsset.Get();
     if(!T || T->TemplateId.IsEmpty() || T->Revision<1 || C.Floors!=1 || B.BlockSize!=FVector(50,20,25) ||
-        !FMath::IsFinite(B.ChunkSize) || B.ChunkSize<100 || T->Pieces.Num()>256 || T->Pieces.IsEmpty() ||
+        !FMath::IsFinite(B.ChunkSize) || B.ChunkSize<100 || T->Pieces.Num()>256 ||
         T->ArenaSize.ContainsNaN() || T->ArenaSize.X<2000 || T->ArenaSize.Y<3000 || T->ArenaSize.Z<400 ||
         T->ArenaSize.X>10000 || T->ArenaSize.Y>16000 || T->ArenaSize.Z>1600 || uint8(T->Symmetry)>1 ||
-        T->AlphaSpawns.IsEmpty() || T->AlphaSpawns.Num()>32 || T->OmegaSpawns.Num()>32 ||
-        T->PatrolRoute.Num()<2 || T->PatrolRoute.Num()>128) return false;
+        uint8(T->Archetype)>uint8(EERMapArchetype::CentralBuilding)) return false;
+    const bool Central=T->Archetype==EERMapArchetype::CentralBuilding;
+    if(!Central && (T->Pieces.IsEmpty() || T->AlphaSpawns.IsEmpty() || T->AlphaSpawns.Num()>32 || T->OmegaSpawns.Num()>32 || T->PatrolRoute.Num()<2 || T->PatrolRoute.Num()>128))return false;
     const bool Symmetric=T->Symmetry==EERTemplateSymmetry::HalfTurn;
     auto ValidMesh=[](UStaticMesh* M){return !M || (!M->GetBoundingBox().GetSize().ContainsNaN() && M->GetBoundingBox().GetSize().GetMin()>.1);};
     if(!ValidMesh(T->ShellWallMesh) || !ValidMesh(T->RoofMesh))return false;
     FERProceduralLayout L;L.ArenaSize=T->ArenaSize;L.AlphaSpawns=T->AlphaSpawns;L.OmegaSpawns=T->OmegaSpawns;
     TArray<FERMapTemplatePiece> Pieces=T->Pieces;TArray<FVector> Patrol=T->PatrolRoute;
+    if(C.CrossingOverride<0 || C.CrossingOverride>3)return false;
+    if(Central)
+    {
+        if(T->Town.Enabled || T->Variation.Enabled)return false;
+        // Recipe overrides live in the replicated descriptor, never mutate the
+        // shared data asset (another world may use it in the same process).
+        if(!BuildCentralBuilding(*T,C.Seed,Pieces,L,Patrol,C.CrossingOverride))return false;
+    }
     if(T->Town.Enabled && (T->Variation.Enabled || !BuildDustTown(*T,C.Seed,Pieces,L,Patrol)))return false;
     if(T->Variation.Enabled && !BuildTemplateVariants(*T,C.Seed,Pieces,L,Patrol))return false;
     const FVector Size=L.ArenaSize,Half=Size*.5;
@@ -25,12 +34,15 @@ bool BuildTemplate(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERP
     TArray<FBox> Volumes;TArray<FTransform> VolumeFrames;int32 Wall=0;
     for(const auto& Piece:Pieces)
     {
-        if(Piece.Size.GetMin()<1)UE_LOG(LogTemp,Warning,TEXT("ER_TEMPLATE_PIECE_REJECT seed=%d size=%s"),C.Seed,*Piece.Size.ToString());
+        const float MinDimension=Piece.Destructible && Piece.Material==EERBlockMaterial::Metal ? Cells.SheetThickness:1.f;
+        if(Piece.Size.GetMin()<MinDimension-.001f)UE_LOG(LogTemp,Warning,TEXT("ER_TEMPLATE_PIECE_REJECT seed=%d size=%s"),C.Seed,*Piece.Size.ToString());
         if(Piece.Center.ContainsNaN() || Piece.Size.ContainsNaN() || Piece.Jitter.ContainsNaN() || Piece.MeshRotation.ContainsNaN() || !FMath::IsFinite(Piece.RotationYaw) ||
-            Piece.Size.GetMin()<1 || Piece.Size.GetMax()>16000 || Piece.Jitter.X<0 || Piece.Jitter.Y<0 ||
+            Piece.Size.GetMin()<MinDimension-.001f || Piece.Size.GetMax()>16000 || Piece.Jitter.X<0 || Piece.Jitter.Y<0 ||
             Piece.Jitter.X>200 || Piece.Jitter.Y>200 || uint8(Piece.Material)>6 || (Piece.Destructible && Piece.FixedMesh) || !ValidMesh(Piece.FixedMesh) ||
-            (Piece.WalkableSurface && (Piece.Destructible || Piece.FixedMesh || Piece.VisualOnly)) ||
-            (Piece.Destructible && (Piece.VisualOnly || Piece.FixedSurface || Piece.RotationYaw!=0))) return false;
+            !FMath::IsFinite(Piece.Strength) || Piece.Strength<1 || Piece.Strength>16 ||
+            (Piece.WalkableSurface && (Piece.FixedMesh || Piece.VisualOnly)) ||
+            (Piece.PawnBarrier && (Piece.Destructible || Piece.VisualOnly || Piece.WalkableSurface)) ||
+            (Piece.Destructible && (Piece.VisualOnly || Piece.FixedSurface)) || (!Piece.Destructible && (Piece.CellSurface || Piece.MirroredCellSurface))) return false;
         if(Symmetric && !Piece.Mirrored && (!FMath::IsNearlyZero(Piece.Center.X) || !FMath::IsNearlyZero(Piece.Center.Y) || !Piece.Jitter.IsNearlyZero()))return false;
         FRandomStream Random(int32(HashCombine(uint32(C.Seed),uint32(Piece.Group))));
         const float OffsetX=Random.RandRange(-int32(Piece.Jitter.X/50),int32(Piece.Jitter.X/50))*50;
@@ -42,7 +54,8 @@ bool BuildTemplate(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERP
             const FQuat PhysicalRotation=FRotator(0,Piece.RotationYaw+(Copy ? 180:0),0).Quaternion();
             const FBox Bounds=FBox(-Piece.Size*.5,Piece.Size*.5).TransformBy(FTransform(Piece.RotationYaw!=0 ? PhysicalRotation:FQuat::Identity,Center));
             const FVector Min=Bounds.Min,Max=Bounds.Max;
-            if(Min.X < -Half.X || Max.X > Half.X || Min.Y < -Half.Y || Max.Y > Half.Y || Min.Z<-.001 || Max.Z>Size.Z+.001) return false;
+            if(Min.X < -Half.X-.01 || Max.X > Half.X+.01 || Min.Y < -Half.Y-.01 || Max.Y > Half.Y+.01 || Min.Z<-.01 || Max.Z>Size.Z+.01)
+            {UE_LOG(LogTemp,Warning,TEXT("ER_TEMPLATE_BOUNDS_REJECT seed=%d bounds=%s arena=%s"),C.Seed,*Bounds.ToString(),*Size.ToString());return false;}
             const FBox Box(Min,Max);
             const FTransform Frame(Piece.RotationYaw!=0 ? PhysicalRotation:FQuat::Identity,Center,Piece.Size);
             if(!Piece.VisualOnly)for(int32 VI=0;VI<Volumes.Num();++VI)if(Box.Intersect(Volumes[VI]) && Box.Overlap(Volumes[VI]).GetSize().GetMin()>.01)
@@ -60,23 +73,42 @@ bool BuildTemplate(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERP
             if(!Piece.VisualOnly){Volumes.Add(Box);VolumeFrames.Add(Frame);}
             if(!Piece.Destructible)
             {
-                FRotator Rotation=Piece.MeshRotation;Rotation.Yaw+=Copy ? 180:0;
+                FRotator Rotation=Piece.MeshRotation;Rotation.Yaw+=Copy && Piece.RotationYaw==0 ? 180:0;
                 // Legacy axis-aligned paired pieces keep their old physical
                 // transform; only explicit town leaves rotate their boxes.
                 const FQuat R=Piece.RotationYaw!=0 ? PhysicalRotation:FQuat::Identity;
-                L.FixedPieces.Add({FTransform(R,Center,Piece.Size/100),Piece.Material,Piece.FixedMesh,Rotation,false,Piece.VisualOnly,Piece.FixedSurface});continue;
+                L.FixedPieces.Add({FTransform(R,Center,Piece.Size/100),Piece.Material,Piece.FixedMesh,Rotation,false,Piece.VisualOnly,Piece.FixedSurface,Piece.PawnBarrier});continue;
             }
-            // Mirror the exact original volume: equal-cell division keeps paired cells symmetric.
-            FBox Cell(Original-Piece.Size*.5,Original+Piece.Size*.5);
-            if(Copy)Cell=FBox(FVector(-Cell.Max.X,-Cell.Max.Y,Cell.Min.Z),FVector(-Cell.Min.X,-Cell.Min.Y,Cell.Max.Z));
-            // Slabs/steps are fixed support; upper parapets anchor to the base roof.
-            AddPieceCells(Wall,Piece.Material,Cell,Piece.Anchored,Cells,L.Panels);
+            // Generate in an orthonormal local grid, then rotate the entire
+            // construction. Its cells/collision/support never use a world AABB.
+            const FTransform Placement(PhysicalRotation,Center);
+            const bool Ground=Center.Z-Piece.Size.Z*.5<=.01;
+            const int32 First=L.Panels.Num();
+            if(Piece.WalkableSurface)
+            {
+                const bool Wood=Piece.Material==EERBlockMaterial::Wood,Metal=Piece.Material==EERBlockMaterial::Metal;
+                if((Wood && !FMath::IsNearlyEqual(Piece.Size.Z,Cells.WoodDepth)) || (Metal && !FMath::IsNearlyEqual(Piece.Size.Z,Cells.SheetThickness)))return false;
+                auto& P=L.Panels.AddDefaulted_GetRef();P.Id=Wall*8;P.Material=Piece.Material;
+                P.Transform=FTransform(FMatrix(FVector(1,0,0),FVector(0,0,-1),FVector(0,1,0),FVector(-Piece.Size.X*.5,-Piece.Size.Y*.5,Piece.Size.Z*.5)))*Placement;
+                P.Size=FVector(Piece.Size.X,Piece.Size.Z,Piece.Size.Y);
+                P.Cell=FVector(FERCellWorld::FitCell(P.Size.X,Cells.CellSize),Wood || Metal ? P.Size.Y:FERCellWorld::FitCell(P.Size.Y,Cells.CellSize),FERCellWorld::FitCell(P.Size.Z,Cells.CellSize));
+                P.bAnchored=Ground || Piece.Anchored;
+            }
+            else
+            {
+                AddPieceCells(Wall,Piece.Material,FBox(FVector::ZeroVector,Piece.Size),false,Cells,L.Panels);
+                const FTransform Origin=FTransform(-Piece.Size*.5)*Placement;
+                for(int32 P=First;P<L.Panels.Num();++P)
+                {L.Panels[P].Transform=L.Panels[P].Transform*Origin;L.Panels[P].bAnchorBottom&=Ground || Piece.Anchored;}
+            }
+            for(int32 P=First;P<L.Panels.Num();++P){L.Panels[P].Strength=Piece.Strength;L.Panels[P].Surface=Copy && Piece.MirroredCellSurface ? Piece.MirroredCellSurface.Get():Piece.CellSurface.Get();}
             ++Wall;
         }
     }
     // Fixed shed panels tile at <=5m to retain vendor detail and texel scale.
     auto Fixed=[&](FVector Center,FVector Size,FRotator Rotation=FRotator::ZeroRotator){L.FixedPieces.Add({FTransform(FQuat::Identity,Center,Size/100),EERBlockMaterial::Metal,T->ShellWallMesh,Rotation});};
-    if(T->ShellWallMesh)
+    if(Central) { /* The archetype owns its outdoor fence perimeter. */ }
+    else if(T->ShellWallMesh)
     {
         const int32 Rows=FMath::CeilToInt(Size.Z/525);
         for(int32 Row=0;Row<Rows;++Row)
@@ -144,6 +176,7 @@ bool BuildTemplate(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERP
     };
     if(!ClearPath(Patrol,true))return false;
     for(const auto& Route:L.RoomAccessRoutes)if(!ClearPath(Route,false))return false;
+    for(const auto& Route:L.CrossingRoutes)if(!ClearPath(Route,false))return false;
     L.Spawn=L.AlphaSpawns[0].GetLocation();L.Routes.Add({L.Spawn,Patrol[0]});L.Routes.Add(Patrol);L.Routes.Add({L.OmegaSpawns[0].GetLocation(),Patrol.Last()});
     if(L.Panels.IsEmpty() || L.FixedPieces.Num()>2048)return false;
     Out=MoveTemp(L);return true;

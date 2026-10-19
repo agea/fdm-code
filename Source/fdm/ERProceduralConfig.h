@@ -7,6 +7,8 @@ struct FERProceduralConfig
     GENERATED_BODY()
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UERMapTemplate> TemplateAsset;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) int32 Seed=42;
+    // Replicated test witness only. Production always samples the seed (zero).
+    UPROPERTY() int32 CrossingOverride=0;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="6",ClampMax="10")) int32 RoomCount=8;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="1",ClampMax="3")) int32 Floors=1;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) bool AdditionalMaterials=false;

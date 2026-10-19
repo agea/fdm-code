@@ -1,0 +1,39 @@
+#include "Misc/AutomationTest.h"
+#include "ERResolutionPolicy.h"
+#include "ERCharacter.h"
+
+#if WITH_DEV_AUTOMATION_TESTS
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FERResolutionTest,"EclipseRecoil.Player.ResolutionHysteresis",EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
+bool FERResolutionTest::RunTest(const FString&)
+{
+    for(float Dt:{1.f/30,1.f/60,1.f/144})
+    {
+        FERResolutionPolicy P;
+        auto Run=[&](float Seconds,float Ms){for(int32 I=0;I<FMath::RoundToInt(Seconds/Dt);++I)P.Update(Dt,Ms);};
+        Run(15,1000.f/59);TestEqual(TEXT("59 FPS stays at full quality"),P.Fraction,1.f);
+        Run(1,30);Run(3,1000.f/60);TestEqual(TEXT("Brief dip does not trigger adjustment"),P.Fraction,1.f);
+        Run(2,25);TestEqual(TEXT("Sustained load waits three seconds"),P.Fraction,1.f);
+        Run(2,25);TestTrue(TEXT("Sustained overload starts bounded adaptation"),P.Fraction<1 && P.Fraction>.8f);
+        for(int32 I=0;I<int32(20/Dt);++I)P.Update(Dt,25*P.Fraction*P.Fraction);
+        TestTrue(TEXT("Quality converges then holds"),P.Direction==0 && P.Fraction>.75f && P.Fraction<.87f);
+        const float Held=P.Fraction;P.HoldSeconds=4;
+        Run(3.5,10);TestEqual(TEXT("Cooldown freezes quality even with spare GPU budget"),P.Fraction,Held);
+        Run(2,10);TestEqual(TEXT("Recovery waits after cooldown"),P.Fraction,Held);
+        Run(3,10);TestTrue(TEXT("Sustained headroom restores quality continuously"),P.Fraction>Held && P.Fraction<=1);
+    }
+    return true;
+}
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FERFallTest,"EclipseRecoil.Player.FallDamage",EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
+bool FERFallTest::RunTest(const FString&)
+{
+    const float Gravity=1764;
+    auto Damage=[&](float Height){return AERCharacter::FallDamage(FMath::Sqrt(2*Gravity*Height),Gravity);};
+    TestEqual(TEXT("Normal jump is harmless"),Damage(60),0.f);
+    TestTrue(TEXT("Three meters remains safe"),Damage(300)<.001f);
+    TestTrue(TEXT("Six meter fall costs 37.5 HP"),FMath::IsNearlyEqual(Damage(600),37.5f,.001f));
+    TestTrue(TEXT("Eleven meters is lethal"),FMath::IsNearlyEqual(Damage(1100),100.f,.001f));
+    TestEqual(TEXT("Upward velocity never damages"),AERCharacter::FallDamage(-2000,Gravity),0.f);
+    TestEqual(TEXT("Invalid gravity never damages"),AERCharacter::FallDamage(2000,0),0.f);
+    return true;
+}
+#endif

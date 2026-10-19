@@ -12,7 +12,9 @@ import time
 import argparse
 
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument("--posture-only", action="store_true", help="Run sprint/posture phases only")
+modes = parser.add_mutually_exclusive_group()
+modes.add_argument("--base-only", action="store_true", help="Run run/jump/vault/climb/crouch checks only")
+modes.add_argument("--posture-only", action="store_true", help="Run sprint/posture phases only")
 args = parser.parse_args()
 
 project = Path(__file__).resolve().parents[1]
@@ -22,12 +24,13 @@ logs = project / "Saved/Testing"
 logs.mkdir(parents=True, exist_ok=True)
 common = [str(editor), str(project / "RespawnAndRage.uproject"), "-game", "-nullrhi", "-nosound", "-unattended", "-NoSplash", "-Multiprocess", "-stdout", "-FullStdOutLogOutput", "-ExecCmds=t.MaxFPS 60"]
 if args.posture_only: common.append("-ERPostureProbe")
+if args.base_only: common.append("-ERMovementBaseProbe")
 processes = []
 handles = []
 try:
     host_log = (logs / "movement-host.log").open("w")
     handles.append(host_log)
-    host = subprocess.Popen(common + ["/Game/EclipseRecoil/Maps/L_MovementLab?listen?Name=Host", "-port=17781", "-ERMovementProbe"], stdout=host_log, stderr=subprocess.STDOUT)
+    host = subprocess.Popen(common + ["/Game/EclipseRecoil/Maps/L_Depot?listen?Name=Host", "-port=17781", "-ERMovementProbe"], stdout=host_log, stderr=subprocess.STDOUT)
     processes.append(host)
     deadline = time.monotonic() + 45
     while time.monotonic() < deadline:
@@ -53,7 +56,7 @@ try:
     print("\n".join(markers))
     client_output = (logs / "movement-client.log").read_text(errors="replace")
     print("\n".join(line for line in client_output.splitlines() if "ER_MOVEMENT_CLIENT_" in line))
-    success = "ER_MOVEMENT_CLIENT_PASS owner_and_simulated_proxy_prone" in client_output and "ER_MOVEMENT_CLIENT_FAIL" not in client_output and "ER_MOVEMENT_COMPLETE PASS" in output and "ER_MOVEMENT_FAIL" not in output
+    success = (args.base_only or "ER_MOVEMENT_CLIENT_PASS owner_and_simulated_proxy_prone" in client_output) and "ER_MOVEMENT_CLIENT_FAIL" not in client_output and "ER_MOVEMENT_COMPLETE PASS" in output and "ER_MOVEMENT_FAIL" not in output
     print("Logs:", logs)
     sys.exit(0 if success else 1)
 finally:

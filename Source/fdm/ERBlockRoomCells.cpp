@@ -50,7 +50,7 @@ void AERBlockRoom::BuildCellComponents()
         Mesh->CollisionType = CTF_UseSimpleAsComplex; Mesh->bEnableComplexCollision = false;
         Mesh->SetCollisionProfileName(TEXT("BlockAll"));
         Mesh->SetCanEverAffectNavigation(false);
-        if (auto* Surface = MaterialCatalog->Find(Panel.Material)->Surface.Get()) Mesh->SetMaterial(0, Surface);
+        if (auto* Surface = Panel.Surface ? Panel.Surface : MaterialCatalog->Find(Panel.Material)->Surface.Get()) Mesh->SetMaterial(0, Surface);
         Mesh->RegisterComponent();
         CellMeshes.Add(Mesh); CellComponentChunks.Add(Mesh, Index);
         RebuildCellChunk(Index);
@@ -194,7 +194,7 @@ AERBlockRoom::FERCellShotStep AERBlockRoom::ShootCells(const FHitResult& Hit, co
         if (bEnter) { bInside = true; ++Step.Runs; }
         // Residual energy at this cell's entry: never restart from full damage.
         Damage.FindOrAdd({Panel, C.X, C.Y, C.Z}) += Structural * Energy / Settings.Energy * Material->BulletDamageScale; ++Step.Cells;
-        const double Cost = (bEnter ? Material->EntryEnergyCost : 0) + (T1 - T0) * Length * Material->EnergyCostPerCm;
+        const double Cost = ((bEnter ? Material->EntryEnergyCost : 0) + (T1 - T0) * Length * Material->EnergyCostPerCm)*P.Strength;
         if (bGrazing || Cost >= Energy) { bStopped = true; ExitT = (T0 + T1) * .5; return false; }
         Energy = float(Energy - Cost);
         return true;
@@ -295,7 +295,7 @@ void AERBlockRoom::CollectCellExplosion(const FVector& Origin, const FERBlockExp
                             if (OP.bIndestructible) { bBlocked = true; return false; }
                             // Intact cells of the pre-event snapshot attenuate by path length.
                             const double Cm = (T1 - T0) * Segment * Scale;
-                            Crossed += Cm; LogExposure += LogPerCm[uint8(OP.Material)] * Cm;
+                            Crossed += Cm; LogExposure += LogPerCm[uint8(OP.Material)] * Cm * OP.Strength;
                             if (Crossed > Profile.MaxShieldingCm || LogExposure < MinLogExposure) { bBlocked = true; return false; }
                             return true;
                         });
@@ -354,7 +354,7 @@ void AERBlockRoom::PublishCellGeneration()
     for (auto& S : AuthorityShards) if (S.IsValid()) S->Destroy();
     AuthorityShards.Empty();
     const uint32 Epoch = Network.Epoch + 1;
-    Network = {}; Network.Epoch = Epoch ? Epoch : 1; Network.Protocol = 7; Network.Cells = true; Network.CellSettings = CellSettings;
+    Network = {}; Network.Epoch = Epoch ? Epoch : 1; Network.Protocol = 8; Network.Cells = true; Network.CellSettings = CellSettings;
     Network.Blocks = Config; Network.BlockCount = int32(CellWorld.GetCellCount()); Network.LayoutDigest = GetLayoutDigest(); Network.Sequence = 1;
     if (auto* Map = Cast<AERProceduralMap>(this)) { Network.Procedural = true; Network.Layout = Map->LayoutConfig; Network.Ceilings = Map->bCeilings; }
     // Untouched chunks never travel: shards start empty and only carry modified masks.
@@ -394,7 +394,7 @@ void AERBlockRoom::PublishCellChanges(const TArray<int32>& Changed)
 bool AERBlockRoom::OnRepCellDescriptor()
 {
     auto* Map = Cast<AERProceduralMap>(this);
-    if (Network.Protocol != 7 || !Network.Cells || Network.BlockCount <= 0 || Network.BlockCount > 8000000 || Network.Procedural != (Map != nullptr))
+    if (Network.Protocol != 8 || !Network.Cells || Network.BlockCount <= 0 || Network.BlockCount > 8000000 || Network.Procedural != (Map != nullptr))
     { bNetworkError = true; UE_LOG(LogTemp, Error, TEXT("ER_BLOCK_NET_INCOMPATIBLE descriptor")); return false; }
     Config = Network.Blocks; CellSettings = Network.CellSettings;
     if (Map) { Map->LayoutConfig = Network.Layout; Map->bCeilings = Network.Ceilings; }
@@ -423,7 +423,7 @@ void AERBlockRoom::TryApplyCellNetwork()
     for (int32 I = 0; I < Network.PageVersions.Num(); ++I)
     {
         const auto* Weak = ReceivedShards.Find(I); const auto* S = Weak ? Weak->Get() : nullptr;
-        if (!S || S->Header.Epoch != BuiltEpoch || S->Header.Version != Network.PageVersions[I]) return;
+        if (!S || S->Header.Epoch != BuiltEpoch || S->Header.Version != Network.PageVersions[I] || !S->IsPayloadCurrent()) return;
     }
     TArray<TPair<int32, TArray<uint64>>> Pending;
     for (int32 I = 0; I < Network.PageVersions.Num(); ++I)

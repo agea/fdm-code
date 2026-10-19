@@ -720,3 +720,34 @@ F1 dal Grenades.fbx Riskyerick già acquisito: derivato HE ricostruito con
 materiale M_HE_F1 con albedo/normal/roughness/metallic F1 forniti.
 Originali e vecchia RGD-5 conservati; DA_HE usa ora F1. FlashMesh nullo
 in BP_ERGrenadeExplosion elimina la sfera, mantenendo luce, fumo e detriti.
+# Industrial map palette — 19 October 2026
+
+The production archetype uses the private FactoryEnvironment art migrated from
+the user's FactoryEnvironmentCollect project. Active levels are L_CentralBuilding,
+L_Depot and L_MainMenu. Five older levels, two legacy template assets, Dust town
+art and ArabianEnvironment were archived/removed through Unreal. The verified
+local recovery archive contains 46 packages and their inputs; Depot and the
+destructible catalog retain their original SHA-256 hashes.
+
+| Role | Current implementation |
+| --- | --- |
+| Destructible walls | Existing 5cm concrete/brick cells; upper courses anchor to fixed slabs. |
+| Destructible cover | Existing timber cells; shared material damage calibration unchanged. |
+| Additional available damage profiles | Drywall, stone, sheet metal and glass stay in the seven-profile catalog. |
+| Cargo/cover | Reinforced destructible steel containers, timber crates/stacks and brick/concrete barriers; fixed Factory tanks/barrels. Oblique placements are paired between teams. |
+| Permanent separators/perimeter | Explicit metal frames and diamond wires share their visible/query triangle geometry; full hidden movement collision is separate. SM_ER_Chainlink and its masked material remain authoring references. |
+| Walkable floors/stairs | Fixed main slabs/stairs; destructible timber decks, posts and stair treads in the secondary buildings/towers and wall crossings. |
+| Authoring | Revision3 DA_CentralBuilding; PCG_CentralBuildingRoutes now loads DA_CentralBuilding_42_Ladders with fixed and cell volume pins. |
+
+The original downloaded project is preserved. Migrated M_BaseMaterial and
+M_WaterContainer enable InstancedStaticMeshes so containers, barrels and tanks
+render their industrial surfaces; appearance parameters are unchanged. These
+licensed assets remain private. See MAP_ARCHETYPES.md for references and rules.
+
+
+19 October player traversal update: paired exterior ladders are built from the
+preserved destructible steel catalog (2mm sheets, box rails and flat rungs).
+No additional Factory ladder binaries were migrated. `setup_industrial_ladders.py`
+saves recipe revision3 and a fresh PCG snapshot through Unreal. The originals,
+Depot and DA_ER_BlockMaterials remain unchanged; their hashes are checked in
+`docs/PLAYER_MECHANICS_RESULTS.json`.

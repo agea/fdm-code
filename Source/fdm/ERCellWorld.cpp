@@ -1,3 +1,4 @@
+#include "Materials/MaterialInterface.h"
 #include "ERCellWorld.h"
 #include "Algo/BinarySearch.h"
 
@@ -62,7 +63,7 @@ bool FERCellWorld::Build(const TArray<FERCellPanelDesc>& Desc, const FERCellSett
     auto Mix = [&H](double V) { H = HashCombineFast(H, ::GetTypeHash(FMath::RoundToInt64(V * 1000))); };
     for (const auto& D : Desc)
     {
-        if (Ids.Contains(D.Id) || D.Transform.ContainsNaN() || !D.Transform.GetScale3D().Equals(FVector::OneVector, 1.e-4) ||
+        if (Ids.Contains(D.Id) || !FMath::IsFinite(D.Strength) || D.Strength<1 || D.Strength>16 || D.Transform.ContainsNaN() || !D.Transform.GetScale3D().Equals(FVector::OneVector, 1.e-4) ||
             D.Transform.GetLocation().GetAbs().GetMax() > 1000000 || !Catalog->Find(D.Material)) { Error = FString::Printf(TEXT("invalid panel %d"), D.Id); return false; }
         Ids.Add(D.Id);
         FIntVector N;
@@ -104,7 +105,8 @@ bool FERCellWorld::Build(const TArray<FERCellPanelDesc>& Desc, const FERCellSett
                 }
                 C.Bounds = FBox(FVector(C.X0 * D.Cell.X, 0, C.Z0 * D.Cell.Z), FVector((C.X0 + C.SX) * D.Cell.X, D.Size.Y, (C.Z0 + C.SZ) * D.Cell.Z)).TransformBy(D.Transform);
             }
-        H = HashCombineFast(H, ::GetTypeHash(D.Id)); H = HashCombineFast(H, ::GetTypeHash(uint8(D.Material)));
+        H = HashCombineFast(H, ::GetTypeHash(D.Id)); H = HashCombineFast(H, ::GetTypeHash(uint8(D.Material)));Mix(D.Strength);
+        if(D.Surface)H=HashCombineFast(H,FCrc::StrCrc32(*D.Surface->GetPathName()));
         H = HashCombineFast(H, ::GetTypeHash(D.bPane | (D.bIndestructible << 1) | (D.bAnchorBottom << 2) | (D.bAnchored << 3)));
         for (const FBox2D& Hole : D.Holes) { Mix(Hole.Min.X); Mix(Hole.Min.Y); Mix(Hole.Max.X); Mix(Hole.Max.Y); }
         for (const FVector& V : {D.Transform.GetLocation(), D.Transform.GetRotation().GetAxisX(), D.Transform.GetRotation().GetAxisZ(), D.Size, D.Cell}) { Mix(V.X); Mix(V.Y); Mix(V.Z); }

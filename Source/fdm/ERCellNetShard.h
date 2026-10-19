@@ -30,6 +30,8 @@ struct FERCellShardHeader
     UPROPERTY() uint32 Epoch = 0;
     UPROPERTY() int32 Index = 0;
     UPROPERTY() uint32 Version = 0;
+    UPROPERTY() int32 ChunkCount = 0;
+    UPROPERTY() uint32 PayloadDigest = 0;
 };
 // One bounded channel for up to Capacity consecutive chunks; the room's
 // descriptor manifest lists every shard version before clients apply anything.
@@ -45,6 +47,8 @@ public:
     UPROPERTY(ReplicatedUsing=OnRep_State) FERCellChunkArray Chunks;
     // Authority: replace or add the chunk's mask; returns true if it changed.
     bool SetChunk(int32 Chunk, uint32 Revision, TArray<uint8>&& Mask);
+    uint32 ComputePayloadDigest() const;
+    bool IsPayloadCurrent() const { return Header.ChunkCount==Chunks.Items.Num() && Header.PayloadDigest==ComputePayloadDigest(); }
     const FERCellChunkItem* FindChunk(int32 Chunk) const { return Chunks.Items.FindByPredicate([Chunk](const auto& I) { return I.Chunk == Chunk; }); }
     SIZE_T GetPayloadBytes() const;
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;

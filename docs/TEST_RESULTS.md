@@ -3356,3 +3356,269 @@ validation now requires an identical copy. No Git/Python is used at runtime.
 This check used the Editor game runtime. A new standalone package, Linux/Windows
 execution and packaged-file validation have not been run for this revision;
 the previously built app remains unchanged.
+# Archetipi industriali — 19 ottobre 2026
+
+Esito finale **PASS**, UE5.8.3 / PCGEx0.79.2. Ricevuta riproducibile:
+`INDUSTRIAL_MAP_RESULTS.json`; log e catture in `Saved/Testing`.
+
+- `scripts/build-editor.command -MaxParallelActions=3`: compilazione finale riuscita.
+- `scripts/test-destruction.py`: **11/11** test automatici superati. Include
+  celle/calibrazione/mesh/collisioni, danni, transazioni di rete, generazione
+  multi-piano e i nuovi CentralBuildingLayout/Collision.
+- **516 seed**, incluse estremità int32: 516 combinazioni di dimensioni e
+  **150 composizioni di coperture**; determinismo, simmetria delle celle e
+  delle collisioni fisse, dieci spawn per squadra e rifiuto atomico degli input
+  invalidi. Collisioni reali per tutte le nove combinazioni attraversamento/piani.
+- `test-industrial-map.py --render --gallery --seed 4`: passaggio fisico delle
+  rampe, colpo di fucile autorizzato, danni/crollo, cambio round reale e nuovi
+  spawn dei due bersagli fermi. Gallery Metal dei tre attraversamenti ispezionata.
+- `test-industrial-map.py --render --seed 10`: **sei rampe effettivamente percorse**,
+  edificio a tre piani, sparo/distruzione, nuovo round e respawn dei bersagli;
+  **PASS**. Ispezionata la cattura `Industrial-Ground-rule3-seed10.png`:
+  rete ritagliata e trasparente, pareti/piani, illuminazione e materiali presenti.
+  Nessuna compilazione materiale fallita nel log Metal finale.
+- `test-industrial-map.py --network`: host + client iniziale + ingresso tardivo
+  dopo sparo e crollo; entrambi i client hanno lo stesso digest dello stato
+  stabile e del nuovo seed/epoch dopo il round. **PASS**, anche con i due bersagli
+  fermi che ricevono posizioni del nuovo layout.
+- Protocollo8: nuovo test deterministico consegna l'intestazione di uno shard
+  prima della fast array. La collisione resta chiusa fino a conteggio/digest del
+  payload completi. Compilazione e test verificano anche il rifiuto di protocolli
+  incompatibili. Gli eseguibili precedenti richiedono aggiornamento su ogni peer.
+- Regressioni eseguite: `test-network.py`, `test-network.py --accuracy`,
+  `test-arsenal.py`: **tutte PASS** sul Deposito.
+- `verify_industrial_maps.py`: **PASS**, 516 seed sul template salvato, grafo PCGEx
+  con loader e Path Properties collegati, maschera wire dal canale R e due lati.
+  Restano solo L_MainMenu, L_Depot e L_CentralBuilding nel namespace delle mappe.
+- Rimossi tramite Unreal **46 package** vecchi dopo verifica dei referencer e
+  archivio locale SHA-256 di **70 file**. Conservati identici L_Depot e
+  DA_ER_BlockMaterials; nessun package dei personaggi/armi o del progetto Factory
+  originale modificato. Backup in `Saved/MapRefactorBackup/2026-10-19`.
+
+Limiti: collisione degli oggetti industriali approssimata con volumi autoriali;
+il grafo PCGEx è uno snapshot di authoring del seed42. La geometria di gioco e
+la distruzione usano il generatore nativo validato. Questi collaudi non sono un
+benchmark FPS o una verifica di packaging/distribuzione.
+
+## Affinamenti rete, preset e muro — 19 ottobre 2026
+
+- Rete indistruttibile con geometria visibile/collisione coincidenti: montanti
+  da 4cm e fili diagonali da 0,4cm, aperture a rombo. Test reali delle query da
+  entrambi i lati: impatti sul telaio e sulle due famiglie di fili, passaggio
+  nei vuoti, permeabilità parziale su 256 raggi per layout. Verificate anche le
+  query per oggetto WorldStatic usate dalle esplosioni. Collisione cotta in parti
+  sotto 60.000 triangoli; nessun limite di collisione superato nel collaudo finale.
+- Container confermati come copertura indistruttibile. M_BaseMaterial e
+  M_WaterContainer della copia migrata abilitano l'instancing; i container ora
+  mostrano le texture industriali su Metal. Progetto Factory sorgente, Deposito
+  e catalogo dei materiali distruttibili conservati.
+- Selettore attraversamento rimosso dal menu e dalla ricetta: durante il gioco
+  il preset viene sempre estratto dal seed. MapCrossing funziona soltanto con
+  il probe non-shipping; il test override resta nel descrittore replicato.
+- Muro da 300cm con due passerelle a 320cm e scale fisse su entrambi i lati.
+  Suite completa: **11/11 PASS**, 516 seed e nove combinazioni piani/regola;
+  il ledge query reale rifiuta lo scavalcamento diretto da terra.
+- Metal, seed10/regola2: **10 rampe percorse**, inclusi **4 attraversamenti
+  completi** del muro con salita e discesa. Sparo autorizzato, distruzione e
+  cambio round reale PASS. Regola3/seed10 e gallery dei tre preset PASS.
+- LAN, regola3/seed10: host + client iniziale + ingresso tardivo PASS; entrambi
+  verificano filo/apertura e percorsi dopo distruzione e nuovo round. Digest
+  finale 1311821174, epoch2. Ricevute in `Saved/Testing/industrial-refinements-*`.
+- Verifica degli asset e regressioni Deposito LAN, precisione e arsenale:
+  **tutte PASS**. Esiti in `industrial-refinements-regressions.json`.
+
+## Percorsi distruttibili e varianti verticali — 19 ottobre 2026
+
+- Ricetta industriale revisione2: container cavi in acciaio rinforzato,
+  muro di mattoni da 3m e accessi in legno distruttibili. Fabbricati secondari
+  e torrette da uno a tre piani; pareti in mattoni/calcestruzzo, piani e scale
+  in legno. Coperture rettangolari a sette angoli obliqui; coppie a 180 gradi.
+- **12/12 test nativi PASS**, 516 seed e **177 composizioni** di coperture.
+  Collisioni reali per nove combinazioni regola/piani; le griglie ruotate
+  mantengono celle, collisioni e sostegni nel riferimento locale.
+- `CentralBuildingEvolution`: acciaio Strength=8 (800HP per cella nel preset
+  corrente), danni da fucile senza penetrazione dell'involucro integro, varco
+  attraversabile nel container, perdita della passerella dopo il taglio dei
+  sostegni e nuovo attraversamento a terra dopo la breccia nel muro. Il ponte
+  opposto rimane utilizzabile. I tagli di collaudo sono operazioni controllate
+  sulle celle; il probe conserva anche uno sparo di fucile autorizzato reale.
+- Sostegno iniziale senza ancoraggi permanenti aggiunti: zero celle scollegate
+  nei seed42, 10, 16 e 7919, compresa la torre a tre piani. Il test aggiuntivo
+  è in `industrial-evolution-tower-support.log`. Corrette le casse cave: le
+  pareti devono terminare sotto il tetto per avere contatti tra facce reali.
+- Metal, regola2/seed10: **12 rampe**, **4 attraversamenti completi** del muro,
+  brecce e cedimento dell'accesso, nuovo round e gallery dei tre preset **PASS**.
+  Log e ricevuta conservati come `industrial-evolution-wall10-metal-*`.
+- `setup_industrial_evolution.py`: revisione2 salvata e nuovo snapshot
+  `DA_CentralBuilding_42_Evolution`; grafo PCGEx aggiornato, pin CellVolumes
+  presente. Verifica asset PASS; SHA256 del Deposito e del catalogo invariati.
+  I due modelli di scale a pioli sono presenti nel pack sorgente, ma non è
+  implementata una meccanica di salita verticale: le torrette usano scale.
+- Metal + LAN, regola2/seed16: torre e centrale entrambi a tre piani,
+  **16 rampe** e quattro attraversamenti del muro percorsi. Host, client iniziale
+  e tardivo verificano identiche brecce nel container/muro e perdita dell'accesso;
+  ripristino su nuovo seed/epoch PASS. Digest finale 2822008614, epoch2.
+- LAN, regola3/seed14: centrale ed edifici laterali a tre piani, **12 rampe**
+  percorse, container aperto, ingresso tardivo e round successivo **PASS**.
+  Ricevute `industrial-evolution-wall16-metal-network-report.json` e
+  `industrial-evolution-bank14-network-report.json` in Saved/Testing.
+- Regressioni Deposito rete, precisione e arsenale: **tutte PASS** sulla build
+  aggiornata. `industrial-evolution-integration-results.json` riporta cinque
+  scenari conclusi con exit0. Nessun nuovo packaging o benchmark FPS eseguito.
+
+## Cadute, scale a pioli e isteresi del rendering — 19 ottobre 2026
+
+Richiesta: danno da caduta, scale con mani libere o pistola e ridimensionamento
+meno sensibile alle oscillazioni brevi. Build Editor UE 5.8.3 riuscita.
+
+- `EclipseRecoil.Player`: **2/2 PASS**. Danno nullo per salti/cadute brevi,
+  progressione 3–11m, input invalidi; isteresi a 30/60/144Hz, 59FPS tollerati,
+  cali transitori, attesa3s, convergenza, stabilizzazione2s e blocco4s.
+- Distruzione: **12/12 PASS**, con **516 seed**. Collisioni e pioli reali,
+  capsula libera sull'intera scala, supporto iniziale senza distacchi e rimozione
+  di un piolo che interrompe il percorso. Lamiera del catalogo sempre2mm;
+  le guide scatolate sono composte da pannelli disgiunti in contatto reale.
+- `test-player-mechanics.py --render --fps 30`: **PASS**, host Metal e client,
+  lag60ms ±15ms. Velocità osservate144 e180cm/s; pistola ammessa, fucile
+  rifiutato, X ripone l'arma, discesa dal tetto, Spazio stacca e pioli rimossi
+  fanno cadere. Caduta6m:37,68HP a30FPS, armatura100 invariata; morte da caduta
+  ricevuta dal proxy. Confermato anche con la build finale senza renderer.
+- Il limite energetico all'istante dell'impatto evita l'eccesso di danno dovuto
+  al sottopasso finale di fisica. Salute/protezione/morte restano autorevoli.
+- Metal: `ER_RENDER_POLICY` ha letto tempi GPU reali e mantenuto la qualità
+  ferma sotto carico nella fascia tollerata. Viewport e cap secondario1080p
+  sono preservati; i ritardi e la risposta attiva sono verificati nei test nativi.
+- `test-movement.py --base-only`: **PASS**; dopo la correzione del soffitto
+  temporaneo, `--posture-only`: **PASS** nella build finale. La collisione viene
+  pubblicata prima della richiesta di alzarsi su entrambi i peer. Sono usati
+  geometria temporanea nel Deposito, input reali per sprint e test separati
+  dei tasti C/Ctrl per la postura. Include soglie30/80/150cm, salto+salita200cm,
+  postura del proprietario/proxy, recupero e tasti W/C/Ctrl. Nessun laboratorio
+  salvato viene ricreato. `test-network.py --accuracy`: **PASS**.
+- `test-industrial-map.py --network --render --rule 2 --seed 16`: **PASS**,
+  16 rampe fisiche, host Metal, client iniziale e ingresso tardivo; distruzione,
+  rigenerazione del round ed epoch2 con digest finale1151053692.
+- `setup_industrial_ladders.py` e `verify_industrial_maps.py`: **PASS**.
+  Ricetta revision3 e snapshot `DA_CentralBuilding_42_Ladders`; Depot e catalogo
+  materiali mantengono gli SHA256 precedenti. Scene Metal ispezionate.
+- Python compile e diff whitespace (repository principale e asset privati): PASS.
+
+Ricevuta: `docs/PLAYER_MECHANICS_RESULTS.json`. Log in `Saved/Testing/player-mechanics-*`.
+
+
+## Armi sulle scale automatiche — 19 ottobre 2026
+
+Questa revisione sostituisce la precedente regola X/sole mani libere o pistola.
+Pistola, coltello e granate a mano rimangono impugnati; le altre armi vengono
+riposte automaticamente. L'inventario conserva l'arma selezionata e permette
+cambi sulla scala: gli oggetti compatibili vengono impugnati subito, le altre
+armi rimangono riposte fino all'uscita. La transizione sul tetto mantiene la
+stessa regola. Nessun comando X. Munizioni e cooldown rimangono per arma;
+sparo, ricarica e mirino dell'arma riposta sono bloccati dal server.
+
+- Build Editor UE5.8.3: PASS.
+- `test-player-mechanics.py --fps 30`: PASS, 15 controlli server e4 client,
+  con latenza60ms ±15ms. Fucile riposto automaticamente, cambio sequenziale
+  coltello/granata/pistola/lanciagranate sulla scala, mantenimento dell'ultima
+  selezione, blocco sparo/ricarica/mirino, passaggio sul tetto, discesa,
+  distacco e distruzione dei pioli. Velocità144/180cm/s confermate dal client.
+  Le cadute brevi/6m/letali e la morte replicata restano corrette.
+- `test-network.py --accuracy`: PASS, sparo, munizioni, dispersione e recupero
+  replicati senza regressioni.
+- `EclipseRecoil.Player`: 2/2 PASS (cadute e isteresi risoluzione), rieseguiti
+  con la build aggiornata.
+- Diff whitespace e compilazione Python: PASS.
+
+Log di questa revisione: `Saved/Testing/ladder-equipment-*`.
+Gli esiti precedenti relativi a geometria, seed e rendering restano storici;
+questa revisione non modifica gli asset delle mappe o il governor grafico.
+
+
+## Combattimento e precisione sulle scale — 19 ottobre 2026
+
+Pistola, coltello e granate a mano sono utilizzabili sui pioli. Aggiunto alla
+pistola un malus massimo0,6° al semiangolo del cono, proporzionale alla velocità
+verticale assoluta, con tolleranza5cm/s: identico in salita/discesa e nullo da
+fermi. Il dato LadderMovingSpreadDegrees è configurabile e il calcolo condiviso
+GetSpreadDegrees alimenta sia i colpi autorevoli sia il reticolo del client.
+
+- Build Editor UE5.8.3: PASS.
+- `test-player-mechanics.py --fps 30`: PASS, 23 controlli server e4 client,
+  latenza60ms ±15ms. Uso reale di coltello/pistola e armamento/rilascio della
+  granata sulla scala; cono normale da fermo, maggiore durante salita/discesa,
+  LastShotSpreadDegrees uguale al cono mostrato e previsione del client.
+  Confermati anche selezione/ripristino, tetto, pioli distrutti e cadute.
+  Il proiettile della granata viene rimosso dopo il rilascio solo nella fixture
+  di prova, per non interferire con le successive prove di movimento.
+- `test-network.py --accuracy`: PASS. Nessuna regressione negli altri stati
+  di movimento, nei colpi, nelle munizioni o nel recupero del bloom.
+- Diff whitespace e compilazione Python: PASS.
+
+Log: `Saved/Testing/ladder-combat-*`.
+
+
+## Generatore con priorità alle scale a pioli — 19 ottobre 2026
+
+Ricetta industriale revision4: torrette e strutture compatte usano scale a pioli
+tra ogni piano, con botole160cm alternate e sbarchi rivolti verso la stanza.
+Il corridoio tra le porte resta libero. Gli edifici secondari più ampi
+(almeno800×1150cm, escluso il tipo torretta) conservano rampe; il centrale
+mantiene le sue due rampe e aggiunge una coppia di scale a pioli esterne.
+Restano gli accessi esterni degli edifici secondari. Guide e pioli sono acciaio
+calibrato2mm distruttibile; geometria e metadati rispettano la simmetria.
+
+- Build Editor UE5.8.3: PASS.
+- `test-destruction.py`: 12/12 PASS, 516 seed, 516 sagome e177 composizioni.
+  Verificati accesso per piano, pairing, collisione della capsula sull'intera
+  scala, pavimento degli sbarchi, corridoi liberi, supporto iniziale e distruzione.
+- `setup_industrial_ladders.py` e `verify_industrial_maps.py`: PASS.
+  Ricetta salvata revision4 e snapshot attivo DA_CentralBuilding_42_PreferredLadders.
+  Depot e catalogo materiali mantengono gli SHA256 precedenti.
+- `test-industrial-map.py --network --render --rule 2 --seed 16`: PASS.
+  Il personaggio ha percorso realmente 10 rampe e tutte le 10 scale
+  a pioli della variante a tre piani, compresi accessi interni ed esterni.
+  Confermati distruzione/crolli, client iniziale, ingresso dopo la distruzione
+  e rigenerazione del round (epoch2, digest finale170260109).
+  Pianta e vista a terra Metal ispezionate.
+- Compilazione Python e diff whitespace, anche asset privati: PASS.
+
+Ricevuta: `docs/INDUSTRIAL_MAP_RESULTS.json`. Log e immagini permanenti di questa
+verifica in `Saved/Testing/preferred-ladders-*`.
+
+
+## Finiture Factory grigie e container colorati — 19 ottobre 2026
+
+Ricetta revision5: acciaio grigio poco usurato su scale a pioli, strutture,
+piani metallici e reti. Container verniciati blu, rosso scuro, verde e ocra.
+Il colore viene scelto indipendentemente per ogni copia simmetrica, con un hash
+visivo deterministico separato dal generatore geometrico. Dimensioni, collisione,
+materiale fisico, rinforzo8, supporto e percorsi rimangono quelli precedenti.
+Le superfici per pannello entrano nel digest del layout e vengono applicate
+anche ai frammenti cosmetici risolvendo il pannello di origine dal payload esistente.
+Il catalogo condiviso e Depot conservano gli SHA256 precedenti.
+
+I materiali privati adattano BC/N/ORM Factory: ritaglio grigio delle travi per
+l'acciaio e sola zona corrugata del container per la vernice, senza cerniere/loghi
+ripetuti. La lamiera ripete su600×300cm, l'acciaio su150×150cm, con UV speculari.
+Gli originali Factory restano invariati. Collegamenti UV e tipi di campionamento
+sono stati verificati con i sorgenti dell'API Unreal e su Metal.
+
+- Build Editor: PASS.
+- `test-destruction.py`: 12/12 PASS, 516 seed, 516 sagome e177 composizioni.
+  Colori indipendenti possibili su geometrie simmetriche e scelta ripetibile;
+  collisione, pioli, resistenza, supporto e distruzione senza regressioni.
+- `setup_factory_finishes.py` e `verify_industrial_maps.py`: PASS, ricetta5 e
+  snapshot attivo DA_CentralBuilding_42_FactoryFinishes; palette verificata.
+- `test-industrial-map.py --network --render --rule 2 --seed 16`: PASS.
+  Verificati materiali effettivi dei chunk su host/client, tutte le10 rampe e10
+  scale a pioli, distruzione/crolli, ingresso tardivo e nuovo round. Nessun
+  fallback degli shader Factory. Digest finale epoch2: 3776669601.
+- Dopo il test LAN è stato rifinito soltanto il rettangolo/scala UV del container:
+  `test-industrial-map.py --finish-gallery --rule 2 --seed 16`: PASS su Metal.
+  Pianta, struttura e container integro ispezionati; lamiera pulita, senza parti
+  delle porte ripetute. Palette, identità dei materiali e fisica invariate.
+- Compilazione Python e whitespace (anche asset privati): PASS.
+
+Ricevuta: `docs/FACTORY_FINISHES_RESULTS.json`; log/immagini
+`Saved/Testing/factory-finishes-*`. La galleria rapida è un probe esplicito e
+non sostituisce la prova LAN o le prove di distruzione.

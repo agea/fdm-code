@@ -1,5 +1,9 @@
 #include "ERProceduralMap.h"
+#include "ERLadder.h"
 #include "ERMapTemplate.h"
+#include "ERIndustrialFence.h"
+#include "Components/DynamicMeshComponent.h"
+#include "DynamicMesh/DynamicMesh3.h"
 #include "Engine/StaticMesh.h"
 #include "PhysicsEngine/BodySetup.h"
 #include "ERBotController.h"
@@ -177,10 +181,12 @@ void ERProcedural::AddPieceCells(int32 Id, EERBlockMaterial Material, const FBox
         P.Cell=FVector(FERCellWorld::FitCell(P.Size.X,Cells.CellSize),P.Size.Y,FERCellWorld::FitCell(P.Size.Z,Cells.CellSize));
     };
     const bool bBottom=bGround || bAnchoredBase;
-    Board(0,FBox(B.Min,FVector(B.Max.X,B.Min.Y+W,B.Max.Z)),1,bBottom);
-    Board(1,FBox(FVector(B.Min.X,B.Max.Y-W,B.Min.Z),B.Max),1,bBottom);
-    Board(2,FBox(B.Min,FVector(B.Min.X+W,B.Max.Y,B.Max.Z)),0,bBottom);
-    Board(3,FBox(FVector(B.Max.X-W,B.Min.Y,B.Min.Z),B.Max),0,bBottom);
+    // Side tops meet the roof underside. Overlapping thin shells have no
+    // external face contact, leaving the roof unsupported in the cell graph.
+    Board(0,FBox(B.Min,FVector(B.Max.X,B.Min.Y+W,B.Max.Z-W)),1,bBottom);
+    Board(1,FBox(FVector(B.Min.X,B.Max.Y-W,B.Min.Z),FVector(B.Max.X,B.Max.Y,B.Max.Z-W)),1,bBottom);
+    Board(2,FBox(B.Min,FVector(B.Min.X+W,B.Max.Y,B.Max.Z-W)),0,bBottom);
+    Board(3,FBox(FVector(B.Max.X-W,B.Min.Y,B.Min.Z),FVector(B.Max.X,B.Max.Y,B.Max.Z-W)),0,bBottom);
     Board(4,FBox(FVector(B.Min.X,B.Min.Y,B.Max.Z-W),B.Max),2,false);
 }
 AERProceduralMap::AERProceduralMap()
@@ -193,6 +199,13 @@ AERProceduralMap::AERProceduralMap()
     };
     TileFloors=Create(TEXT("TileFloors")); WoodFloors=Create(TEXT("WoodFloors")); Ceilings=Create(TEXT("Ceilings")); Stairs=Create(TEXT("IndestructibleStairs"));
     FixedCollision=Create(TEXT("FixedTemplateCollision"));FixedCollision->SetHiddenInGame(true);FixedCollision->SetCastShadow(false);
+    FenceCollision=Create(TEXT("FixedFenceCollision"));FenceCollision->SetHiddenInGame(true);FenceCollision->SetCastShadow(false);
+    // This is a locomotion volume, not solid WorldStatic cover. Object-type
+    // blast queries must see the perforated metal instead of this full box.
+    FenceCollision->SetCollisionObjectType(ECC_Pawn);
+    FenceCollision->SetCollisionResponseToAllChannels(ECR_Ignore);
+    FenceCollision->SetCollisionResponseToChannel(ECC_Pawn,ECR_Block);
+    FenceCollision->SetCollisionResponseToChannel(ECC_WorldDynamic,ECR_Block);
 }
 bool AERProceduralMap::GenerateLogicalWorld()
 {
@@ -204,13 +217,21 @@ bool AERProceduralMap::GenerateLogicalWorld()
 }
 void AERProceduralMap::ConfigureFloors()
 {
+    for(auto Ladder:LadderActors)if(Ladder)Ladder->Destroy();
+    LadderActors.Reset();
     for(auto& Mesh:FixedMeshes)
     {
         RemoveInstanceComponent(Mesh); Mesh->DestroyComponent();
         // Free the deterministic name before the replacement group claims it.
         Mesh->Rename(*MakeUniqueObjectName(this, UInstancedStaticMeshComponent::StaticClass(), TEXT("DeadTemplateFixed")).ToString(), nullptr, REN_DontCreateRedirectors | REN_NonTransactional);
     }
-    FixedMeshes.Empty();FixedCollision->ClearInstances();Ceilings->SetHiddenInGame(false);
+    FixedMeshes.Empty();FixedCollision->ClearInstances();FenceCollision->ClearInstances();Ceilings->SetHiddenInGame(false);
+    for(auto& Metal:FenceMetal)
+    {
+        RemoveInstanceComponent(Metal);Metal->DestroyComponent();
+        Metal->Rename(*MakeUniqueObjectName(this,UDynamicMeshComponent::StaticClass(),TEXT("DeadFenceMetal")).ToString(),nullptr,REN_DontCreateRedirectors|REN_NonTransactional);
+    }
+    FenceMetal.Empty();
     if(LayoutConfig.TemplateAsset) {ConfigureTemplateFloors(); return;}
     // A foundation touches the underside of the 20cm interior floor slabs.
     // Its exposed asphalt apron is one walkable step down after an outer breach.
@@ -251,6 +272,9 @@ SIZE_T AERProceduralMap::GetLayoutBytes() const
     Bytes+=Layout.TownBuildings.GetAllocatedSize()+Layout.TownCourts.GetAllocatedSize()+Layout.TownGates.GetAllocatedSize()+Layout.TownStreetNames.GetAllocatedSize()+Layout.UpperRoute.GetAllocatedSize()+Layout.LowerRoute.GetAllocatedSize();
     for(const auto& Gate:Layout.TownGates)Bytes+=Gate.Passage.GetAllocatedSize();
     for(const auto& Route:Layout.RoomAccessRoutes)Bytes+=Route.GetAllocatedSize();
+    Bytes+=Layout.CrossingRoutes.GetAllocatedSize()+Layout.ClimbPoints.GetAllocatedSize();
+    Bytes+=Layout.Containers.GetAllocatedSize()+Layout.SecondaryStructures.GetAllocatedSize()+Layout.CoverAngles.GetAllocatedSize()+Layout.WallAccessFlights.GetAllocatedSize()+Layout.WallBridges.GetAllocatedSize();
+    for(const auto& Route:Layout.CrossingRoutes)Bytes+=Route.GetAllocatedSize();
     for (const auto& Route:Layout.Routes) Bytes+=Route.GetAllocatedSize();
     return Bytes;
 }
@@ -263,25 +287,50 @@ void AERProceduralMap::ConfigureTemplateFloors()
     if(FloorSurface)Floor->SetMaterial(0,FloorSurface);
     for(auto* Mesh:{TileFloors.Get(),WoodFloors.Get(),Ceilings.Get(),Stairs.Get()}){Mesh->ClearInstances();Mesh->SetStaticMesh(BlockMesh);}
     FixedCollision->SetStaticMesh(BlockMesh);
+    FenceCollision->SetStaticMesh(BlockMesh);
+    UE::Geometry::FDynamicMesh3 Metal;Metal.EnableAttributes();
+    auto FlushMetal=[&]()
+    {
+        if(Metal.TriangleCount()==0)return;
+        // Bound each cooked mesh well below Unreal's complex-collision limit.
+        // Cooking is synchronous, so no client can open a gate on missing wire.
+        auto* Part=NewObject<UDynamicMeshComponent>(this,*FString::Printf(TEXT("IndustrialFenceMetal_%d"),FenceMetal.Num()));
+        AddInstanceComponent(Part);Part->SetMobility(EComponentMobility::Movable);Part->SetNetAddressable();
+        Part->SetupAttachment(RootComponent);Part->SetCanEverAffectNavigation(false);
+        Part->SetDeferredCollisionUpdatesEnabled(true,false);Part->SetComplexAsSimpleCollisionEnabled(true,false);
+        Part->SetCollisionProfileName(TEXT("BlockAll"));
+        Part->SetCollisionResponseToChannel(ECC_Pawn,ECR_Ignore);Part->SetCollisionResponseToChannel(ECC_WorldDynamic,ECR_Ignore);
+        Part->SetTangentsType(EDynamicMeshComponentTangentsMode::AutoCalculated);
+        Part->SetMaterial(0,Template->CentralBuilding.SteelSurface ? Template->CentralBuilding.SteelSurface.Get():MaterialCatalog->Find(EERBlockMaterial::Metal)->Surface.Get());
+        Part->RegisterComponent();Part->SetMesh(MoveTemp(Metal));Part->UpdateCollision(false);FenceMetal.Add(Part);
+        Metal=UE::Geometry::FDynamicMesh3();Metal.EnableAttributes();
+    };
     Ceilings->SetHiddenInGame(Template->RoofMesh!=nullptr);
     if(CeilingSurface)Ceilings->SetMaterial(0,CeilingSurface);
     if(bCeilings)Ceilings->AddInstance(FTransform(FQuat::Identity,FVector(0,0,Size.Z+10),FVector(Size.X+40,Size.Y+40,20)/100));
     for(const auto& Piece:Layout.FixedPieces)
     {
         if(Piece.Roof && !bCeilings)continue;
+        if(Piece.PawnBarrier)
+        {
+            FenceCollision->AddInstance(Piece.Transform);
+            ERIndustrialFence::Append(Piece,Metal);
+            if(Metal.TriangleCount()>=50000)FlushMetal();
+            continue;
+        }
         UStaticMesh* Asset=Piece.Mesh ? Piece.Mesh:BlockMesh.Get();
         auto* Surface=Piece.Surface ? Piece.Surface:MaterialCatalog->Find(Piece.Material)->Surface.Get();
         auto* ExpectedSurface=Piece.Surface ? Piece.Surface:(Piece.Mesh ? Asset->GetMaterial(0):Surface);
         UInstancedStaticMeshComponent* Group=nullptr;
-        for(auto& Existing:FixedMeshes)if(Existing->GetStaticMesh()==Asset && Existing->ComponentHasTag(TEXT("ERTemplateRoof"))==Piece.Roof && Existing->ComponentHasTag(TEXT("ERTemplateVisual"))==bool(Piece.Mesh || Piece.VisualOnly) && Existing->GetMaterial(0)==ExpectedSurface){Group=Existing;break;}
+        for(auto& Existing:FixedMeshes)if(Existing->GetStaticMesh()==Asset && Existing->ComponentHasTag(TEXT("ERTemplateRoof"))==Piece.Roof && Existing->ComponentHasTag(TEXT("ERTemplateVisual"))==bool(Piece.Mesh || Piece.VisualOnly || Piece.PawnBarrier) && Existing->GetMaterial(0)==ExpectedSurface){Group=Existing;break;}
         if(!Group)
         {
             // Groups are created in FixedPieces order, identical on host and clients:
             // pawns stand on them, so corrections carry them by name.
             Group=NewObject<UInstancedStaticMeshComponent>(this,*FString::Printf(TEXT("TemplateFixed_%d"),FixedMeshes.Num()));AddInstanceComponent(Group);Group->SetMobility(EComponentMobility::Movable);
             Group->SetNetAddressable();
-            Group->SetupAttachment(RootComponent);Group->SetStaticMesh(Asset);Group->SetCollisionProfileName(Piece.Mesh || Piece.VisualOnly ? TEXT("NoCollision"):TEXT("BlockAll"));
-            if(Piece.Mesh || Piece.VisualOnly)Group->ComponentTags.Add(TEXT("ERTemplateVisual"));
+            Group->SetupAttachment(RootComponent);Group->SetStaticMesh(Asset);Group->SetCollisionProfileName(Piece.Mesh || Piece.VisualOnly || Piece.PawnBarrier ? TEXT("NoCollision"):TEXT("BlockAll"));
+            if(Piece.Mesh || Piece.VisualOnly || Piece.PawnBarrier)Group->ComponentTags.Add(TEXT("ERTemplateVisual"));
             if(Piece.Roof)Group->ComponentTags.Add(TEXT("ERTemplateRoof"));
             Group->SetCanEverAffectNavigation(false);
             if(Piece.Surface)for(int32 Slot=0;Slot<FMath::Max(1,Asset->GetStaticMaterials().Num());++Slot)Group->SetMaterial(Slot,Surface);
@@ -294,11 +343,37 @@ void AERProceduralMap::ConfigureTemplateFloors()
             const FBox Box=Asset->GetBoundingBox();const FQuat MeshRotation=Piece.MeshRotation.Quaternion(),Rotation=T.GetRotation()*MeshRotation;
             const FVector Scale=MeshRotation.UnrotateVector(T.GetScale3D()*100).GetAbs()/Box.GetSize();
             T.SetRotation(Rotation);T.SetScale3D(Scale);T.AddToTranslation(-Rotation.RotateVector(Box.GetCenter()*Scale));
-            if(!Piece.VisualOnly)FixedCollision->AddInstance(Piece.Transform);
+            if(!Piece.VisualOnly && !Piece.PawnBarrier)FixedCollision->AddInstance(Piece.Transform);
         }
         Group->AddInstance(T);
     }
-    if(HasAuthority() && Layout.Routes.Num()>1)
+    FlushMetal();
+    for(const auto& Desc:Layout.Ladders)
+    {
+        FActorSpawnParameters Params;Params.Owner=this;
+        auto* Ladder=GetWorld()->SpawnActor<AERLadder>(AERLadder::StaticClass(),Desc.Frame*GetActorTransform(),Params);
+        if(Ladder){Ladder->Height=Desc.Height;Ladder->DeckHeight=Desc.DeckHeight;LadderActors.Add(Ladder);}
+    }
+    if(HasAuthority() && Layout.Routes.Num()>1 && Template->Archetype==EERMapArchetype::CentralBuilding)
+    {
+        // Crossing rules have different route lengths. Never leave saved
+        // placeholder points at the origin or feed bots obsolete waypoints.
+        TSet<int32> Existing;
+        for(TActorIterator<AERBotPatrolPoint> It(GetWorld());It;++It)
+        {
+            if(!Layout.Routes[1].IsValidIndex(It->RouteIndex) || Existing.Contains(It->RouteIndex)){It->Destroy();continue;}
+            Existing.Add(It->RouteIndex);
+            It->GetRootComponent()->SetMobility(EComponentMobility::Movable);
+            It->SetActorLocation(GetActorTransform().TransformPosition(Layout.Routes[1][It->RouteIndex]));
+            It->AcceptanceRadius=20;
+        }
+        for(int32 I=0;I<Layout.Routes[1].Num();++I)if(!Existing.Contains(I))
+        {
+            auto* Point=GetWorld()->SpawnActor<AERBotPatrolPoint>(GetActorTransform().TransformPosition(Layout.Routes[1][I]),FRotator::ZeroRotator);
+            Point->RouteIndex=I;Point->AcceptanceRadius=20;
+        }
+    }
+    else if(HasAuthority() && Layout.Routes.Num()>1)
         for(TActorIterator<AERBotPatrolPoint> It(GetWorld());It;++It)
             if(Layout.Routes[1].IsValidIndex(It->RouteIndex))
             {
@@ -314,10 +389,13 @@ uint32 AERProceduralMap::GetTemplateGeometryDigest() const
     if(!LayoutConfig.TemplateAsset)return 0;
     uint32 H=GetTypeHash(LayoutConfig.TemplateAsset->Revision);
     H=HashCombine(H,FCrc::StrCrc32(*LayoutConfig.TemplateAsset->TemplateId));
+    H=HashCombine(H,GetTypeHash(uint8(LayoutConfig.TemplateAsset->Archetype)));
     auto MixVector=[&](FVector V){for(int32 I=0;I<3;++I)H=HashCombine(H,GetTypeHash(FMath::RoundToInt(V[I]*100)));};
     MixVector(Layout.ArenaSize);H=HashCombine(H,GetTypeHash(bCeilings));H=HashCombine(H,GetTypeHash(uint8(LayoutConfig.TemplateAsset->Symmetry)));
     for(const auto& P:Layout.FixedPieces)
     {
+        H=HashCombine(H,GetTypeHash(P.PawnBarrier));
+        if(P.PawnBarrier)H=HashCombine(H,ERIndustrialFence::GeometryVersion);
         MixVector(P.Transform.GetLocation());MixVector(P.Transform.GetScale3D());MixVector(FVector(P.MeshRotation.Pitch,P.MeshRotation.Yaw,P.MeshRotation.Roll));H=HashCombine(H,GetTypeHash(P.Roof));H=HashCombine(H,GetTypeHash(P.VisualOnly));H=HashCombine(H,GetTypeHash(uint8(P.Material)));
         MixVector(P.Transform.GetRotation().GetForwardVector());
         if(P.Surface)H=HashCombine(H,FCrc::StrCrc32(*P.Surface->GetPathName()));

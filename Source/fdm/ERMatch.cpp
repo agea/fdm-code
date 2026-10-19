@@ -11,12 +11,14 @@
 #include "ERSessionProbe.h"
 #include "ERBotMotionProbe.h"
 #include "ERMovementProbe.h"
+#include "ERTraversalProbe.h"
 #include "ERAccuracyProbe.h"
 #include "ERArsenalProbe.h"
 #include "ERGrenadeProbe.h"
 #include "ERReferenceWeaponProbe.h"
 #include "ERCellLabProbe.h"
 #include "ERProceduralMap.h"
+#include "ERIndustrialMapProbe.h"
 #include "ERProceduralProbe.h"
 #include "ERMapTemplateProbe.h"
 #include "ERDustTemplateProbe.h"
@@ -60,11 +62,15 @@ AERGameMode::AERGameMode()
 void AERGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
 {
     Super::InitGame(MapName, Options, ErrorMessage);
-    if (MapName.Contains(TEXT("L_ProceduralLab")) || MapName.Contains(TEXT("L_Killhouse")) || MapName.Contains(TEXT("L_DustMirror")))
-        for (TActorIterator<AERProceduralMap> It(GetWorld()); It; ++It)
+    for (TActorIterator<AERProceduralMap> It(GetWorld()); It; ++It)
         {
             It->LayoutConfig.Seed = UGameplayStatics::GetIntOption(Options, TEXT("MapSeed"), It->LayoutConfig.Seed);
             FParse::Value(FCommandLine::Get(), TEXT("ERMapSeed="), It->LayoutConfig.Seed);
+            It->LayoutConfig.CrossingOverride=0;
+#if !UE_BUILD_SHIPPING
+            if(FParse::Param(FCommandLine::Get(),TEXT("ERIndustrialMapProbe")))
+                It->LayoutConfig.CrossingOverride=UGameplayStatics::GetIntOption(Options,TEXT("MapCrossing"),0);
+#endif
             It->LayoutConfig.Floors=UGameplayStatics::GetIntOption(Options,TEXT("MapFloors"),It->LayoutConfig.Floors);
             It->LayoutConfig.RoomCount=UGameplayStatics::GetIntOption(Options,TEXT("MapRooms"),It->LayoutConfig.RoomCount);
             It->LayoutConfig.AdditionalMaterials=UGameplayStatics::GetIntOption(Options,TEXT("MapMaterials"),It->LayoutConfig.AdditionalMaterials)!=0;
@@ -156,6 +162,7 @@ void AERGameMode::BeginPlay()
 {
     Super::BeginPlay();
 #if !UE_BUILD_SHIPPING
+    if (GetWorld()->GetMapName().Contains(TEXT("L_CentralBuilding")) && FParse::Param(FCommandLine::Get(),TEXT("ERIndustrialMapProbe")))GetWorld()->SpawnActor<AERIndustrialMapProbe>();
     if (FParse::Param(FCommandLine::Get(), TEXT("ERProtectionRespawnGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERProtectionGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERPostureGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERTeamGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERCorpseGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERSkinGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERFPSForearmsGallery"))) GetWorld()->SpawnActor<AERTeamGallery>();
 #endif
     if (GameSession) GameSession->MaxPlayers = 4;
@@ -169,6 +176,7 @@ void AERGameMode::BeginPlay()
     if (GetNetMode()==NM_Standalone && GetWorld()->GetMapName().Contains(TEXT("L_DestructionLab")) && FParse::Param(FCommandLine::Get(),TEXT("ERBlockCollapseProbe"))) GetWorld()->SpawnActor<AERBlockCollapseProbe>();
     if (FParse::Param(FCommandLine::Get(),TEXT("ERBlockNetworkProbe")) && GetWorld()->GetMapName().Contains(TEXT("L_ProceduralLab")))GetWorld()->SpawnActor<AERBlockNetworkProbe>();
     if (FParse::Param(FCommandLine::Get(), TEXT("ERNetworkProbe"))) GetWorld()->SpawnActor<AERNetworkProbe>();
+    if(FParse::Param(FCommandLine::Get(),TEXT("ERTraversalProbe")))GetWorld()->SpawnActor<AERTraversalProbe>();
     if (FParse::Param(FCommandLine::Get(), TEXT("ERMovementProbe"))) GetWorld()->SpawnActor<AERMovementProbe>();
     if (FParse::Param(FCommandLine::Get(), TEXT("ERSessionProbe"))) GetWorld()->SpawnActor<AERSessionProbe>();
     if (FParse::Param(FCommandLine::Get(),TEXT("ERBotMotionProbe"))) GetWorld()->SpawnActor<AERBotMotionProbe>();
@@ -402,8 +410,22 @@ void AERGameMode::ResetRound()
         if (PC) { PC->bAwaitingRespawn = false; PC->RespawnAllowedAt = 0; }
         if (Bot) Bot->ResetLife();
         if (auto* PS = Controller->GetPlayerState<AERPlayerState>()) PS->Kills = PS->Deaths = PS->TeamKills = 0;
-        RestartPlayer(Controller);
     }
+    // Production archetypes start the next round with a fresh deterministic
+    // seed. Publish the new epoch before spawning anyone into its collision.
+    for(TActorIterator<AERProceduralMap> It(GetWorld());It;++It)
+        if(It->LayoutConfig.TemplateAsset && It->LayoutConfig.TemplateAsset->Archetype==EERMapArchetype::CentralBuilding)
+        {
+            // Stationary targets keep a start across deaths, but that start
+            // belongs to the old arena. Choose a fresh clear start this round.
+            for(const auto& Bot:TestBots)if(IsValid(Bot.Get()) && Bot->TrainingStart)
+            {Bot->TrainingStart->Destroy();Bot->TrainingStart=nullptr;}
+            const int32 Previous=It->LayoutConfig.Seed;
+            It->LayoutConfig.Seed=int32(HashCombine(uint32(Previous),It->GetMapEpoch()+7919u));
+            if(!It->Regenerate())It->LayoutConfig.Seed=Previous;
+        }
+    for(TActorIterator<AController> It(GetWorld());It;++It)
+        if(Cast<AERPlayerController>(*It) || Cast<AERBotController>(*It))RestartPlayer(*It);
     auto* State = GetGameState<AERGameState>();
     State->AlphaScore = State->OmegaScore = 0; State->MatchEndServerTime = 0; State->RestartServerTime = 0; State->Winner = EERTeam::None;
     if (ReadyToStartMatch()) StartMatch();

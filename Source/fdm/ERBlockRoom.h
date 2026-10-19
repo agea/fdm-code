@@ -27,14 +27,14 @@ struct FERBlockCollapseSettings
     UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="0.1",ClampMax="20")) float DebrisSettleAfter=2;
 };
 
-// Protocol 7: 5cm cells. BlockCount holds the cell count, PageVersions the
+// Protocol 8: 5cm cells with complete shard-payload witnesses. BlockCount holds the cell count, PageVersions the
 // versions of the chunk-mask shards (AERCellNetShard).
 USTRUCT()
 struct FERBlockNetworkDescriptor
 {
     GENERATED_BODY()
     UPROPERTY() uint32 Epoch=0;
-    UPROPERTY() uint32 Protocol=7;
+    UPROPERTY() uint32 Protocol=8;
     UPROPERTY() uint32 LayoutDigest=0;
     UPROPERTY() uint32 Sequence=0;
     UPROPERTY() int32 BlockCount=0;

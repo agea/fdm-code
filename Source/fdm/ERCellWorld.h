@@ -28,6 +28,10 @@ struct FERCellPanelDesc
     FTransform Transform; // room-local, rotation and translation only
     FVector Size = FVector::ZeroVector;
     FVector Cell = FVector::ZeroVector;
+    // Reinforcement of this construction; base cell calibration stays unchanged.
+    float Strength = 1;
+    // Owned by the template palette; affects rendering/identity, never cell physics.
+    class UMaterialInterface* Surface = nullptr;
     bool bPane = false, bIndestructible = false;
     // Openings (doors, windows) as panel-local X/Z rectangles: cells whose centre
     // lies inside are absent from generation, never counted as destroyed.
@@ -90,7 +94,7 @@ public:
     bool IsAlive(const FERCellId& Id) const { return IsAlive(Id.Panel, Id.X, Id.Y, Id.Z); }
     bool IsValid(const FERCellId& Id) const;
     float GetHealth(const FERCellId& Id) const;
-    float GetMaxHealth(int32 Panel) const { return Panels.IsValidIndex(Panel) ? MaxHealth[uint8(Panels[Panel].Material)] : 0; }
+    float GetMaxHealth(int32 Panel) const { return Panels.IsValidIndex(Panel) ? MaxHealth[uint8(Panels[Panel].Material)]*Panels[Panel].Strength : 0; }
     int32 GetChunkIndex(int32 Panel, int32 X, int32 Z) const;
     FVector GetCellCenter(const FERCellId& Id) const;
     FBox GetCellBox(const FERCellId& Id) const; // panel-local

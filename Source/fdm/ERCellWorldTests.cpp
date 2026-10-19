@@ -315,7 +315,7 @@ bool FERCellNetTransactionTest::RunTest(const FString& Parameters)
     auto* Client = World->SpawnActor<AERBlockRoom>(); Client->SetRole(ROLE_SimulatedProxy); Client->bNetworkBegunPlay = true;
     const int32 Shards = FMath::DivideAndRoundUp(Server->GetCellWorld().GetChunks().Num(), AERCellNetShard::Capacity);
     auto& N = Client->Network;
-    N.Epoch = 1; N.Protocol = 7; N.Cells = true; N.CellSettings = Server->CellSettings; N.Blocks = Server->Config;
+    N.Epoch = 1; N.Protocol = 8; N.Cells = true; N.CellSettings = Server->CellSettings; N.Blocks = Server->Config;
     N.BlockCount = int32(Server->GetCellWorld().GetCellCount()); N.LayoutDigest = Server->GetLayoutDigest(); N.Sequence = 1; N.PageVersions.Init(1, Shards);
     Client->OnRep_Network();
     TestTrue(TEXT("client built cells from the descriptor"), Client->GetCellWorld().GetCellCount() > 0 && !Client->bNetworkError);
@@ -351,6 +351,18 @@ bool FERCellNetTransactionTest::RunTest(const FString& Parameters)
     Client->OnRep_Network();
     TestEqual(TEXT("coherent transaction applied"), Client->GetStateDigest(), Server->GetStateDigest());
     TestTrue(TEXT("client meshes and collision rebuilt"), Client->ValidateCells());
+    // Reproduce a late join where the current header arrives before its fast
+    // array. Previously an empty array could open the gate permanently intact.
+    auto* Late=World->SpawnActor<AERBlockRoom>();Late->SetRole(ROLE_SimulatedProxy);Late->bNetworkBegunPlay=true;Late->Network=N;Late->OnRep_Network();
+    TArray<AERCellNetShard*> LatePages;
+    for(auto* Page:Pages)
+    {
+        auto* S=World->SpawnActor<AERCellNetShard>();S->Room=Late;S->Header=Page->Header;LatePages.Add(S);Late->ReceiveCellShard(S);
+    }
+    TestFalse(TEXT("header alone cannot open late-join collision"),Late->IsMapReady());
+    for(int32 I=0;I<Pages.Num();++I){LatePages[I]->Chunks.Items=Pages[I]->Chunks.Items;Late->ReceiveCellShard(LatePages[I]);}
+    TestTrue(TEXT("complete late-join payload opens gate"),Late->IsMapReady());
+    TestEqual(TEXT("late join retains existing destruction"),Late->GetStateDigest(),Server->GetStateDigest());
     // Invalid payload fails closed before anything changes.
     const uint32 Before = Client->GetStateDigest();
     auto* Bad = Pages[Changed[0] / AERCellNetShard::Capacity];
@@ -362,7 +374,7 @@ bool FERCellNetTransactionTest::RunTest(const FString& Parameters)
     // New epoch: late join to a fresh layout clears previous removals.
     Client->bNetworkError = false; N.Epoch = 2; N.Sequence = 1; N.PageVersions.Init(1, Shards);
     Client->OnRep_Network();
-    for (auto* S : Pages) { S->Chunks.Items.Reset(); S->Header.Epoch = 2; S->Header.Version = 1; Client->ReceiveCellShard(S); }
+    for (auto* S : Pages) { S->Chunks.Items.Reset(); S->Header.Epoch = 2; S->Header.Version = 1;S->Header.ChunkCount=0;S->Header.PayloadDigest=0; Client->ReceiveCellShard(S); }
     TestTrue(TEXT("new epoch ready"), Client->IsMapReady());
     TestEqual(TEXT("stale removals cleared"), Client->GetCellWorld().GetRemovedCount(), int64(0));
     N.Epoch = 3; N.Protocol = 99;

@@ -119,6 +119,12 @@ public:
     virtual void CalcCamera(float DeltaTime, struct FMinimalViewInfo& OutResult) override;
     virtual void EndPlay(const EEndPlayReason::Type Reason) override;
     virtual float TakeDamage(float Damage, const FDamageEvent& Event, AController* Killer, AActor* Causer) override;
+    virtual bool CanJumpInternal_Implementation() const override;
+    virtual void Landed(const FHitResult& Hit) override;
+    static float FallDamage(float DownSpeed,float Gravity);
+    // Weapon remains the selected inventory item while automatically stowed.
+    bool CanHoldWeaponOnLadder() const;
+    bool IsWeaponStowed() const;
     virtual void FellOutOfWorld(const class UDamageType& Type) override;
     UFUNCTION(Server, Reliable) void ServerStartFire();
     void SetGrenadeInputHeld(bool bHeld);

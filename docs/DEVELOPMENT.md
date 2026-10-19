@@ -2040,3 +2040,104 @@ within4cm of its centre, catching the old floating hand placement.
 Final validation: Mac Editor build passes; two-peer Metal reference test passes
 including the new wrist/knuckle checks, palm anchor, thumb contact, framing and
 all reload captures. Visually inspected final Alpha/Omega idle and pistol reload.
+# Generazione industriale per archetipi — 19 ottobre 2026
+
+La richiesta corrente sostituisce la selezione giocabile Killhouse/Dust/laboratori.
+Central Building Industrial è l'unico tipo nella rotazione; Deposito resta un
+ambiente di riferimento selezionabile. Nel progetto rimangono i livelli
+L_CentralBuilding, L_Depot e L_MainMenu. Backup verificato dei contenuti ritirati
+in Saved/MapRefactorBackup/2026-10-19; nessuna modifica al progetto sorgente Factory.
+
+Il tipo definisce edificio centrale da uno a tre piani e tre attraversamenti:
+cortile aperto, muro di 3m con passerelle e scale sui due lati, oppure reti fisse con passaggi dal
+tetto centrale e dai due edifici laterali. Dimensioni, fabbricati secondari,
+quantità e composizione delle coperture variano con il seed. Alpha/CT e Omega/T
+sono costruiti con simmetria di 180 gradi. La rotazione avanza il seed prima
+dei respawn del nuovo round. Il preset viene sempre estratto dal seed, senza
+selettore nel menu. L'override URL funziona solo nel probe non-shipping.
+La rete ha montanti e maglie con geometria visibile e collisione coincidenti:
+i colpi passano nei vuoti e si fermano sul metallo. Container, muro in mattoni,
+passerelle e scale esterne sono distruttibili. I container usano celle cave di
+acciaio con rinforzo Strength=8; HP, penetrazione e schermatura aumentano senza
+modificare il catalogo condiviso. Gli accessi in legno e gli edifici secondari
+possono perdere piani e percorsi quando cedono i sostegni. Fabbricati e torrette
+variano da uno a tre piani; coperture oblique fino a 45 gradi, con coppie a 180
+gradi. Nel pack ci sono due scale a pioli, ma la salita verticale non è ancora
+implementata: le torrette usano scale normali. La ricetta salvata è revisione2;
+setup_industrial_evolution.py aggiorna anche lo snapshot PCG con CellVolumes.
+I pezzi ruotati conservano la griglia locale delle celle; i piani orizzontali
+in legno mantengono lo spessore calibrato di 2cm. Le pareti delle casse cave
+terminano sotto il tetto, creando un contatto tra facce per il grafo dei sostegni:
+sovrapporle al tetto lo lascia apparentemente scollegato. Strength entra nel
+digest delle celle e mantiene distinti HP strutturali, energia e danni ai giocatori.
+
+PCGEx 0.79.2 è abilitato: analisi dei percorsi e grafo di authoring usano gli
+stessi dati validati del generatore. Distruzione/crolli rimangono nel percorso
+nativo delle celle da 5cm. Protocollo LAN8: conteggio/digest del contenuto di
+ogni shard impediscono che l'intestazione anticipi una fast array incompleta.
+Il caso è riprodotto dal test NetworkTransactions. Tutti i peer devono usare
+il modulo ricompilato. Dettagli e verifiche in MAP_ARCHETYPES.md e TEST_RESULTS.md.
+
+
+## Cadute, scale a pioli e risoluzione stabile — 19 ottobre 2026
+
+Questa implementazione supera i precedenti rinvii di danni da caduta e scale.
+`Landed` calcola il danno dalla velocità verticale prima dell'impatto e dalla
+gravità effettiva: fino a circa3m è nullo, cresce linearmente con l'altezza
+equivalente, arriva a100HP a11m. Il server usa salute, protezione iniziale,
+feedback e morte ambientale esistenti. L'armatura non viene consumata.
+
+W/S sale/scende e Spazio stacca; non serve X. Pistola, coltello e granata
+restano in mano e utilizzabili a1,44m/s. La pistola aggiunge fino a0,6° al
+semiangolo del cono mentre si sale/scende, proporzionalmente alla velocità
+verticale (tolleranza5cm/s); da fermi non aggiunge dispersione. Server e reticolo
+usano lo stesso cono. Il valore è configurabile in LadderMovingSpreadDegrees.
+Le altre armi vengono riposte automaticamente e la
+salita avviene a1,8m/s. Sulla scala si può cambiare slot: un oggetto compatibile
+appare subito, un'arma incompatibile rimane selezionata ma riposta, e viene
+ripresa all'uscita (anche salto, discesa o pioli distrutti). Munizioni e cooldown
+restano quelli dell'oggetto selezionato. Un'arma riposta non spara, ricarica o
+usa il mirino. Il movimento usa custom mode2 e saved moves Unreal; custom3
+mantiene questo comportamento durante il passaggio sul tetto. Dopo la discesa
+va rilasciato il movimento prima di un nuovo aggancio, evitando rimbalzi.
+
+La ricetta industriale revision3 aggiunge scale esterne accoppiate a edifici
+secondari e torri: guide scatolate e pioli sono celle d'acciaio distruttibili,
+con spessore calibrato2mm e aperture reali nei parapetti. I pioli si fermano
+sotto il tetto e i corrimano proseguono sopra; perdere appoggi reali fa cadere.
+I modelli Factory restano riferimenti; la geometria distruttibile usa il catalogo
+preservato. `setup_industrial_ladders.py` versiona e aggiorna lo snapshot PCG.
+
+La risoluzione usa una politica GPU con obiettivo60FPS, senza riduzioni a59FPS.
+Occorrono3s persistenti sotto56FPS per iniziare a scendere o sopra66FPS per
+recuperare qualità. Durante l'intervento le variazioni sono continue e limitate
+in velocità. Dopo2s stabili si blocca per4s; anche l'avvio aspetta4s. Restano
+invariati finestra, HUD, limite1080p dell'uscita e bounds dell'upscaler. Reset
+azzera scala e storico della politica, senza ridimensionare la finestra.
+
+
+### Accessi del generatore: priorità alle scale a pioli — 19 ottobre 2026
+
+La ricetta industriale revision4 usa scale a pioli tra tutti i piani delle
+piccole strutture e delle torrette. Botole160cm alternate tra i piani e scale
+orientate verso la stanza lasciano libero il corridoio tra le porte. Gli edifici
+secondari più ampi (almeno800×1150cm, escluso il tipo torretta) conservano rampe
+e vani scala. Il centrale conserva le sue due rampe e aggiunge una coppia di
+scale a pioli esterne. Rimangono anche gli accessi esterni degli edifici minori.
+Scale, botole e sbarchi rispettano la simmetria; guide/pioli restano acciaio
+calibrato2mm distruttibile e gli sbarchi hanno supporto e spazio per il giocatore.
+Il PCGEx attivo usa lo snapshot DA_CentralBuilding_42_PreferredLadders.
+
+
+### Finiture Factory per acciaio e container — 19 ottobre 2026
+
+La ricetta revision5 applica acciaio grigio poco usurato a scale, strutture,
+piani metallici e reti. I container usano vernici blu, rosso scuro, verde e ocra.
+I colori dei due lati sono indipendenti: la simmetria tutela geometria e gioco,
+non l'estetica. Le scelte sono deterministiche per seed e non consumano il flusso
+casuale della geometria. Le superfici per pannello entrano nell'identità della
+mappa, così i client devono ricostruire la stessa palette.
+I materiali dedicati adattano zone pulite delle texture Factory BC/N/ORM con
+proiezione in centimetri e ripetizione speculare, escludendo loghi e isole di
+ruggine marcata. Il catalogo condiviso, calibrazione2mm, resistenza8 dei container,
+penetrazione e supporto restano invariati. Anche Depot resta invariato.

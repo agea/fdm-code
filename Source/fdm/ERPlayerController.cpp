@@ -1,4 +1,5 @@
 #include "ERPlayerController.h"
+#include "ERMapCatalog.h"
 #include "Internationalization/Internationalization.h"
 #include "ERMouseResponse.h"
 #include "Misc/App.h"
@@ -24,6 +25,8 @@
 #include "GenericPlatform/GenericApplication.h"
 #include "UnrealClient.h"
 #include "DynamicResolutionState.h"
+#include "ERResolutionPolicy.h"
+#include "ERLadder.h"
 #include "HAL/IConsoleManager.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/CommandLine.h"
@@ -127,14 +130,14 @@ void UERGameInstance::StartSession()
 {
     if (SessionMode == 2) { Join(ServerAddress); return; }
     LastError.Empty();
-    const TCHAR* Maps[] = {TEXT("L_Depot"), TEXT("L_MovementLab"), TEXT("L_DestructionLab"), TEXT("L_ProceduralLab"), TEXT("L_Killhouse"), TEXT("L_DustMirror")};
+    const auto& Map=ERMaps::At(MapChoice);
     const TCHAR* Behaviors[] = {TEXT("Target"), TEXT("Movement"), TEXT("Patrol")};
     FString Options = SessionMode == 1 ? TEXT("listen?Name=") : TEXT("Name=");
     Options += AERGameMode::SanitizeName(LocalName);
     Options += FString::Printf(TEXT("?Primary=%d?AlphaSkin=%d?OmegaSkin=%d?Team=%d?ERAlphaBots=%d?EROmegaBots=%d?ERBotMode=%s"),
         PrimaryWeapon, AlphaSkin, OmegaSkin, FMath::Clamp(PlayerTeam,0,1), FMath::Clamp(AlphaBots,0,10), FMath::Clamp(OmegaBots,0,10), Behaviors[FMath::Clamp(BotBehavior,0,2)]);
-    if(MapChoice==4 || MapChoice==5)Options+=FString::Printf(TEXT("?MapSeed=%d"),FMath::Rand());
-    UGameplayStatics::OpenLevel(GetWorld(), FName(*FString::Printf(TEXT("/Game/EclipseRecoil/Maps/%s"), Maps[FMath::Clamp(MapChoice,0,5)])), true, Options);
+    if(Map.Procedural)Options+=FString::Printf(TEXT("?MapSeed=%d"),FMath::Rand());
+    UGameplayStatics::OpenLevel(GetWorld(), FName(Map.Package), true, Options);
 }
 void UERGameInstance::Host(int32 BotCount, bool bStationaryTarget)
 {
@@ -215,6 +218,7 @@ void AERPlayerController::BeginPlay()
     }
     if (ULocalPlayer* LP = GetLocalPlayer()) if (auto* Subsystem = LP->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>()) if (GameplayMapping) Subsystem->AddMappingContext(GameplayMapping, 0);
     ShowMenu(IsMenuLevel());
+    ERInstallResolutionGovernor();
     UpdateRenderResolution();
     FrameRateWidget = SNew(SOverlay)
         + SOverlay::Slot().HAlign(HAlign_Right).VAlign(VAlign_Top).Padding(12)
@@ -331,6 +335,11 @@ void AERPlayerController::Move(const FInputActionValue& Value)
 {
     auto* Character = Cast<AERCharacter>(GetPawn()); if (!Character || Character->Health->bDead || bMenuOpen) return;
     const FVector2D Axis = Value.Get<FVector2D>(); const FRotator Rotation(0, GetControlRotation().Yaw, 0);
+    if(auto* M=Cast<UERMovement>(Character->GetCharacterMovement());M->IsOnLadder())
+    {
+        if(auto* L=M->FindLadder())Character->AddMovementInput(-L->GetActorForwardVector(),Axis.Y);
+        return;
+    }
     Character->AddMovementInput(Rotation.Vector(), Axis.Y);
     Character->AddMovementInput(FRotationMatrix(Rotation).GetUnitAxis(EAxis::Y), Axis.X);
 }
@@ -346,7 +355,7 @@ void AERPlayerController::Look(const FInputActionValue& Value)
     if (!FMath::IsFinite(Input.X) || !FMath::IsFinite(Input.Y)) return;
     const float Gain = ERMouseResponse::Gain(Input, FApp::GetDeltaTime(), GI ? GI->GetMouseAcceleration() : .5f);
     const auto* C = Cast<AERCharacter>(GetPawn());
-    const float ZoomGain = C && C->Weapon ? (C->Weapon->Data && C->Weapon->Data->ScopeMode==1 ? FMath::Lerp(90.f,C->Weapon->Data->ZoomFOV,C->GetIronAimBlend()) : C->Weapon->GetScopeFOV())/90.f : 1.f;
+    const float ZoomGain = C && C->Weapon && !C->IsWeaponStowed() ? (C->Weapon->Data && C->Weapon->Data->ScopeMode==1 ? FMath::Lerp(90.f,C->Weapon->Data->ZoomFOV,C->GetIronAimBlend()) : C->Weapon->GetScopeFOV())/90.f : 1.f;
     const FVector2D Axis = Input * Gain * (GI ? GI->GetMouseLookMultiplier() : 0.16f / 0.18f) * ZoomGain;
     AddYawInput(Axis.X); AddPitchInput(-Axis.Y);
 #if !UE_BUILD_SHIPPING
@@ -457,7 +466,7 @@ void AERPlayerController::UpdateRenderResolution()
     LastRenderViewport = Size;
     // Cap the scene AND temporal history, then spatially upscale to the window.
     // UI keeps the actual viewport resolution. Primary dynamic scaling can reduce
-    // this scene output further when the GPU exceeds the 72 FPS budget.
+    // this scene output further when the GPU exceeds the 60 FPS budget.
     SceneOutputFraction = FMath::Min(1.f, FMath::Min(1920.f / Size.X, 1080.f / Size.Y));
     if (IConsoleVariable* Secondary = IConsoleManager::Get().FindConsoleVariable(TEXT("r.SecondaryScreenPercentage.GameViewport")))
         Secondary->Set(SceneOutputFraction * 100.f, ECVF_SetByGameSetting);
@@ -614,14 +623,14 @@ void AERPlayerController::ShowMenu(bool bShow)
         GamePanel->AddSlot().AutoHeight().Padding(0,4)[SAssignNew(NameBox, SEditableTextBox).Text(FText::FromString(GI->LocalName))];
         FocusWidget = NameBox;
         Choice(GamePanel,TEXT("Connection"),{TEXT("Local"),TEXT("Host and play"),TEXT("Join a server")},&GI->SessionMode,Always);
-        Choice(GamePanel,TEXT("Map / lab"),{TEXT("Depot"),TEXT("Movement Lab"),TEXT("Destruction Lab"),TEXT("Procedural Floor"),TEXT("Procedural Killhouse"),TEXT("Procedural Dust Mirror")},&GI->MapChoice,OwnGame);
+        Choice(GamePanel,TEXT("Map type"),ERMaps::Labels(),&GI->MapChoice,OwnGame);
         Choice(GamePanel,TEXT("Your team"),{TEXT("Alpha"),TEXT("Omega")},&GI->PlayerTeam,Always);
         TArray<FString> Counts; for (int32 I=0; I<=10; ++I) Counts.Add(FString::FromInt(I));
         Choice(GamePanel,TEXT("Alpha bots"),Counts,&GI->AlphaBots,OwnGame);
         Choice(GamePanel,TEXT("Omega bots"),Counts,&GI->OmegaBots,OwnGame);
         Choice(GamePanel,TEXT("Bot behavior"),{TEXT("Stationary"),TEXT("Movement only"),TEXT("Movement and combat")},&GI->BotBehavior,OwnGame);
         GamePanel->AddSlot().AutoHeight().Padding(0,10)[SNew(STextBlock).AutoWrapText(true).Text_Lambda([GI]() {
-            return FText::FromString(GI->SessionMode==2 ? TEXT("The server selects the map and bots.") : GI->SessionMode==1 ? TEXT("Hosting on port 7777. The match can start with one player.") : TEXT("Local match. Labs allow reloading with unlimited reserve ammo."));
+            return FText::FromString(GI->SessionMode==2 ? TEXT("The server selects the map and bots.") : GI->SessionMode==1 ? TEXT("Hosting on port 7777. The match can start with one player.") : TEXT("Industrial maps vary each match. Depot is available as a reference environment."));
         })];
         GamePanel->AddSlot().AutoHeight().Padding(0,4)[SAssignNew(AddressBox, SEditableTextBox)
             .IsEnabled_Lambda([GI]() { return GI->SessionMode==2; })
@@ -671,7 +680,7 @@ void AERPlayerController::ShowMenu(bool bShow)
         .ButtonContent()[SNew(STextBlock).Text_Lambda([this]() { return GetDisplaySizeText(); })]
         .MenuContent()[DisplayChoices]];
     SetupPanel->AddSlot().AutoHeight().Padding(0,8,0,3)[SNew(STextBlock)
-        .Text(FText::FromString(TEXT("Automatic 3D resolution · target 60+ FPS"))).AutoWrapText(true)];
+        .Text(FText::FromString(TEXT("Automatic 3D resolution · target 60 FPS · tolerance and delayed adjustment"))).AutoWrapText(true)];
     SetupPanel->AddSlot().AutoHeight().Padding(0,5)[Button(TEXT("RESET AUTOMATIC RESOLUTION"), [this]() {
         ResetRenderResolution(); return FReply::Handled();
     })];
@@ -696,7 +705,7 @@ void AERPlayerController::ShowMenu(bool bShow)
     SetupPanel->AddSlot().AutoHeight().Padding(0,3)[SNew(STextBlock)
         .Text(FText::FromString(TEXT("Precise slow movements, faster turns with quick movements. 0% = uniform response."))).AutoWrapText(true)];
     SetupPanel->AddSlot().AutoHeight().Padding(0,15)[SNew(STextBlock).Text_Lambda([GI]() { return FText::FromString(GI->LastError); }).AutoWrapText(true).ColorAndOpacity(FLinearColor(1,.6f,.25f))];
-    SetupPanel->AddSlot().AutoHeight().Padding(0,10)[SNew(STextBlock).Text(FText::FromString(TEXT("WASD  Move     Mouse  Aim / Fire\nShift  Walk     Space  Jump / Climb / Respawn     Ctrl / C  Crouch\nDouble-tap W  Sprint (max 5 s / double recovery time)\nDouble-tap Ctrl / C  Prone\nR  Reload     Tab  Scoreboard     Esc  Menu"))).AutoWrapText(true)];
+    SetupPanel->AddSlot().AutoHeight().Padding(0,10)[SNew(STextBlock).Text(FText::FromString(TEXT("WASD  Move     Mouse  Aim / Fire\nShift  Walk     Space  Jump / Climb / Respawn     Ctrl / C  Crouch\nDouble-tap W  Sprint (max 5 s / double recovery time)\nDouble-tap Ctrl / C  Prone\nW / S  Climb ladder (automatic weapon stow)     Space  Detach\nR  Reload     Tab  Scoreboard     Esc  Menu"))).AutoWrapText(true)];
     auto Column = [](TSharedRef<SVerticalBox> Content) -> TSharedRef<SWidget>
     {
         return SNew(SBorder).Padding(20).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
@@ -876,7 +885,7 @@ void AERHUD::DrawHUD()
     }
     const bool bLab = GetWorld()->GetMapName().Contains(TEXT("L_MovementLab"));
     const auto* Character = Cast<AERCharacter>(PC->GetPawn());
-    if (const auto* Weapon = Character && !Character->Health->bDead ? Character->Weapon.Get() : nullptr; Weapon && Weapon->HasOpticalScope() && Weapon->ScopeLevel)
+    if (const auto* Weapon = Character && !Character->Health->bDead && !Character->IsWeaponStowed() ? Character->Weapon.Get() : nullptr; Weapon && Weapon->HasOpticalScope() && Weapon->ScopeLevel)
     {
         const float R = FMath::Min(W,H)*.48f, CX=W*.5f, CY=H*.5f;
         // Opaque outside a circular lens, including ultrawide side bars.
@@ -944,7 +953,7 @@ void AERHUD::DrawHUD()
             const float TargetRadius = FMath::Max(26.f, Capacity*.55f) * Scale + (W * .5f / FMath::Tan(HalfFov)) * FMath::Tan(FMath::DegreesToRadians(Spread));
             if (ReticleWeapon.Get() != Weapon) { ReticleWeapon = const_cast<AERWeapon*>(Weapon); ReticleRadius = TargetRadius; }
             ReticleRadius = FMath::FInterpTo(ReticleRadius, TargetRadius, GetWorld()->GetDeltaSeconds(), 18.f);
-            const bool bUnavailable = Weapon->bReloading || Cast<UERMovement>(Character->GetCharacterMovement())->bHighClimb;
+            const bool bUnavailable = Character->IsWeaponStowed() || Weapon->bReloading || Cast<UERMovement>(Character->GetCharacterMovement())->bHighClimb;
             const FLinearColor AmmoColor = bUnavailable ? FLinearColor(1.f,.7f,.25f,.8f) :
                 (Remaining <= Capacity / 5 ? FLinearColor(1.f,.4f,.18f,.95f) : FLinearColor(.8f,.95f,1.f,.9f));
             if (!bOptical && !Weapon->ScopeLevel)
@@ -1044,7 +1053,7 @@ void AERPlayerController::ERBlockCollapseDemo()
 void UERGameInstance::HostProcedural()
 {
     LastError.Empty();
-    GetWorld()->ServerTravel(TEXT("/Game/EclipseRecoil/Maps/L_ProceduralLab?listen?MapFloors=2?MapRooms=6?MapMaterials=1?MapGlass=1?MapSeed=42?Name=")+AERGameMode::SanitizeName(LocalName)+FString::Printf(TEXT("?Primary=%d?AlphaSkin=%d?OmegaSkin=%d"),PrimaryWeapon,AlphaSkin,OmegaSkin));
+    MapChoice=0;SessionMode=1;StartSession();
 }
 void AERPlayerController::OnPossess(APawn* Pawn)
 {
@@ -1078,7 +1087,7 @@ void AERPlayerController::UpdateBlockMapLoading()
 {
     if(!IsLocalController() || GetNetMode()!=NM_Client)return;
     TActorIterator<AERBlockRoom> Room(GetWorld());
-    const bool Lab=GetWorld()->GetMapName().Contains(TEXT("L_ProceduralLab")) || GetWorld()->GetMapName().Contains(TEXT("L_DestructionLab")) || GetWorld()->GetMapName().Contains(TEXT("L_Killhouse")) || GetWorld()->GetMapName().Contains(TEXT("L_DustMirror"));
+    const bool Lab=GetWorld()->GetMapName().Contains(TEXT("L_CentralBuilding")) || GetWorld()->GetMapName().Contains(TEXT("L_ProceduralLab")) || GetWorld()->GetMapName().Contains(TEXT("L_DestructionLab")) || GetWorld()->GetMapName().Contains(TEXT("L_Killhouse")) || GetWorld()->GetMapName().Contains(TEXT("L_DustMirror"));
     const bool Loading=Room ? !Room->IsMapReady():Lab;
     if(Loading!=bBlockMapLoading)
     {

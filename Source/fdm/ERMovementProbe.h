@@ -10,13 +10,14 @@ class FDM_API AERMovementProbe : public AActor
     GENERATED_BODY()
 public:
     AERMovementProbe();
+    virtual void BeginPlay() override;
     virtual void Tick(float DeltaTime) override;
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Props) const override;
     UPROPERTY(Replicated) int32 Phase = 0;
 private:
+    UPROPERTY() TObjectPtr<class UInstancedStaticMeshComponent> Fixture;
     UPROPERTY() TObjectPtr<class AERCharacter> Host;
     UPROPERTY() TObjectPtr<class AERCharacter> Client;
-    UPROPERTY() TObjectPtr<AActor> PostureRoof;
     float Elapsed = 0, Peak = 0, GroundZ = 0;
     double SprintStartedAt = 0;
     bool Failed = false, SawTraversal = false;

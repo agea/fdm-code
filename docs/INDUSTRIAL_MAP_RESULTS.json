@@ -1,0 +1,483 @@
+{
+  "date": "2026-10-19",
+  "result": "PASS",
+  "engine": "5.8.3",
+  "pcgex": "0.79.2",
+  "network_protocol": 8,
+  "active_levels": [
+    "L_CentralBuilding",
+    "L_Depot",
+    "L_MainMenu"
+  ],
+  "recipe_seeds": 516,
+  "distinct_shapes": 516,
+  "cover_compositions": 177,
+  "automation_tests": [
+    "BallisticsAndBlast",
+    "MeshAndCollision",
+    "NetworkTransactions",
+    "StorageAndCalibration",
+    "CentralBuildingCollision",
+    "CentralBuildingEvolution",
+    "CentralBuildingLayout",
+    "DamagePreset",
+    "MultiFloorCollision",
+    "MultiFloorLayout",
+    "ProceduralCollision",
+    "ProceduralLayout"
+  ],
+  "metal_actual_stair_flights": 10,
+  "metal_seed": 16,
+  "network": {
+    "result": "PASS",
+    "seed": 16,
+    "rule": 2,
+    "gallery": false,
+    "render": true,
+    "network": true,
+    "factory_shaders": true,
+    "states": {
+      "1": 941928970,
+      "2": 3596502877,
+      "3": 2451882880,
+      "4": 3776669601
+    },
+    "logs": {
+      "host": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/factory-finishes-industrial-host.log",
+      "initial": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/factory-finishes-industrial-initial.log",
+      "late": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/factory-finishes-industrial-late.log"
+    }
+  },
+  "depot_regressions": {
+    "network": 0,
+    "accuracy": 0,
+    "arsenal": 0
+  },
+  "preserved_sha256": {
+    "Assets/maps/Content/EclipseRecoil/Maps/L_Depot.umap": "a3dd11ab855c133436a9e02d2a5c29e7b455449994922f73d3ede71e657dbb5c",
+    "Assets/maps/Content/EclipseRecoil/Art/Destruction/DA_ER_BlockMaterials.uasset": "89adba9a120333e23b443cc5bf70358c33d1151050affe0a7d8f1b113b553779"
+  },
+  "retired_packages": 46,
+  "backup_files": 70,
+  "evidence": [
+    "Saved/Testing/factory-finishes-build.log",
+    "Saved/Testing/factory-finishes-destruction.log",
+    "Saved/Testing/factory-finishes-destruction-result.log",
+    "Saved/Testing/factory-finishes-assets-setup.log",
+    "Saved/Testing/factory-finishes-assets-verify.log",
+    "Saved/Testing/factory-finishes-assets-verify-report.json",
+    "Saved/Testing/factory-finishes-industrial-report.json",
+    "Saved/Testing/factory-finishes-gallery-report.json"
+  ],
+  "captures": [
+    "Saved/Testing/factory-finishes-plan.png",
+    "Saved/Testing/factory-finishes-ground.png",
+    "Saved/Testing/factory-finishes-container.png"
+  ],
+  "previous_refinements": {
+    "result": "PASS",
+    "wall_height_cm": 300,
+    "wall_bridge_top_cm": 320,
+    "wall_bridges": 2,
+    "wall_stair_flights": 4,
+    "wall_access_indestructible": true,
+    "containers_indestructible": true,
+    "crossing_selection": "seeded only; override restricted to non-shipping industrial probe",
+    "fence": {
+      "geometry_version": 1,
+      "frame_cm": 4,
+      "wire_cm": 0.4,
+      "diagonal_pitch_cm": 16,
+      "collision": "visible metal triangles; apertures transmit; movement volume excludes WorldStatic blast queries",
+      "part_triangle_limit": 60000
+    },
+    "automation_cases": [
+      "BallisticsAndBlast",
+      "MeshAndCollision",
+      "NetworkTransactions",
+      "StorageAndCalibration",
+      "CentralBuildingCollision",
+      "CentralBuildingLayout",
+      "DamagePreset",
+      "MultiFloorCollision",
+      "MultiFloorLayout",
+      "ProceduralCollision",
+      "ProceduralLayout"
+    ],
+    "wall_metal": {
+      "result": "PASS",
+      "render": true,
+      "network": false,
+      "states": {
+        "1": 2516640728,
+        "2": 467412245,
+        "3": 467412245,
+        "4": 3580091142
+      },
+      "logs": {
+        "host": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/industrial-refinements-wall-metal-host.log"
+      },
+      "seed": 10,
+      "rule": 2,
+      "actual_stair_flights": 10,
+      "actual_wall_crossings": 4
+    },
+    "gallery_metal": {
+      "result": "PASS",
+      "render": true,
+      "network": false,
+      "states": {
+        "1": 295925900,
+        "2": 3918967461,
+        "3": 3918967461,
+        "4": 3468175938
+      },
+      "logs": {
+        "host": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/industrial-game-metal-host.log"
+      },
+      "seed": 10,
+      "rule": 3,
+      "actual_stair_flights": 6,
+      "gallery_variants": 6
+    },
+    "network": {
+      "result": "PASS",
+      "render": false,
+      "network": true,
+      "states": {
+        "1": 295925900,
+        "2": 3918967461,
+        "3": 3918967461,
+        "4": 1311821174
+      },
+      "logs": {
+        "host": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/industrial-network-host.log",
+        "initial": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/industrial-network-initial.log",
+        "late": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/industrial-network-late.log"
+      },
+      "seed": 10,
+      "rule": 3,
+      "gallery": false
+    },
+    "regressions": {
+      "assets": 0,
+      "network": 0,
+      "accuracy": 0,
+      "arsenal": 0
+    },
+    "material_usage": {
+      "result": "PASS",
+      "changed_bases": [
+        "/Game/EclipseRecoil/Art/FactoryEnvironment/Materials/M_BaseMaterial.M_BaseMaterial",
+        "/Game/EclipseRecoil/Art/FactoryEnvironment/Materials/M_WaterContainer.M_WaterContainer"
+      ],
+      "checked_bases": [
+        "/Game/EclipseRecoil/Art/FactoryEnvironment/Materials/M_BaseMaterial.M_BaseMaterial",
+        "/Game/EclipseRecoil/Art/FactoryEnvironment/Materials/M_WaterContainer.M_WaterContainer"
+      ],
+      "checked_instances": [
+        "/Game/EclipseRecoil/Art/FactoryEnvironment/Materials/MI_Container01.MI_Container01",
+        "/Game/EclipseRecoil/Art/FactoryEnvironment/Materials/MI_Barrels02.MI_Barrels02"
+      ]
+    }
+  },
+  "recipe_revision": 5,
+  "evolution": {
+    "result": "PASS",
+    "containers": "hollow destructible reinforced steel cells",
+    "steel_strength": 8,
+    "wall": "300cm destructible brick",
+    "access": "destructible timber treads, posts and decks; two paired bridges",
+    "secondary": {
+      "floors": [
+        1,
+        2,
+        3
+      ],
+      "types": [
+        "brick/concrete building",
+        "open timber tower"
+      ],
+      "destructible_floors_and_stairs": true,
+      "yaw_degrees": [
+        -20,
+        0,
+        20
+      ]
+    },
+    "cover_yaw_degrees": [
+      -45,
+      -30,
+      -15,
+      0,
+      15,
+      30,
+      45
+    ],
+    "ladder_assets_present": [
+      "SM_Ladder01",
+      "SM_Ladder02"
+    ],
+    "ladder_traversal_implemented": false,
+    "pcg_snapshot": "DA_CentralBuilding_42_Evolution",
+    "pcg_cell_volumes": true,
+    "shared_catalog_unchanged": true,
+    "wall_network": {
+      "result": "PASS",
+      "seed": 16,
+      "rule": 2,
+      "gallery": false,
+      "render": true,
+      "network": true,
+      "states": {
+        "1": 2471923187,
+        "2": 320531158,
+        "3": 1275939529,
+        "4": 2822008614
+      },
+      "logs": {
+        "host": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/industrial-network-metal-host.log",
+        "initial": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/industrial-network-metal-initial.log",
+        "late": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/industrial-network-metal-late.log"
+      },
+      "actual_stair_flights": 16,
+      "actual_wall_crossings": 4
+    },
+    "bank_network": {
+      "result": "PASS",
+      "seed": 14,
+      "rule": 3,
+      "gallery": false,
+      "render": false,
+      "network": true,
+      "states": {
+        "1": 104231990,
+        "2": 2283041502,
+        "3": 2283041502,
+        "4": 2133854485
+      },
+      "logs": {
+        "host": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/industrial-network-host.log",
+        "initial": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/industrial-network-initial.log",
+        "late": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/industrial-network-late.log"
+      },
+      "actual_stair_flights": 12
+    },
+    "wall_gallery": {
+      "result": "PASS",
+      "seed": 10,
+      "rule": 2,
+      "gallery": true,
+      "render": true,
+      "network": false,
+      "states": {
+        "1": 525818004,
+        "2": 1524747354,
+        "3": 334253685,
+        "4": 1034263140
+      },
+      "logs": {
+        "host": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/industrial-evolution-wall10-metal-host.log"
+      },
+      "actual_stair_flights": 12,
+      "actual_wall_crossings": 4
+    },
+    "integration_results": {
+      "wall16-metal-network": 0,
+      "bank14-network": 0,
+      "depot-network": 0,
+      "depot-accuracy": 0,
+      "depot-arsenal": 0
+    },
+    "controlled_probe_cuts": true,
+    "asset_report": {
+      "result": "PASS",
+      "maps": [
+        "L_CentralBuilding",
+        "L_Depot",
+        "L_MainMenu"
+      ],
+      "validated_seeds": 516,
+      "pcg_graph_nodes": 2,
+      "wire_mask_channel": "R",
+      "prop_material_instancing": true,
+      "preserved_sha256": {
+        "Assets/maps/Content/EclipseRecoil/Maps/L_Depot.umap": "a3dd11ab855c133436a9e02d2a5c29e7b455449994922f73d3ede71e657dbb5c",
+        "Assets/maps/Content/EclipseRecoil/Art/Destruction/DA_ER_BlockMaterials.uasset": "89adba9a120333e23b443cc5bf70358c33d1151050affe0a7d8f1b113b553779"
+      },
+      "material_surfaces": {
+        "<ERBlockMaterial.DRYWALL: 0>": "/Game/EclipseRecoil/Art/ProceduralTextures/M_ER_PBR_Plaster001.M_ER_PBR_Plaster001",
+        "<ERBlockMaterial.BRICK: 1>": "/Game/EclipseRecoil/Art/ProceduralTextures/M_ER_PBR_red_brick_03.M_ER_PBR_red_brick_03",
+        "<ERBlockMaterial.CONCRETE: 2>": "/Game/EclipseRecoil/Art/ProceduralTextures/M_ER_PBR_concrete_wall_006.M_ER_PBR_concrete_wall_006",
+        "<ERBlockMaterial.WOOD: 3>": "/Game/EclipseRecoil/Art/ProceduralTextures/M_ER_PBR_wood_planks.M_ER_PBR_wood_planks",
+        "<ERBlockMaterial.STONE: 4>": "/Game/EclipseRecoil/Art/ProceduralTextures/M_ER_PBR_stone_wall_02.M_ER_PBR_stone_wall_02",
+        "<ERBlockMaterial.METAL: 5>": "/Game/EclipseRecoil/Art/ProceduralTextures/M_ER_PBR_rusty_metal_04.M_ER_PBR_rusty_metal_04",
+        "<ERBlockMaterial.GLASS: 6>": "/Game/EclipseRecoil/Art/ProceduralTextures/M_ER_Glass.M_ER_Glass"
+      }
+    }
+  },
+  "previous_evidence": [
+    "Saved/Testing/central-build.log",
+    "Saved/Testing/destruction-automation.log",
+    "Saved/Testing/industrial-render-result.log",
+    "Saved/Testing/industrial-three-floors-metal-result.log",
+    "Saved/Testing/industrial-network-result.log",
+    "Saved/Testing/industrial-assets.log",
+    "Saved/Testing/central-refinements-build.log",
+    "Saved/Testing/industrial-refinements-destruction-result.log",
+    "Saved/Testing/industrial-refinements-wall-metal-result.log",
+    "Saved/Testing/industrial-refinements-gallery-metal-result.log",
+    "Saved/Testing/industrial-refinements-network-result.log",
+    "Saved/Testing/industrial-refinements-regressions.json",
+    "Saved/Testing/industrial-material-usage-report.json"
+  ],
+  "previous_recipe_revision": 4,
+  "player_mechanics_results": "docs/PLAYER_MECHANICS_RESULTS.json",
+  "ladder_update": {
+    "result": "PASS",
+    "destructible": true,
+    "calibrated_steel_mm": 2,
+    "primary_access": {
+      "towers": "ladder per storey",
+      "compact_secondary_buildings": "ladder per storey",
+      "large_secondary_buildings": "stairs when width >=800cm and depth >=1150cm",
+      "central": "stairs plus paired exterior ladders"
+    },
+    "hatch_size_cm": 160,
+    "every_storey_accessible": true,
+    "half_turn_symmetric": true,
+    "metal_actual_ladders": 10,
+    "metal_actual_stair_flights": 10,
+    "metal_network": {
+      "result": "PASS",
+      "seed": 16,
+      "rule": 2,
+      "gallery": false,
+      "render": true,
+      "network": true,
+      "states": {
+        "1": 21208518,
+        "2": 3015943981,
+        "3": 3232234,
+        "4": 170260109
+      },
+      "logs": {
+        "host": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/preferred-ladders-industrial-host.log",
+        "initial": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/preferred-ladders-industrial-initial.log",
+        "late": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/preferred-ladders-industrial-late.log"
+      }
+    }
+  },
+  "previous_revision3_ladder_update": {
+    "result": "PASS",
+    "destructible": true,
+    "calibrated_steel_mm": 2,
+    "metal_network": {
+      "result": "PASS",
+      "seed": 16,
+      "rule": 2,
+      "gallery": false,
+      "render": true,
+      "network": true,
+      "states": {
+        "1": 3332182297,
+        "2": 1053202576,
+        "3": 1775089486,
+        "4": 1151053692
+      },
+      "logs": {
+        "host": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/industrial-network-metal-host.log",
+        "initial": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/industrial-network-metal-initial.log",
+        "late": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/industrial-network-metal-late.log"
+      }
+    }
+  },
+  "metal_actual_ladders": 10,
+  "pcg_snapshot": "DA_CentralBuilding_42_FactoryFinishes",
+  "evidence_previous_revision2": [
+    "Saved/Testing/industrial-evolution-build.log",
+    "Saved/Testing/industrial-evolution-destruction-result.log",
+    "Saved/Testing/destruction-automation.log",
+    "Saved/Testing/industrial-evolution-tower-support.log",
+    "Saved/Testing/industrial-evolution-assets-setup.log",
+    "Saved/Testing/industrial-evolution-assets.log",
+    "Saved/Testing/industrial-evolution-wall-metal-result.log",
+    "Saved/Testing/industrial-evolution-wall16-metal-network-report.json",
+    "Saved/Testing/industrial-evolution-bank14-network-report.json",
+    "Saved/Testing/industrial-evolution-integration-results.json"
+  ],
+  "previous_revision4_ladder_update": {
+    "result": "PASS",
+    "destructible": true,
+    "calibrated_steel_mm": 2,
+    "primary_access": {
+      "towers": "ladder per storey",
+      "compact_secondary_buildings": "ladder per storey",
+      "large_secondary_buildings": "stairs when width >=800cm and depth >=1150cm",
+      "central": "stairs plus paired exterior ladders"
+    },
+    "hatch_size_cm": 160,
+    "every_storey_accessible": true,
+    "half_turn_symmetric": true,
+    "metal_actual_ladders": 10,
+    "metal_actual_stair_flights": 10,
+    "metal_network": {
+      "result": "PASS",
+      "seed": 16,
+      "rule": 2,
+      "gallery": false,
+      "render": true,
+      "network": true,
+      "states": {
+        "1": 21208518,
+        "2": 3015943981,
+        "3": 3232234,
+        "4": 170260109
+      },
+      "logs": {
+        "host": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/preferred-ladders-industrial-host.log",
+        "initial": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/preferred-ladders-industrial-initial.log",
+        "late": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/preferred-ladders-industrial-late.log"
+      }
+    }
+  },
+  "factory_finishes_results": "docs/FACTORY_FINISHES_RESULTS.json",
+  "factory_finishes": {
+    "result": "PASS",
+    "steel": "gray lightly worn Factory steel",
+    "container_colors": [
+      "Blue",
+      "Red",
+      "Green",
+      "Ochre"
+    ],
+    "color_symmetry": "independent across copies",
+    "preserved_physics": true,
+    "metal_final_gallery": {
+      "result": "PASS",
+      "seed": 16,
+      "rule": 2,
+      "gallery": false,
+      "finish_gallery": true,
+      "render": true,
+      "network": false,
+      "factory_shaders": true,
+      "states": {
+        "1": 941928970
+      },
+      "logs": {
+        "host": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/factory-finishes-gallery-host.log"
+      }
+    }
+  },
+  "previous_revision4_evidence": [
+    "Saved/Testing/preferred-ladders-build.log",
+    "Saved/Testing/preferred-ladders-destruction.log",
+    "Saved/Testing/preferred-ladders-destruction-result.log",
+    "Saved/Testing/preferred-ladders-assets-setup.log",
+    "Saved/Testing/preferred-ladders-assets-verify.log",
+    "Saved/Testing/preferred-ladders-assets-report.json",
+    "Saved/Testing/preferred-ladders-industrial-result.log",
+    "Saved/Testing/preferred-ladders-industrial-report.json"
+  ]
+}

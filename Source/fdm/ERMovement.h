@@ -21,6 +21,7 @@ class FDM_API UERMovement : public UCharacterMovementComponent
 public:
     UERMovement();
     bool bWalkHeld = false;
+    bool bLadderNeedsRelease = false;
     bool bClimbHeld = false;
     bool bHighClimb = false;
     bool bSprintHeld = false;
@@ -41,20 +42,32 @@ public:
     virtual void UpdateCharacterStateAfterMovement(float DeltaSeconds) override {}
     virtual void SimulateMovement(float DeltaSeconds) override;
     virtual bool ClientUpdatePositionAfterServerUpdate() override;
+    virtual bool CanAttemptJump() const override {return IsOnLadder() || Super::CanAttemptJump();}
     virtual bool DoJump(bool bReplayingMoves, float DeltaTime) override;
     UFUNCTION() void OnRep_Locomotion();
     virtual float GetMaxSpeed() const override;
     virtual void UpdateFromCompressedFlags(uint8 Flags) override;
     virtual FNetworkPredictionData_Client* GetPredictionData_Client() const override;
     virtual void UpdateCharacterStateBeforeMovement(float DeltaSeconds) override;
+    virtual void PhysFalling(float DeltaTime,int32 Iterations) override;
+    float LandingSpeed() const;
     virtual void PhysCustom(float DeltaTime, int32 Iterations) override;
     bool FindLedge(FVector& Destination, float& Height) const;
-    bool IsTraversing() const { return MovementMode == MOVE_Custom && CustomMovementMode == 1; }
+    bool IsMantling() const { return MovementMode == MOVE_Custom && (CustomMovementMode == 1 || CustomMovementMode == 3); }
+    bool IsOnLadder() const { return MovementMode == MOVE_Custom && CustomMovementMode == 2; }
+    bool IsTraversing() const { return IsMantling() || IsOnLadder(); }
+    virtual void OnMovementModeChanged(EMovementMode PreviousMovementMode, uint8 PreviousCustomMode) override;
+    bool CanClimbLadder() const;
+    class AERLadder* FindLadder(bool Entry=false) const;
+    float LadderSpeed() const;
+    void PhysLadder(float DeltaTime,int32 Iterations);
 // Saved moves restore this state when Unreal replays a corrected prediction.
     FVector TraversalStart = FVector::ZeroVector, TraversalEnd = FVector::ZeroVector;
     float TraversalElapsed = 0, TraversalDuration = 0;
     double RetryAfter = 0;
 private:
+    bool bMeasuringFall=false;
+    float FallFrameZ=0,FallFrameVelocityZ=0;
     double ServerTime() const;
     void UpdatePosture(float DeltaSeconds);
     void UpdateSprint();

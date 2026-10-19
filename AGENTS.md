@@ -863,3 +863,94 @@ smoke/chips, Sonniss audio, fitted hands, fuse/damage/throw settings.
 - Verify with scripts/test-cell-destruction.py (four Cells automation tests) and
   --game (real rifle, grenades, crouch/stand breaches, HE fuse, mode switching),
   plus test-destruction.py regressions. Scaling: measure-cell-scaling.py.
+# Map archetypes (19 October 2026, latest map scope)
+
+The user's latest request supersedes the playable Killhouse/Dust/laboratory
+requirements below. Use docs/MAP_ARCHETYPES.md. Only Central Building Industrial
+belongs to production rotation; Depot remains a selectable reference. Retire the
+five old levels and Arabian runtime art through Unreal after a verified local
+archive and outside-reference check. Do not recreate those levels on routine setup.
+Keep reference provenance/CT=Alpha/T=Omega, sample one half and rotate geometry,
+starts and fixed collision. The central recipe varies dimensions, floors, side
+buildings and cover, with open/climbable-wall/fenced-roof-and-side crossing rules.
+Wire mesh is a fixed pawn/dynamic barrier; explicit visible metal frames/wires
+block bullet/visibility/blast queries, while diamond apertures transmit them.
+Production always samples the crossing seed, with no player or recipe preset.
+MapCrossing is restricted to the non-shipping industrial probe. The wall is 3m
+high and made of destructible brick, crossed by paired timber bridges/stairs
+with destructible supports. Containers are hollow reinforced steel cells
+(Strength=8), not fitted indestructible meshes. Reinforcement scales structural
+HP/penetration/blast shielding while keeping the shared seven profiles and
+their cell calibration unchanged. Preserve those defaults for all other maps.
+Secondary buildings/towers vary 1–3 floors, materials and yaw; their timber
+floors/stairs/supports use the same cell graph. Only ground/fixed main slabs seed
+support: never permanently anchor these upper decks. Oriented rectangular
+pieces retain their local cell grids, collision, support and half-turn pair.
+Factory includes SM_Ladder01/02 as references. Revision3 adds paired destructible
+steel ladders to the secondary buildings/towers. Revision4 prefers ladders:
+towers and compact buildings use alternating interior floor hatches with a
+ladder on every storey, keeping the ground door corridor clear. Only non-tower
+secondary buildings at least800cm wide and1150cm deep retain internal stairs.
+The central building keeps both stairwells and gains paired exterior ladders;
+secondary exterior ladders remain alternatives. All ladders use the same
+calibrated destructible steel, clear landings and half-turn pairing. Refresh
+DA_CentralBuilding_42_PreferredLadders and recipe revision4 through Unreal.
+Tanks/barrels and the wire perimeter remain fixed.
+PCGEx 0.79.2 is installed/enabled. Its path analysis and exported PCG preview
+share validated layout data; do not introduce asynchronous client collision.
+LAN protocol8 supersedes protocol7 below: shard headers carry payload count/digest
+and clients require their fast array to match before any transaction applies.
+Keep the deterministic header-before-array late-join test in NetworkTransactions.
+New automation replaces retired Killhouse/Dust asset-bound tests. The current
+suite has 12 tests including CentralBuildingEvolution (intact support, steel
+resistance, container/brick breaches and loss of timber access). Run
+test-industrial-map.py, --game, --render --gallery and --network, inspect captures
+and retain cell/destruction plus Depot LAN/accuracy/arsenal regressions.
+Preserve the shared material catalog, Depot and all unrelated character/weapons.
+
+
+Player mechanics (19 October): Landed applies authority-only fall damage through
+normal health/death/protection, bypassing armor (ratio2); free-fall equivalent
+height <=300cm is safe, >=1100cm lethal. Use pre-impact vertical velocity and
+actual movement gravity, never client-reported height/damage. Ordinary jumps,
+steps and mantle/ladder exits remain safe.
+Ladders use custom movement2 with saved-move replay; custom1 is ordinary mantle
+and custom3 is the roof transition from a ladder (also treated as mantle).
+W/S climbs, Space detaches; weapon stow/restore is automatic, with no X binding.
+Keep Weapon as the selected inventory pointer. IsWeaponStowed derives from
+movement and selected data, so all peers hide incompatible weapons, including
+the roof transition. Pistols (bOneHanded+Bullet), knives and hand grenades remain
+held and usable at144cm/s; other weapons are stowed at180cm/s.
+Moving pistols add LadderMovingSpreadDegrees (default0.6 degrees half-angle)
+scaled by abs(vertical speed), deadzone5cm/s and full penalty at144cm/s.
+Stationary rungs add no penalty; GetSpreadDegrees is shared by shots and HUD. Permit selection of any
+slot on ladders, showing compatible items immediately and restoring the latest
+selected heavy weapon on exit. Stowed weapons cannot fire/reload/scope; cancel
+active actions on entry. Physical rungs/handles must survive; no invisible
+climb route. The bottom exit needs neutral input before reattaching. Roof exit
+uses the existing swept timed traversal. Steel rails use disjoint calibrated
+2mm sheets (including sub-cm template pieces), not changed catalog thickness.
+Run test-player-mechanics.py (optionally --render), the two EclipseRecoil.Player
+native tests, destruction, movement and accuracy. test-movement.py now uses a
+transient probe fixture in Depot; never recreate a saved laboratory map.
+Rendering uses ERResolutionPolicy through IDynamicResolutionState and real RHI
+GPU frame history. Target60, entry thresholds56/66 FPS, sustained3s, stable2s,
+hold4s, startup4s. Changes are continuous only during adaptation. Preserve the
+secondary1080p cap, viewport/UI, supported upscaler bounds and reset behavior.
+-ERPerformanceAudit logs governor state; synthetic30/60/144Hz tests check dips,
+59FPS tolerance, convergence, cooldown and delayed quality recovery.
+
+
+Industrial finishes (19 October): user approved gray, lightly worn Factory steel
+for ladders/metal structures and varied Factory paint for containers. Geometric
+symmetry exists for gameplay balance; cosmetic container colors need not match
+between half-turn copies. Use independent deterministic visual rolls, never
+consume the geometry RNG. Keep server/client choices identical for a given seed.
+Recipe revision5 owns SteelSurface and ContainerSurfaces; per-cell-panel Surface
+is visual only and part of layout identity. Cosmetic debris resolves the source
+panel finish from its original centre using the existing payload. Preserve Metal calibration, Strength8
+containers, penetration, support and collision, shared catalog and Depot. Generated
+materials live in private Art/Industrial/Materials and adapt cropped BC/N/ORM
+regions of existing Factory atlases; do not edit original Factory materials.
+Use setup_factory_finishes.py, refresh DA_CentralBuilding_42_FactoryFinishes,
+then verify_industrial_maps.py and inspect real Metal captures and LAN palette checks.

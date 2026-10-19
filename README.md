@@ -7,6 +7,27 @@ maps and server-authoritative gunplay. Built with Unreal Engine **5.8.3**;
 playable locally and over LAN. Standalone macOS universal packaging is available;
 see [local macOS build instructions](docs/BUILD.md).
 
+## Industrial map generation — 19 October 2026
+
+The match menu now uses **Central Building · Industrial**, with seeded open-yard,
+climbable-wall and permanent-fence crossing rules. Building dimensions, one to
+three floors, side buildings and cover compositions vary while Alpha/Omega
+remain half-turn symmetric. **Depot · Reference** stays available outside the
+production rotation. Older procedural maps and laboratories are retired.
+Crossing presets are always random, with no menu selector. The wall is 3m tall
+and crossed using destructible timber stairs/bridges. Brick breaches can create
+ground routes, while destroyed supports can remove elevated routes. Containers
+are reinforced destructible steel. Secondary buildings/towers vary one to three
+floors and materials; rectangular cover can rotate obliquely. Fence posts and
+diamond wires stop shots, while their apertures let shots through.
+
+PCG and PCGEx 0.79.2 are enabled; collision/destruction retain the existing
+authoritative 5cm-cell pipeline. See [map archetypes](docs/MAP_ARCHETYPES.md) for
+the reference plans, recipe, PCGEx authoring graph, regeneration and validation.
+Earlier map/lab sections below describe historical implementations.
+LAN protocol 8 also validates complete shard payloads before late-join collision
+opens. All peers must use the rebuilt module.
+
 Code is public in **respawn-and-rage/core**; licensed content is held in three private
 submodules for characters, weapons and maps. A public code clone needs asset
 access before it can run. See [asset setup and editing](docs/ASSET_SUBMODULES.md).
@@ -148,7 +169,8 @@ It is not a packaged standalone application.
 
 The local launcher caps rendering at 90 FPS and selects medium antialiasing and
 low global illumination, reflection and shadow settings. Dynamic resolution targets
-about 72 FPS; the 3D scene output is capped at 1920×1080 before scaling to the
+60 FPS with a 56–66 FPS tolerance band, a three-second trigger delay and a
+four-second hold after stabilization; the 3D scene output is capped at 1920×1080 before scaling to the
 window, while the HUD keeps the window resolution. These are performance targets,
 not measured guarantees. The menu offers 50–90% window sizes and fullscreen; the
 FPS overlay also shows the approximate internal 3D resolution.
@@ -511,3 +533,18 @@ diagonal standing passage. Urban
 art uses the private MOUT_Arabian palette and owned architecture; destructible
 cover retains the project materials. See
 [reference templates](docs/MAP_TEMPLATES.md) for source provenance and checks.
+
+Player traversal includes server-authoritative fall damage (safe through about
+3m, lethal around 11m) and destructible industrial ladders. Pistols, knives and
+hand grenades stay in hand (1.44m/s); other weapons are automatically stowed
+(1.8m/s). Selection remains available on ladders: compatible items appear in
+hand immediately, others stay selected and return on exit. W/S climbs,
+Space detaches, and releasing movement after descending permits another grab.
+
+Industrial towers and compact buildings use ladders between every floor;
+larger buildings retain stairs. The central building keeps its stairwells and
+also offers paired exterior ladders. Rails and rungs remain destructible steel.
+
+Industrial metal uses a lightly worn gray Factory finish. Container paint varies
+independently between blue, dark red, green and ochre; gameplay geometry remains
+balanced and all peers reconstruct the same colors from the seed.
