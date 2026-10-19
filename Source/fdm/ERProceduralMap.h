@@ -10,6 +10,13 @@ struct FERLayoutOpening { int32 Wall = INDEX_NONE; float Along = 0, Width = 0, S
 struct FERLayoutFixedPiece { FTransform Transform; EERBlockMaterial Material; class UStaticMesh* Mesh=nullptr; FRotator MeshRotation=FRotator::ZeroRotator; bool Roof=false; bool VisualOnly=false; class UMaterialInterface* Surface=nullptr; bool PawnBarrier=false; };
 struct FERLayoutTownGate { FTransform Frame; float Gap=110,Width=300,Angle=25; TArray<FVector> Passage; };
 struct FERLayoutLadder { FTransform Frame; float Height=430,DeckHeight=320; };
+struct FERLayoutCover
+{
+    FTransform Frame;
+    FVector Size,Hide,Entry,SightFrom,SightTo;
+    EERBlockMaterial Material=EERBlockMaterial::Brick;
+    float HalfHeight=92.5f;
+};
 struct FERLayoutContainer { FTransform Frame; FVector Size; };
 struct FERLayoutSecondary { FTransform Frame; FVector Size; int32 Floors=1; EERBlockMaterial Material=EERBlockMaterial::Brick; bool Tower=false; bool LadderAccess=false; };
 struct FERTemplateBase
@@ -47,6 +54,7 @@ struct FERProceduralLayout
     TArray<TArray<FVector>> CrossingRoutes;
     TArray<FVector> ClimbPoints;
     TArray<FERLayoutContainer> Containers;
+    TArray<FERLayoutCover> CoverSites;
     TArray<FERLayoutLadder> Ladders;
     TArray<FERLayoutSecondary> SecondaryStructures;
     TArray<int32> WallAccessFlights;

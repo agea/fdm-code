@@ -74,12 +74,12 @@ template=assets.load_asset('/Game/EclipseRecoil/Art/MapTemplates/DA_CentralBuild
 recipe=template.get_editor_property('central_building');recipe.set_editor_property('steel_surface',steel);recipe.set_editor_property('deck_surface',steel);recipe.set_editor_property('container_surfaces',palette);template.set_editor_property('central_building',recipe)
 for seed in list(range(512))+[7919,-17,2147483647,-2147483648]:
  if not template.validate_layout(seed):raise RuntimeError('Invalid visual recipe '+str(seed))
-template.set_editor_property('revision',5);assets.set_metadata_tag(template,'ERArchetypeRevision','5')
+template.set_editor_property('revision',max(5,template.get_editor_property('revision')));assets.set_metadata_tag(template,'ERArchetypeRevision',str(template.get_editor_property('revision')))
 if not assets.save_loaded_asset(template):raise RuntimeError('Cannot save recipe')
 runpy.run_path(str(root/'scripts/setup_industrial_pcg_preview.py'))
 for p,sha in before.items():
  if hashlib.sha256((private/p).read_bytes()).hexdigest()!=sha:raise RuntimeError('Protected asset changed '+p)
-report={'result':'PASS','revision':5,'steel':steel.get_path_name(),'containers':[m.get_path_name() for m in palette],'colors_linear':colors,'factory_textures':['T_Metalbeam01_BC','T_Metalbeam01_N','T_Metalbeam01_ORM','T_Container01_BC','T_Container01_N','T_Container01_ORM'],'container_color_symmetry':'independent per copy, deterministic by seed','steel_uv_rect':[0.03,0.185,0.39,0.05],'container_uv_rect':[0.03,0.31,0.65,0.27],'container_tile_cm':[600,300],'physics_catalog_unchanged':True,'preserved_sha256':before,'validated_seeds':516}
+report={'result':'PASS','revision':template.get_editor_property('revision'),'steel':steel.get_path_name(),'containers':[m.get_path_name() for m in palette],'colors_linear':colors,'factory_textures':['T_Metalbeam01_BC','T_Metalbeam01_N','T_Metalbeam01_ORM','T_Container01_BC','T_Container01_N','T_Container01_ORM'],'container_color_symmetry':'independent per copy, deterministic by seed','steel_uv_rect':[0.03,0.185,0.39,0.05],'container_uv_rect':[0.03,0.31,0.65,0.27],'container_tile_cm':[600,300],'physics_catalog_unchanged':True,'preserved_sha256':before,'validated_seeds':516}
 (root/'Saved/Testing/factory-finishes-assets-report.json').write_text(json.dumps(report,indent=2)+'\n')
 (private/'SourceAssets/MapTemplates/factory_finishes.json').write_text(json.dumps(report,indent=2)+'\n')
 print('ER_FACTORY_FINISHES_SETUP_PASS '+json.dumps(report))

@@ -4,7 +4,7 @@ assets=ue.EditorAssetLibrary;tools=ue.AssetToolsHelpers.get_asset_tools()
 folder='/Game/EclipseRecoil/Art/MapTemplates/IndustrialPCG'
 template=assets.load_asset('/Game/EclipseRecoil/Art/MapTemplates/DA_CentralBuilding')
 if not template:raise RuntimeError('Create the industrial recipe first')
-data_path=folder+('/DA_CentralBuilding_42_FactoryFinishes' if template.get_editor_property('revision')>=5 else '/DA_CentralBuilding_42_PreferredLadders' if template.get_editor_property('revision')>=4 else '/DA_CentralBuilding_42_Ladders' if template.get_editor_property('revision')>=3 else '/DA_CentralBuilding_42_Evolution')
+data_path=folder+('/DA_CentralBuilding_42_DenseCover' if template.get_editor_property('revision')>=6 else '/DA_CentralBuilding_42_FactoryFinishes' if template.get_editor_property('revision')>=5 else '/DA_CentralBuilding_42_PreferredLadders' if template.get_editor_property('revision')>=4 else '/DA_CentralBuilding_42_Ladders' if template.get_editor_property('revision')>=3 else '/DA_CentralBuilding_42_Evolution')
 data=assets.load_asset(data_path) if assets.does_asset_exist(data_path) else None
 if not data:
     data=template.save_pcg_preview(data_path,42)

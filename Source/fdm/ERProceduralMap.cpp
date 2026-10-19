@@ -273,7 +273,7 @@ SIZE_T AERProceduralMap::GetLayoutBytes() const
     for(const auto& Gate:Layout.TownGates)Bytes+=Gate.Passage.GetAllocatedSize();
     for(const auto& Route:Layout.RoomAccessRoutes)Bytes+=Route.GetAllocatedSize();
     Bytes+=Layout.CrossingRoutes.GetAllocatedSize()+Layout.ClimbPoints.GetAllocatedSize();
-    Bytes+=Layout.Containers.GetAllocatedSize()+Layout.SecondaryStructures.GetAllocatedSize()+Layout.CoverAngles.GetAllocatedSize()+Layout.WallAccessFlights.GetAllocatedSize()+Layout.WallBridges.GetAllocatedSize();
+    Bytes+=Layout.CoverSites.GetAllocatedSize()+Layout.Containers.GetAllocatedSize()+Layout.SecondaryStructures.GetAllocatedSize()+Layout.CoverAngles.GetAllocatedSize()+Layout.WallAccessFlights.GetAllocatedSize()+Layout.WallBridges.GetAllocatedSize();
     for(const auto& Route:Layout.CrossingRoutes)Bytes+=Route.GetAllocatedSize();
     for (const auto& Route:Layout.Routes) Bytes+=Route.GetAllocatedSize();
     return Bytes;

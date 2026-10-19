@@ -1,6 +1,8 @@
 #pragma once
 #include "ERProceduralMap.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
+#include "GameFramework/Pawn.h"
 #include "Components/DynamicMeshComponent.h"
 
 // Deterministic authority cuts for probes: gameplay still uses real shot/blast
@@ -28,6 +30,21 @@ inline bool FactoryPaletteMatches(AERProceduralMap& Map)
         if(Mesh->GetName().StartsWith(TEXT("IndustrialFenceMetal_")) && Mesh->GetMaterial(0)!=V.SteelSurface)return false;
     }
     return Matched>0;
+}
+inline bool IntermediateCoverMatches(AERProceduralMap& Map,bool Breached=false)
+{
+    auto* World=Map.GetWorld();if(!World || Map.GetLayout().CoverSites.IsEmpty())return false;
+    FCollisionQueryParams Q(SCENE_QUERY_STAT(ERIntermediateCover),false);
+    for(TActorIterator<APawn> It(World);It;++It)Q.AddIgnoredActor(*It);
+    const auto& Frame=Map.GetActorTransform();FHitResult Hit;
+    for(int32 I=0;I<Map.GetLayout().CoverSites.Num();++I)
+    {
+        const auto& Site=Map.GetLayout().CoverSites[I];
+        if(World->SweepSingleByChannel(Hit,Frame.TransformPosition(Site.Entry),Frame.TransformPosition(Site.Hide),FQuat::Identity,ECC_Pawn,FCollisionShape::MakeCapsule(34,Site.HalfHeight),Q))return false;
+        const bool Hidden=World->LineTraceSingleByChannel(Hit,Frame.TransformPosition(Site.SightFrom),Frame.TransformPosition(Site.SightTo),ECC_GameTraceChannel1,Q);
+        if(Hidden!=(I!=0 || !Breached))return false;
+    }
+    return true;
 }
 inline FERBlockBatchResult Cut(AERProceduralMap& Map,const FTransform& Frame,const FBox& Region,EERBlockMaterial Material)
 {

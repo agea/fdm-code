@@ -66,6 +66,7 @@ void AERIndustrialMapProbe::Tick(float Delta)
             bool Good=Map->ValidateCells();FHitResult Hit;FCollisionQueryParams Q(SCENE_QUERY_STAT(ERIndustrialPeer),false);
             for(TActorIterator<APawn> Pawn(GetWorld());Pawn;++Pawn)Q.AddIgnoredActor(*Pawn);
             Good&=ERIndustrialTest::FactoryPaletteMatches(*Map);
+            Good&=ERIndustrialTest::IntermediateCoverMatches(*Map,Phase==2 || Phase==3);
             const auto& L=Map->GetLayout();const float Edge=L.ArenaSize.X*.5;
             Good&=GetWorld()->LineTraceSingleByChannel(Hit,{Edge-100,0,300},{Edge+100,0,300},ECC_Pawn,Q);
             const auto* Fence=L.FixedPieces.FindByPredicate([&](const auto& P){return P.PawnBarrier && P.Transform.GetLocation().Y<-L.ArenaSize.Y*.5+10 && P.Transform.GetLocation().Z<101;});
@@ -95,7 +96,7 @@ void AERIndustrialMapProbe::Tick(float Delta)
     if(FParse::Param(FCommandLine::Get(),TEXT("ERFactoryFinishGallery")))
     {
         if(!Phase && Elapsed>3)
-        {Check(ERIndustrialTest::FactoryPaletteMatches(*Map),TEXT("factory_palette_applied_to_rendered_metal"));Capture(Map);Publish(1,Map);}
+        {Check(ERIndustrialTest::FactoryPaletteMatches(*Map),TEXT("factory_palette_applied_to_rendered_metal"));Check(ERIndustrialTest::IntermediateCoverMatches(*Map),TEXT("intermediate_cover_access_and_concealment"));Capture(Map);Publish(1,Map);}
         if(Phase && Elapsed>7 && Gallery==0){Capture(Map,2);++Gallery;}
         if(Phase && Elapsed>11 && Gallery==1){Capture(Map,1);++Gallery;}
         if(Elapsed>15){UE_LOG(LogTemp,Display,TEXT("ER_INDUSTRIAL_PROBE_COMPLETE result=%s"),Failed ? TEXT("FAIL"):TEXT("PASS"));FPlatformMisc::RequestExitWithStatus(false,Failed ? 1:0);}
@@ -106,6 +107,9 @@ void AERIndustrialMapProbe::Tick(float Delta)
     {
         Check(Map->IsMapReady() && Map->ValidateCells(),TEXT("initial_map_ready"));
         Check(ERIndustrialTest::FactoryPaletteMatches(*Map),TEXT("factory_palette_applied_to_rendered_metal"));
+        Check(ERIndustrialTest::IntermediateCoverMatches(*Map),TEXT("intermediate_cover_access_and_concealment"));
+        int32 Crouched=0;for(const auto& Site:Map->GetLayout().CoverSites)Crouched+=Site.HalfHeight<70;
+        UE_LOG(LogTemp,Display,TEXT("ER_INDUSTRIAL_COVER sites=%d standing=%d crouched=%d"),Map->GetLayout().CoverSites.Num(),Map->GetLayout().CoverSites.Num()-Crouched,Crouched);
         Check(C->GetActorLocation().Z>90 && C->GetActorLocation().Z<102,TEXT("actual_spawn_supported"));
         DamageTime=FMath::Max(Network ? 35.f:20.f,8+Map->GetLayout().StairRoutes.Num()*3.5f+Map->GetLayout().WallAccessFlights.Num()*2.5f);
         for(const auto& Desc:Map->GetLayout().Ladders)DamageTime+=Desc.Height/144.f+2.f;
@@ -192,6 +196,12 @@ void AERIndustrialMapProbe::Tick(float Delta)
             Check(ERIndustrialTest::BridgeSupported(*GetWorld(),L.WallBridges[0],Q),TEXT("timber_bridge_initially_supported"));
             ERIndustrialTest::CutBridgeSupports(*Map,L.WallBridges[0]);ERIndustrialTest::BreachWall(*Map);
             Check(!ERIndustrialTest::WallBlocked(*GetWorld(),ERIndustrialTest::BreachPoint(L),Q),TEXT("brick_breach_creates_ground_crossing"));
+        }
+        if(!L.CoverSites.IsEmpty())
+        {
+            const auto& Site=L.CoverSites[0];
+            ERIndustrialTest::Cut(*Map,Site.Frame,FBox(FVector(-80,-200,0),FVector(80,200,200)),Site.Material);
+            Check(ERIndustrialTest::IntermediateCoverMatches(*Map,true),TEXT("destroying_intermediate_cover_exposes_hiding_place"));
         }
         Capture(Map,true);Publish(2,Map);
     }

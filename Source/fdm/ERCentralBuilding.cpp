@@ -289,29 +289,11 @@ bool BuildCentralBuilding(const UERMapTemplate& T,int32 Seed,TArray<FERMapTempla
         Pieces.Last().PawnBarrier=true;
         Pieces.Last().MeshRotation=FRotator(0,90,0);
     }
-    // Cover is chosen in reserved cells; the two teams never roll independently.
+    // Cover geometry is paired for balance; its cosmetic palette may differ.
     // Keep a clear rear spawn strip, side-building lanes and central approach.
     Container({-1100,-Half.Y+1000,140},{Pick(1000,1200),260,280},R.RandRange(-1,1)*15);
-    const float MinY=-Half.Y+1800,MaxY=-D*.5-450;
-    const int32 Rows=R.RandRange(1,FMath::Clamp(FMath::FloorToInt((MaxY-MinY)/400),1,3));
-    for(int32 Row=0;Row<Rows;++Row)for(float Sign:{-1.f,1.f})
-    {
-        const float Y=MinY+(Row+.5)*(MaxY-MinY)/Rows;
-        const float X=Sign*(W*.5+500);
-        const int32 Kind=R.RandRange(0,7);const float Yaw=R.RandRange(-3,3)*15;
-        L.CoverAngles.Add(Yaw);L.CoverAngles.Add(Yaw+180);
-        L.ModuleKinds.Add(EERTemplateModule(Kind==0 || Kind==7 ? uint8(EERTemplateModule::Cargo):Kind==1 ? uint8(EERTemplateModule::Tanks):Kind>=4 && Kind<=5 ? uint8(EERTemplateModule::LCover):uint8(EERTemplateModule::Crates)));
-        if(Kind==0 || Kind==7)Container({X,Y,Kind==0 ? 130.f:70.f},{350,220,Kind==0 ? 260.f:140.f},Yaw);
-        else if(Kind==1){Box({X,Y,130},{280,280,260},EERBlockMaterial::Metal,true,V.TankMesh).RotationYaw=Yaw;}
-        else if(Kind==2 || Kind==6)
-        {
-            Box({X,Y,50},{240,240,100},EERBlockMaterial::Wood).RotationYaw=Yaw;
-            if(Kind==6)Box({X,Y,150},{200,200,100},EERBlockMaterial::Wood).RotationYaw=Yaw;
-        }
-        else if(Kind>=4)Box({X,Y,60},{300,40,120},Kind==4 ? EERBlockMaterial::Brick:EERBlockMaterial::Concrete).RotationYaw=Yaw;
-        else for(float Offset:{-70.f,70.f})
-        {const FVector P=FTransform(FRotator(0,Yaw,0),FVector(X,Y,55)).TransformPosition({Offset,0,0});Box(P,{100,100,110},EERBlockMaterial::Metal,true,V.BarrelMesh).RotationYaw=Yaw;}
-    }
+    // Reserve circulation before furnishing the yards. Cover is placed as
+    // usable groups rather than isolated decorative props in one narrow row.
     for(int32 I=0;I<10;++I)L.AlphaSpawns.Add(FTransform(FRotator(0,90,0),FVector(-850+(I%5-2)*180,-Half.Y+220+(I/5)*200,100)));
     const float EndY=Half.Y-600;
     if(L.CrossingRule==EERCrossingRule::FencedCrossings)
@@ -319,6 +301,101 @@ bool BuildCentralBuilding(const UERMapTemplate& T,int32 Seed,TArray<FERMapTempla
     else
         Patrol={{-300,-EndY,100},{-300,-D*.5-150,100},{-300,-200,100},{300,200,100},{300,D*.5+150,100},{300,EndY,100},
                 {200,EndY,100},{200,D*.5+150,100},{300,250,100},{-300,-250,100},{-200,-D*.5-150,100},{-200,-EndY,100}};
+    TArray<FTransform> Occupied,Reserved;
+    auto Frames=[&](int32 First,TArray<FTransform>& Out)
+    {
+        for(int32 I=First;I<Pieces.Num();++I)
+        {
+            const auto& P=Pieces[I];if(P.VisualOnly)continue;
+            for(int32 Copy=0;Copy<(P.Mirrored ? 2:1);++Copy)
+                Out.Add(FTransform(FRotator(0,P.RotationYaw+(Copy ? 180:0),0),Copy ? FVector(-P.Center.X,-P.Center.Y,P.Center.Z):P.Center,P.Size));
+        }
+    };
+    Frames(0,Occupied);
+    Reserved.Add(FTransform(FQuat::Identity,{0,0,Roof*.5},{W+180,D+180,Roof+240}));
+    for(const auto& S:L.SecondaryStructures)
+        Reserved.Add(FTransform(S.Frame.GetRotation(),S.Frame.TransformPosition({0,0,S.Size.Z*.5}),S.Size+FVector(160,160,240)));
+    for(const auto& Ladder:L.Ladders)
+        Reserved.Add(FTransform(Ladder.Frame.GetRotation(),Ladder.Frame.TransformPosition({10,0,Ladder.Height*.5}),{320,180,Ladder.Height+370}));
+    auto Overlap=[](const FTransform& A,const FTransform& B,float Margin)
+    {
+        const FVector SA=A.GetScale3D(),SB=B.GetScale3D();
+        if(FMath::Abs(A.GetLocation().Z-B.GetLocation().Z)>=(SA.Z+SB.Z)*.5-.01f)return false;
+        for(const FVector Axis:{A.GetRotation().GetAxisX(),A.GetRotation().GetAxisY(),B.GetRotation().GetAxisX(),B.GetRotation().GetAxisY()})
+        {
+            auto Radius=[&](const FTransform& F)
+            {return .5*(F.GetScale3D().X*FMath::Abs(FVector::DotProduct(F.GetRotation().GetAxisX(),Axis))+F.GetScale3D().Y*FMath::Abs(FVector::DotProduct(F.GetRotation().GetAxisY(),Axis)));};
+            if(FMath::Abs(FVector::DotProduct(A.GetLocation()-B.GetLocation(),Axis))>=Radius(A)+Radius(B)+Margin-.01f)return false;
+        }
+        return true;
+    };
+    auto Blocked=[](FVector A,FVector B,const FTransform& Solid,float HalfHeight)
+    {
+        const FBox Bounds=FBox(-Solid.GetScale3D()*.5,Solid.GetScale3D()*.5).ExpandBy({36,36,HalfHeight});
+        A=Solid.InverseTransformPositionNoScale(A);B=Solid.InverseTransformPositionNoScale(B);
+        return FMath::LineBoxIntersection(Bounds,A,B,B-A);
+    };
+    auto Cover=[&](FVector Center,float Yaw,int32 Kind)
+    {
+        const int32 First=Pieces.Num(),FirstContainer=L.Containers.Num();
+        const FTransform Frame(FRotator(0,Yaw,0),Center);
+        const float Span=Kind==8 ? 320.f:Kind==4 ? 350.f:Kind==5 ? 220.f:float(R.RandRange(7,10)*50);
+        const float Height=Kind==5 ? 130.f:Kind==3 ? 140.f:Kind==4 ? 260.f:230.f;
+        const float Depth=Kind==4 ? 220.f:Kind==5 ? 180.f:20.f;
+        const auto Material=Kind==4 ? EERBlockMaterial::Metal:(Kind==1 || Kind==2 || Kind==5) ? EERBlockMaterial::Wood:Kind==7 ? EERBlockMaterial::Concrete:EERBlockMaterial::Brick;
+        if(Kind==4)Container(Center+FVector(0,0,Height*.5),{Span,Depth,Height},Yaw);
+        else
+        {
+            Place(Frame,{0,0,Height*.5},{Span,Depth,Height},Material);
+            if(Kind<=2 || Kind==7)
+                Place(Frame,{(Span-20)*.5,-110,Height*.5},{20,200,Height},Material);
+            if(Kind==2)Place(Frame,{-(Span-20)*.5,-110,Height*.5},{20,200,Height},Material);
+        }
+        TArray<FTransform> Added;Frames(First,Added);bool Valid=true;
+        for(int32 I=0;I<Added.Num() && Valid;++I)
+        {
+            const auto& F=Added[I];const auto Bounds=FBox(-F.GetScale3D()*.5,F.GetScale3D()*.5).TransformBy(FTransform(F.GetRotation(),F.GetLocation()));
+            Valid=Bounds.Min.X>=-Half.X+140 && Bounds.Max.X<=Half.X-140 && Bounds.Min.Y>=-Half.Y+700 && Bounds.Max.Y<=Half.Y-700;
+            for(const auto& O:Occupied)if(Valid && Overlap(F,O,80))Valid=false;
+            for(const auto& O:Reserved)if(Valid && Overlap(F,O,0))Valid=false;
+            for(int32 J=0;J<I && Valid;++J)if(Overlap(F,Added[J],0))Valid=false;
+            for(int32 J=0;J<Patrol.Num() && Valid;++J)if(Blocked(Patrol[J],Patrol[(J+1)%Patrol.Num()],F,93))Valid=false;
+            for(const auto& Site:L.CoverSites)if(Valid && (Blocked(Site.Entry,Site.Hide,F,Site.HalfHeight) || Blocked(Site.SightFrom,Site.SightTo,F,2)))Valid=false;
+            for(const auto* Paths:{&L.CrossingRoutes,&L.StairRoutes})for(const auto& Path:*Paths)
+                for(int32 J=1;J<Path.Num() && Valid;++J)if(Blocked(Path[J-1],Path[J],F,93))Valid=false;
+        }
+        TArray<FERLayoutCover> Sites;
+        for(int32 Copy=0;Copy<2 && Valid;++Copy)
+        {
+            const FTransform Pair=Frame*FTransform(FRotator(0,Copy ? 180:0,0));
+            const float HalfHeight=Height<160 ? 62.5f:92.5f,Eye=Height<160 ? 115.f:172.5f;
+            const float HideY=Depth>30 ? -Depth*.5-90:-100;
+            const FVector Hide=Pair.TransformPosition({0,HideY,HalfHeight+2.5f}),Entry=Pair.TransformPosition({0,HideY-180,HalfHeight+2.5f});
+            for(const auto& F:Occupied)if(Blocked(Entry,Hide,F,HalfHeight))Valid=false;
+            for(const auto& F:Added)if(Blocked(Entry,Hide,F,HalfHeight))Valid=false;
+            const FVector SightFrom=Pair.TransformPosition({0,Depth*.5+150,172.5f}),SightTo=Pair.TransformPosition({0,HideY,Eye});
+            for(const auto& F:Occupied)if(Blocked(SightFrom,SightTo,F,2))Valid=false;
+            Sites.Add({Pair,{Span,Depth,Height},Hide,Entry,Pair.TransformPosition({0,Depth*.5+150,172.5f}),Pair.TransformPosition({0,HideY,Eye}),Material,HalfHeight});
+        }
+        if(!Valid){Pieces.SetNum(First);L.Containers.SetNum(FirstContainer);return false;}
+        Occupied.Append(Added);L.CoverSites.Append(Sites);L.CoverAngles.Append({Yaw,Yaw+180});
+        L.ModuleKinds.Add(Kind==4 ? EERTemplateModule::Cargo:Kind==5 ? EERTemplateModule::Crates:Kind==2 ? EERTemplateModule::UCover:EERTemplateModule::LCover);
+        return true;
+    };
+    // Open yards need mid-flank screens in addition to the approach pockets.
+    // These interrupt eye-height sightlines without sealing either ground crossing.
+    if(L.CrossingRule==EERCrossingRule::OpenYard)
+        for(float Sign:{-1.f,1.f})Cover({-W*.5-500,Sign*D*.25,0},0,8);
+    for(float Sign:{-1.f,1.f})Cover({-W*.5-650,Sign*(D*.5+350),0},0,8);
+    const float FrontStart=-Half.Y+1500,FrontEnd=-D*.5-500;
+    const int32 Bands=FMath::Max(2,FMath::FloorToInt((FrontEnd-FrontStart)/550)+1);
+    for(int32 Row=0;Row<Bands;++Row)
+        for(double X:{-Half.X*.72,-Half.X*.46,-750.,750.,Half.X*.46,Half.X*.72})
+        {
+            const float Y=FMath::Lerp(FrontStart,FrontEnd,float(Row)/(Bands-1));
+            const int32 Kind=R.RandRange(0,7);const float Yaw=R.RandRange(-2,2)*15.f;
+            if(!Cover({X,Y,0},Yaw,Kind))Cover({X,Y,0},0,8);
+        }
     // PCGEx's path representation is shared with the authoring preview. Reject
     // degenerate paths before they can become patrol or crossing instructions.
     for(const auto& Route:L.CrossingRoutes)
@@ -357,6 +434,8 @@ UPCGDataAsset* UERMapTemplate::CreatePCGPreview(int32 Seed) const
     TArray<FTransform> Cells;
     for(const auto& P:L.Panels)Cells.Add(FTransform(P.Transform.GetRotation(),P.Transform.TransformPosition(P.Size*.5),P.Size/100));
     Add(TEXT("CellVolumes"),Cells,-1);
+    TArray<FTransform> Cover;for(const auto& Site:L.CoverSites)Cover.Add(FTransform(Site.Frame.GetRotation(),Site.Hide));
+    Add(TEXT("CoverPockets"),Cover,-1);
     return Asset;
 }
 

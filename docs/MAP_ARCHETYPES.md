@@ -45,8 +45,15 @@ building is also symmetric under that rotation. Teams never roll independently.
 Stairs have 20cm risers, 30cm treads, open floor wells and solid landings. Roof
 parapets leave the stair mouths and roof crossing open. Reserved routes receive
 full standing-capsule segment validation before the new layout is committed.
-Cover rows fit the available courtyard depth, rather than retrying random props
-until something happens to fit. Recipes reject invalid ranges and geometry
+Revision6 furnishes both approaches with several bands of destructible cover:
+standing-height L/U pockets, brick/concrete screens, timber crates and reinforced
+steel containers. Low screens and crates protect crouched players. OpenYard adds
+paired midfield flank screens to interrupt long outdoor sightlines. Each pocket
+reserves an entrance and capsule-sized hiding space; furnishing also reserves
+spawn areas, patrol/crossing routes, building footprints and ladder approaches.
+Every group keeps its half-turn gameplay counterpart. Destroying a screen can
+expose its hiding place. Cover rows fit the available courtyard depth.
+Recipes reject invalid ranges and geometry
 atomically. A 0.01cm numerical boundary tolerance accommodates divided fence tiles.
 The wall variant uses a destructible 300cm brick separator, with two mirrored
 320cm-high timber bridges and stairs on both courtyard sides. Their treads,
@@ -95,7 +102,7 @@ is hidden from Blueprint/editor settings. Normal finite ammunition rules apply.
 
 PCG and installed **PCGExtendedToolkit 0.79.2** are enabled. The generator uses
 PCGEx's native path representation to analyze crossing paths. `CreatePCGPreview`
-exports validated spawn, crossing, fixed-volume and destructible-cell-volume collections, and
+exports validated spawn, crossing, cover-pocket, fixed-volume and destructible-cell-volume collections, and
 `setup_industrial_pcg_preview.py` saves a PCGEx **Path : Properties** graph for
 route inspection. This authoring snapshot is for its named seed; changing it
 does not silently replace authoritative collision. Runtime generation and

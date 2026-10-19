@@ -11,7 +11,7 @@
   ],
   "recipe_seeds": 516,
   "distinct_shapes": 516,
-  "cover_compositions": 177,
+  "cover_compositions": 515,
   "automation_tests": [
     "BallisticsAndBlast",
     "MeshAndCollision",
@@ -26,26 +26,27 @@
     "ProceduralCollision",
     "ProceduralLayout"
   ],
-  "metal_actual_stair_flights": 10,
-  "metal_seed": 16,
+  "metal_actual_stair_flights": 2,
+  "metal_seed": 42,
   "network": {
     "result": "PASS",
-    "seed": 16,
-    "rule": 2,
+    "seed": 42,
+    "rule": 1,
     "gallery": false,
+    "finish_gallery": false,
     "render": true,
     "network": true,
     "factory_shaders": true,
     "states": {
-      "1": 941928970,
-      "2": 3596502877,
-      "3": 2451882880,
-      "4": 3776669601
+      "1": 4234956338,
+      "2": 598883465,
+      "3": 598883465,
+      "4": 1130771858
     },
     "logs": {
-      "host": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/factory-finishes-industrial-host.log",
-      "initial": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/factory-finishes-industrial-initial.log",
-      "late": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/factory-finishes-industrial-late.log"
+      "host": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/intermediate-cover-industrial-host.log",
+      "initial": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/intermediate-cover-industrial-initial.log",
+      "late": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/intermediate-cover-industrial-late.log"
     }
   },
   "depot_regressions": {
@@ -60,19 +61,19 @@
   "retired_packages": 46,
   "backup_files": 70,
   "evidence": [
-    "Saved/Testing/factory-finishes-build.log",
-    "Saved/Testing/factory-finishes-destruction.log",
-    "Saved/Testing/factory-finishes-destruction-result.log",
-    "Saved/Testing/factory-finishes-assets-setup.log",
-    "Saved/Testing/factory-finishes-assets-verify.log",
-    "Saved/Testing/factory-finishes-assets-verify-report.json",
-    "Saved/Testing/factory-finishes-industrial-report.json",
-    "Saved/Testing/factory-finishes-gallery-report.json"
+    "Saved/Testing/intermediate-cover-build.log",
+    "Saved/Testing/intermediate-cover-destruction.log",
+    "Saved/Testing/intermediate-cover-destruction-result.log",
+    "Saved/Testing/intermediate-cover-assets.log",
+    "Saved/Testing/intermediate-cover-assets-verify.log",
+    "Saved/Testing/intermediate-cover-assets-verify-report.json",
+    "Saved/Testing/intermediate-cover-industrial-result.log",
+    "Saved/Testing/intermediate-cover-industrial-report.json"
   ],
   "captures": [
-    "Saved/Testing/factory-finishes-plan.png",
-    "Saved/Testing/factory-finishes-ground.png",
-    "Saved/Testing/factory-finishes-container.png"
+    "Saved/Testing/intermediate-cover-plan.png",
+    "Saved/Testing/intermediate-cover-ground.png",
+    "Saved/Testing/intermediate-cover-container.png"
   ],
   "previous_refinements": {
     "result": "PASS",
@@ -181,7 +182,7 @@
       ]
     }
   },
-  "recipe_revision": 5,
+  "recipe_revision": 6,
   "evolution": {
     "result": "PASS",
     "containers": "hollow destructible reinforced steel cells",
@@ -331,7 +332,7 @@
     "Saved/Testing/industrial-refinements-regressions.json",
     "Saved/Testing/industrial-material-usage-report.json"
   ],
-  "previous_recipe_revision": 4,
+  "previous_recipe_revision": 5,
   "player_mechanics_results": "docs/PLAYER_MECHANICS_RESULTS.json",
   "ladder_update": {
     "result": "PASS",
@@ -392,8 +393,8 @@
       }
     }
   },
-  "metal_actual_ladders": 10,
-  "pcg_snapshot": "DA_CentralBuilding_42_FactoryFinishes",
+  "metal_actual_ladders": 8,
+  "pcg_snapshot": "DA_CentralBuilding_42_DenseCover",
   "evidence_previous_revision2": [
     "Saved/Testing/industrial-evolution-build.log",
     "Saved/Testing/industrial-evolution-destruction-result.log",
@@ -479,5 +480,56 @@
     "Saved/Testing/preferred-ladders-assets-report.json",
     "Saved/Testing/preferred-ladders-industrial-result.log",
     "Saved/Testing/preferred-ladders-industrial-report.json"
-  ]
+  ],
+  "previous_revision5_network": {
+    "result": "PASS",
+    "seed": 16,
+    "rule": 2,
+    "gallery": false,
+    "render": true,
+    "network": true,
+    "factory_shaders": true,
+    "states": {
+      "1": 941928970,
+      "2": 3596502877,
+      "3": 2451882880,
+      "4": 3776669601
+    },
+    "logs": {
+      "host": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/factory-finishes-industrial-host.log",
+      "initial": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/factory-finishes-industrial-initial.log",
+      "late": "/Users/agea/git/respawn-and-rage/core/Saved/Testing/factory-finishes-industrial-late.log"
+    }
+  },
+  "previous_revision5_evidence": [
+    "Saved/Testing/factory-finishes-build.log",
+    "Saved/Testing/factory-finishes-destruction.log",
+    "Saved/Testing/factory-finishes-destruction-result.log",
+    "Saved/Testing/factory-finishes-assets-setup.log",
+    "Saved/Testing/factory-finishes-assets-verify.log",
+    "Saved/Testing/factory-finishes-assets-verify-report.json",
+    "Saved/Testing/factory-finishes-industrial-report.json",
+    "Saved/Testing/factory-finishes-gallery-report.json"
+  ],
+  "previous_revision5_captures": [
+    "Saved/Testing/factory-finishes-plan.png",
+    "Saved/Testing/factory-finishes-ground.png",
+    "Saved/Testing/factory-finishes-container.png"
+  ],
+  "intermediate_cover_results": "docs/INTERMEDIATE_COVER_RESULTS.json",
+  "intermediate_cover": {
+    "observed_min_cover_sites": {
+      "OpenYard": 26,
+      "OtherRules": 18
+    },
+    "seed42_open_yard": {
+      "cover_sites": 38,
+      "standing": 28,
+      "crouched": 10,
+      "actual_stair_flights": 2,
+      "actual_ladders": 8
+    },
+    "cover_access_and_concealment": "capsule sweep and real standing/crouched eye rays",
+    "cover_breach_exposes_hiding_place": true
+  }
 }

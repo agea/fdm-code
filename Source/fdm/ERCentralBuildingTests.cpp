@@ -19,7 +19,7 @@ bool FERCentralBuildingLayoutTest::RunTest(const FString& Parameters)
     T->CentralBuilding.SteelSurface=NewObject<UMaterial>(T,TEXT("TestGraySteel"));
     for(int32 I=0;I<4;++I)T->CentralBuilding.ContainerSurfaces.Add(NewObject<UMaterial>(T,*FString::Printf(TEXT("TestPaint%d"),I)));
     FERProceduralConfig C;C.TemplateAsset=T;FERBlockRoomConfig B;FERProceduralLayout L,Again;
-    TSet<FString> Shapes,Compositions;TSet<int32> Rules,Floors,SecondaryFloors,Angles,Materials;bool Tower=false,Building=false,AsymmetricPaint=false;
+    TSet<FString> Shapes,Compositions;TSet<int32> Rules,Floors,SecondaryFloors,Angles,Materials;int32 MinOpenCover=MAX_int32,MinOtherCover=MAX_int32;bool Tower=false,Building=false,AsymmetricPaint=false;
     auto Key=[](FVector Center,FVector Size,uint8 M){return FString::Printf(TEXT("%d:%d:%d/%d:%d:%d/%d"),FMath::RoundToInt(Center.X*1000),FMath::RoundToInt(Center.Y*1000),FMath::RoundToInt(Center.Z*1000),FMath::RoundToInt(Size.X*1000),FMath::RoundToInt(Size.Y*1000),FMath::RoundToInt(Size.Z*1000),M);};
     TArray<int32> Seeds;for(int32 I=0;I<512;++I)Seeds.Add(I);Seeds.Append({7919,-17,INT32_MIN,INT32_MAX});
     for(int32 Seed:Seeds)
@@ -57,9 +57,14 @@ bool FERCentralBuildingLayoutTest::RunTest(const FString& Parameters)
         TestEqual(TEXT("every compact storey and paired exterior has a ladder"),L.Ladders.Num(),Ladders);
         for(int32 I=0;I<L.Ladders.Num();I+=2)
             TestTrue(TEXT("ladder access is half-turn symmetric"),(L.Ladders[I].Frame*FTransform(FRotator(0,180,0))).Equals(L.Ladders[I+1].Frame));
+        if(L.CrossingRule==EERCrossingRule::OpenYard)MinOpenCover=FMath::Min(MinOpenCover,L.CoverSites.Num());
+        else MinOtherCover=FMath::Min(MinOtherCover,L.CoverSites.Num());
         TestTrue(TEXT("paired destructible containers"),L.Containers.Num()>=2 && L.Containers.Num()%2==0);
         if(L.CrossingRule==EERCrossingRule::FencedCrossings)TestEqual(TEXT("roof and two side crossings"),L.CrossingRoutes.Num(),3);
     }
+    TestTrue(FString::Printf(TEXT("open yard has distributed intermediate cover min=%d"),MinOpenCover),MinOpenCover>=16);
+    TestTrue(FString::Printf(TEXT("separated variants retain intermediate cover min=%d"),MinOtherCover),MinOtherCover>=12);
+    AddInfo(FString::Printf(TEXT("ER_CENTRAL_COVER min_open=%d min_other=%d"),MinOpenCover,MinOtherCover));
     TestTrue(TEXT("cosmetic container rolls can differ across symmetric geometry"),AsymmetricPaint);
     TestTrue(TEXT("hundreds of different building/arena dimensions"),Shapes.Num()>450);
     TestTrue(TEXT("over a hundred distinct cover compositions"),Compositions.Num()>100);
@@ -115,6 +120,16 @@ bool FERCentralBuildingCollisionTest::RunTest(const FString& Parameters)
             TestTrue(TEXT("ladder landing has a real floor"),World->LineTraceSingleByChannel(Hit,Exit,Exit-FVector(0,0,120),ECC_WorldStatic,Q));
             Ladder->Destroy();
         }
+        for(const auto& Site:L.CoverSites)
+        {
+            const auto Body=FCollisionShape::MakeCapsule(34,Site.HalfHeight);
+            TestFalse(TEXT("cover pocket fits its standing/crouching occupant"),World->OverlapBlockingTestByChannel(Site.Hide,FQuat::Identity,ECC_Pawn,Body,Q));
+            TestFalse(TEXT("cover pocket has a clear entry"),World->SweepSingleByChannel(Hit,Site.Entry,Site.Hide,FQuat::Identity,ECC_Pawn,Body,Q));
+            TestTrue(TEXT("cover hides eye height from the opposing side"),World->LineTraceSingleByChannel(Hit,Site.SightFrom,Site.SightTo,ECC_GameTraceChannel1,Q));
+            FERCellId CoverId;TestTrue(TEXT("cover is actual destructible construction"),Map->ResolveCell(Hit,CoverId));
+        }
+        if(Rule==1)for(float Sign:{-1.f,1.f})
+            TestTrue(TEXT("open flank eye-height sightline is broken"),World->LineTraceSingleByChannel(Hit,{Sign*(L.CentralBuildingSize.X*.5+500),-L.CentralBuildingSize.Y*.5-100,172.5},{Sign*(L.CentralBuildingSize.X*.5+500),L.CentralBuildingSize.Y*.5+100,172.5},ECC_GameTraceChannel1,Q));
         TInlineComponentArray<UDynamicMeshComponent*> Metal(Map);int32 WireParts=0;
         for(auto* Part:Metal)if(Part->GetName().StartsWith(TEXT("IndustrialFenceMetal_")))
         {++WireParts;Part->ProcessMesh([&](const UE::Geometry::FDynamicMesh3& Mesh){TestTrue(TEXT("wire collision parts stay below cook limit"),Mesh.TriangleCount()>0 && Mesh.TriangleCount()<60000);});}
@@ -195,6 +210,14 @@ bool FERCentralBuildingEvolutionTest::RunTest(const FString& Parameters)
         TestEqual(TEXT("intact secondary structures and access need no artificial anchors"),Map->GetCellWorld().GetDetachedCount(),int64(0));
     }
     const auto& L=Map->GetLayout();FCollisionQueryParams Q(SCENE_QUERY_STAT(ERIndustrialEvolution),false);FHitResult Hit;FERCellId Id;
+    if(!L.CoverSites.IsEmpty())
+    {
+        const auto& Site=L.CoverSites[0];
+        TestTrue(TEXT("intermediate cover initially hides occupant"),World->LineTraceSingleByChannel(Hit,Site.SightFrom,Site.SightTo,ECC_GameTraceChannel1,Q));
+        ERIndustrialTest::Cut(*Map,Site.Frame,FBox(FVector(-80,-200,0),FVector(80,200,200)),Site.Material);
+        TestFalse(TEXT("breaching intermediate cover exposes its hiding place"),World->LineTraceSingleByChannel(Hit,Site.SightFrom,Site.SightTo,ECC_GameTraceChannel1,Q));
+    }
+
     if(L.Containers.IsEmpty() || L.WallBridges.Num()!=2){World->DestroyWorld(false);return false;}
     if(!L.Ladders.IsEmpty())
     {

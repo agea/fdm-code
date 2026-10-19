@@ -1,5 +1,5 @@
-#include "Materials/MaterialInterface.h"
 #include "ERCellWorld.h"
+#include "Materials/MaterialInterface.h"
 #include "Algo/BinarySearch.h"
 
 namespace

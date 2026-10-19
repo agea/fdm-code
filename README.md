@@ -548,3 +548,8 @@ also offers paired exterior ladders. Rails and rungs remain destructible steel.
 Industrial metal uses a lightly worn gray Factory finish. Container paint varies
 independently between blue, dark red, green and ochre; gameplay geometry remains
 balanced and all peers reconstruct the same colors from the seed.
+
+Industrial courtyards include multiple bands of destructible L/U shelters,
+screens, crates and containers, with extra flank screens in the open variant.
+Hiding spaces support standing or crouching as appropriate; entrances, spawn
+areas and building/ladder routes stay clear. Breaches can expose those spaces.

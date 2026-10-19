@@ -3622,3 +3622,26 @@ sono stati verificati con i sorgenti dell'API Unreal e su Metal.
 Ricevuta: `docs/FACTORY_FINISHES_RESULTS.json`; log/immagini
 `Saved/Testing/factory-finishes-*`. La galleria rapida è un probe esplicito e
 non sostituisce la prova LAN o le prove di distruzione.
+## Coperture intermedie industriali — 19 ottobre 2026
+
+Ricetta revision6 e snapshot PCG attivo `DA_CentralBuilding_42_DenseCover`.
+Più fasce di ripari distruttibili: pareti a L/U, divisori in mattoni/cemento,
+casse di legno e container rinforzati. OpenYard aggiunge schermature sui fianchi
+centrali. Ingressi, nascondigli, percorsi e accessi agli edifici/scale riservati.
+
+- Build Editor arm64 Development: PASS. Suite distruzione: **12/12 PASS**.
+- **516 seed**, 516 geometrie distinte e 515 composizioni di coperture; minimo
+  osservato di 26 punti di copertura in OpenYard e 18 nelle altre varianti,
+  contando entrambi i lati della mappa.
+- Collisioni fisiche su tutte le tre regole e uno/due/tre piani: capsule nei
+  nascondigli, ingressi liberi, raggi all'altezza reale degli occhi e schermi
+  dei fianchi OpenYard. Breccia nella copertura: nascondiglio esposto.
+- OpenYard seed42, Metal LAN: **PASS**. 38 ripari verificati (28 in piedi,
+  10 accovacciati), palette Factory, accessi verticali reali, distruzione,
+  replica al client iniziale e tardivo, nuovo seed e round ripristinato.
+- Ricetta salvata e verificata su 516 seed; PCG esporta `CoverPockets`.
+  SHA256 del Deposito e catalogo condiviso invariati. Immagini Plan/Ground
+  controllate; da terra le pareti formano ripari e spezzano le visuali.
+
+Ricevuta: `docs/INTERMEDIATE_COVER_RESULTS.json`; prove e immagini in
+`Saved/Testing/intermediate-cover-*`. Nessun packaging o pubblicazione.

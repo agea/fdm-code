@@ -954,3 +954,15 @@ materials live in private Art/Industrial/Materials and adapt cropped BC/N/ORM
 regions of existing Factory atlases; do not edit original Factory materials.
 Use setup_factory_finishes.py, refresh DA_CentralBuilding_42_FactoryFinishes,
 then verify_industrial_maps.py and inspect real Metal captures and LAN palette checks.
+
+Intermediate cover (19 October, recipe6): furnish approaches in multiple bands
+with destructible L/U pockets, brick/concrete screens, timber crates and steel
+containers. OpenYard additionally reserves paired midfield flank screens.
+Preserve half-turn geometry and independent cosmetic rolls. Validate entrances
+and hide positions with real standing/crouched capsules and eye-height rays;
+reserve spawn space, patrol/crossing/stair routes, footprints and ladder access.
+Later pieces must not obstruct an earlier pocket's entrance or test sightline.
+Keep cover metadata transient; export CoverPockets in the PCG snapshot. Use
+setup_intermediate_cover.py and DA_CentralBuilding_42_DenseCover, then native
+destruction/516-seed checks and the OpenYard Metal LAN probe with cover breach,
+late join and regeneration. Preserve shared damage profiles, Depot and Factory art.
