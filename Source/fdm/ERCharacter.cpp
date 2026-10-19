@@ -915,17 +915,19 @@ void AERCharacter::UpdateWeaponPresentation()
 void AERCharacter::MulticastShot_Implementation(FVector_NetQuantize Start, FVector_NetQuantize End, bool bTracer)
 {
     ++ShotFeedbackCount;
+    const auto* Data = Weapon ? Weapon->Data.Get() : nullptr;
+    // Smoke is also an authoritative recon occluder. Record authorized cuts on
+    // dedicated servers before skipping presentation, exactly once per peer.
+    if(Data && Data->Payload==EERPayload::Bullet)
+        for(TActorIterator<AERSmokeCloud> It(GetWorld());It;++It) It->AddShot(Start,End);
     if (GetNetMode() == NM_DedicatedServer || Health->bDead || IsWeaponStowed() || Cast<UERMovement>(GetCharacterMovement())->bHighClimb) return;
     const bool bFirstPerson = IsLocallyControlled() && Controller && Controller->IsPlayerController();
-    const auto* Data = Weapon ? Weapon->Data.Get() : nullptr;
     if (Data && Data->WeaponFireAnimation)
         for (auto* Component : {FirstPersonRifle.Get(), WorldRifle.Get()})
         {
             Component->PlayAnimation(Data->WeaponFireAnimation, false);
             Component->SetPlayRate(FMath::Max(1.f, Data->WeaponFireAnimation->GetPlayLength() / FMath::Max(.01f, Data->ShotInterval)));
         }
-    if(Data && Data->Payload==EERPayload::Bullet)
-        for(TActorIterator<AERSmokeCloud> It(GetWorld());It;++It) It->AddShot(Start,End);
     if (bTracer && Data && Data->Payload == EERPayload::Bullet)
         AERAttachedTracer::Spawn(this, TracerSystem, End, bFirstPerson);
     if (Data && Data->Payload == EERPayload::Bullet && ShotFeedbackCount % 2 == 1)

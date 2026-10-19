@@ -3719,3 +3719,145 @@ Server e HUD condividono il calcolo, anche in mira; segue accelerazione/frenata.
 Log: `Saved/Testing/sprint-accuracy-{build,accuracy,movement,reference,arsenal}.log` e relativi
 `accuracy-{host,client}.log`, `movement-{host,client}.log`.
 Nessun nuovo asset o campo replicato; sintassi Python e whitespace verificati.
+
+
+## Minimap and recon drones — 19 October 2026
+
+Editor module compiled successfully with UE5.8.3 on Mac arm64.
+`test-recon.py --automation`: both FogAndSight and Flight passed. The engine
+prints its existing pre-session automation self-test diagnostics at startup;
+the two requested tests report Success and the process exits0.
+
+`test-recon.py --render`: PASS,18 server assertions plus actual opposing owner,
+teammate and late-join snapshots. Listen host rendered with Metal at1280×720;
+remotes used nullrhi,40ms packet lag, and2% incoming loss on the late joiner.
+Physical cover blocked both feeds, removal exposed enemies, a teammate shared
+sight, turning both observers away removed the enemy without erasing explored
+terrain, and drone360 sight added the contact. A normal remote rifle RPC and
+authorized bullet destroyed the opposing drone. Next launch was scheduled for
+server time56.55 and actually occurred at56.76,30.21 seconds after loss. It
+remained absent at the early check. Four further server point hits exhausted
+stock; only those subsequent replacement deadlines were advanced by the probe.
+The fifth loss scheduled no replacement. Reset restored five units and empty
+fog. The late owner received existing epoch1,512 fog bytes and remaining4;
+joining did not reset team history/stock. Screenshot Recon02_Minimap.png
+inspected: circle/top-right placement, team colors, heading and world mapping.
+
+Regressions after integration: test-network.py --shot-feedback PASS (normal
+combat, owner/proxy shot feedback, corpses and protection); --accuracy PASS
+(server spread/bloom and owner clock). test-industrial-map.py --network --render
+PASS, seed42/fenced crossing, host Metal plus initial/late remotes. Existing
+stairs/ladder traversal, rifle and container/cover breaches, collapse and actual
+round regeneration passed. Initial/state-changed/late-join/fresh-epoch digests
+agreed. Recon logged one reset/capture per geometry epoch (1 then2), both
+bases present; viewed Ground/Plan captures confirm static overhead rendering,
+fog after reset and correct live markers. No new material shader failures.
+
+Original models/credits and both archives retained privately. The first art
+preview exposed missing mirrored drone arms because the source blend hides
+authoring objects; the bake now unhides evaluated objects before applying
+source modifiers (5186 derived vertices). Case preview confirms the supplied
+PBR textures and closed lid/lock. Final import and drone preview outcomes are
+recorded with the private import receipt and Saved/Testing/recon-assets.log /
+recon-gallery.log. The final reimport used the full Editor with
+-ExecutePythonScript after the commandlet encountered a PCGEx startup-load
+failure; full Editor import passed, with widths 85cm/70cm and heights 27.06cm/27.40cm.
+Final Recon102_Drone.png was inspected on Metal: all four mirrored arms and
+motors are present. Final gallery and both recon automation tests exited0;
+asset-mount verification passed for all28 mounts with no unresolved LFS pointers.
+
+Evidence: Saved/Testing/recon-metal-report.json, recon-automation.log,
+recon-build.log, recon-regression-{network,accuracy,industrial}.log and
+industrial-network-metal-report.json. No cook, packaging, commit or publication.
+Limits:64×64 fog, one static roof-inclusive image for all storeys; later
+destruction is not recaptured. Smoke still does not interrupt reconnaissance.
+These tests do not certify isolated-game FPS or all hardware/network conditions.
+
+
+## Enemy contacts, smoke occlusion and drone fragments — 19 October 2026
+
+The previous30m player cutoff could suppress an otherwise exposed enemy. Drone
+sight also used3D distance, shrinking its ground coverage with altitude. Player
+sight now spans the map; the drone uses a42m horizontal footprint. Enemy marks
+are larger team-colored diamonds with white/dark outlines, and near-rim marks
+are clamped inside the circle instead of being dropped. Camera origins match
+authoritative shots. Fog ray work is capped at2048 traces/team/update; contact
+visibility is evaluated independently every250ms.
+
+Final native compilation and Unreal Python import: PASS. Five actual S9 model
+fragments were saved with Blueprint defaults and original attribution.
+Automation: FogAndSight, Flight and SmokeOcclusion all PASS. Smoke tests cover
+ground/overhead rays, misses, initial growth, fade, expiry and blast pockets.
+The first automation launch was closed before tests ran; the repeat completed
+all three. Existing engine startup self-test diagnostics remain in logs.
+
+Metal LAN recon: PASS,31 server assertions and8 sighting assertions on each
+opposing/teammate remote, plus a late join. The exposed target was40m away.
+The drone spot used36m horizontal separation plus25m altitude (over42m in3D).
+Actual HUD drawing was asserted and the outlined enemy marker inspected in
+Recon02_Minimap.png. A real mature smoke cloud suppressed player, teammate and
+drone observations and the drawn enemy marker; blast dispersal restored them,
+a fresh cloud hid them again, and cloud removal restored them. Both remote
+feeds matched every expected sighting phase. Lag40ms; late peer incoming loss2%.
+Already-known terrain persists. The shader's texture noise uses its mean in
+the authoritative density calculation; no pixel-exact GPU readback is claimed.
+
+A real client rifle hit generated exactly one breakup event and five local
+source fragments. Metal verified actual downward movement under gravity;
+Recon10_DebrisAir.png was visually inspected. Existing30s replacement, stock
+exhaustion and late-join checks passed; round reset cleared the fragments.
+The initial fixture's inactive drones were moved out in XY as well as Z to
+match the corrected horizontal optics. The import now sets fragment references
+before Blueprint compilation and verifies the saved defaults.
+
+Regressions: test-grenades.py PASS, including remote tumble, both fuse payloads,
+team smoke colors, hemisphere/window containment and material checks;
+test-network.py --shot-feedback PASS, including combat, owner/proxy feedback,
+corpses and protection. Final rim placement adjustment was compiled before
+these regressions. No packaging, publication or commit was performed.
+Full labels, source hashes and log/capture paths: RECON_FIXES_RESULTS.json.
+This section supersedes the earlier note that smoke did not interrupt recon.
+
+## Minimap orientation by team — 19 October 2026
+
+Editor module compilation: PASS. The HUD uses the replicated axis between the
+two spawn groups, keeping the viewer's spawn below the opposing spawn. The
+common world-space capture/fog grid is unchanged; all displayed image vertices,
+fog cells, contacts, direction ticks and north reference share one rotation.
+
+Two actual Metal standalone sessions on Central Building Industrial, revision6,
+seed42, OpenYard: PASS. Alpha's HUD reports79.3 degrees and Omega259.3, matching
+the actual offset spawn centers (-850,-4480)/(850,4480) and differing by180.
+Both generated bird captures completed, both intact-map gallery probes passed,
+and both Ground screenshots were visually inspected: the owner's team markers
+are below, opposing contacts above, with aligned terrain/fog and compass.
+The expected angles were checked against the spawn positions, not an assumed
+world-Y heading. This validation covers both local team views on this seed;
+the earlier combat/recon LAN receipt remains historical.
+
+Evidence: Saved/Testing/minimap-team-orientation-build.log,
+minimap-orientation-{Alpha,Omega}.log, minimap-team-orientation-report.json and
+Minimap-{Alpha,Omega}-{Plan,Container,Ground}.png. No asset reimport was needed.
+
+## Minimap follows player heading — 19 October 2026
+
+The latest request supersedes the fixed spawn orientation above. The HUD reads
+the local controller's yaw each rendered frame. All existing projection paths
+share that rotation, keeping the owner's direction tick up. The spawn-axis
+calculation and replicated heading field were removed. The overview remains
+centered on the map and the static capture/world fog grid is retained.
+
+Final Editor module build: PASS. Actual Metal standalone on Industrial seed42,
+Omega: PASS. Temporary engine CSV frame commands changed ControlRotation to
+0/135/270 degrees during one session and captured each view. The HUD audit
+observed all three headings, and the intact-map gallery completed successfully.
+All three screenshots were visually inspected: terrain, explored-cell edges,
+contacts and north rotate together while the owner's white tick stays up.
+The bird image was captured once; turning did not recapture it. Normal local
+mouse input also produced intermediate headings in the audit. No test-only
+runtime feature or additional asset was introduced.
+
+Evidence: Saved/Testing/minimap-player-orientation-build.log,
+minimap-player-orientation.log, minimap-player-orientation-report.json and
+Minimap-PlayerYaw-{0,135,270}.png. This is a local rendering check; the previous
+combat/recon LAN results remain historical.

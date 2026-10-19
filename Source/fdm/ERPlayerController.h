@@ -54,6 +54,8 @@ class FDM_API AERPlayerController : public APlayerController
 {
     GENERATED_BODY()
 public:
+    AERPlayerController();
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly) TObjectPtr<class UERReconComponent> Recon;
     UPROPERTY(Replicated, BlueprintReadOnly) bool bAwaitingRespawn = false;
     UPROPERTY(Replicated, BlueprintReadOnly) double RespawnAllowedAt = 0;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) TObjectPtr<class UInputMappingContext> GameplayMapping;
@@ -165,6 +167,7 @@ UCLASS()
 class FDM_API AERHUD : public AHUD
 {
     GENERATED_BODY()
+    friend class AERReconDirector;
 public:
     virtual void DrawHUD() override;
 private:

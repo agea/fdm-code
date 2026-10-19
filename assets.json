@@ -40,7 +40,8 @@
         "Content/EclipseRecoil/Core",
         "Content/EclipseRecoil/Input",
         "Content/EclipseRecoil/Art",
-        "SourceAssets/ProceduralTextures"
+        "SourceAssets/ProceduralTextures",
+        "SourceAssets/ReconDrones"
       ]
     }
   }

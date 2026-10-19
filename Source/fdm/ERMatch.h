@@ -52,6 +52,7 @@ class FDM_API AERGameMode : public AGameMode
     GENERATED_BODY()
 public:
     AERGameMode();
+    UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Recon") TSubclassOf<class AERReconDirector> ReconClass;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) int32 ScoreLimit = 50;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) float MatchDuration = 600;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Training") TSubclassOf<class AERCharacter> TrainingTargetPawnClass;

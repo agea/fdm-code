@@ -169,6 +169,71 @@ bool AERSmokeCloud::ContainsSmokeAt(const FVector& Position) const
     return Occupancy.IsValidIndex(I) && Occupancy[I]!=0;
 }
 
+float AERSmokeCloud::ReconDensity(const FVector& Position, float Age) const
+{
+    if (Age<=0 || Age>=Duration) return 0;
+    const FVector Unit=(Position-VolumeOrigin+FVector(SimSize.X*.5,SimSize.Y*.5,0))/SimSize;
+    if (Unit.X<0 || Unit.X>=1 || Unit.Y<0 || Unit.Y>=1 || Unit.Z<0 || Unit.Z>=1) return 0;
+    // Match the material's trilinear atlas sampling, rather than treating the
+    // whole enclosing box as opaque (which would seal empty/occluded pockets).
+    const FVector Grid=(Unit*FVector(NX,NY,NZ)-FVector(.5)).BoundToBox(FVector::ZeroVector,FVector(NX-1,NY-1,NZ-1));
+    const FIntVector Lo(FMath::FloorToInt(Grid.X),FMath::FloorToInt(Grid.Y),FMath::FloorToInt(Grid.Z));
+    const FIntVector Hi(FMath::Min(Lo.X+1,NX-1),FMath::Min(Lo.Y+1,NY-1),FMath::Min(Lo.Z+1,NZ-1));
+    float Occupied=0;
+    for (int32 Z=0;Z<2;++Z) for (int32 Y=0;Y<2;++Y) for (int32 X=0;X<2;++X)
+    {
+        const int32 I=Index(X?Hi.X:Lo.X,Y?Hi.Y:Lo.Y,Z?Hi.Z:Lo.Z);
+        const float Weight=(X?Grid.X-Lo.X:1-Grid.X+Lo.X)*(Y?Grid.Y-Lo.Y:1-Grid.Y+Lo.Y)*(Z?Grid.Z-Lo.Z:1-Grid.Z+Lo.Z);
+        if (Occupancy.IsValidIndex(I)) Occupied+=Weight*Occupancy[I]/255.f;
+    }
+    if (Occupied<=0) return 0;
+    const FVector Q=(Position-VolumeOrigin)/FVector(SimSize.X*.5,SimSize.Y*.5,SimSize.Z);
+    const float Length=Q.Size(); const FVector Dir=Q/FMath::Max(Length,.001f);
+    const float Lobes=FMath::Sin(Dir.X*4.1+ShapePhase.X+Age*.28)*FMath::Sin(Dir.Y*3.7+ShapePhase.Y-Age*.22)*FMath::Cos(Dir.Z*4.6+ShapePhase.Z+Age*.18);
+    const float Boundary=.88f+.11f*Lobes;
+    const float Patch=.5f+.5f*FMath::Sin(Dir.X*3.1+ShapePhase.X)*FMath::Cos(Dir.Y*4.3+ShapePhase.Y)*FMath::Sin(Dir.Z*2.7+ShapePhase.Z);
+    const float Delay=.22f*Patch;
+    const float Growth=FMath::Clamp((FMath::Clamp(Age/2.2f,0.f,1.f)-Delay)/(1-Delay),0.f,1.f);
+    const float Edge=FMath::Clamp((Growth*Boundary-Length)/.2f,0.f,1.f);
+    // Mean of the shader's two visual noise factors. Geometry, contour phase,
+    // growth, expiry and cuts are authoritative; texture noise remains cosmetic.
+    float Density=Occupied*Edge*.725f*.825f*FMath::Clamp((Duration-Age)/4.f,0.f,1.f);
+    const double Now=GetWorld()->GetTimeSeconds();
+    for (const auto& Cut:ShotCuts)
+    {
+        const float Radius=RecoveredRadius(Cut,Now); if (Radius<=0) continue;
+        const float Distance=FMath::PointDistToSegment(Position,Cut.Start,Cut.End);
+        const float Core=Radius*(Cut.Radius>=100.f ? .8f : .3f);
+        Density*=FMath::SmoothStep(Core,Radius,Distance);
+    }
+    return Density;
+}
+
+float AERSmokeCloud::ReconOpticalDepth(const FVector& Start, const FVector& End) const
+{
+    const float Age=FMath::Max(0.f,float(ServerNow()-StartedAtServerTime));
+    if (Age<=0 || Age>=Duration || FilledCellCount==0) return 0;
+    const FVector Min=VolumeOrigin-FVector(SimSize.X*.5,SimSize.Y*.5,0), Max=Min+SimSize;
+    const FVector Delta=End-Start;
+    double Enter=0, Exit=1;
+    for (int32 Axis=0;Axis<3;++Axis)
+    {
+        if (FMath::Abs(Delta[Axis])<.0001) { if (Start[Axis]<Min[Axis] || Start[Axis]>Max[Axis]) return 0; continue; }
+        double A=(Min[Axis]-Start[Axis])/Delta[Axis], B=(Max[Axis]-Start[Axis])/Delta[Axis];
+        if (A>B) Swap(A,B);
+        Enter=FMath::Max(Enter,A); Exit=FMath::Min(Exit,B);
+        if (Enter>=Exit) return 0;
+    }
+    const float Step=Delta.Size()*(Exit-Enter)/48.f;
+    float Depth=0;
+    for (int32 I=0;I<48;++I)
+    {
+        Depth+=ReconDensity(Start+Delta*(Enter+(I+.5)*(Exit-Enter)/48),Age)*Step*.035f;
+        if (Depth>=1.f) break;
+    }
+    return Depth;
+}
+
 void AERSmokeCloud::UploadDensity()
 {
     if(!VolumeInstance) return;

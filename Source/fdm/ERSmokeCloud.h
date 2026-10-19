@@ -42,6 +42,9 @@ public:
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Props) const override;
     void RebuildContainment();
     bool ContainsSmokeAt(const FVector& Position) const;
+    // Authoritative optical depth through occupied smoke, including growth,
+    // fade and the same shot/blast pockets used by the volume material.
+    float ReconOpticalDepth(const FVector& Start, const FVector& End) const;
     int32 FilledCellCount = 0;
     FVector VolumeOrigin = FVector::ZeroVector;
     UFUNCTION(BlueprintCallable, Category="Respawn & Rage|Editor")
@@ -52,6 +55,7 @@ private:
     struct FShotCut { FVector Start, End; double Until; float Radius, Lifetime; };
     TArray<FShotCut> ShotCuts;
     float RecoveredRadius(const FShotCut& Cut, double Now) const;
+    float ReconDensity(const FVector& Position, float Age) const;
     UPROPERTY() TObjectPtr<class UTexture2D> DensityAtlas;
     UPROPERTY() TObjectPtr<class UMaterialInstanceDynamic> VolumeInstance;
     TArray<uint8> Occupancy;

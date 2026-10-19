@@ -136,3 +136,13 @@ grenade1.wav and smoke_1.wav supplied directly from the user’s Sonniss GDC 202
 bundle folder. Originals and derivatives remain in the private weapons mount,
 SourceAssets/SonnissGDC2024. No separate license receipt supplied or verified
 in this change. The previous Freesound source and credit remain historical.
+
+
+Recon assets supplied19 October2026: [S9 drone](https://skfb.ly/6SSyD) by
+blockv_lb and [Pelican Case Game Ready](https://skfb.ly/6xwPJ) by polbrainstorm.
+Both original credits.txt files identify CC BY4.0. Originals, archives,
+textures, credits and modified static derivatives remain in the private maps
+ReconDrones source folder. Changes and attribution are recorded in
+MINIMAP_RECON.md, private CREDITS.txt/import receipt, asset metadata and the game
+menu. This preserves supplied provenance without claiming a separate online
+license verification or performing publication.

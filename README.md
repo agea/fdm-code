@@ -559,3 +559,14 @@ Industrial courtyards include multiple bands of destructible L/U shelters,
 screens, crates and containers, with extra flank screens in the open variant.
 Hiding spaces support standing or crouching as appropriate; entrances, spawn
 areas and building/ladder routes stay clear. Breaches can expose those spaces.
+
+
+The top-right circular minimap shares explored terrain and current sightings
+across a team, including reconnaissance drones. It rotates with the local
+player's heading, keeping forward at the top. Each side has a closed,
+indestructible case near spawn and five drones total: one launches automatically,
+orbits above the arena and can be shot down. Replacements launch after30 seconds
+until stock is exhausted. Unseen enemy positions disappear; explored terrain
+remains. Smoke blocks new sightings and terrain discovery; drone hits emit
+five temporary source-model fragments with gravity. See [minimap/recon](docs/MINIMAP_RECON.md) for visibility rules, source
+credits, rebuild steps and verification.

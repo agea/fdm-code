@@ -1,4 +1,5 @@
 #include "ERPlayerController.h"
+#include "ERRecon.h"
 #include "ERMapCatalog.h"
 #include "Internationalization/Internationalization.h"
 #include "ERMouseResponse.h"
@@ -191,6 +192,10 @@ void UERGameInstance::TravelFailure(UWorld* World, ETravelFailure::Type Type, co
     if (!UGameplayStatics::GetCurrentLevelName(World).Contains(TEXT("L_MainMenu"))) ReturnToMenu();
 }
 bool AERPlayerController::IsMenuLevel() const { return UGameplayStatics::GetCurrentLevelName(GetWorld()).Contains(TEXT("L_MainMenu")); }
+AERPlayerController::AERPlayerController()
+{
+    Recon = CreateDefaultSubobject<UERReconComponent>(TEXT("Recon"));
+}
 void AERPlayerController::BeginPlay()
 {
     Super::BeginPlay();
@@ -706,6 +711,10 @@ void AERPlayerController::ShowMenu(bool bShow)
         .Text(FText::FromString(TEXT("Precise slow movements, faster turns with quick movements. 0% = uniform response."))).AutoWrapText(true)];
     SetupPanel->AddSlot().AutoHeight().Padding(0,15)[SNew(STextBlock).Text_Lambda([GI]() { return FText::FromString(GI->LastError); }).AutoWrapText(true).ColorAndOpacity(FLinearColor(1,.6f,.25f))];
     SetupPanel->AddSlot().AutoHeight().Padding(0,10)[SNew(STextBlock).Text(FText::FromString(TEXT("WASD  Move     Mouse  Aim / Fire\nShift  Walk     Space  Jump / Climb / Respawn     Ctrl / C  Crouch\nDouble-tap W  Sprint (max 5 s / double recovery time)\nDouble-tap Ctrl / C  Prone\nW / S  Climb ladder (automatic weapon stow)     Space  Detach\nR  Reload     Tab  Scoreboard     Esc  Menu"))).AutoWrapText(true)];
+    SetupPanel->AddSlot().AutoHeight().Padding(0,12)[SNew(STextBlock)
+        .Text(FText::FromString(TEXT("Recon models: S9 drone by blockv_lb; Pelican Case Game Ready by polbrainstorm. CC BY 4.0. Adapted for the game.")))
+        .ToolTipText(FText::FromString(TEXT("S9 drone: https://skfb.ly/6SSyD\nPelican Case: https://skfb.ly/6xwPJ\nLicense: https://creativecommons.org/licenses/by/4.0/\nChanges: static conversion, scale, closed lid and material adaptation.")))
+        .Font(FCoreStyle::GetDefaultFontStyle("Regular",10)).AutoWrapText(true)];
     auto Column = [](TSharedRef<SVerticalBox> Content) -> TSharedRef<SWidget>
     {
         return SNew(SBorder).Padding(20).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
@@ -921,6 +930,7 @@ void AERHUD::DrawHUD()
     Text(Status, W/2-150, 58);
     const auto* PS = PC->GetPlayerState<AERPlayerState>();
     Text(PS && PS->Team == EERTeam::Omega ? TEXT("OMEGA") : TEXT("ALPHA"), 30, 30, PS && PS->Team == EERTeam::Omega ? FLinearColor(1,.25f,.1f) : FLinearColor(.2f,.65f,1));
+    if (TActorIterator<AERReconDirector> It(GetWorld()); It) It->DrawMinimap(this,PC);
     if (bLab)
     {
         Text(TEXT("SHIFT: walk    SPACE + forward: climb"),30,105);

@@ -2162,3 +2162,60 @@ I materiali dedicati adattano zone pulite delle texture Factory BC/N/ORM con
 proiezione in centimetri e ripetizione speculare, escludendo loghi e isole di
 ruggine marcata. Il catalogo condiviso, calibrazione2mm, resistenza8 dei container,
 penetrazione e supporto restano invariati. Anche Depot resta invariato.
+
+
+## Minimappa e droni di ricognizione — 19 ottobre 2026
+
+Minimappa circolare in alto a destra con birdview statica ortografica512px,
+nebbia persistente64×64 condivisa per squadra e segnalini del colore effettivo
+Alpha/Omega solo per contatti attuali. Server4Hz: giocatori/bot vivi con cono120°
+e30m, drone360° e42m, ostacoli/tetti reali. Il terreno scoperto resta; le
+posizioni nemiche perse scompaiono. Snapshot atomico owner-only, epoch coerenti,
+ingresso tardivo e respawn conservano esplorazione e scorta. Il rendering non
+ricava contatti dall'elenco dei personaggi replicati.
+
+Cinque droni totali per squadra, uno attivo; decollo automatico dalla valigetta
+chiusa, indistruttibile e a terra presso lo spawn. Salita4s, ingresso nell'orbita
+alta entro8s, giro~39s. Un colpo ordinario autorizzato distrugge il drone e
+interrompe subito la sua ricognizione; sostituzione dopo30s reali del server,
+fino a esaurimento. Round/generazione ripristinano scorta e nebbia.
+
+ZIP, originali e derivati nel mount privato mappe ReconDrones, con crediti
+blockv_lb e polbrainstorm(CC BY4.0 come dichiarato nei due archivi), anche nei
+metadati e nel menu. Import e defaults salvati via Unreal. La birdview unica
+mostra anche i tetti e non seleziona piani, né aggiorna la distruzione successiva;
+il fumo conserva il precedente comportamento cosmetico. Implementazione,
+ricostruzione e collaudo: MINIMAP_RECON.md e TEST_RESULTS.md.
+
+
+### Correzione contatti, fumo e detriti — 19 ottobre 2026
+
+La visibilità del giocatore copre l'estensione della mappa, eliminando il
+precedente limite30m; per il drone42m è un raggio orizzontale, senza sottrarre
+l'altitudine. Gli occhi seguono la camera autorevole usata dagli spari. I
+contatti nemici sono rombi più grandi del colore della squadra, bordati bianco/
+nero; alleati e proprietario mantengono cerchi e direzione.
+
+Il fumo interrompe ricognizione e scoperta di nuove celle per giocatori,
+compagni e droni. Il server integra48 campioni della densità occupata con
+crescita, dissolvenza, fase del contorno e aperture di colpi/esplosioni;
+la noise texture è approssimata dalla media. Si sommano le nuvole lungo il
+raggio; testa e torso devono risultare entrambi nascosti. Il terreno già
+esplorato rimane noto. I tagli dei proiettili sono registrati anche sui server
+dedicati prima del ritorno cosmetico; restano invariati combattimento e AI.
+
+L'abbattimento emette cinque frammenti derivati dal drone originale: scocca
+e quattro gruppi braccio/motore/elica. Ogni peer grafico simula localmente
+gravità e rotazione, con contatti solo WorldStatic e nessuna collisione query
+o con giocatori/proiettili. Limite24, assestamento4s, vita6s, pulizia su
+reset/generazione/uscita. Crediti e geometria originale restano preservati.
+
+### Orientamento della minimappa sul giocatore — 19 ottobre 2026
+
+La richiesta più recente sostituisce l'orientamento sugli spawn: avanti è
+sempre in alto. La minimappa segue lo yaw locale del controller a ogni frame,
+per entrambe le squadre; il tratto direzionale del proprietario punta in alto.
+Immagine statica, nebbia, segnalini, direzioni e riferimento nord usano la stessa
+trasformazione. La panoramica resta centrata sulla mappa. Il reticolo di
+ricognizione resta nello spazio mondo e non si ricattura la birdview quando
+si gira. Rimosso l'asse degli spawn, ora superfluo, dal frame replicato.

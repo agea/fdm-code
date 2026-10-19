@@ -1,4 +1,6 @@
 #include "ERMatch.h"
+#include "ERRecon.h"
+#include "ERReconProbe.h"
 #include "ERCharacter.h"
 #include "ERCorpse.h"
 #include "ERTeamGallery.h"
@@ -161,7 +163,10 @@ void AERGameMode::FillBots()
 void AERGameMode::BeginPlay()
 {
     Super::BeginPlay();
+    if (!GetWorld()->GetMapName().Contains(TEXT("L_MainMenu")))
+        GetWorld()->SpawnActor<AERReconDirector>(ReconClass ? ReconClass.Get() : AERReconDirector::StaticClass());
 #if !UE_BUILD_SHIPPING
+    if (FParse::Param(FCommandLine::Get(),TEXT("ERReconProbe"))) GetWorld()->SpawnActor<AERReconProbe>();
     if (GetWorld()->GetMapName().Contains(TEXT("L_CentralBuilding")) && FParse::Param(FCommandLine::Get(),TEXT("ERIndustrialMapProbe")))GetWorld()->SpawnActor<AERIndustrialMapProbe>();
     if (FParse::Param(FCommandLine::Get(), TEXT("ERProtectionRespawnGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERProtectionGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERPostureGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERTeamGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERCorpseGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERSkinGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERFPSForearmsGallery"))) GetWorld()->SpawnActor<AERTeamGallery>();
 #endif
@@ -429,6 +434,7 @@ void AERGameMode::ResetRound()
     auto* State = GetGameState<AERGameState>();
     State->AlphaScore = State->OmegaScore = 0; State->MatchEndServerTime = 0; State->RestartServerTime = 0; State->Winner = EERTeam::None;
     if (ReadyToStartMatch()) StartMatch();
+    for (TActorIterator<AERReconDirector> It(GetWorld()); It; ++It) It->ResetRecon();
 }
 void AERGameMode::RecordDeath(AERCharacter* Victim, AController* Killer)
 {

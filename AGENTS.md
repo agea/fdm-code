@@ -977,3 +977,38 @@ Keep cover metadata transient; export CoverPockets in the PCG snapshot. Use
 setup_intermediate_cover.py and DA_CentralBuilding_42_DenseCover, then native
 destruction/516-seed checks and the OpenYard Metal LAN probe with cover breach,
 late join and regeneration. Preserve shared damage profiles, Depot and Factory art.
+
+
+## Minimap and team recon (19 October)
+
+See docs/MINIMAP_RECON.md. Orient the HUD using the local controller's yaw each
+rendered frame: player forward is always up for both teams. Keep the overview
+centered on the map. Rotate image polygons, fog, contacts, headings and north
+reference together; retain the common world-space fog grid and bird capture.
+Owner-only UERReconComponent snapshots carry each team's explored64x64 mask and
+current visible contacts; never derive enemy
+markers by enumerating client pawns. Server sight4Hz uses living players/bots
+(120deg/map extent) and the active team drone(360deg/42m horizontal footprint),
+with real geometry cover. Drone altitude does not shrink this footprint.
+Terrain persists within a round; contacts expire immediately on lost server
+sight (HUD1s stale timeout). Late join/respawn preserve fog and stock; only a
+round reset or generation epoch clears them. Gate the static512px bird capture
+on matching local geometry epoch, and hide dynamic actors from that image.
+Each team has one closed indestructible case and five total drones, including
+the initial launch. Positive authorized bullet point hits destroy a drone;
+replace after30 server seconds, stop after five losses. Flight evaluates
+replicated parameters against server time. Art references remain in private
+Blueprint defaults under Art/Recon. Original ZIPs/models/credits and derivatives
+remain in maps SourceAssets/ReconDrones; preserve blockv_lb/polbrainstorm CC BY4.0
+attribution in source, metadata and menu. Use bake_recon_models.py/setup_recon.py,
+test-recon.py --automation / --render, and LAN/accuracy/industrial regressions.
+The overhead image combines floors and remains static after destruction.
+Smoke now blocks recon on the server: integrate occupied density with growth,
+fade, shared contour phase and authorized shot/blast pockets (visual noise mean).
+Apply to player/drone contacts and new fog exploration, preserving known terrain.
+Record bullet cuts before the dedicated-server presentation guard. Preserve bot
+AI and combat behavior. Enemy HUD markers are outlined team-colored diamonds.
+Drone hits multicast five source-derived local fragments, capped24, WorldStatic
+physics only, settle4s/expire6s and clear on epoch/reset/exit. Assets stay in
+Art/Recon Blueprint defaults with original CC BY4.0 credits. Verify SmokeOcclusion
+automation and the far-sight/smoke/real HUD/debris LAN cases in test-recon.py.
