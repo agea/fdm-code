@@ -2219,3 +2219,34 @@ Immagine statica, nebbia, segnalini, direzioni e riferimento nord usano la stess
 trasformazione. La panoramica resta centrata sulla mappa. Il reticolo di
 ricognizione resta nello spazio mondo e non si ricattura la birdview quando
 si gira. Rimosso l'asse degli spawn, ora superfluo, dal frame replicato.
+
+## Menu music (19 October 2026)
+
+Il WAV originale fornito dall'utente (`RR-Menu-Loop.wav`, stereo PCM16,
+44.1 kHz, 149.974 s) è conservato senza conversioni in
+`Assets/maps/SourceAssets/MenuMusic`. `scripts/setup_menu_music.py` importa
+`/Game/EclipseRecoil/Art/Menu/Audio/S_RR_MenuLoop` e lo assegna al controller
+Blueprint: loop, Bink Audio qualità 80, prime-on-load, volume 35%.
+Riproduzione locale 2D mentre è aperto un menù, continua tra le opzioni.
+Nelle opzioni uno slider 0..100% regola il volume in tempo reale; zero spegne
+il componente. La preferenza è salvata in `EclipseRecoil.Audio/MusicVolume`
+e resta valida cambiando mappa o riavviando. Il 100% mantiene il precedente
+volume base 0.35; nel menù Esc durante la partita viene dimezzato a 0.175.
+Il componente viene fermato e distrutto riprendendo il gioco o cambiando
+mappa; nessuna riproduzione durante il gameplay o sui dedicated server.
+I file audio e il Blueprint restano nel submodule privato maps.
+
+
+### Brecce esplosive irregolari — 19 ottobre 2026
+
+Il danno strutturale usa ora un campo coerente nello spazio mondiale: lobi
+angolari ampi e dettaglio da22cm deformano il decadimento attorno alla
+detonazione. Il nucleo conserva il danno pieno; la breccia precedente resta
+inclusa e il bordo può estendersi localmente fino al28% della distanza dal
+nucleo, sempre entro il raggio massimo esistente. La forma dipende dalla
+posizione della detonazione, senza estrazioni casuali per cella o pannello.
+Coperture e trasmissione si valutano ancora sullo snapshot intatto; autorità
+server, HP/materiali, danni ai personaggi e replica delle celle restano separati.
+DamagePreset verifica bordi con celle rotte e superstiti a pari distanza,
+ripetibilità, nucleo/raggio e conservazione della breccia. Il probe industriale
+applica anche una vera esplosione prima del confronto dei digest sui client.

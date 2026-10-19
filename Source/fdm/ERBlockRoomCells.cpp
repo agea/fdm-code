@@ -268,8 +268,8 @@ void AERBlockRoom::CollectCellExplosion(const FVector& Origin, const FERBlockExp
                     const int32 Bit = FERCellWorld::CellIndex(C, X, Y, Z);
                     if (!((C.Alive[Bit >> 6] >> (Bit & 63)) & 1)) continue;
                     const FERCellId Id{C.Panel, C.X0 + X, Y, C.Z0 + Z};
-                    // Distance to the cell centre, as the preset specifies.
-                    const double Distance = FVector::Distance(CellWorld.GetCellCenter(Id), Local) * Scale;
+                    const FVector WorldCenter = Actor.TransformPosition(CellWorld.GetCellCenter(Id));
+                    const double Distance = FVector::Distance(WorldCenter, Origin);
                     if (Distance >= Profile.OuterRadius || P.bIndestructible) continue;
                     ++Result.Candidates;
                     if (Clear == 0) { ++Result.Occluded; continue; }
@@ -304,7 +304,8 @@ void AERBlockRoom::CollectCellExplosion(const FVector& Origin, const FERBlockExp
                     if (bBlocked) { ++Result.Occluded; continue; }
                     const double Exposure = Clear / 9. * FMath::Exp(LogExposure);
                     if (Exposure < 1) ++Result.Attenuated;
-                    const double CellDamage = ERBlockCombat::ExplosionCellDamage(Profile, Distance, Multiplier[uint8(P.Material)], Exposure);
+                    const double FractureDistance = ERBlockCombat::ExplosionFractureDistance(Profile, Origin, WorldCenter);
+                    const double CellDamage = ERBlockCombat::ExplosionCellDamage(Profile, FractureDistance, Multiplier[uint8(P.Material)], Exposure);
                     if (CellDamage > 0) Out.FindOrAdd(Id) += float(FMath::Min(double(TNumericLimits<float>::Max()), CellDamage));
                 }
     }

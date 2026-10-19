@@ -29,6 +29,23 @@ double ERBlockCombat::ExplosionCellDamage(const FERBlockExplosionProfile& Profil
     const double Local = Profile.MinimumDamage + (double(Profile.BaseDamage) - Profile.MinimumDamage) * Falloff;
     return Local * Multiplier * FMath::Min(1., Exposure);
 }
+double ERBlockCombat::ExplosionFractureDistance(const FERBlockExplosionProfile& Profile, const FVector& Origin, const FVector& CellCenter)
+{
+    const FVector Offset = CellCenter - Origin;
+    const double Distance = Offset.Size();
+    // Preserve full damage in the core and the original hard outer limit.
+    if (Distance <= Profile.InnerRadius || Distance >= Profile.OuterRadius) return Distance;
+    // No per-cell random rolls: neighbouring voxels should form torn edges,
+    // rather than a spray of isolated surviving cells. Origin varies the shape
+    // between detonation locations without consuming the gameplay RNG.
+    const FVector Phase = Origin * .0037 + FVector(17.13, 43.71, 9.23);
+    const double Lobes = FMath::PerlinNoise3D(Offset / Distance * 2.8 + Phase);
+    const double Chips = FMath::PerlinNoise3D(Offset / 22. + Phase * 1.73);
+    // Retain the original usable breach; irregular fractures extend its edge
+    // by at most 28%, always clipped to the existing outer blast envelope.
+    const double Stretch = FMath::Clamp(1.08 + .4 * Lobes + .16 * Chips, 1., 1.28);
+    return Profile.InnerRadius + (Distance - Profile.InnerRadius) / Stretch;
+}
 FERBlockShotResult ERBlockCombat::ContinueShot(UWorld* World, const FHitResult& InitialHit, const FVector& Start,
     const FVector& Direction, float Range, float Damage, const FERBlockShotSettings& Settings,
     const FCollisionQueryParams& Query, AController* Instigator, AActor* Causer)

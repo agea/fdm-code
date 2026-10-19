@@ -21,6 +21,8 @@
 #include "Camera/CameraComponent.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/AudioComponent.h"
+#include "Sound/SoundBase.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/GameUserSettings.h"
 #include "GenericPlatform/GenericApplication.h"
@@ -82,6 +84,8 @@ void UERGameInstance::Init()
     MouseSensitivity = FMath::IsFinite(MouseSensitivity) ? FMath::Clamp(MouseSensitivity, 0.f, 1.f) : .5f;
     GConfig->GetFloat(TEXT("EclipseRecoil.Input"), TEXT("MouseAcceleration"), MouseAcceleration, GGameUserSettingsIni);
     MouseAcceleration = FMath::IsFinite(MouseAcceleration) ? FMath::Clamp(MouseAcceleration, 0.f, 1.f) : .5f;
+    GConfig->GetFloat(TEXT("EclipseRecoil.Audio"), TEXT("MusicVolume"), MusicVolume, GGameUserSettingsIni);
+    MusicVolume = FMath::IsFinite(MusicVolume) ? FMath::Clamp(MusicVolume, 0.f, 1.f) : 1.f;
     NetworkFailureHandle = GEngine->OnNetworkFailure().AddUObject(this, &UERGameInstance::NetworkFailure);
     TravelFailureHandle = GEngine->OnTravelFailure().AddUObject(this, &UERGameInstance::TravelFailure);
 }
@@ -99,6 +103,7 @@ void UERGameInstance::SaveSkins()
 void UERGameInstance::Shutdown()
 {
     SaveMouseSensitivity();
+    SaveMusicVolume();
     GEngine->OnNetworkFailure().Remove(NetworkFailureHandle); GEngine->OnTravelFailure().Remove(TravelFailureHandle); Super::Shutdown();
 }
 float UERGameInstance::GetMouseLookMultiplier() const
@@ -126,6 +131,18 @@ void UERGameInstance::SetMouseAcceleration(float Value)
     if (!FMath::IsFinite(Value)) return;
     MouseAcceleration = FMath::Clamp(Value, 0.f, 1.f);
     GConfig->SetFloat(TEXT("EclipseRecoil.Input"), TEXT("MouseAcceleration"), MouseAcceleration, GGameUserSettingsIni);
+}
+void UERGameInstance::SetMusicVolume(float Value)
+{
+    if (!FMath::IsFinite(Value)) return;
+    MusicVolume = FMath::Clamp(Value, 0.f, 1.f);
+    GConfig->SetFloat(TEXT("EclipseRecoil.Audio"), TEXT("MusicVolume"), MusicVolume, GGameUserSettingsIni);
+    if (auto* PC = Cast<AERPlayerController>(GetFirstLocalPlayerController())) PC->UpdateMenuMusic();
+}
+void UERGameInstance::SaveMusicVolume()
+{
+    GConfig->SetFloat(TEXT("EclipseRecoil.Audio"), TEXT("MusicVolume"), MusicVolume, GGameUserSettingsIni);
+    GConfig->Flush(false, GGameUserSettingsIni);
 }
 void UERGameInstance::StartSession()
 {
@@ -266,6 +283,13 @@ void AERPlayerController::PlayerTick(float DeltaTime)
 }
 void AERPlayerController::EndPlay(const EEndPlayReason::Type Reason)
 {
+    if (MenuMusicComponent)
+    {
+        MenuMusicComponent->Stop();
+        MenuMusicComponent->DestroyComponent();
+        MenuMusicComponent = nullptr;
+        UE_LOG(LogTemp, Display, TEXT("ER_MENU_MUSIC stopped (end play)"));
+    }
     if (MenuWidget.IsValid() && GetWorld() && GetWorld()->GetGameViewport()) GetWorld()->GetGameViewport()->RemoveViewportWidgetContent(MenuWidget.ToSharedRef());
     if (FrameRateWidget.IsValid() && GetWorld() && GetWorld()->GetGameViewport()) GetWorld()->GetGameViewport()->RemoveViewportWidgetContent(FrameRateWidget.ToSharedRef());
     FrameRateWidget.Reset(); DisplaySizeSelector.Reset();
@@ -555,6 +579,28 @@ void AERPlayerController::ApplyDisplaySize(int32 Percent)
     UE_LOG(LogTemp, Display, TEXT("ER_DISPLAY size=%d%% resolution=%dx%d fullscreen=%d"), Percent, Resolution.X, Resolution.Y, bFullscreen);
 }
 
+void AERPlayerController::UpdateMenuMusic()
+{
+    const auto* GI = GetGameInstance<UERGameInstance>();
+    const float Volume = MenuMusicVolume * (GI ? GI->GetMusicVolume() : 1.f) * (IsMenuLevel() ? 1.f : .5f);
+    const bool bShouldPlay = IsLocalController() && GetNetMode() != NM_DedicatedServer &&
+        bMenuOpen && MenuMusic && Volume > 0.f;
+    if (bShouldPlay && !MenuMusicComponent)
+    {
+        MenuMusicComponent = UGameplayStatics::SpawnSound2D(this, MenuMusic,
+            Volume, 1.f, 0.f, nullptr, false, false);
+        if (MenuMusicComponent)
+            UE_LOG(LogTemp, Display, TEXT("ER_MENU_MUSIC started sound=%s volume=%.3f main=%d"), *MenuMusic->GetPathName(), Volume, IsMenuLevel());
+    }
+    else if (!bShouldPlay && MenuMusicComponent)
+    {
+        MenuMusicComponent->Stop();
+        MenuMusicComponent->DestroyComponent();
+        MenuMusicComponent = nullptr;
+        UE_LOG(LogTemp, Display, TEXT("ER_MENU_MUSIC stopped (menu closed)"));
+    }
+    if (bShouldPlay && MenuMusicComponent) MenuMusicComponent->SetVolumeMultiplier(Volume);
+}
 void AERPlayerController::ShowMenu(bool bShow)
 {
     if (!IsLocalController() || !GetWorld()->GetGameViewport()) return;
@@ -562,6 +608,7 @@ void AERPlayerController::ShowMenu(bool bShow)
     FireReleased(); WalkReleased(); CrouchReleased(); JumpReleased(); bShowScoreboard = false;
     if (auto* C = Cast<AERCharacter>(GetPawn()); C && C->Weapon) C->Weapon->ServerClearScope();
     bMenuOpen = bShow; bShowMouseCursor = bShow;
+    UpdateMenuMusic();
     SetIgnoreMoveInput(false); SetIgnoreLookInput(false);
     if (MenuWidget.IsValid()) { GetWorld()->GetGameViewport()->RemoveViewportWidgetContent(MenuWidget.ToSharedRef()); MenuWidget.Reset(); }
     if (!bShow) { SetInputMode(FInputModeGameOnly()); return; }
@@ -689,6 +736,18 @@ void AERPlayerController::ShowMenu(bool bShow)
     SetupPanel->AddSlot().AutoHeight().Padding(0,5)[Button(TEXT("RESET AUTOMATIC RESOLUTION"), [this]() {
         ResetRenderResolution(); return FReply::Handled();
     })];
+    SetupPanel->AddSlot().AutoHeight().Padding(0,12,0,5)[SNew(STextBlock).Text_Lambda([GI]() {
+        const int32 Percent = FMath::RoundToInt(GI->GetMusicVolume() * 100.f);
+        return FText::FromString(Percent == 0 ? TEXT("Music volume · Off") : FString::Printf(TEXT("Music volume · %d%%"), Percent));
+    })];
+    SetupPanel->AddSlot().AutoHeight().Padding(0,5)[SNew(SSlider)
+        .Value_Lambda([GI]() { return GI->GetMusicVolume(); })
+        .StepSize(.01f)
+        .OnValueChanged_Lambda([GI](float Value) { GI->SetMusicVolume(Value); })
+        .OnMouseCaptureEnd_Lambda([GI]() { GI->SaveMusicVolume(); })
+        .OnControllerCaptureEnd_Lambda([GI]() { GI->SaveMusicVolume(); })];
+    SetupPanel->AddSlot().AutoHeight().Padding(0,3)[SNew(STextBlock)
+        .Text(FText::FromString(TEXT("0% = off. Quieter in the in-game menu."))).AutoWrapText(true)];
     SetupPanel->AddSlot().AutoHeight().Padding(0,12,0,5)[SNew(STextBlock).Text_Lambda([GI]() {
         return FText::FromString(FString::Printf(TEXT("Mouse sensitivity · %d%%"), FMath::RoundToInt(GI->GetMouseSensitivity() * 100.f)));
     })];

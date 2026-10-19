@@ -7,6 +7,7 @@ actual acquisition license/receipt with the private asset archive.
 
 | Content | Publisher and source | Current conclusion for raw public distribution |
 | --- | --- | --- |
+| Menu music | Project owner supplied `RR-Menu-Loop.wav`, 19 October 2026 | Original WAV and imported looping SoundWave remain in private maps; supplied for in-game menu use. No standalone redistribution license asserted. |
 | Mercenary | Waveforce Studio, [AAA Modular Mercenary System](https://www.fab.com/listings/57082fbf-3f85-407e-98ef-d858c2eefba7) | Vendor geometry/materials now unused. Preserved small fitted rig/pose derivatives keep their provenance and remain private pending acquisition terms. |
 | Twinblast | Epic Games, [Paragon: Twinblast](https://www.fab.com/listings/9fa88852-5711-42e1-94fa-2491498a64da) | Keep source models, textures and derivatives private pending acquisition terms. |
 | Drongo | Epic Games, [Paragon: Drongo](https://www.fab.com/listings/40e3af76-9b2d-4680-81b6-606f6d9269ef) | Same treatment as Twinblast. |

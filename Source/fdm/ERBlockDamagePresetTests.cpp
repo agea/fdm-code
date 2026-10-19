@@ -61,6 +61,30 @@ bool FERBlockDamagePresetTest::RunTest(const FString& Parameters)
     TestTrue(TEXT("legacy linear envelope"), FMath::IsNearlyEqual(ERBlockCombat::ExplosionCellDamage(Legacy, 110, 1, 1), 90., 1.e-6));
     FERBlockExplosionProfile Invalid; Invalid.InnerRadius = 300;
     TestEqual(TEXT("invalid profile rejected"), ERBlockCombat::ExplosionCellDamage(Invalid, 10, 1, 1), 0.);
+
+    // Equal-distance cells must no longer carve a circle. Exercise the actual
+    // damage/removal threshold for an exposed brick panel, across blast origins.
+    for (const FVector Origin : {FVector::ZeroVector, FVector(381, -217, 83)})
+    {
+        int32 Removed = 0;
+        const double BaseRing = Grenade.OuterRadius - (Grenade.OuterRadius - Grenade.InnerRadius) * FMath::Sqrt(100. / 600.);
+        const double Ring = Grenade.InnerRadius + (BaseRing - Grenade.InnerRadius) * 1.08;
+        for (int32 I = 0; I < 128; ++I)
+        {
+            const double Angle = I * 2. * PI / 128.;
+            const FVector Center = Origin + FVector(0, FMath::Cos(Angle), FMath::Sin(Angle)) * Ring;
+            const double D = ERBlockCombat::ExplosionFractureDistance(Grenade, Origin, Center);
+            TestTrue(TEXT("fracture preserves the original breach"), D <= FVector::Distance(Origin, Center));
+            TestEqual(TEXT("fracture is repeatable"), D, ERBlockCombat::ExplosionFractureDistance(Grenade, Origin, Center));
+            Removed += ERBlockCombat::ExplosionCellDamage(Grenade, D, 1.5f, 1) >= 100.;
+            const FVector Outside = Origin + (Center - Origin).GetSafeNormal() * 201.;
+            TestEqual(TEXT("fracture cannot damage beyond outer radius"), ERBlockCombat::ExplosionCellDamage(Grenade,
+                ERBlockCombat::ExplosionFractureDistance(Grenade, Origin, Outside), 1.5f, 1), 0.);
+        }
+        TestTrue(TEXT("equal-radius ring has both broken and surviving brick"), Removed > 12 && Removed < 116);
+        TestEqual(TEXT("fracture preserves full core damage"), ERBlockCombat::ExplosionCellDamage(Grenade,
+            ERBlockCombat::ExplosionFractureDistance(Grenade, Origin, Origin + FVector(10, 0, 0)), 1.5f, 1), 600.);
+    }
     return true;
 }
 

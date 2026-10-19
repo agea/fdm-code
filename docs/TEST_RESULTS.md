@@ -3861,3 +3861,63 @@ Evidence: Saved/Testing/minimap-player-orientation-build.log,
 minimap-player-orientation.log, minimap-player-orientation-report.json and
 Minimap-PlayerYaw-{0,135,270}.png. This is a local rendering check; the previous
 combat/recon LAN results remain historical.
+## Menu music — 19 October 2026
+
+- Mac arm64 Development Editor build: succeeded (26.90 s; existing unrelated
+  engine deprecation warnings).
+- `setup_menu_music.py`: PASS. Original WAV preserved byte-for-byte,
+  SHA-256 `d488ef5f8371743fd39126ecdc86b80eab330952eec5a93dac732a79e0b35603`;
+  saved stereo SoundWave duration 149.97351 s, looping, Bink Audio quality80,
+  prime-on-load, controller default bound at volume0.35. Derived-data encoder
+  reported 5,333 KiB compressed from 25,835 KiB PCM (20.64%). This is the
+  local encoder result, not a packaged-build size measurement.
+- Actual `-game -nullrhi` processes with audio enabled: menu→Depot PASS
+  (one start in main menu, stop on travel); Depot→menu PASS (no music start
+  during Depot, start after main-menu world begins). Logs and receipt:
+  `Saved/Testing/menu-music-{menu-to-game,game-to-menu}.log` and
+  `Saved/Testing/menu-music-results.json`.
+- Scope of verification: runtime audio component lifecycle and saved import
+  settings. No listening-quality or full 150-second loop-boundary audition.
+  Headless run reported CoreAudio device/sample-rate and Mac text-input window
+  warnings; no claim of verified physical speaker output.
+
+### Music options and Esc menu — 19 October 2026
+
+- Supersedes the initial Esc-menu silence behavior: the music slider applies
+  immediately to an open menu, zero stops/destroys the component, and the
+  in-game menu uses half the front-end gain. Closing the menu stops playback.
+- Mac arm64 Development Editor build: succeeded (29.96 s).
+- Two fresh audio-enabled `-game -nullrhi` starts read saved preferences:
+  MusicVolume0.5 produced logged gain0.175 in L_MainMenu; MusicVolume0
+  loaded the same world without starting music. Both exited normally;
+  test preferences were restored afterward. Logs:
+  `Saved/Testing/menu-volume-saved-{0.5,0}.log`.
+- Rendered menu startup logged gain0.350. Native UI automation could not bind
+  the game window; slider dragging and Esc-key interaction were not verified
+  through that interface. The shared ShowMenu/UpdateMenuMusic path and Slate
+  callbacks were reviewed; no claim of an audible playback assessment.
+
+
+### Irregular structural explosion breaches — 19 October 2026
+
+- UE5.8.3 / macOS arm64 Development Editor: final build PASS
+  (`scripts/build-editor.command`,21.13s; `/tmp/respawn-fracture-build.log`).
+- `python3 scripts/test-destruction.py`: PASS,12/12 automation tests. Includes
+  the extended DamagePreset contour checks and actual cell collision/brick
+  passage tests. Initial symmetric-noise tuning narrowed a thin-brick breach;
+  corrected by preserving the old breach and adding bounded outward fractures.
+  Final run: `Saved/Testing/destruction-automation.log`.
+- `python3 scripts/test-industrial-map.py --network --render`: PASS. Metal
+  listen host + initial remote + late remote, seed42/OpenYard. The probe now
+  applies a real structural explosion after the authorized rifle shot; damage,
+  removals and cell validation PASS. Both remotes match destroyed-state
+  digest4196437526 and regenerated-state digest2556534412. Report:
+  `Saved/Testing/industrial-network-metal-report.json`.
+- Metal ground capture inspected; the standard gallery framing does not
+  provide a close-up of the blast edge, so it is not standalone visual evidence
+  of contour quality. Contour variation is covered by the equal-radius
+  removal-threshold test; physical breaching and replica parity run in Unreal.
+- Historical `test-cell-network.py --render` cannot load L_DestructionLab
+  (removed from the current project); replaced here by the current industrial
+  LAN probe above. No legacy lab assets recreated.
+- `git diff --check`: PASS. Other in-progress menu/music changes preserved.

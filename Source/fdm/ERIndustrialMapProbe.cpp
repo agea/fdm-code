@@ -184,6 +184,9 @@ void AERIndustrialMapProbe::Tick(float Delta)
         }
         const auto Before=C->Weapon->AuthorizedShotCount;C->Weapon->StartFire();C->Weapon->StopFire();
         Check(C->Weapon->AuthorizedShotCount==Before+1 && Map->GetCellWorld().GetRemovedCount()>0,TEXT("real_rifle_damages_building"));
+        const auto Blast=AERBlockRoom::ApplyWorldExplosion(GetWorld(),Hit.ImpactPoint+Hit.ImpactNormal*30,
+            FERBlockExplosionProfile::Linear(220,2400),C);
+        Check(Blast.Damaged>0 && Blast.Destroyed>0 && Map->ValidateCells(),TEXT("irregular_blast_publishes_coherent_cell_destruction"));
         const auto& L=Map->GetLayout();
         if(!L.Containers.IsEmpty())
         {

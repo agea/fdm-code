@@ -62,4 +62,7 @@ namespace ERBlockCombat
     double ExplosionFalloff(const FERBlockExplosionProfile& Profile, double Distance);
     // Profile damage at d times the material multiplier and exposure in [0,1].
     double ExplosionCellDamage(const FERBlockExplosionProfile& Profile, double Distance, float Multiplier, double Exposure);
+    // Spatially coherent structural falloff: broad lobes plus small edge chips.
+    // World positions keep the contour continuous across panels/rooms.
+    double ExplosionFractureDistance(const FERBlockExplosionProfile& Profile, const FVector& Origin, const FVector& CellCenter);
 }

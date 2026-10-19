@@ -35,6 +35,9 @@ public:
     float GetMouseLookMultiplier() const;
     void SetMouseSensitivity(float Value);
     void SaveMouseSensitivity();
+    float GetMusicVolume() const { return MusicVolume; }
+    void SetMusicVolume(float Value);
+    void SaveMusicVolume();
     int32 PrimaryWeapon = 0;
     int32 AlphaSkin = 0;
     int32 OmegaSkin = 0;
@@ -44,6 +47,7 @@ public:
 private:
     float MouseSensitivity = .5f;
     float MouseAcceleration = .5f;
+    float MusicVolume = 1.f;
     FDelegateHandle NetworkFailureHandle, TravelFailureHandle;
     void NetworkFailure(UWorld* World, class UNetDriver* Driver, ENetworkFailure::Type Type, const FString& Error);
     void TravelFailure(UWorld* World, ETravelFailure::Type Type, const FString& Error);
@@ -68,6 +72,8 @@ public:
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) TObjectPtr<class UInputAction> ScoreboardAction;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) TObjectPtr<class UInputAction> MenuAction;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) TObjectPtr<class UInputAction> WalkAction;
+    UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Menu audio") TObjectPtr<class USoundBase> MenuMusic;
+    UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Menu audio", meta=(ClampMin="0", ClampMax="1")) float MenuMusicVolume = .35f;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Arsenal") TArray<TObjectPtr<class UERWeaponData>> PrimaryOptions;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Arsenal") bool bReferenceArsenalMenu = false;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Team appearance") TSubclassOf<class AERCharacter> SkinCatalog;
@@ -104,6 +110,9 @@ public:
     // HE structural profile (400/25/200/^2) 10cm before the aimed surface.
     UFUNCTION(Exec) void ERBlockGrenade();
 private:
+    friend class UERGameInstance;
+    UPROPERTY(Transient) TObjectPtr<class UAudioComponent> MenuMusicComponent;
+    void UpdateMenuMusic();
     uint32 AcknowledgedBlockEpoch=0;
     bool bBlockMapLoading=false;
     void UpdateBlockMapLoading();

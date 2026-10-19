@@ -1,5 +1,11 @@
 # Respawn & Rage Unreal development
 
+Menu music (19 October): use the original owner-supplied WAV in private maps
+SourceAssets/MenuMusic and setup_menu_music.py. Bind the looping Bink quality80
+SoundWave through BP_ERPlayerController defaults. Options expose a saved 0..100%
+music slider (zero disables playback), applied live. Play locally while a menu
+is open, at half gain in the in-game Esc menu; stop/destroy on resume or travel.
+
 Brand: **Respawn & Rage**. Tagline: **Serious guns. Questionable players**.
 The 15 October rebrand supersedes earlier project naming. Workspace:
 `/Users/agea/git/respawn-and-rage/core`; GitHub: `respawn-and-rage/core`
