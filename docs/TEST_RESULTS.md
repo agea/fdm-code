@@ -4213,3 +4213,32 @@ combat/recon LAN results remain historical.
 - PowerShell 7.6.7 regression suite PASS on macOS, including the above cases and
   existing package/Linux/Butler tests. `git diff --check` PASS. Windows compilation
   and native Windows PowerShell 5.1 still require execution on the user's host.
+
+### Windows missing mounts and native stderr diagnostics — 20 October 2026
+
+- The subsequent user screenshot reports MSVC, Windows redistributables, SDK,
+  Linux target support and plugins passing. Remaining diagnostics are the v26
+  cross-toolchain lookup and missing Content mounts; this is a preflight stop,
+  not a compiler error. Mount-only repair and separate Linux/Windows routes are
+  documented without overwriting assets or weakening the compiler check.
+- Native stderr objects are normalized to strings before display, capture and
+  logging, retaining streaming output and nonzero-exit failure handling. This
+  avoids the extra PowerShell ErrorRecord rendering visible around Python's
+  missing-mount message. Regression cases cover mixed stdout/stderr with exit 0
+  and captured missing-mount stderr with exit 1.
+- PowerShell 7.6.7 regression suite PASS on macOS; six asset-mount tests PASS on
+  Python 3.9.6. `git diff --check` PASS. No native Windows build or real upload
+  performed; PowerShell 5.1 formatting still needs confirmation on Windows.
+
+### Automatic asset junctions in Windows builds — 20 October 2026
+
+- Normal builds now invoke `setup-assets.py` without a flag after tool checks
+  pass, creating missing junctions and validating existing ones without fetching
+  submodules. `-InitAssets` still opts into pinned submodule/LFS downloads;
+  `-Check` and failed tool preflights use only `--check` and make no mounts.
+- PowerShell 7.6.7 helper suite PASS: automatic mount invocation, paths with
+  spaces, read-only checks, explicit initialization, deferred setup after tool
+  failures and propagation of asset-setup failures. Six Python asset-mount tests
+  PASS on Python 3.9.6, including idempotence and preservation of conflicting
+  data/links. `git diff --check` PASS. Native Windows junction/build execution
+  remains to be confirmed on the Windows host.

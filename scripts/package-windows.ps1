@@ -8,6 +8,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\package-windows.ps
 .\scripts\package-windows.ps1 -Check -Engine 'D:\Epic Games\UE_5.8'
 .NOTES
 Uses an external build workspace with shared Content; close Unreal Editor first.
+Creates/validates asset junctions automatically after tool checks pass.
 Uploads with Butler unless -NoUpload is passed. -Check never builds or uploads.
 #>
 [CmdletBinding()]
@@ -52,19 +53,20 @@ function Invoke-Native([string]$FilePath, [string[]]$Arguments, [switch]$Capture
     # Multiple Python installations/App Execution Aliases can produce several
     # applications. Invoke just the first PATH match, never an array of paths.
     $command = Get-Command -Name $FilePath -CommandType Application -ErrorAction Stop | Select-Object -First 1
-    # Windows PowerShell 5.1 turns native stderr into ErrorRecords. Keep both
-    # streams visible and use the process exit code, including through Tee-Object.
+    # Windows PowerShell 5.1 turns native stderr into ErrorRecords. Normalize
+    # them to plain messages before display/logging, avoiding misleading red
+    # NativeCommandError stack traces. The exit code still determines failure.
     $previousPreference = $ErrorActionPreference
     try {
         $ErrorActionPreference = 'Continue'
         if ($Capture) {
-            $output = @(& $command.Source @Arguments 2>&1)
+            $output = @(& $command.Source @Arguments 2>&1 | ForEach-Object { [string]$_ })
             $output | Out-Host
             if ($logFile) { $output | Out-File -LiteralPath $logFile -Append }
         } elseif ($logFile) {
-            & $command.Source @Arguments 2>&1 | Tee-Object -FilePath $logFile -Append | Out-Host
+            & $command.Source @Arguments 2>&1 | ForEach-Object { [string]$_ } | Tee-Object -FilePath $logFile -Append | Out-Host
         } else {
-            & $command.Source @Arguments 2>&1 | Out-Host
+            & $command.Source @Arguments 2>&1 | ForEach-Object { [string]$_ } | Out-Host
         }
         $code = $LASTEXITCODE
     } finally {
@@ -72,6 +74,21 @@ function Invoke-Native([string]$FilePath, [string[]]$Arguments, [switch]$Capture
     }
     if ($code -ne 0) { throw "$FilePath failed (exit $code). See the output above." }
     if ($Capture) { return ($output -join "`n") }
+}
+
+function Invoke-AssetSetup([string]$SetupScript, [switch]$ReadOnly, [switch]$FetchAssets,
+        [bool]$CanPrepare = $true) {
+    $arguments = @($SetupScript)
+    if ($ReadOnly -or -not $CanPrepare) {
+        $arguments += '--check'
+        if (-not $ReadOnly) { Write-Host 'Automatic asset setup deferred until the tool checks above pass.' }
+    } elseif ($FetchAssets) {
+        $arguments += '--init'
+    }
+    # No flag: safely mount already-downloaded assets and validate the result.
+    # setup-assets.py preserves correct links and refuses conflicting data/LFS
+    # pointers before making any junction. Fetching remains explicit opt-in.
+    Invoke-Native 'python.exe' $arguments
 }
 
 function Find-Engine {
@@ -516,16 +533,15 @@ try {
             if (-not (Test-Path -LiteralPath (Join-Path $projectRoot $file))) { throw "Missing $file. Restore the complete core checkout." }
         }
     }
-    # Avoid fetching/updating submodules until the installed tools pass.
-    if ($InitAssets -and $problems.Count -eq 0) {
-        Invoke-Native 'python.exe' @((Join-Path $PSScriptRoot 'setup-assets.py'), '--init')
-    }
-    Test-Dependency 'Private assets and Content mounts' {
-        Invoke-Native 'python.exe' @((Join-Path $PSScriptRoot 'setup-assets.py'), '--check')
+    Test-Dependency 'Private assets and Content mounts (automatic junction setup)' {
+        Invoke-AssetSetup -SetupScript (Join-Path $PSScriptRoot 'setup-assets.py') -ReadOnly:$Check `
+            -FetchAssets:$InitAssets -CanPrepare ($problems.Count -eq 0)
     }
     if ($problems.Count) {
         throw ("Preflight failed. Fix these items and rerun:`n - " + ($problems -join "`n - ") +
-            "`nFor missing assets, authenticate GitHub for all three private repositories and rerun with -InitAssets.")
+            "`nExisting assets are mounted automatically on a normal build after tool checks pass; -Check only validates mounts." +
+            "`nFor missing submodules/LFS, authenticate GitHub for all three private repositories and rerun with -InitAssets." +
+            "`nFor Windows only, pass -TargetPlatform Windows; this does not require the Linux toolchain.")
     }
     Write-Host 'DESKTOP_PREFLIGHT_PASS' -ForegroundColor Green
     if ($Check) { exit 0 }

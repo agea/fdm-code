@@ -8,7 +8,7 @@ helper builds **Windows x64 and Linux x86_64**, then uploads both with Butler.
 # First run: prepare pinned private assets, build both platforms, upload both.
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\package-windows.ps1 -InitAssets
 
-# Later runs: assets are checked, compilation/packaging/upload are automatic.
+# Later runs: asset junctions, compilation/packaging/upload are automatic.
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\package-windows.ps1
 ```
 
@@ -53,7 +53,9 @@ helper. The project is located relative to the script, independent of cwd.
 - **Python 3.9+** on PATH as `python.exe`, **Git**, **Git LFS**, and GitHub access
   to all three private asset repositories. `-InitAssets` invokes the existing
   asset setup only after tool checks pass; it fetches pinned revisions/LFS and
-  creates Windows directory junctions. Commit local asset edits before switching
+  creates Windows directory junctions. A normal build also creates/verifies
+  junctions automatically when the asset files are already present, without
+  fetching or switching submodule revisions. Commit local asset edits before switching
   revisions. Existing content is not overwritten by the asset helper.
   Python 3.9–3.11 recognize junctions through the Windows reparse tag; Python
   3.12+ uses `Path.is_junction`. An existing correct junction can be checked or
@@ -103,7 +105,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\package-windows.ps
 
 `-TargetPlatform Both` is the default. `-Check` cannot be combined with
 `-InitAssets`; it never initializes assets, prepares a workspace, runs Unreal or
-pushes a build. Add `-NoUpload` to skip its Butler authentication check.
+pushes a build, and does not create junctions. Add `-NoUpload` to skip its Butler
+authentication check. A normal build mounts downloaded assets automatically
+after the installed-tool checks pass; correct existing junctions are reused.
 
 ## Diagnosing preflight errors
 
@@ -133,6 +137,32 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\package-windows.ps
 For **Both**, enable the Linux platform in UE 5.8.3's Launcher installation
 options and install Epic's v26 cross-compile toolchain separately. Reopen
 PowerShell after installation and rerun `-Check` without the platform filter.
+
+`[OK] Unreal Linux target support` confirms the Launcher component only; the
+v26 cross-compiler is a separate installation. If already installed, inspect
+`$env:LINUX_MULTIARCH_ROOT` or pass `-LinuxToolchain` pointing at its version root.
+The root must contain `ToolchainVersion.txt` and `x86_64-unknown-linux-gnu`.
+
+For `Missing mount: ...Content/...` during `-Check`, close Unreal and run the
+normal build command: it now creates the links automatically after the other
+tool checks pass. To prepare/verify links separately without starting a build:
+
+```powershell
+python .\scripts\setup-assets.py
+python .\scripts\setup-assets.py --check
+```
+
+These commands validate sources/LFS first and refuse to overwrite existing data.
+If the output instead reports missing submodule content or unresolved LFS
+pointers, run `python .\scripts\setup-assets.py --init` with private GitHub access.
+The packaging helper deliberately delays junction creation and `-InitAssets`
+until other tool checks pass, so a missing Linux toolchain defers asset setup
+on a combined run. Fix that prerequisite or use `-TargetPlatform Windows` for
+Windows only. Existing directories and unexpected links remain protected.
+
+Native stderr messages are displayed/logged as plain text; a Python validation
+error still returns a failing exit code, without PowerShell's extra
+`NativeCommandError`/`CategoryInfo` formatting obscuring its actual message.
 
 ## Workspace, outputs and failures
 

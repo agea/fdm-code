@@ -54,6 +54,10 @@ try {
     Invoke-Native $shell @('-NoProfile', '-Command', '[Console]::Error.WriteLine("diagnostic on stderr"); Write-Output "normal output"; exit 0')
     $log = Get-Content -LiteralPath $logFile -Raw
     Assert-True ($log -match 'diagnostic on stderr' -and $log -match 'normal output') 'Both native streams must be logged'
+    $captured = Invoke-Native $shell @('-NoProfile', '-Command', '[Console]::Error.WriteLine("captured stderr"); Write-Output "captured stdout"; exit 0') -Capture
+    Assert-True ($captured -match 'captured stderr' -and $captured -match 'captured stdout') 'Capture must preserve both streams without failing on stderr alone'
+    Assert-True ($captured -notmatch 'CategoryInfo|FullyQualifiedErrorId') 'Captured messages must exclude PowerShell ErrorRecord formatting'
+    Assert-Throws { Invoke-Native $shell @('-NoProfile', '-Command', '[Console]::Error.WriteLine("missing asset mount"); exit 1') -Capture } 'exit 1'
     $logFile = $null
     # Arguments containing spaces must survive native invocation unchanged.
     $argumentProbe = Join-Path $temporary 'argument probe.ps1'
@@ -159,6 +163,26 @@ try {
     Assert-True ($invocations[1].arguments -contains '-platform=Win64' -and $invocations[1].arguments -contains '-prereqs') 'Windows build must stage Windows prerequisites'
     Assert-True ($invocations[2].arguments -contains '-platform=Linux' -and $invocations[2].arguments -contains '-clientarchitecture=x64') 'Linux build must target x64'
     Assert-True (-not ($invocations[2].arguments -contains '-prereqs')) 'Linux package must not stage Windows prerequisites'
+
+    $assetSetup = Join-Path $temporary 'Repo with spaces\scripts\setup-assets.py'
+    $invocations.Clear()
+    Invoke-AssetSetup $assetSetup
+    Assert-True ($invocations.Count -eq 1 -and $invocations[0].path -eq 'python.exe') 'Normal builds must invoke asset setup automatically'
+    Assert-True ($invocations[0].arguments.Count -eq 1 -and $invocations[0].arguments[0] -eq $assetSetup) 'Mount downloaded assets without fetching or splitting script paths'
+    $invocations.Clear()
+    Invoke-AssetSetup $assetSetup -ReadOnly
+    Assert-True ($invocations[0].arguments.Count -eq 2 -and $invocations[0].arguments[1] -eq '--check') 'Check-only must never create junctions'
+    $invocations.Clear()
+    Invoke-AssetSetup $assetSetup -FetchAssets
+    Assert-True ($invocations[0].arguments[1] -eq '--init') 'Explicit initialization must fetch assets and mount them'
+    $invocations.Clear()
+    Invoke-AssetSetup $assetSetup -FetchAssets -CanPrepare $false
+    Assert-True ($invocations[0].arguments[1] -eq '--check') 'Failed tool checks must not fetch assets or change mounts'
+    $invocations.Clear()
+    $failOnCall = 1
+    Assert-Throws { Invoke-AssetSetup $assetSetup } 'compiler failure'
+    Assert-True ($invocations.Count -eq 1) 'Conflicting/missing assets must fail asset setup before building'
+    $failOnCall = 0
 
     # Discover VS 2022 as well as 2026 and use the engine's compiler policy.
     ${env:ProgramFiles(x86)} = Join-Path $temporary 'Program Files x86'
