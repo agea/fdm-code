@@ -86,11 +86,15 @@ The public tree uses an explicit text allowlist (including Objective-C++ `.mm`) 
 binary blobs, LFS pointers and unexpected paths. Content and SourceAssets are
 ignored, including their mounted directory links. Only the three Assets
 gitlinks are committed in the parent repository for licensed game assets.
-The user-supplied game branding is an explicit exception: eleven original or
+The user-supplied game branding is an explicit exception: approved original and
 derived images/icons under exact `Branding`, `Build` and `Content/Splash` paths
-are checked against pinned SHA-256 hashes in the verifier. `Branding/README.md`
-is also allowed. Other binaries, substituted branding files, LFS pointers and
-symlinks remain forbidden; future branding changes require reviewed hash updates.
+are checked against pinned SHA-256 hashes in the verifier. The three approved
+Barlow/Teko font files are pinned the same way. Exact text paths allow credits,
+font licenses, font documentation and the Teko download/static-instance scripts;
+this does not allow arbitrary files under `Branding`. Both reviewed versions of
+the Mac plist (before/after the local-network usage description) remain valid
+when auditing history. Other binaries, substituted branding/fonts, LFS pointers
+and symlinks remain forbidden; future binary changes require reviewed hash updates.
 
 Private access is limited to authorized project collaborators; it does not
 grant redistribution rights. Keep Fab originals and generated derivatives

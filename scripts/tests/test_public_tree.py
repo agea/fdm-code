@@ -1,8 +1,10 @@
 import importlib.util
+import hashlib
 from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+from unittest.mock import patch
 
 spec = importlib.util.spec_from_file_location('public_tree', Path(__file__).resolve().parents[1] / 'verify-public-tree.py')
 module = importlib.util.module_from_spec(spec)
@@ -96,6 +98,68 @@ class PublicTreeTests(unittest.TestCase):
                 target.write_bytes(content)
                 self.git(root, 'add', '.')
                 self.git(root, 'commit', '-m', 'Substituted branding')
+                with self.assertRaisesRegex(RuntimeError, 'unapproved branding content'):
+                    module.verify(root)
+
+    def test_approved_menu_fonts_and_companion_text_are_allowed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.fixture(root)
+            fonts = {name for name in module.PUBLIC_BRANDING if name.endswith('.ttf')}
+            self.assertEqual(len(fonts), 3)
+            for name in fonts | module.PUBLIC_BRANDING_TEXT:
+                target = root / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes((module.ROOT / name).read_bytes())
+            self.git(root, 'add', '.')
+            self.git(root, 'commit', '-m', 'Approved fonts and credits')
+            self.assertEqual(module.verify(root)[0], 2)
+
+    def test_font_exception_rejects_replacement_or_additional_binary(self):
+        for name, message in (('Branding/Fonts/Teko/Fonts/Teko-SemiBold.ttf', 'unapproved branding content'),
+                              ('Branding/Fonts/Other.ttf', 'forbidden path')):
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                self.fixture(root)
+                target = root / name
+                target.parent.mkdir(parents=True)
+                target.write_bytes(b'unapproved\0font')
+                self.git(root, 'add', '.')
+                self.git(root, 'commit', '-m', 'Unapproved font')
+                with self.assertRaisesRegex(RuntimeError, message):
+                    module.verify(root)
+
+    def test_approved_branding_text_still_rejects_binary_and_lfs(self):
+        for content in (b'private\0data', b'version https://git-lfs.github.com/spec/v1\n'):
+            with self.subTest(content=content), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                self.fixture(root)
+                target = root / 'Branding/Credits.txt'
+                target.parent.mkdir()
+                target.write_bytes(content)
+                self.git(root, 'add', '.')
+                self.git(root, 'commit', '-m', 'Invalid credits')
+                with self.assertRaisesRegex(RuntimeError, 'binary/LFS'):
+                    module.verify(root)
+
+    def test_reviewed_plist_history_remains_allowed_but_third_variant_fails(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.fixture(root)
+            name = 'Build/Mac/Resources/Info.Template.plist'
+            target = root / name
+            target.parent.mkdir(parents=True)
+            old, current = b'<plist>old</plist>\n', b'<plist>current</plist>\n'
+            with patch.dict(module.PUBLIC_BRANDING, {name: hashlib.sha256(current).hexdigest()}), \
+                 patch.dict(module.PUBLIC_BRANDING_HISTORY, {name: {hashlib.sha256(old).hexdigest()}}):
+                for contents in (old, current):
+                    target.write_bytes(contents)
+                    self.git(root, 'add', '.')
+                    self.git(root, 'commit', '-m', 'Reviewed plist version')
+                self.assertEqual(module.verify(root)[0], 3)
+                target.write_bytes(b'<plist>unreviewed</plist>\n')
+                self.git(root, 'add', '.')
+                self.git(root, 'commit', '-m', 'Unreviewed plist version')
                 with self.assertRaisesRegex(RuntimeError, 'unapproved branding content'):
                     module.verify(root)
 

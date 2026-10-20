@@ -12,6 +12,19 @@ ROOT_FILES = {'fdm.uproject', 'RespawnAndRage.uproject', 'README.md', 'AGENTS.md
 EXTENSIONS = {'Source': {'.cpp', '.h', '.cs', '.mm'}, 'Config': {'.ini'},
               'scripts': {'.py', '.command', '.sh', '.ps1'}, 'docs': {'.md', '.txt', '.json', '.csv'}}
 SUBMODULES = {'Assets/characters', 'Assets/weapons', 'Assets/maps'}
+# Exact text paths approved alongside the menu font and credits. Do not allow
+# the whole Branding tree: licensed game assets still belong in submodules.
+PUBLIC_BRANDING_TEXT = {
+    'Branding/Credits.txt',
+    'Branding/Fonts/OFL.txt',
+    'Branding/Fonts/README.md',
+    'Branding/Fonts/Teko/CREDITS.txt',
+    'Branding/Fonts/Teko/README.md',
+    'Branding/Fonts/Teko/SourceInstructions.it.md',
+    'Branding/Fonts/Teko/ThirdPartyLicenses/Teko-OFL.txt',
+    'Branding/Fonts/Teko/download_teko.py',
+    'Branding/Fonts/Teko/make_static.py',
+}
 # User-supplied game branding and its prepared derivatives, 16 October 2026.
 # Pin both path and bytes: this is not permission for arbitrary binary assets.
 PUBLIC_BRANDING = {
@@ -28,7 +41,11 @@ PUBLIC_BRANDING = {
     'Build/Mac/Resources/Assets.xcassets/AppIcon.appiconset/icon_512x512.png': 'a13f7be156e1e0c17a892b50926a3c2a16061f239ef4d9dc45936941c0699924',
     'Build/Mac/Resources/Assets.xcassets/AppIcon.appiconset/icon_512x512@2x.png': '10320d04e40b2685e42e012586f23189a729a9dc34c425fd590492d58c2126d5',
     'Build/Mac/Resources/Assets.xcassets/Contents.json': 'f5fb0e1f3a8142892ed092efb5955c1c2cc537003a89ad7bbdb9dade7fe8985f',
-    'Build/Mac/Resources/Info.Template.plist': '62d6341c5d79a25e70b46413ecffeed4b4aa457869129adbaaeda01c43f4798a',
+    'Build/Mac/Resources/Info.Template.plist': '8e059740fec62984533d8630ca6dcee81ff7f19206616fc701691fea157d0666',
+    # Approved menu fonts, with complete OFL notices at the exact text paths above.
+    'Branding/Fonts/BarlowCondensed-SemiBold.ttf': '7b619d14bc2327509a9ef32b0890f709626f7ecc9ff61191c2a4314c5499d2d9',
+    'Branding/Fonts/Teko/Fonts/Teko-SemiBold.ttf': '198159cd0a8faa1337822d7c5d10fcdbc01f28b1628a8db9e59fae5c1fd0f092',
+    'Branding/Fonts/Teko/Fonts/Teko-Variable.ttf': 'd1321889f262bbbff632e7976349853399cd097b6f382d4b19790c915c13c1ae',
     'Branding/Originals/icon.png': '02af44bd47fd2183c5a48135377c0fb912d8ccdc012b5dfcc8b5bd1aca5736d5',
     'Branding/Originals/logo.png': 'c59c323dd69b356a575331386155e3e597e8174d2a3b630246cb49047012ebdf',
     'Branding/Originals/splash.png': '205a1e94c9be875585c24494a968e2bafb5753d419f487392a45bc8f9dca6828',
@@ -40,6 +57,14 @@ PUBLIC_BRANDING = {
     'Content/Splash/EdSplash.png': '2ee026ee51b2a4fd771e31f9440c4051c5240521fab56a316553a7d5733d1d06',
     'Content/Splash/Icon.png': '1a6386df237dfebda6c7ca6daf0a9cf7b4d925e2f4e7a8e3231d7f10eea618a8',
     'Content/Splash/Splash.png': '2ee026ee51b2a4fd771e31f9440c4051c5240521fab56a316553a7d5733d1d06',
+}
+
+# The verifier audits all history. Keep reviewed older bytes accepted as well
+# as the current plist, which adds the local-network usage description.
+PUBLIC_BRANDING_HISTORY = {
+    'Build/Mac/Resources/Info.Template.plist': {
+        '62d6341c5d79a25e70b46413ecffeed4b4aa457869129adbaaeda01c43f4798a',
+    },
 }
 
 
@@ -60,11 +85,13 @@ def verify(root):
                 continue
             if name in PUBLIC_BRANDING and kind == 'blob' and mode == '100644':
                 blob = subprocess.check_output(['git', 'cat-file', 'blob', oid], cwd=root)
-                if hashlib.sha256(blob).hexdigest() != PUBLIC_BRANDING[name]:
+                approved_hashes = {PUBLIC_BRANDING[name]} | PUBLIC_BRANDING_HISTORY.get(name, set())
+                if hashlib.sha256(blob).hexdigest() not in approved_hashes:
                     failures.append(revision[:8] + ': unapproved branding content ' + name)
                 count += 1
                 continue
-            allowed = name in ROOT_FILES or (path.parts[0] in EXTENSIONS and path.suffix in EXTENSIONS[path.parts[0]])
+            allowed = (name in ROOT_FILES or name in PUBLIC_BRANDING_TEXT or
+                       (path.parts[0] in EXTENSIONS and path.suffix in EXTENSIONS[path.parts[0]]))
             if kind != 'blob' or mode not in ('100644', '100755') or not allowed:
                 failures.append(revision[:8] + ': forbidden path/mode ' + name)
                 continue
