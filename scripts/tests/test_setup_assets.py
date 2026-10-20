@@ -4,6 +4,8 @@ from pathlib import Path
 import tempfile
 import unittest
 import runpy
+from types import SimpleNamespace
+from unittest.mock import Mock
 
 spec = importlib.util.spec_from_file_location('asset_setup', Path(__file__).resolve().parents[1] / 'setup-assets.py')
 module = importlib.util.module_from_spec(spec)
@@ -11,6 +13,18 @@ spec.loader.exec_module(module)
 
 
 class AssetSetupTests(unittest.TestCase):
+    def test_python39_junction_fallback_checks_exact_reparse_tag(self):
+        # Simulate the Python 3.9 Path API, which has no is_junction method.
+        path = Mock(spec=['is_symlink', 'lstat'])
+        path.is_symlink.return_value = False
+        path.lstat.return_value = SimpleNamespace(st_reparse_tag=0xA0000003)
+        self.assertTrue(module.is_link(path))
+        for attributes in ({}, {'st_reparse_tag': 0x8000001B}):
+            path.lstat.return_value = SimpleNamespace(**attributes)
+            self.assertFalse(module.is_link(path))
+        path.lstat.side_effect = FileNotFoundError
+        self.assertFalse(module.is_link(path))
+
     def fixture(self, root):
         (root / 'assets.json').write_text(json.dumps({'repositories': {
             'characters': {'path': 'Assets/characters', 'mounts': ['Content/Characters']},

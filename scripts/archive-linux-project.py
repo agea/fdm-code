@@ -4,6 +4,8 @@ Engine-installed Marketplace plugins are absent from the cached Linux engine.
 Include their source as project plugins; never copy Mac binaries/intermediates.
 """
 import argparse
+from contextlib import contextmanager
+import gzip
 import hashlib
 import io
 import json
@@ -11,6 +13,19 @@ from pathlib import Path
 import subprocess
 import sys
 import tarfile
+
+
+@contextmanager
+def project_archive(output, streaming):
+    if streaming:
+        # Older Python versions cannot pass compresslevel through tar's
+        # streaming gzip mode. A separate gzip writer works on Python 3.9+.
+        with gzip.GzipFile(fileobj=sys.stdout.buffer, mode='wb', compresslevel=1) as compressed:
+            with tarfile.open(fileobj=compressed, mode='w|', dereference=True) as archive:
+                yield archive
+    else:
+        with tarfile.open(output, 'w:gz', dereference=True, compresslevel=1) as archive:
+            yield archive
 
 
 def marketplace_plugins(project, engine):
@@ -67,9 +82,7 @@ def main():
             return None
         return member
 
-    stream = (tarfile.open(fileobj=sys.stdout.buffer, mode='w|gz', dereference=True, compresslevel=1)
-              if streaming else tarfile.open(output, 'w:gz', dereference=True, compresslevel=1))
-    with stream as archive:
+    with project_archive(output, streaming) as archive:
         def add_bytes(name, value):
             data = value.encode()
             member = tarfile.TarInfo(name)

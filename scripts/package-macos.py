@@ -21,13 +21,20 @@ p.add_argument('--workspace', type=Path, default=PROJECT_ROOT.parent / 'builds' 
 p.add_argument('--architecture', choices=['universal', 'arm64', 'x64'], default='universal')
 p.add_argument('--configuration', choices=['Development', 'Shipping'], default='Development')
 p.add_argument('--resume', type=Path, help='Reuse an existing isolated build directory')
+p.add_argument('--run-directory', type=Path, help='New attempt directory inside --workspace (used by release-macos.py)')
 p.add_argument('--recook-only', action='store_true', help='With --resume, reuse compiled binaries and rerun only cook/stage/package')
 p.add_argument('--xcode-stdin-workaround', action='store_true', help='Finalize outside UBA for the UE5.8.3/Xcode27 closed-stdin bug')
 p.add_argument('--check', action='store_true', help='Environment/space check with a temporary APFS clone probe')
 a = p.parse_args()
+if a.run_directory and a.resume:
+    p.error('--run-directory cannot be combined with --resume')
 if a.recook_only and not a.resume:
     p.error('--recook-only requires --resume')
 project, engine, workspace = a.project.resolve(), a.engine.resolve(), a.workspace.resolve()
+if a.run_directory:
+    a.run_directory = a.run_directory.resolve()
+    if not a.run_directory.is_relative_to(workspace) or a.run_directory == workspace or a.run_directory.exists():
+        p.error('--run-directory must be a new directory inside --workspace')
 if platform.system() != 'Darwin':
     raise RuntimeError('Run on macOS with Xcode and UE 5.8.3 installed')
 if workspace.is_relative_to(project) or project.is_relative_to(workspace):
@@ -75,7 +82,7 @@ if a.resume:
     if previous['architecture'] != expected_arches or not (snapshot / 'RespawnAndRage.uproject').is_file():
         raise ValueError('Resume architecture or project mismatch')
 else:
-    run_dir = workspace / time.strftime('%Y%m%d-%H%M%S')
+    run_dir = a.run_directory or workspace / time.strftime('%Y%m%d-%H%M%S')
     snapshot = run_dir / 'project'
     snapshot.mkdir(parents=True)
     # Follow the private asset mounts while excluding unrelated source archives,
@@ -152,6 +159,7 @@ version_module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(version_module)
 game_version = version_module.stamp(snapshot)
 receipt = {'project_head': version_module.source_commit(snapshot), 'game_version': game_version,
+           'configuration': a.configuration,
            'engine_version': '5.8.3', 'architecture': arches,
            'xcode_stdin_workaround': a.xcode_stdin_workaround, 'apfs_clones': use_clones, 'project_snapshot': str(snapshot), 'archive': str(archive), 'commands': commands,
            'status': 'running', 'distribution_signing': 'Not configured'}

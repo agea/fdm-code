@@ -15,13 +15,15 @@ IDENTITY = 'Developer ID Application: Test Fixture (TESTTEAM)'
 
 
 class NotarizationGate(unittest.TestCase):
-    def exercise(self, status, identity_available=True, sign_only=False):
+    def exercise(self, status, identity_available=True, sign_only=False, submission_code=0):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             app = root / 'dist/Game.app'
             (app / 'Contents').mkdir(parents=True)
             (app / 'Contents/Info.plist').write_bytes(b'fixture')
             calls = []
+            scratch = root / 'build-ssd'
+            scratch.mkdir()
 
             def fake_run(*args, **kwargs):
                 calls.append(tuple(map(str, args)))
@@ -30,16 +32,19 @@ class NotarizationGate(unittest.TestCase):
                     output = f'1) TEST "{IDENTITY}"' if identity_available else '0 valid identities found'
                 if args[:3] == ('xcrun', 'notarytool', 'submit'):
                     output = json.dumps({'id': 'fixture-id', 'status': status})
+                    self.assertTrue(Path(args[3]).is_relative_to(scratch))
+                    return subprocess.CompletedProcess(args, submission_code, stdout=output, stderr='')
                 return subprocess.CompletedProcess(args, 0, stdout=output, stderr='')
 
-            argv = ['notarize-macos.py', str(app), '--identity', IDENTITY, '--keychain-profile', 'fixture']
+            argv = ['notarize-macos.py', str(app), '--identity', IDENTITY, '--keychain-profile', 'fixture',
+                    '--scratch-directory', str(scratch)]
             if sign_only:
                 argv.append('--sign-only')
             with patch.object(module, 'run', side_effect=fake_run), patch.object(sys, 'argv', argv):
                 if not identity_available:
                     with self.assertRaises(SystemExit):
                         module.main()
-                elif status != 'Accepted':
+                elif status != 'Accepted' or submission_code:
                     with self.assertRaises(RuntimeError):
                         module.main()
                 else:
@@ -70,6 +75,24 @@ class NotarizationGate(unittest.TestCase):
         self.assertEqual(receipt['status'], 'signed-not-yet-notarized')
         self.assertFalse(any(c[:2] == ('xcrun', 'notarytool') for c in calls))
         self.assertTrue(clean)
+
+    def test_failed_submission_command_never_staples_even_with_accepted_json(self):
+        calls, receipt, clean = self.exercise('Accepted', submission_code=69)
+        self.assertEqual(receipt['status'], 'failed')
+        self.assertFalse(any(c[:2] == ('xcrun', 'stapler') for c in calls))
+        self.assertTrue(clean)
+
+    def test_automatic_identity_selection_refuses_ambiguity(self):
+        second = 'Developer ID Application: Other (OTHERTEAM)'
+        with patch.object(module, 'run', return_value=subprocess.CompletedProcess([], 0,
+                          stdout=f'1) TEST "{IDENTITY}"\n2) TEST "{second}"')) as run:
+            with self.assertRaisesRegex(RuntimeError, 'several'):
+                module.check_credentials(None, 'fixture')
+            self.assertEqual(run.call_count, 1)
+        with patch.object(module, 'run', return_value=subprocess.CompletedProcess([], 0,
+                          stdout=f'1) TEST "{IDENTITY}"')) as run:
+            self.assertEqual(module.check_credentials(None, 'fixture'), IDENTITY)
+            self.assertEqual(run.call_args.args[:3], ('xcrun', 'notarytool', 'history'))
 
 
 if __name__ == '__main__':

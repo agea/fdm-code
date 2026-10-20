@@ -65,6 +65,15 @@ python3 scripts/package-macos.py
 The app and logs are written outside the repository under
 `../builds/macos/<timestamp>/`. See [the build guide](docs/BUILD.md) for
 prerequisites, disk space, architecture options, resuming and cleanup.
+For a complete Mac release (dependency/space checks, build, Developer ID signing,
+notarization, Gatekeeper and itch.io upload), configure Keychain and Butler as
+described in the guide, then run:
+
+```sh
+python3 scripts/release-macos.py --check
+python3 scripts/release-macos.py
+```
+
 Each build stamps `YY.MM.DD.<commit hash>`; the main menu displays the version
 at the bottom right. See [build version details](docs/BUILD.md#game-version).
 

@@ -49,7 +49,9 @@ function Test-Dependency([string]$Name, [scriptblock]$Action) {
 function Invoke-Native([string]$FilePath, [string[]]$Arguments, [switch]$Capture) {
     # Resolve before relaxing ErrorActionPreference: a missing executable must
     # never reuse the exit code from an earlier successful native command.
-    $command = Get-Command -Name $FilePath -CommandType Application -ErrorAction Stop
+    # Multiple Python installations/App Execution Aliases can produce several
+    # applications. Invoke just the first PATH match, never an array of paths.
+    $command = Get-Command -Name $FilePath -CommandType Application -ErrorAction Stop | Select-Object -First 1
     # Windows PowerShell 5.1 turns native stderr into ErrorRecords. Keep both
     # streams visible and use the process exit code, including through Tee-Object.
     $previousPreference = $ErrorActionPreference
@@ -107,6 +109,101 @@ function Assert-FreeSpace([string]$Path, [double]$MinimumGiB) {
     if ($null -eq $drive.Free) { throw "Cannot check free space on $Path. Use a local drive." }
     if ($drive.Free -lt $MinimumGiB * 1GB) {
         throw ('Need at least {0} GiB free on {1}; available: {2:N1} GiB.' -f $MinimumGiB, $drive.Root, ($drive.Free / 1GB))
+    }
+}
+
+function Assert-WindowsPrerequisites([string]$EngineRoot) {
+    # UE 5.8 WinPlatform.Automation stages these with -prereqs. The old
+    # UEPrereqSetup_x64.exe reference is commented out in that engine version.
+    foreach ($name in @('vc_redist.x64.exe', 'vc_redist.arm64.exe')) {
+        $path = Join-Path $EngineRoot "Engine\Extras\Redist\en-us\$name"
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+            throw "Engine found at $EngineRoot; missing $path for Windows -prereqs. Verify UE 5.8.3 in Epic Launcher."
+        }
+    }
+}
+
+function Get-MSVCVersion([IO.DirectoryInfo]$Toolchain) {
+    # Same product-version fields used by UBT IsValidToolChainDirMSVC; folder
+    # family and compiler patch version can differ after a VS servicing update.
+    $info = (Get-Item -LiteralPath (Join-Path $Toolchain.FullName 'bin\Hostx64\x64\cl.exe')).VersionInfo
+    if ($info.ProductMajorPart) {
+        return [version]::new($info.ProductMajorPart, $info.ProductMinorPart, $info.ProductBuildPart)
+    }
+    return [version]$Toolchain.Name
+}
+
+function Test-VersionRange([version]$Version, [string]$Range) {
+    $bounds = $Range.Split('-')
+    return $Version -ge [version]$bounds[0] -and $Version -le [version]$bounds[1]
+}
+
+function Assert-MSVC([string]$EngineRoot) {
+    $sdk = Get-Content -LiteralPath (Join-Path $EngineRoot 'Engine\Config\Windows\Windows_SDK.json') -Raw | ConvertFrom-Json
+    $minimum = [version]$sdk.MinimumVisualCppVersion
+    $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+    if (-not (Test-Path -LiteralPath $vswhere)) {
+        throw 'Install Visual Studio 2022/2026 or Build Tools with C++ desktop/game development and matching ATL.'
+    }
+    $installations = @(Invoke-Native $vswhere @('-products', '*', '-version', '[17.8,19.0)', '-property', 'installationPath') -Capture)
+    $installations = @($installations -split '\r?\n' | Where-Object { $_.Trim() } | ForEach-Object { $_.Trim() })
+    $usable = @()
+    $detected = @()
+    foreach ($installation in $installations) {
+        $toolchains = @(Get-ChildItem (Join-Path $installation 'VC\Tools\MSVC\*') -Directory -ErrorAction SilentlyContinue)
+        foreach ($toolchain in $toolchains) {
+            $reason = $null
+            $version = $null
+            foreach ($file in @('bin\Hostx64\x64\cl.exe', 'bin\Hostx64\x64\link.exe',
+                    'include\vector', 'lib\x64\libcmt.lib', 'atlmfc\include\atlbase.h', 'atlmfc\lib\x64\atls.lib')) {
+                if (-not (Test-Path -LiteralPath (Join-Path $toolchain.FullName $file))) { $reason = "missing $file"; break }
+            }
+            if (-not $reason) {
+                $version = Get-MSVCVersion $toolchain
+                if ($version -lt $minimum) { $reason = "compiler $version below engine minimum $minimum" }
+                foreach ($range in $sdk.BannedVisualCppVersions) {
+                    if (Test-VersionRange $version $range) { $reason = "compiler $version rejected by Unreal ($range)" }
+                }
+            }
+            if ($reason) {
+                $detected += "$($toolchain.FullName): $reason"
+            } else {
+                $usable += "$($toolchain.FullName) (compiler $version)"
+            }
+        }
+    }
+    foreach ($item in $detected) { Write-Host "MSVC unavailable: $item" }
+    if (-not $usable.Count) {
+        throw ('No compatible MSVC x64 + ATL. In Visual Studio Installer add/update C++ tools and matching ATL. ' +
+            'UE 5.8.3 accepts e.g. 14.44.35211+ (VS 2022) or 14.50.35723+ (VS 2026); see detected versions above.')
+    }
+    foreach ($item in $usable) { Write-Host "Compatible MSVC: $item" }
+}
+
+function Assert-EnabledPlugins([string]$EngineRoot, [string]$ProjectRoot) {
+    $spec = Get-Content -LiteralPath (Join-Path $ProjectRoot 'RespawnAndRage.uproject') -Raw | ConvertFrom-Json
+    $enginePlugins = @(Get-ChildItem (Join-Path $EngineRoot 'Engine\Plugins') -Filter '*.uplugin' -Recurse -File)
+    $projectPlugins = @(Get-ChildItem (Join-Path $ProjectRoot 'Plugins') -Filter '*.uplugin' -Recurse -File -ErrorAction SilentlyContinue)
+    foreach ($reference in @($spec.Plugins | Where-Object Enabled)) {
+        # Never call this variable $matches: -match overwrites PowerShell's
+        # automatic $Matches hashtable, losing the selected FileInfo objects.
+        $pluginCandidates = @($projectPlugins | Where-Object BaseName -eq $reference.Name)
+        if (-not $pluginCandidates.Count) { $pluginCandidates = @($enginePlugins | Where-Object BaseName -eq $reference.Name) }
+        if ($pluginCandidates.Count -ne 1) { throw "Plugin $($reference.Name) missing or ambiguous. Install the UE 5.8 Windows version (engine or project Plugins folder)." }
+        $descriptor = $pluginCandidates[0]
+        $plugin = Get-Content -LiteralPath $descriptor.FullName -Raw | ConvertFrom-Json
+        if (($descriptor.FullName -match '[/\\]Marketplace[/\\]' -or $descriptor -in $projectPlugins) -and $plugin.Modules) {
+            if (-not (Test-Path -LiteralPath (Join-Path $descriptor.DirectoryName 'Source'))) { throw "Plugin source required: $($reference.Name)." }
+        }
+        if ($platforms -contains 'Linux' -and $plugin.SupportedTargetPlatforms -and 'Linux' -notin $plugin.SupportedTargetPlatforms) {
+            throw "Plugin $($reference.Name) does not support Linux. Install a compatible source version."
+        }
+        if ($reference.Name -eq 'PCGExtendedToolkit') {
+            if ($plugin.VersionName -ne '0.79.2') { throw "PCGExtendedToolkit 0.79.2 required; found $($plugin.VersionName)." }
+            if (-not (Test-Path -LiteralPath (Join-Path $descriptor.DirectoryName 'Source'))) {
+                throw 'Install PCGExtendedToolkit with Source, needed to compile the Game target.'
+            }
+        }
     }
 }
 
@@ -352,19 +449,19 @@ try {
         Invoke-Native 'git.exe' @('lfs', 'version')
         Invoke-Native 'git.exe' @('-C', $projectRoot, 'rev-parse', '--verify', 'HEAD')
     }
-    Test-Dependency 'Python 3.12+ on PATH as python' {
+    Test-Dependency 'Python 3.9+ on PATH as python' {
         # Target.cs also calls python, so a working py.exe alone is insufficient.
-        Invoke-Native 'python.exe' @('-c', 'import sys; print(sys.version); sys.exit(0 if sys.version_info >= (3,12) else 1)')
+        Invoke-Native 'python.exe' @('-c', 'import sys; print(sys.version); sys.exit(0 if sys.version_info >= (3,9) else 1)')
     }
     Test-Dependency 'Unreal Engine 5.8.3 Installed Build' {
         $script:resolvedEngine = Find-Engine
+        Write-Host "Engine found: $resolvedEngine"
         $version = Get-Content -LiteralPath (Join-Path $resolvedEngine 'Engine\Build\Build.version') -Raw | ConvertFrom-Json
         if ("$($version.MajorVersion).$($version.MinorVersion).$($version.PatchVersion)" -ne '5.8.3') {
             throw 'This project requires exactly UE 5.8.3.'
         }
         foreach ($file in @('Engine\Build\InstalledBuild.txt', 'Engine\Build\BatchFiles\Build.bat',
                 'Engine\Build\BatchFiles\RunUAT.bat', 'Engine\Binaries\Win64\UnrealEditor-Cmd.exe',
-                'Engine\Extras\Redist\en-us\UEPrereqSetup_x64.exe',
                 'Engine\Binaries\DotNET\UnrealBuildTool\UnrealBuildTool.dll')) {
             if (-not (Test-Path -LiteralPath (Join-Path $resolvedEngine $file))) { throw "Missing $file. Verify the engine in Epic Launcher (Windows support required)." }
         }
@@ -373,23 +470,11 @@ try {
         Invoke-Native $dotnet[0].FullName @('--info')
         Write-Host "Engine: $resolvedEngine"
     }
-    Test-Dependency 'MSVC 14.50 x64 and ATL' {
-        $vswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
-        if (-not (Test-Path -LiteralPath $vswhere)) { throw 'Install Visual Studio 2026 or Build Tools with C++ desktop/game development, MSVC 14.50 x64/x86 and ATL.' }
-        $installations = @(& $vswhere -products '*' -version '[18.0,19.0)' -property installationPath)
-        if ($LASTEXITCODE -ne 0) { throw 'vswhere failed. Repair Visual Studio Installer.' }
-        $toolchains = @(foreach ($installation in $installations) {
-            Get-ChildItem (Join-Path $installation 'VC\Tools\MSVC\14.50.*') -Directory -ErrorAction SilentlyContinue
-        })
-        $usable = @($toolchains | Where-Object {
-            (Test-Path -LiteralPath (Join-Path $_.FullName 'bin\Hostx64\x64\cl.exe')) -and
-            (Test-Path -LiteralPath (Join-Path $_.FullName 'bin\Hostx64\x64\link.exe')) -and
-            (Test-Path -LiteralPath (Join-Path $_.FullName 'atlmfc\include\atlbase.h')) -and
-            (Test-Path -LiteralPath (Join-Path $_.FullName 'atlmfc\lib\x64\atls.lib')) -and
-            ([version](Get-Item -LiteralPath (Join-Path $_.FullName 'bin\Hostx64\x64\cl.exe')).VersionInfo.ProductVersion -ge [version]'14.50.35723.0')
-        })
-        if (-not $usable.Count) { throw 'In Visual Studio Installer add/update MSVC 14.50 (14.50.35723+), x64/x86 tools and matching ATL.' }
-        Write-Host "Compiler: $($usable[0].FullName)"
+    if ($resolvedEngine) {
+        Test-Dependency 'MSVC x64 and ATL (UE minimum and banned compiler versions)' { Assert-MSVC $resolvedEngine }
+        if ($platforms -contains 'Windows') {
+            Test-Dependency 'UE 5.8 Windows redistributables for packaging' { Assert-WindowsPrerequisites $resolvedEngine }
+        }
     }
     Test-Dependency 'Windows SDK 10.0.22621+' {
         $kits = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows Kits\Installed Roots' -ErrorAction SilentlyContinue
@@ -414,27 +499,7 @@ try {
             Test-Dependency 'Linux v26 toolchain (clang 20.1.8 and C++20 link)' { Assert-LinuxToolchain $resolvedEngine }
         }
         Test-Dependency 'Enabled plugins, including PCGEx 0.79.2' {
-            $spec = Get-Content -LiteralPath $uproject -Raw | ConvertFrom-Json
-            $enginePlugins = @(Get-ChildItem (Join-Path $resolvedEngine 'Engine\Plugins') -Filter '*.uplugin' -Recurse -File)
-            $projectPlugins = @(Get-ChildItem (Join-Path $projectRoot 'Plugins') -Filter '*.uplugin' -Recurse -File -ErrorAction SilentlyContinue)
-            foreach ($reference in @($spec.Plugins | Where-Object Enabled)) {
-                $matches = @($projectPlugins | Where-Object BaseName -eq $reference.Name)
-                if (-not $matches.Count) { $matches = @($enginePlugins | Where-Object BaseName -eq $reference.Name) }
-                if ($matches.Count -ne 1) { throw "Plugin $($reference.Name) missing or ambiguous. Install the UE 5.8 Windows version (engine or project Plugins folder)." }
-                $plugin = Get-Content -LiteralPath $matches[0].FullName -Raw | ConvertFrom-Json
-                if (($matches[0].FullName -match '[/\\]Marketplace[/\\]' -or $matches[0] -in $projectPlugins) -and $plugin.Modules) {
-                    if (-not (Test-Path -LiteralPath (Join-Path $matches[0].DirectoryName 'Source'))) { throw "Plugin source required: $($reference.Name)." }
-                }
-                if ($platforms -contains 'Linux' -and $plugin.SupportedTargetPlatforms -and 'Linux' -notin $plugin.SupportedTargetPlatforms) {
-                    throw "Plugin $($reference.Name) does not support Linux. Install a compatible source version."
-                }
-                if ($reference.Name -eq 'PCGExtendedToolkit') {
-                    if ($plugin.VersionName -ne '0.79.2') { throw "PCGExtendedToolkit 0.79.2 required; found $($plugin.VersionName)." }
-                    if (-not (Test-Path -LiteralPath (Join-Path $matches[0].DirectoryName 'Source'))) {
-                        throw 'Install PCGExtendedToolkit with Source, needed to compile the Game target.'
-                    }
-                }
-            }
+            Assert-EnabledPlugins $resolvedEngine $projectRoot
         }
     }
     Test-Dependency 'Unreal Editor closed' {

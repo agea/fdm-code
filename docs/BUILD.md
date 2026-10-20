@@ -7,6 +7,106 @@ Use these commands from the game repository. The Mac build uses the locally
 installed Unreal Engine and Xcode directly. It needs no separate builder
 repository, container, AWS account or CI runner.
 
+## One-command Mac release
+
+`release-macos.py` runs dependency/space checks, the isolated build, Developer ID
+signing, Apple notarization, ticket stapling, Gatekeeper assessment and Butler
+upload in that order. Run it from this repository on a Mac:
+
+```sh
+# Read-only preflight (including online authentication checks):
+python3 scripts/release-macos.py --check
+
+# Build, sign, notarize and upload the universal app:
+python3 scripts/release-macos.py
+```
+
+Before the first release, install the prerequisites below, a valid **Developer
+ID Application certificate with its private key** in Keychain, and
+[Butler](https://itch.io/docs/butler/installing.html) on PATH. Configure credentials
+once, interactively, keeping passwords out of the repository and command history:
+
+```sh
+xcrun notarytool store-credentials RespawnAndRage
+butler login
+```
+
+The script auto-selects the signing identity only when exactly one valid
+Developer ID Application identity exists. Otherwise supply
+`--identity 'Developer ID Application: Your Name (TEAMID)'`.
+`--keychain-profile NAME` selects a different existing notarytool profile.
+Missing tools/credentials stop the release before compilation; software and
+certificates are not installed automatically. The initial checks include UE
+5.8.3, full Xcode/SDK/Metal, bundled .NET, plugin source, branding, asset mounts/LFS,
+a closed Editor, signing credentials and Butler authentication.
+
+The full release reserves **30 GiB for universal**, **25 GiB for a single
+architecture** on APFS, or **45 GiB for ordinary copies**, plus **5 GiB on the
+source and user-home volumes** for shared caches/tools (one margin when they
+share a volume). These are starting margins, not
+guaranteed peaks. After packaging, the script requires the app's uncompressed
+size plus 1 GiB free for notarization. The submission ZIP stays on the selected
+workspace disk, including when using an external SSD.
+
+```sh
+# Use a larger build disk, an explicit identity and Shipping configuration:
+python3 scripts/release-macos.py \
+  --workspace '/Volumes/BuildSSD/RespawnAndRage/mac' \
+  --identity 'Developer ID Application: Your Name (TEAMID)' \
+  --configuration Shipping
+
+# Fetch pinned private assets and create mounts before building:
+python3 scripts/release-macos.py --init-assets
+
+# Produce a signed, notarized app without uploading:
+python3 scripts/release-macos.py --no-upload
+
+# Reuse a completed package after a signing/notarization failure:
+python3 scripts/release-macos.py --resume '/absolute/path/to/release-TIMESTAMP-ID'
+
+# Retry upload without building, signing or submitting again:
+python3 scripts/release-macos.py --upload-only '/absolute/path/to/release-TIMESTAMP-ID'
+```
+
+`--init-assets` cannot be combined with `--check` or either retry mode. A failed
+build needs a fresh release; `--resume` requires a successfully packaged build.
+Both retry modes use that build's recorded architecture and version, not current
+source changes. `--upload-only --check` verifies the package, signature, ticket,
+Gatekeeper and Butler access without pushing. Every upload repeats those checks;
+an old success receipt alone cannot authorize a modified or unsigned bundle.
+
+Universal uploads go to `aaggeeaa/respawn-and-rage:mac-universal`. The optional
+`--architecture arm64` and `--architecture x64` use `mac-arm64` and `mac-x86_64`
+respectively. Butler receives the version embedded in the app. Only the directory
+containing the single final `.app` is pushed. Logs, sources and receipts stay out
+of that directory; existing itch page access settings are retained.
+
+`--butler /absolute/path/to/butler` supports non-PATH installations, and
+`--butler-identity /private/path/to/identity` selects an alternate login file.
+Authenticate it with `butler --identity /private/path/to/identity login` first.
+`BUTLER_API_KEY` in the environment is also supported; secrets are never passed
+as command arguments or written to receipts.
+
+```text
+../builds/macos/release-TIMESTAMP-ID/
+  release.json                 # current stage, version, channel, errors
+  release.log                  # package helper output
+  notarization.log
+  upload.log
+  scratch/                     # temporary ZIP, removed after notarization
+  build/
+    receipt.json
+    build.log                  # detailed Unreal output; tail -f while building
+    RespawnAndRage-notarization.json
+    dist/RespawnAndRage.app
+    project/                   # isolated source/assets and intermediates
+```
+
+The script prints the release directory before building. Keep it for retries;
+failed stages return exit code 1 and preserve the package. Gatekeeper acceptance
+does not validate gameplay. Check a browser-downloaded copy on another Mac,
+including Intel execution for a universal release.
+
 ## Prerequisites
 
 - Unreal Engine **5.8.3**, normally at `/Users/Shared/Epic Games/UE_5.8`.
@@ -196,8 +296,9 @@ to `dist`, keeping the upload directory limited to the app. If hardened runtime
 exposes an engine/library requirement, diagnose it with the packaged startup
 test before granting any additional entitlement.
 
-After success, run a packaged Metal startup/gameplay check, then upload the
-unchanged app using `unreal-builder/scripts/publish-mac-itch.py`. Do not modify
+The one-command release above performs these steps and the Butler upload without
+the separate builder repository. For manual packaging/notarization, run a
+packaged Metal startup/gameplay check before publishing the unchanged app. Do not modify
 the signed bundle after notarization. A notarized app can still display macOS's
 ordinary first-open confirmation; the expected experience does not require an
 override in Privacy & Security. Verify a browser-downloaded copy on another Mac.

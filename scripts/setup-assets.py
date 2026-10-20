@@ -9,6 +9,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import stat
 import subprocess
 import sys
 
@@ -35,7 +36,17 @@ def layout(root):
 
 
 def is_link(path):
-    return path.is_symlink() or (hasattr(path, 'is_junction') and path.is_junction())
+    if path.is_symlink():
+        return True
+    if hasattr(path, 'is_junction'):
+        return path.is_junction()
+    # Path.is_junction arrived in 3.12; lstat exposes the Windows reparse
+    # tag since 3.8. Do not mistake ordinary directories/other reparse tags
+    # for asset junctions, and do not follow a broken junction here.
+    try:
+        return getattr(path.lstat(), 'st_reparse_tag', None) == getattr(stat, 'IO_REPARSE_TAG_MOUNT_POINT', 0xA0000003)
+    except FileNotFoundError:
+        return False
 
 
 def validate(root, require_mounts=False):

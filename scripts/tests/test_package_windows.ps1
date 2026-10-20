@@ -22,6 +22,7 @@ function Assert-Throws([scriptblock]$Action, [string]$Pattern) {
 $temporary = Join-Path ([IO.Path]::GetTempPath()) ('RR PowerShell tests ' + [Guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $temporary | Out-Null
 $savedProgramFiles = $env:ProgramFiles
+$savedProgramFilesX86 = ${env:ProgramFiles(x86)}
 $savedProgramData = $env:ProgramData
 $savedUserProfile = $env:USERPROFILE
 $savedButlerKey = $env:BUTLER_API_KEY
@@ -34,6 +35,18 @@ try {
     Invoke-Native $shell @('-NoProfile', '-Command', 'exit 0')
     $captured = Invoke-Native $shell @('-NoProfile', '-Command', 'Write-Output "captured compiler version"') -Capture
     Assert-True ($captured -eq 'captured compiler version') 'Native version capture must preserve stdout'
+    function Get-Command {
+        param($Name, $CommandType, $ErrorAction)
+        if ($Name -eq 'multiple-python.exe') {
+            [pscustomobject]@{ Source = $shell }
+            [pscustomobject]@{ Source = 'rr-missing-second-python.exe' }
+            [pscustomobject]@{ Source = 'rr-missing-third-python.exe' }
+        } else { Microsoft.PowerShell.Core\Get-Command @PSBoundParameters }
+    }
+    try {
+        $captured = Invoke-Native 'multiple-python.exe' @('-NoProfile', '-Command', 'Write-Output "first PATH executable"') -Capture
+        Assert-True ($captured -eq 'first PATH executable') 'Multiple applications must execute only the first PATH match'
+    } finally { Remove-Item Function:Get-Command }
     Assert-Throws { Invoke-Native 'rr-intentionally-missing-executable-041d.exe' @() } 'not recognized|not found'
     Assert-Throws { Invoke-Native $shell @('-NoProfile', '-Command', '[Console]::Error.WriteLine("compiler failure"); exit 23') } 'exit 23'
     # Stderr alone must not fail Windows PowerShell 5.1 when the exit code is 0.
@@ -86,6 +99,32 @@ try {
     Assert-Throws { Assert-FreeSpace $temporary ([double]::MaxValue) } 'Need at least'
     Assert-FreeSpace (Join-Path $temporary 'not-yet-created\output') 0
 
+    # UE 5.8 stages two VC redistributables, not the old UEPrereqSetup bundle.
+    $redist = Join-Path $engineFolder 'Engine\Extras\Redist\en-us'
+    New-Item -ItemType Directory -Path $redist -Force | Out-Null
+    Assert-Throws { Assert-WindowsPrerequisites $engineFolder } 'vc_redist.x64.exe'
+    Set-Content (Join-Path $redist 'vc_redist.x64.exe') 'fixture'
+    Assert-Throws { Assert-WindowsPrerequisites $engineFolder } 'vc_redist.arm64.exe'
+    Set-Content (Join-Path $redist 'vc_redist.arm64.exe') 'fixture'
+    Assert-WindowsPrerequisites $engineFolder
+
+    # A Marketplace regex used to overwrite $matches and produce a null Path.
+    $pluginProject = Join-Path $temporary 'Plugin project'
+    $marketplace = Join-Path $engineFolder 'Engine\Plugins\Marketplace\PCGEx'
+    New-Item -ItemType Directory -Path (Join-Path $marketplace 'Source'), $pluginProject -Force | Out-Null
+    @{ Plugins = @(@{ Name = 'PCGExtendedToolkit'; Enabled = $true }) } | ConvertTo-Json -Depth 5 |
+        Set-Content (Join-Path $pluginProject 'RespawnAndRage.uproject')
+    $pluginFile = Join-Path $marketplace 'PCGExtendedToolkit.uplugin'
+    @{ VersionName = '0.79.2'; Modules = @(@{ Name = 'PCGEx' }); SupportedTargetPlatforms = @('Win64', 'Linux') } |
+        ConvertTo-Json -Depth 5 | Set-Content $pluginFile
+    $platforms = @('Windows', 'Linux')
+    Assert-EnabledPlugins $engineFolder $pluginProject
+    Remove-Item (Join-Path $marketplace 'Source')
+    Assert-Throws { Assert-EnabledPlugins $engineFolder $pluginProject } 'Plugin source required'
+    New-Item -ItemType Directory (Join-Path $marketplace 'Source') | Out-Null
+    @{ VersionName = '0.79.1'; Modules = @(@{ Name = 'PCGEx' }) } | ConvertTo-Json -Depth 5 | Set-Content $pluginFile
+    Assert-Throws { Assert-EnabledPlugins $engineFolder $pluginProject } '0.79.2 required'
+
     # Mock only external Unreal invocations to verify that an Editor failure
     # never starts UAT, and that a Game failure propagates to the caller.
     $invocations = New-Object 'System.Collections.Generic.List[object]'
@@ -93,6 +132,7 @@ try {
     function Invoke-Native([string]$FilePath, [string[]]$Arguments, [switch]$Capture) {
         $invocations.Add(@{ path = $FilePath; arguments = $Arguments })
         if ($invocations.Count -eq $failOnCall) { throw 'simulated compiler failure' }
+        if ($FilePath -eq $fakeVswhere) { return $fakeVS }
         if ($Capture) { return $fakeCompilerVersion }
         if ($Arguments -contains '--target=x86_64-unknown-linux-gnu') {
             $outputIndex = [Array]::IndexOf($Arguments, '-o') + 1
@@ -119,6 +159,51 @@ try {
     Assert-True ($invocations[1].arguments -contains '-platform=Win64' -and $invocations[1].arguments -contains '-prereqs') 'Windows build must stage Windows prerequisites'
     Assert-True ($invocations[2].arguments -contains '-platform=Linux' -and $invocations[2].arguments -contains '-clientarchitecture=x64') 'Linux build must target x64'
     Assert-True (-not ($invocations[2].arguments -contains '-prereqs')) 'Linux package must not stage Windows prerequisites'
+
+    # Discover VS 2022 as well as 2026 and use the engine's compiler policy.
+    ${env:ProgramFiles(x86)} = Join-Path $temporary 'Program Files x86'
+    $fakeVswhere = Join-Path ${env:ProgramFiles(x86)} 'Microsoft Visual Studio\Installer\vswhere.exe'
+    New-Item -ItemType Directory (Split-Path $fakeVswhere -Parent) -Force | Out-Null
+    Set-Content $fakeVswhere 'fixture'
+    $fakeVS = Join-Path $temporary 'Visual Studio 2022'
+    $compilerRoot = Join-Path $fakeVS 'VC\Tools\MSVC'
+    $windowsSdk = Join-Path $engineFolder 'Engine\Config\Windows\Windows_SDK.json'
+    New-Item -ItemType Directory (Split-Path $windowsSdk -Parent) -Force | Out-Null
+    @{ MinimumVisualCppVersion = '14.38.33130'; BannedVisualCppVersions = @(
+        '14.50.0-14.50.35722', '14.44.0-14.44.35210', '14.40.0-14.43.99999', '14.39.0-14.39.99999') } |
+        ConvertTo-Json | Set-Content $windowsSdk
+    $failOnCall = 0
+    $compilerFolder = Join-Path $compilerRoot '14.44.35211'
+    foreach ($file in @('bin\Hostx64\x64\cl.exe', 'bin\Hostx64\x64\link.exe',
+                       'include\vector', 'lib\x64\libcmt.lib', 'atlmfc\include\atlbase.h', 'atlmfc\lib\x64\atls.lib')) {
+        $path = Join-Path $compilerFolder $file
+        New-Item -ItemType Directory (Split-Path $path -Parent) -Force | Out-Null
+        Set-Content $path 'fixture'
+    }
+    $invocations.Clear()
+    Assert-MSVC $engineFolder
+    Assert-True ($invocations[0].arguments -contains '[17.8,19.0)') 'Discover supported VS 2022 and 2026 families'
+    function Get-Item {
+        param($LiteralPath)
+        [pscustomobject]@{ VersionInfo = [pscustomobject]@{
+            ProductMajorPart = 14; ProductMinorPart = 44; ProductBuildPart = 35217 } }
+    }
+    try {
+        $version = Get-MSVCVersion ([IO.DirectoryInfo]$compilerFolder)
+        Assert-True ($version -eq [version]'14.44.35217') 'Serviced compiler product version must override its older folder family'
+    } finally { Remove-Item Function:Get-Item }
+    foreach ($version in @('14.50.35722', '14.44.35210', '14.38.33129')) {
+        $badFolder = Join-Path $compilerRoot $version
+        Move-Item $compilerFolder $badFolder
+        Assert-Throws { Assert-MSVC $engineFolder } 'No compatible MSVC'
+        Move-Item $badFolder $compilerFolder
+    }
+    $newCompiler = Join-Path $compilerRoot '14.50.35723'
+    Move-Item $compilerFolder $newCompiler
+    Assert-MSVC $engineFolder
+    Remove-Item (Join-Path $newCompiler 'atlmfc\lib\x64\atls.lib')
+    Assert-Throws { Assert-MSVC $engineFolder } 'No compatible MSVC'
+    ${env:ProgramFiles(x86)} = $savedProgramFilesX86
 
     $elf = New-Object byte[] 20
     $elf[0] = 127; $elf[1] = 69; $elf[2] = 76; $elf[3] = 70; $elf[4] = 2; $elf[5] = 1; $elf[16] = 3; $elf[18] = 62
@@ -248,6 +333,7 @@ try {
     Write-Host 'WINDOWS_HELPER_TESTS_PASS'
 } finally {
     $env:ProgramFiles = $savedProgramFiles
+    ${env:ProgramFiles(x86)} = $savedProgramFilesX86
     $env:ProgramData = $savedProgramData
     $env:USERPROFILE = $savedUserProfile
     $env:BUTLER_API_KEY = $savedButlerKey

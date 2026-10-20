@@ -7,6 +7,7 @@ import argparse
 import json
 from pathlib import Path
 import plistlib
+import re
 import subprocess
 import tempfile
 
@@ -28,6 +29,25 @@ def is_macho(path):
         return stream.read(4) in MACHO
 
 
+def check_credentials(identity, keychain_profile, sign_only=False):
+    identities = run('security', 'find-identity', '-v', '-p', 'codesigning', capture_output=True, text=True).stdout
+    available = re.findall(r'"(Developer ID Application:[^"\n]+)"', identities)
+    if identity is None and len(set(available)) == 1:
+        identity = available[0]
+    if not identity or identity not in available:
+        raise RuntimeError('Install a valid Developer ID Application certificate with its private key in Keychain; '
+                           'if several are installed, choose one with --identity "Developer ID Application: Name (TEAMID)"')
+    if not sign_only:
+        try:
+            run('xcrun', 'notarytool', 'history', '--keychain-profile', keychain_profile,
+                '--output-format', 'json', stdout=subprocess.DEVNULL)
+        except subprocess.CalledProcessError as error:
+            raise RuntimeError('Notarytool credentials unavailable or authentication failed; configure/check '
+                               'the Keychain profile with: xcrun notarytool store-credentials ' +
+                               str(keychain_profile)) from error
+    return identity
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('app', type=Path)
@@ -35,18 +55,19 @@ def main():
     parser.add_argument('--keychain-profile')
     parser.add_argument('--sign-only', action='store_true', help='Sign and verify locally; notarization will be done through Xcode Organizer')
     parser.add_argument('--check', action='store_true', help='Check prerequisites without changing the app or submitting it')
+    parser.add_argument('--scratch-directory', type=Path, help='Existing directory for the temporary submission ZIP (e.g. the build SSD)')
     args = parser.parse_args()
     if not args.sign_only and not args.keychain_profile:
         parser.error('--keychain-profile is required unless --sign-only is selected')
     app = args.app.resolve()
     if app.suffix != '.app' or not (app / 'Contents/Info.plist').is_file():
         parser.error('Pass the final packaged .app')
-    identities = run('security', 'find-identity', '-v', '-p', 'codesigning', capture_output=True, text=True).stdout
-    if not args.identity.startswith('Developer ID Application:') or f'"{args.identity}"' not in identities:
-        parser.error('Developer ID Application certificate and private key must be installed in Keychain')
-    if not args.sign_only:
-        run('xcrun', 'notarytool', 'history', '--keychain-profile', args.keychain_profile,
-            '--output-format', 'json', stdout=subprocess.DEVNULL)
+    if args.scratch_directory and not args.scratch_directory.is_dir():
+        parser.error('--scratch-directory must exist')
+    try:
+        check_credentials(args.identity, args.keychain_profile, args.sign_only)
+    except RuntimeError as error:
+        parser.error(str(error))
     if args.check:
         print('Signing identity ready' if args.sign_only else 'Signing identity and notarization credentials ready')
         return
@@ -54,7 +75,7 @@ def main():
     receipt_path = app.parent.parent / (app.stem + '-notarization.json')
     receipt = {'app': str(app), 'identity': args.identity, 'status': 'signing'}
     try:
-        with tempfile.TemporaryDirectory(prefix='rr-notarize-') as scratch:
+        with tempfile.TemporaryDirectory(prefix='rr-notarize-', dir=args.scratch_directory) as scratch:
             scratch = Path(scratch)
             entitlements = scratch / 'entitlements.plist'
             # No debugger/get-task-allow entitlement in a distributed app.
@@ -79,7 +100,7 @@ def main():
                 '--keychain-profile', args.keychain_profile, '--wait',
                 '--output-format', 'json', capture_output=True, text=True, check=False)
             receipt['submission'] = json.loads(submission.stdout)
-            if receipt['submission'].get('status') != 'Accepted':
+            if submission.returncode or receipt['submission'].get('status') != 'Accepted':
                 submission_id = receipt['submission'].get('id')
                 if submission_id:
                     run('xcrun', 'notarytool', 'log', submission_id,

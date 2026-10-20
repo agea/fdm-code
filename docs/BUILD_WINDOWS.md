@@ -23,10 +23,22 @@ helper. The project is located relative to the script, independent of cwd.
   registry/Launcher manifest or standard installation paths; override with
   `-Engine 'D:\Epic Games\UE_5.8'`. It checks the engine version, Windows Editor,
   bundled .NET, build tools and Linux target module/base-game target receipt.
-- **Visual Studio 2026 or Build Tools**, C++ desktop/game tools, **MSVC 14.50
-  x64/x86** (compiler product version **14.50.35723.0+**) and matching **ATL**.
-  Both platforms need the Windows Editor built for cooking. Visual Studio is
-  located with `vswhere`; a Developer PowerShell session is not required.
+  Windows packaging with `-prereqs` requires `vc_redist.x64.exe` and
+  `vc_redist.arm64.exe` under `Engine/Extras/Redist/en-us`. UE 5.8 stages both;
+  the older `UEPrereqSetup_x64.exe` is not required by this version.
+- **Visual Studio 2022/2026 or Build Tools**, C++ desktop/game tools, **MSVC x64
+  and matching ATL**. Both platforms need the Windows Editor built for cooking.
+  The helper reads `Engine/Config/Windows/Windows_SDK.json` for the minimum
+  compiler and banned ranges instead of requiring one compiler family. For UE
+  5.8.3, examples are **14.44.35211+ with VS 2022** or **14.50.35723+ with VS 2026**;
+  older 14.44/14.50 patches and the 14.39–14.43 families are rejected by the engine.
+  The minimum is 14.38.33130. Compiler product-version metadata is checked,
+  falling back to its folder version, as in UnrealBuildTool. Detected incompatible
+  or incomplete installations are listed with their paths and reasons.
+  In Visual Studio Installer, use **Modify → Game development with C++** and
+  **Individual components** to add/update the MSVC x64/x86 tools and corresponding
+  C++ ATL. Discovery uses `vswhere`; no Developer PowerShell session is required.
+  See [Epic's Visual Studio guide](https://dev.epicgames.com/documentation/en-us/unreal-engine/setting-up-visual-studio-development-environment-for-cplusplus-projects-in-unreal-engine).
 - **Windows SDK 10.0.22621.0+**, including x64/UCRT headers and libraries,
   resource compiler and manifest tool.
 - **Epic Linux cross-compile toolchain v26**, exactly
@@ -38,11 +50,14 @@ helper. The project is located relative to the script, independent of cwd.
   `x86_64-unknown-linux-gnu`, not its `bin` subdirectory. Alternatively use
   `-LinuxToolchain 'C:\UnrealToolchains\v26_clang-20.1.8-rockylinux8'`.
   The engine's in-tree HostWin64/Linux SDK is a fallback when the variable is unset.
-- **Python 3.12+** on PATH as `python.exe`, **Git**, **Git LFS**, and GitHub access
+- **Python 3.9+** on PATH as `python.exe`, **Git**, **Git LFS**, and GitHub access
   to all three private asset repositories. `-InitAssets` invokes the existing
   asset setup only after tool checks pass; it fetches pinned revisions/LFS and
   creates Windows directory junctions. Commit local asset edits before switching
   revisions. Existing content is not overwritten by the asset helper.
+  Python 3.9–3.11 recognize junctions through the Windows reparse tag; Python
+  3.12+ uses `Path.is_junction`. An existing correct junction can be checked or
+  mounted again without replacing it. Ordinary directories remain protected.
 - **PCGExtendedToolkit 0.79.2 for UE 5.8 with Source**, plus all enabled plugins.
   Project/Marketplace code plugins need source for the requested targets. The
   helper copies their source into the external project, drops old binaries and
@@ -89,6 +104,35 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\package-windows.ps
 `-TargetPlatform Both` is the default. `-Check` cannot be combined with
 `-InitAssets`; it never initializes assets, prepares a workspace, runs Unreal or
 pushes a build. Add `-NoUpload` to skip its Butler authentication check.
+
+## Diagnosing preflight errors
+
+Use the updated script and `setup-assets.py` together when upgrading from the
+original Python 3.12-only helper. Multiple Python installations on PATH are
+supported: the first matching executable is used, while Windows Store aliases
+later on PATH are left alone. If a Store alias is first, move the real Python
+installation before it on PATH. Python must be available as `python.exe` because
+Unreal's version-stamping step calls that name too.
+
+A missing redistributable does not mean Unreal was not found: the helper prints
+the engine path before checking individual files. Verify the engine in Epic
+Launcher only if the current `vc_redist` files or actual engine components are
+missing. The old error about `UEPrereqSetup_x64.exe` was an obsolete check.
+
+Likewise, `Cannot bind argument to parameter Path because it is null` in the
+old plugin check was a script error: a Marketplace regex overwrote PowerShell's
+automatic `$Matches` variable. The updated check retains the selected plugin
+descriptor and reports missing source/version/platforms explicitly.
+
+To isolate Windows prerequisites before installing Linux cross-compilation:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\package-windows.ps1 -TargetPlatform Windows -Check
+```
+
+For **Both**, enable the Linux platform in UE 5.8.3's Launcher installation
+options and install Epic's v26 cross-compile toolchain separately. Reopen
+PowerShell after installation and rerun `-Check` without the platform filter.
 
 ## Workspace, outputs and failures
 

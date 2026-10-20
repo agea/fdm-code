@@ -4160,3 +4160,56 @@ combat/recon LAN results remain historical.
 - No native Windows Editor/Game build, Windows-to-Linux cross-build, or target
   game startup is claimed. Both targets require validation on the Windows host
   and runtime testing on their respective operating systems.
+
+### One-command Mac release and Python 3.9 on Windows — 20 October 2026
+
+- Added `release-macos.py`: aggregated dependency/space/credential preflight,
+  isolated package, Developer ID signing, notarization, stapling, Gatekeeper and
+  Butler upload. Completed packages can retry notarization or upload separately.
+  The submission ZIP uses the release workspace disk; logs/receipts remain
+  outside the app upload directory. Single-architecture channels are distinct
+  from `mac-universal`; uploads use the packaged version.
+- Full Python fixture suite PASS: 42 tests on Python 3.14.6, including nine new
+  release workflow tests and six notarization tests. Covered build failure,
+  rejected/failed notarization, failed ticket validation, no-upload with full
+  notarization, upload failure/retry route without rebuilding/signing, version
+  mismatch, missing credentials, ambiguous identity selection, check-only with
+  no workspace mutation and submission ZIP placement on the build disk.
+- Python 3.9.6 PASS: six asset-mount tests, two desktop workspace tests and the
+  Linux snapshot archive fixture (both file and stdout streaming). Junction
+  detection now falls back to the exact Windows mount-point reparse tag on
+  Python 3.9–3.11, retaining directory/conflicting-mount protections. Streaming
+  gzip uses a separate writer for compatibility with Python 3.9's tarfile API.
+  PowerShell 7.6.7 helper regression suite PASS after lowering the Windows
+  minimum to Python 3.9. Native Windows junctions/builds still need Windows testing.
+- Real Mac **read-only preflight**: UE 5.8.3, Xcode 27.1/macOS SDK, bundled .NET,
+  plugin source, branding, 28 asset mounts, closed Editor and a valid Developer
+  ID identity were available. Release correctly stopped before build: Metal
+  Toolchain missing, Butler absent from PATH, `RespawnAndRage` notarytool Keychain
+  profile missing, and only about 13 GiB free against the 30 GiB universal-release
+  threshold. The credential check was repeated outside the restricted sandbox
+  to distinguish Keychain access restrictions from the actual missing profile.
+- No new Unreal build, signing operation, notarization submission or real itch
+  upload was performed. Runtime execution of this release remains unverified.
+
+### Windows preflight corrections from the user's log — 20 October 2026
+
+- Fixed native executable resolution when `Get-Command` returns multiple Python
+  installations: invoke only the first PATH match, retaining stderr handling and
+  exit-code checks. The Python 3.9 minimum and junction fallback remain supported.
+- Replaced the obsolete `UEPrereqSetup_x64.exe` check with both `vc_redist` files
+  actually staged by UE 5.8.3 `WinPlatform.Automation.cs`. This packaging check is
+  required only when Windows is selected; engine discovery now prints its path
+  before validating individual components.
+- MSVC discovery now covers VS 2022 and VS 2026, reads the engine's minimum and
+  banned compiler versions, and reports incomplete tools/ATL with paths. Valid
+  14.44.35211 and 14.50.35723 fixtures pass; banned 14.44.35210/14.50.35722,
+  below-minimum compilers and missing ATL fail. Product-version fields mirror
+  UBT's compiler validation, with the same folder-version fallback.
+- Fixed the plugin null-Path failure: `-match` no longer overwrites a `$matches`
+  variable containing plugin descriptors. Marketplace source/version checks pass
+  with the actual regex branch exercised, and missing source or a wrong PCGEx
+  version produces the intended diagnostic.
+- PowerShell 7.6.7 regression suite PASS on macOS, including the above cases and
+  existing package/Linux/Butler tests. `git diff --check` PASS. Windows compilation
+  and native Windows PowerShell 5.1 still require execution on the user's host.
