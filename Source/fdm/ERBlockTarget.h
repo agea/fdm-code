@@ -14,6 +14,6 @@ public:
     UPROPERTY(VisibleAnywhere) TObjectPtr<class UTextRenderComponent> Label;
     float Health = 500;
     virtual void BeginPlay() override;
-    virtual float TakeDamage(float Amount, const FDamageEvent& Event, AController* Instigator, AActor* Causer) override;
+    virtual float TakeDamage(float Amount, const FDamageEvent& Event, AController* DamageInstigator, AActor* Causer) override;
     void ResetHealth();
 };

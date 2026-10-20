@@ -29,7 +29,7 @@ void AERBlockTarget::ResetHealth()
     Health = 500;
     Label->SetText(FText::FromString(TEXT("TARGET HP 500")));
 }
-float AERBlockTarget::TakeDamage(float Amount, const FDamageEvent& Event, AController* Instigator, AActor* Causer)
+float AERBlockTarget::TakeDamage(float Amount, const FDamageEvent& Event, AController* DamageInstigator, AActor* Causer)
 {
     if (!HasAuthority() || GetNetMode() != NM_Standalone || !FMath::IsFinite(Amount) || Amount <= 0) return 0;
     const float Applied = FMath::Min(Amount, Health);

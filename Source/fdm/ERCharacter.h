@@ -82,7 +82,7 @@ public:
     // Existing engine surface; only a transient tint instance, no skin asset copies.
     UPROPERTY() TObjectPtr<class UMaterialInterface> ProtectionBaseMaterial;
     UPROPERTY(Transient) TObjectPtr<class UMaterialInstanceDynamic> ProtectionSurface;
-    class UMaterialInterface* GetUnprotectedMaterial(class UMeshComponent* Mesh, int32 Slot) const;
+    class UMaterialInterface* GetUnprotectedMaterial(class UMeshComponent* SurfaceMesh, int32 Slot) const;
     void RestoreProtectionMaterials();
     void UpdateProtectionPresentation();
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Training") TArray<TObjectPtr<class UMaterialInterface>> AlphaBodyMaterials;

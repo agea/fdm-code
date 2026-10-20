@@ -327,18 +327,18 @@ void AERPlayerController::PlayerTick(float DeltaTime)
     }
     if (!bInputAudit || !IsLocalController() || GetWorld()->GetTimeSeconds() < NextInputAuditAt) return;
     NextInputAuditAt = GetWorld()->GetTimeSeconds()+.1;
-    const auto* Character = Cast<AERCharacter>(GetPawn());
-    if (!Character || !Character->Weapon) return;
-    const FVector Position = Character->GetActorLocation();
-    const FVector Velocity = Character->GetVelocity();
-    const auto* Weapon = Character->Weapon.Get();
+    const auto* PlayerCharacter = Cast<AERCharacter>(GetPawn());
+    if (!PlayerCharacter || !PlayerCharacter->Weapon) return;
+    const FVector Position = PlayerCharacter->GetActorLocation();
+    const FVector Velocity = PlayerCharacter->GetVelocity();
+    const auto* Weapon = PlayerCharacter->Weapon.Get();
     const auto* State = GetPlayerState<AERPlayerState>();
     UE_LOG(LogTemp,Display,TEXT("ER_INPUT_AUDIT pawn=%s pos=%.1f,%.1f,%.1f vel=%.1f,%.1f crouch=%d half=%.1f camz=%.1f aim=%.1f,%.1f ammo=%d/%d reload=%d dead=%d protected=%d menu=%d scoreboard=%d kills=%d deaths=%d ctrl=%d can_crouch=%d"),
-        *Character->GetName(),Position.X,Position.Y,Position.Z,Velocity.Size2D(),Velocity.Z,Character->bIsCrouched,
-        Character->GetCapsuleComponent()->GetScaledCapsuleHalfHeight(),Character->Camera->GetComponentLocation().Z,
+        *PlayerCharacter->GetName(),Position.X,Position.Y,Position.Z,Velocity.Size2D(),Velocity.Z,PlayerCharacter->bIsCrouched,
+        PlayerCharacter->GetCapsuleComponent()->GetScaledCapsuleHalfHeight(),PlayerCharacter->Camera->GetComponentLocation().Z,
         GetControlRotation().Pitch,GetControlRotation().Yaw,Weapon->MagazineAmmo,Weapon->ReserveAmmo,Weapon->bReloading,
-        Character->Health->bDead,Character->Health->IsProtected(),bMenuOpen,bShowScoreboard,State ? State->Kills : 0,State ? State->Deaths : 0,
-        IsInputKeyDown(EKeys::LeftControl),Character->CanCrouch());
+        PlayerCharacter->Health->bDead,PlayerCharacter->Health->IsProtected(),bMenuOpen,bShowScoreboard,State ? State->Kills : 0,State ? State->Deaths : 0,
+        IsInputKeyDown(EKeys::LeftControl),PlayerCharacter->CanCrouch());
 #endif
 }
 void AERPlayerController::EndPlay(const EEndPlayReason::Type Reason)
@@ -424,15 +424,15 @@ void AERPlayerController::WalkPressed() { if (!bMenuOpen) if (auto* C = Cast<AER
 void AERPlayerController::WalkReleased() { if (auto* C = Cast<AERCharacter>(GetPawn())) Cast<UERMovement>(C->GetCharacterMovement())->bWalkHeld = false; }
 void AERPlayerController::Move(const FInputActionValue& Value)
 {
-    auto* Character = Cast<AERCharacter>(GetPawn()); if (!Character || Character->Health->bDead || bMenuOpen) return;
+    auto* PlayerCharacter = Cast<AERCharacter>(GetPawn()); if (!PlayerCharacter || PlayerCharacter->Health->bDead || bMenuOpen) return;
     const FVector2D Axis = Value.Get<FVector2D>(); const FRotator Rotation(0, GetControlRotation().Yaw, 0);
-    if(auto* M=Cast<UERMovement>(Character->GetCharacterMovement());M->IsOnLadder())
+    if(auto* M=Cast<UERMovement>(PlayerCharacter->GetCharacterMovement());M->IsOnLadder())
     {
-        if(auto* L=M->FindLadder())Character->AddMovementInput(-L->GetActorForwardVector(),Axis.Y);
+        if(auto* L=M->FindLadder())PlayerCharacter->AddMovementInput(-L->GetActorForwardVector(),Axis.Y);
         return;
     }
-    Character->AddMovementInput(Rotation.Vector(), Axis.Y);
-    Character->AddMovementInput(FRotationMatrix(Rotation).GetUnitAxis(EAxis::Y), Axis.X);
+    PlayerCharacter->AddMovementInput(Rotation.Vector(), Axis.Y);
+    PlayerCharacter->AddMovementInput(FRotationMatrix(Rotation).GetUnitAxis(EAxis::Y), Axis.X);
 }
 void AERPlayerController::ZoomPressed()
 {
@@ -463,16 +463,16 @@ void AERPlayerController::FirePressed()
     if (bMenuOpen) return;
     // Started fires once per physical press. Returning here consumes the respawn click.
     if (bAwaitingRespawn) { ServerRequestRespawn(); return; }
-    if (auto* Character = Cast<AERCharacter>(GetPawn())) { Character->SetGrenadeInputHeld(true);Character->ServerStartFire(); }
+    if (auto* PlayerCharacter = Cast<AERCharacter>(GetPawn())) { PlayerCharacter->SetGrenadeInputHeld(true);PlayerCharacter->ServerStartFire(); }
 }
-void AERPlayerController::FireReleased() { if (auto* Character = Cast<AERCharacter>(GetPawn())) { Character->SetGrenadeInputHeld(false);Character->ServerStopFire(); } }
+void AERPlayerController::FireReleased() { if (auto* PlayerCharacter = Cast<AERCharacter>(GetPawn())) { PlayerCharacter->SetGrenadeInputHeld(false);PlayerCharacter->ServerStopFire(); } }
 void AERPlayerController::JumpPressed()
 {
     if (bMenuOpen) return;
     if (bAwaitingRespawn) { ServerRequestRespawn(); return; }
-    if (auto* Character = Cast<AERCharacter>(GetPawn()); Character && !Character->Health->bDead) { Cast<UERMovement>(Character->GetCharacterMovement())->bClimbHeld = true; Character->Jump(); }
+    if (auto* PlayerCharacter = Cast<AERCharacter>(GetPawn()); PlayerCharacter && !PlayerCharacter->Health->bDead) { Cast<UERMovement>(PlayerCharacter->GetCharacterMovement())->bClimbHeld = true; PlayerCharacter->Jump(); }
 }
-void AERPlayerController::JumpReleased() { if (auto* Character = Cast<AERCharacter>(GetPawn())) { Cast<UERMovement>(Character->GetCharacterMovement())->bClimbHeld = false; Character->StopJumping(); } }
+void AERPlayerController::JumpReleased() { if (auto* PlayerCharacter = Cast<AERCharacter>(GetPawn())) { Cast<UERMovement>(PlayerCharacter->GetCharacterMovement())->bClimbHeld = false; PlayerCharacter->StopJumping(); } }
 void AERPlayerController::CrouchPressed()
 {
     auto* C = Cast<AERCharacter>(GetPawn());
@@ -493,7 +493,7 @@ void AERPlayerController::CrouchPressed()
     M->bSprintHeld = false;
 }
 void AERPlayerController::CrouchReleased() { if (auto* C = Cast<AERCharacter>(GetPawn())) C->UnCrouch(); }
-void AERPlayerController::ReloadPressed() { if (!bMenuOpen) if (auto* Character = Cast<AERCharacter>(GetPawn())) Character->ServerReload(); }
+void AERPlayerController::ReloadPressed() { if (!bMenuOpen) if (auto* PlayerCharacter = Cast<AERCharacter>(GetPawn())) PlayerCharacter->ServerReload(); }
 void AERPlayerController::ScoreboardPressed() { bShowScoreboard = true; }
 void AERPlayerController::ScoreboardReleased() { bShowScoreboard = false; }
 void AERPlayerController::MenuPressed()
@@ -683,7 +683,7 @@ void AERPlayerController::ERBlockDamage(float Amount)
     if (!HasAuthority() || !GetPawn()) return;
     FVector Eye; FRotator Aim;
     GetPawn()->GetActorEyesViewPoint(Eye, Aim);
-    if (auto* Character = Cast<AERCharacter>(GetPawn())) Eye = Character->Camera->GetComponentLocation();
+    if (auto* PlayerCharacter = Cast<AERCharacter>(GetPawn())) Eye = PlayerCharacter->Camera->GetComponentLocation();
     FHitResult Hit;
     FCollisionQueryParams Params(SCENE_QUERY_STAT(ERBlockDebug), false, GetPawn());
     if (GetWorld()->LineTraceSingleByChannel(Hit, Eye, Eye + Aim.Vector() * 10000, ECC_GameTraceChannel1, Params))
@@ -753,7 +753,7 @@ void AERPlayerController::ERBlockShot(float Energy, float Damage)
     if (!HasAuthority() || !GetPawn()) return;
     FVector Eye; FRotator Aim;
     GetPawn()->GetActorEyesViewPoint(Eye, Aim);
-    if (auto* Character = Cast<AERCharacter>(GetPawn())) Eye = Character->Camera->GetComponentLocation();
+    if (auto* PlayerCharacter = Cast<AERCharacter>(GetPawn())) Eye = PlayerCharacter->Camera->GetComponentLocation();
     FHitResult Hit;
     FCollisionQueryParams Query(SCENE_QUERY_STAT(ERBlockDebugShot), false, GetPawn());
     if (GetWorld()->LineTraceSingleByChannel(Hit, Eye, Eye + Aim.Vector() * 10000, ECC_GameTraceChannel1, Query))
@@ -769,7 +769,7 @@ void AERPlayerController::ERBlockExplosion(float Radius, float Damage)
     if (!HasAuthority() || !GetPawn()) return;
     FVector Eye; FRotator Aim;
     GetPawn()->GetActorEyesViewPoint(Eye, Aim);
-    if (auto* Character = Cast<AERCharacter>(GetPawn())) Eye = Character->Camera->GetComponentLocation();
+    if (auto* PlayerCharacter = Cast<AERCharacter>(GetPawn())) Eye = PlayerCharacter->Camera->GetComponentLocation();
     FHitResult Hit;
     FCollisionQueryParams Query(SCENE_QUERY_STAT(ERBlockDebugBlast), false, GetPawn());
     if (GetWorld()->LineTraceSingleByChannel(Hit, Eye, Eye + Aim.Vector() * 10000, ECC_GameTraceChannel1, Query))
@@ -787,7 +787,7 @@ void AERPlayerController::ERBlockGrenade()
     if (!HasAuthority() || !GetPawn()) return;
     FVector Eye; FRotator Aim;
     GetPawn()->GetActorEyesViewPoint(Eye, Aim);
-    if (auto* Character = Cast<AERCharacter>(GetPawn())) Eye = Character->Camera->GetComponentLocation();
+    if (auto* PlayerCharacter = Cast<AERCharacter>(GetPawn())) Eye = PlayerCharacter->Camera->GetComponentLocation();
     FHitResult Hit;
     FCollisionQueryParams Query(SCENE_QUERY_STAT(ERBlockDebugGrenade), false, GetPawn());
     if (GetWorld()->LineTraceSingleByChannel(Hit, Eye, Eye + Aim.Vector() * 10000, ECC_GameTraceChannel1, Query))
@@ -994,9 +994,9 @@ void UERGameInstance::HostProcedural()
     LastError.Empty();
     MapChoice=0;SessionMode=1;StartSession();
 }
-void AERPlayerController::OnPossess(APawn* Pawn)
+void AERPlayerController::OnPossess(APawn* PossessedPawn)
 {
-    Super::OnPossess(Pawn);
+    Super::OnPossess(PossessedPawn);
     TActorIterator<AERBlockRoom> Room(GetWorld());if(Room)HoldForBlockMap(*Room);
 }
 void AERPlayerController::HoldForBlockMap(AERBlockRoom* Room,bool Reposition)

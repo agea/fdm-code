@@ -28,7 +28,7 @@ public:
     UPROPERTY() TObjectPtr<class AERTeamPlayerStart> TrainingStart;
     bool bAwaitingRespawn = false;
     double RespawnAllowedAt = 0;
-    virtual void OnPossess(APawn* Pawn) override;
+    virtual void OnPossess(APawn* PossessedPawn) override;
     virtual void Tick(float DeltaTime) override;
     void ResetLife();
 private:
@@ -43,7 +43,7 @@ private:
     bool SawMotionTraversal=false;
     FVector ObstacleFace=FVector::ZeroVector;
     bool HasSight(class AERCharacter* Other) const;
-    void Patrol(class AERCharacter* Character, float DeltaTime);
-    void MovementDemo(class AERCharacter* Character,float DeltaTime);
-    bool FindMotionObstacle(class AERCharacter* Character);
+    void Patrol(class AERCharacter* BotCharacter, float DeltaTime);
+    void MovementDemo(class AERCharacter* BotCharacter,float DeltaTime);
+    bool FindMotionObstacle(class AERCharacter* BotCharacter);
 };

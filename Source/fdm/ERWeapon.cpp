@@ -662,7 +662,7 @@ void AERProjectile::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLif
     DOREPLIFETIME(AERProjectile, Payload); DOREPLIFETIME(AERProjectile, ThrownMesh);
     DOREPLIFETIME(AERProjectile,bHeld);DOREPLIFETIME(AERProjectile,FuseEndServerTime);
 }
-float AERProjectile::TakeDamage(float Amount,const FDamageEvent& Event,AController* Instigator,AActor* Causer)
+float AERProjectile::TakeDamage(float Amount,const FDamageEvent& Event,AController* DamageInstigator,AActor* Causer)
 {
     const auto* Gun=Cast<AERWeapon>(Causer);const auto* Round=Cast<AERProjectile>(Causer);
     const bool Bullet=(Gun && Gun->Data && Gun->Data->Payload==EERPayload::Bullet) || (Round && Round->Payload==EERPayload::Bullet);

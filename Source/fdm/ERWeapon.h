@@ -183,7 +183,7 @@ public:
     UFUNCTION() void OnRep_Held();
     void ReleaseHeld(const FVector& Position, const FVector& Velocity);
     static FVector SafeHandPosition(class AERCharacter* Character, bool bOverhead, const AActor* Ignore = nullptr);
-    virtual float TakeDamage(float Amount, const FDamageEvent& Event, AController* Instigator, AActor* Causer) override;
+    virtual float TakeDamage(float Amount, const FDamageEvent& Event, AController* DamageInstigator, AActor* Causer) override;
     bool HasDetonated() const { return bImpacted; }
     FVector ReleasedFrom = FVector::ZeroVector;
     FVector ReleasedVelocity = FVector::ZeroVector;

@@ -363,9 +363,9 @@ void AERCharacter::BeginPlay()
     FirstPersonRifle->AttachToComponent(FirstPersonBody, FAttachmentTransformRules::SnapToTargetNotIncludingScale, TEXT("HandGrip_R"));
     WorldRifle->AttachToComponent(GetMesh(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, TEXT("HandGrip_R"));
     FirstPersonBody->HideBoneByName(TEXT("head"), EPhysBodyOp::PBO_None);
-    if (!FirstPersonVisibleMaterialSlots.IsEmpty()) if (const auto* Mesh = FirstPersonBody->GetSkeletalMeshAsset())
-        for (int32 LOD = 0; LOD < Mesh->GetLODNum(); ++LOD)
-            for (int32 Slot = 0; Slot < Mesh->GetMaterials().Num(); ++Slot)
+    if (!FirstPersonVisibleMaterialSlots.IsEmpty()) if (const auto* BodyMesh = FirstPersonBody->GetSkeletalMeshAsset())
+        for (int32 LOD = 0; LOD < BodyMesh->GetLODNum(); ++LOD)
+            for (int32 Slot = 0; Slot < BodyMesh->GetMaterials().Num(); ++Slot)
                 FirstPersonBody->ShowMaterialSection(Slot, INDEX_NONE, FirstPersonVisibleMaterialSlots.Contains(Slot), LOD);
     for (auto* Flash : {FirstPersonMuzzleFlash.Get(), WorldMuzzleFlash.Get()})
     {
@@ -594,11 +594,11 @@ void AERCharacter::Tick(float DeltaTime)
     }
     UpdateProtectionPresentation();
 }
-UMaterialInterface* AERCharacter::GetUnprotectedMaterial(UMeshComponent* Mesh, int32 Slot) const
+UMaterialInterface* AERCharacter::GetUnprotectedMaterial(UMeshComponent* SurfaceMesh, int32 Slot) const
 {
     for (const auto& State : ProtectionSurfaces)
-        if (State.Mesh == Mesh && State.Originals.IsValidIndex(Slot)) return State.Originals[Slot];
-    return Mesh->GetMaterial(Slot);
+        if (State.Mesh == SurfaceMesh && State.Originals.IsValidIndex(Slot)) return State.Originals[Slot];
+    return SurfaceMesh->GetMaterial(Slot);
 }
 void AERCharacter::RestoreProtectionMaterials()
 {
@@ -622,16 +622,16 @@ void AERCharacter::UpdateProtectionPresentation()
         ProtectionSurface->SetVectorParameterValue(TEXT("Color"),FLinearColor(.32f,.32f,.32f));
     }
     TInlineComponentArray<UMeshComponent*> Meshes(this);
-    for (auto* Mesh : Meshes)
+    for (auto* SurfaceMesh : Meshes)
     {
         // Body, first-person arms and skin gear; weapons retain their materials.
-        if (Mesh != GetMesh() && Mesh != FirstPersonBody && !Mesh->ComponentHasTag(TEXT("ERSkinGear"))) continue;
+        if (SurfaceMesh != GetMesh() && SurfaceMesh != FirstPersonBody && !SurfaceMesh->ComponentHasTag(TEXT("ERSkinGear"))) continue;
         auto& State=ProtectionSurfaces.AddDefaulted_GetRef();
-        State.Mesh=Mesh;
-        for (int32 Slot=0; Slot<Mesh->GetNumMaterials(); ++Slot)
+        State.Mesh=SurfaceMesh;
+        for (int32 Slot=0; Slot<SurfaceMesh->GetNumMaterials(); ++Slot)
         {
-            State.Originals.Add(Mesh->GetMaterial(Slot));
-            Mesh->SetMaterial(Slot,ProtectionSurface);
+            State.Originals.Add(SurfaceMesh->GetMaterial(Slot));
+            SurfaceMesh->SetMaterial(Slot,ProtectionSurface);
         }
     }
 }

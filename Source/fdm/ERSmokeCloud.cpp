@@ -24,7 +24,7 @@
 namespace
 {
 constexpr int32 NX=16, NY=16, NZ=8;
-constexpr int32 Count=NX*NY*NZ;
+constexpr int32 SmokeCellCount=NX*NY*NZ;
 int32 Index(int32 X,int32 Y,int32 Z) { return X+NX*(Y+NY*Z); }
 }
 
@@ -118,8 +118,8 @@ void AERSmokeCloud::RebuildContainment()
 {
     const FVector Cell=SimSize/FVector(NX,NY,NZ);
     const FVector Min=VolumeOrigin-FVector(SimSize.X*.5f,SimSize.Y*.5f,0);
-    TArray<uint8> Free; Free.Init(0,Count); Occupancy.Init(0,Count);
-    TArray<FVector> Centers; Centers.SetNum(Count);
+    TArray<uint8> Free; Free.Init(0,SmokeCellCount); Occupancy.Init(0,SmokeCellCount);
+    TArray<FVector> Centers; Centers.SetNum(SmokeCellCount);
     FCollisionQueryParams Query(SCENE_QUERY_STAT(ERSmokeContainment),false,this);
     const FCollisionObjectQueryParams Objects(ECC_WorldStatic);
     // Conservative whole-cell overlap prevents a cell spanning a thin wall.

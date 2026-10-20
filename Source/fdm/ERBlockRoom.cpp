@@ -113,7 +113,7 @@ void AERBlockRoom::ConfigureFloors()
     if (FloorSurface) Floor->SetMaterial(0, FloorSurface);
 }
 FString AERBlockRoom::GetLayoutStatistics() const { return FString::Printf(TEXT("seed=%d rooms=1 openings=0"), Config.Seed); }
-float AERBlockRoom::TakeDamage(float Amount, const FDamageEvent& Event, AController* Instigator, AActor* Causer)
+float AERBlockRoom::TakeDamage(float Amount, const FDamageEvent& Event, AController* DamageInstigator, AActor* Causer)
 {
     if (!Event.IsOfType(FPointDamageEvent::ClassID)) return 0;
     const auto& Point = static_cast<const FPointDamageEvent&>(Event);

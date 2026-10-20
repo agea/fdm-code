@@ -103,7 +103,7 @@ void AERReconDrone::Tick(float DeltaSeconds)
     const float Yaw = Direction.SizeSquared2D()>.001 ? Direction.Rotation().Yaw : (Flight.Team==EERTeam::Omega ? 180.f : 0.f);
     SetActorLocationAndRotation(Position, FRotator(0,Yaw,0));
 }
-float AERReconDrone::TakeDamage(float Amount, const FDamageEvent& Event, AController* Instigator, AActor* Causer)
+float AERReconDrone::TakeDamage(float Amount, const FDamageEvent& Event, AController* DamageInstigator, AActor* Causer)
 {
     const auto* Weapon = Cast<AERWeapon>(Causer);
     if (!HasAuthority() || bShotDown || Amount <= 0 || !Event.IsOfType(FPointDamageEvent::ClassID) ||

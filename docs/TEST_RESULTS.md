@@ -4242,3 +4242,24 @@ combat/recon LAN results remain historical.
   PASS on Python 3.9.6, including idempotence and preservation of conflicting
   data/links. `git diff --check` PASS. Native Windows junction/build execution
   remains to be confirmed on the Windows host.
+
+### Windows Editor compiler failures from user log — 20 October 2026
+
+- The supplied `editor.log` contains 43 MSVC errors: 24 C4458 inherited-member
+  shadowing diagnostics, 18 C4459 diagnostics caused by the anonymous-namespace
+  smoke-grid `Count`, and one C4805 mixed bool/int bitmask diagnostic. The final
+  `OtherCompilationError`/exit 6 is the summary; C4996 deprecations are warnings.
+- Renamed only local variables/ordinary parameter names and the private smoke
+  grid count; preserved reflected properties, asset paths, function types and
+  gameplay. Cell layout flags now explicitly use uint32 before bit operations.
+  No warning suppression or engine/plugin edits were introduced.
+- PASS: all nine affected translation units checked with Apple Clang C++20 and
+  the installed UE 5.8.3 Editor compilation response files (`-fsyntax-only`,
+  existing warning-as-error flags). Source copies, logs and command receipts are
+  in `/private/tmp/rr-windows-compile-validation-20261020`; the existing Mac build
+  snapshot and its outputs were read only.
+- PASS: the actual cell-flags expression extracted from ERCellWorld.cpp retains
+  all 16 expected flag values under clang-cl C++20 `/W4 /WX /Zs`.
+- Native MSVC/Win64 compilation, linking, cooking and packaging were not run on
+  this Mac. The Windows host must rerun the build with the corrected sources;
+  the failed build workspace contains its previous source copy.

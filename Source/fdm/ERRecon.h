@@ -86,7 +86,7 @@ public:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly) TObjectPtr<class UStaticMeshComponent> Body;
     UPROPERTY(Replicated) FERDroneFlight Flight;
     virtual void Tick(float DeltaSeconds) override;
-    virtual float TakeDamage(float Amount, const FDamageEvent& Event, AController* Instigator, AActor* Causer) override;
+    virtual float TakeDamage(float Amount, const FDamageEvent& Event, AController* DamageInstigator, AActor* Causer) override;
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
     static FVector FlightPosition(const FERDroneFlight& Route, double ServerTime);
     TWeakObjectPtr<class AERReconDirector> Director;

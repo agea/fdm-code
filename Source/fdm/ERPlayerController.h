@@ -109,7 +109,7 @@ public:
     bool bMenuOpen = false;
     virtual void BeginPlay() override;
     virtual void PlayerTick(float DeltaTime) override;
-    virtual void OnPossess(APawn* Pawn) override;
+    virtual void OnPossess(APawn* PossessedPawn) override;
     void HoldForBlockMap(class AERBlockRoom* Room,bool Reposition=false);
     UFUNCTION(Server,Reliable) void ServerBlockProbeReport(class AERBlockNetworkProbe* Probe,int32 Stage,uint32 Epoch,uint32 Sequence,uint32 Digest,bool Passed);
     UFUNCTION(Server,Reliable) void ServerBlockMapReady(class AERBlockRoom* Room,uint32 Epoch);
