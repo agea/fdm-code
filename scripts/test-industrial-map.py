@@ -6,12 +6,15 @@ p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--game',action='store_true');p.add_argument('--render',action='store_true')
 p.add_argument('--finish-gallery',action='store_true',help='Quick intact Factory material captures; no movement or destruction probe');p.add_argument('--network',action='store_true');p.add_argument('--gallery',action='store_true')
 p.add_argument('--rule',type=int,choices=[0,1,2,3],default=3);p.add_argument('--seed',type=int,default=42)
-args=p.parse_args();args.render|=args.gallery or args.finish_gallery
+p.add_argument('--executable',type=Path,help='Test a packaged Development game instead of UnrealEditor')
+p.add_argument('--offscreen',action='store_true',help='Use real rendering without showing a game window')
+args=p.parse_args();args.render|=args.gallery or args.finish_gallery or args.offscreen
 if args.finish_gallery and args.network:p.error("Finish gallery is standalone")
+if args.executable and not(args.game or args.render or args.network):p.error('--executable requires --game, --render or --network')
 root=Path(__file__).resolve().parents[1];out=root/'Saved/Testing';out.mkdir(parents=True,exist_ok=True)
 exe=Path(os.environ.get('UE_ROOT','/Users/Shared/Epic Games/UE_5.8'))/'Engine/Binaries/Mac/UnrealEditor.app/Contents/MacOS/UnrealEditor'
-common=[str(exe),str(root/'RespawnAndRage.uproject'),'-nosound','-unattended','-NoSplash','-Multiprocess','-stdout','-FullStdOutLogOutput']
-label='industrial'+('-network' if args.network else '-game' if args.game or args.render else '-automation')+('-metal' if args.render else '')
+common=([str(args.executable.resolve())] if args.executable else [str(exe),str(root/'RespawnAndRage.uproject')])+['-nosound','-unattended','-NoSplash','-Multiprocess','-stdout','-FullStdOutLogOutput']
+label='industrial'+('-network' if args.network else '-game' if args.game or args.render else '-automation')+('-packaged' if args.executable else '')+('-metal' if args.render else '')
 if not(args.game or args.render or args.network):
     path=out/(label+'.log')
     with path.open('w') as f:
@@ -25,6 +28,8 @@ def launch(role,url,render=False,extra=()):
     path=out/(label+'-'+role+'.log');paths[role]=path;f=path.open('w');handles.append(f)
     command=common+[url,'-game','-windowed','-ResX=1280','-ResY=720','-ExecCmds=t.MaxFPS 60,sg.GlobalIlluminationQuality 0,sg.ReflectionQuality 0,sg.ShadowQuality 1']+list(extra)
     if not render:command.append('-nullrhi')
+    if render and args.offscreen:command.append('-RenderOffscreen')
+    if args.executable:command.append('-UserDir='+str(out/(label+'-user-'+role)))
     proc=subprocess.Popen(command,stdout=f,stderr=subprocess.STDOUT);children.append(proc);return proc
 def read(role):return paths[role].read_text(errors='replace')
 def wait_for(marker,timeout=150):

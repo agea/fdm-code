@@ -118,7 +118,13 @@ python3 scripts/package-macos.py --resume ../builds/macos/<timestamp>
 
 A resume keeps the existing snapshot, so later edits in the live checkout do not
 enter that attempt. Start a fresh build to include newer source or asset edits.
-An attempt whose generated files were cleaned cannot be resumed.
+An attempt marked `scratch_removed=true` after full cleanup cannot be resumed.
+
+To limit peak disk use, the helper removes completed Editor object/PCH files
+after successful linking, retaining the Editor binaries and generated headers
+needed for cooking. On the separate ApplePostBuildSync route it also removes
+Game object/PCH files after finalization, before the -skipbuild cook. These
+changes affect only the isolated snapshot; removed byte counts enter its receipt.
 
 UE 5.8.3 on macOS 27 / Xcode 27 has a known closed-stdin failure during Xcode
 app finalization. The script automatically runs `ApplePostBuildSync` outside UBA
@@ -148,3 +154,103 @@ icon. Intel execution and a Shipping package have not yet been tested.
 The generated app is locally signed; Developer ID signing and notarization for
 public distribution are separate steps. No upload to itch.io is performed by
 the local build command.
+
+## Developer ID distribution and notarization
+
+The 19 October request authorizes Mac/Linux builds and distribution on the
+existing itch.io page. For Mac, install a **Developer ID Application** certificate
+and its private key in the login Keychain (Xcode Settings → Accounts → Manage
+Certificates). An Apple Developer account alone does not install an identity.
+Confirm it with `security find-identity -v -p codesigning`.
+
+Create a notarytool Keychain profile locally; enter credentials only in its
+interactive prompts, never in source files or chat:
+
+```sh
+xcrun notarytool store-credentials RespawnAndRage
+```
+
+Use the Apple ID associated with the developer team, an app-specific password
+and that team's ID. A supported App Store Connect API key is an alternative.
+Run the helper against the final isolated build, using the exact identity name:
+
+```sh
+python3 scripts/notarize-macos.py /absolute/path/to/build/dist/RespawnAndRage.app \
+  --identity 'Developer ID Application: Your Name (TEAMID)' \
+  --keychain-profile RespawnAndRage --check
+
+# Signs the app in place, submits to Apple, staples and checks Gatekeeper:
+python3 scripts/notarize-macos.py /absolute/path/to/build/dist/RespawnAndRage.app \
+  --identity 'Developer ID Application: Your Name (TEAMID)' \
+  --keychain-profile RespawnAndRage
+```
+
+Nested Mach-O files and bundles are signed from the inside out, with a secure
+timestamp and hardened runtime. Debugger entitlements are removed. The helper
+requires Apple's Accepted status, validates the stapled ticket, checks the final
+signature and runs `spctl --assess`. Receipt and rejection diagnostics live next
+to `dist`, keeping the upload directory limited to the app. If hardened runtime
+exposes an engine/library requirement, diagnose it with the packaged startup
+test before granting any additional entitlement.
+
+After success, run a packaged Metal startup/gameplay check, then upload the
+unchanged app using `unreal-builder/scripts/publish-mac-itch.py`. Do not modify
+the signed bundle after notarization. A notarized app can still display macOS's
+ordinary first-open confirmation; the expected experience does not require an
+override in Privacy & Security. Verify a browser-downloaded copy on another Mac.
+
+Apple references: [Developer ID](https://developer.apple.com/developer-id/),
+[notarization](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution),
+[common issues](https://developer.apple.com/documentation/security/resolving-common-notarization-issues).
+
+Local Developer ID creation requires the team's Account Holder. An Admin account
+may instead use Xcode Organizer cloud signing if it has the dedicated cloud-managed
+Developer ID permission. Apple Distribution is for App Store distribution and is
+not a replacement for Developer ID when delivering directly through itch.io.
+See [Developer ID roles](https://developer.apple.com/help/account/certificates/create-developer-id-certificates/).
+
+With an authenticated Xcode account, `--sign-only` is an alternative first step
+before Organizer's Developer ID → Upload workflow. Its receipt deliberately says
+`signed-not-yet-notarized`. Export the notarized app from Organizer, then validate
+its stapled ticket and Gatekeeper assessment before uploading it. A local
+Developer ID signature alone does not satisfy the distribution requirement.
+If xcodebuild reports `No Accounts` / missing `Xcode-Token`, refresh the account
+through Xcode's UI; never extract its private authentication material.
+
+## Linux snapshot with Marketplace dependencies
+
+The cached Fargate Linux engine does not contain plugins installed in the local
+Mac engine through Fab. Create the private input using the game helper:
+
+```sh
+python3 scripts/archive-linux-project.py /private/tmp/rr-linux-project.tar.gz --check
+python3 scripts/archive-linux-project.py /private/tmp/rr-linux-project.tar.gz
+```
+
+Enabled Marketplace dependencies (currently PCGExtendedToolkit0.79.2) are included
+as source-only project plugins. Binaries and Intermediate are excluded, and the
+disposable plugin descriptor has Installed=false so Linux compiles its own code.
+The installed Mac engine is preserved. The snapshot records plugin versions and
+descriptor hashes in Build/ExternalPlugins.json. Do not commit the input archive
+or acquired plugin sources to this public repository.
+
+Upload this input privately, then run the existing Linux itch publisher task using
+unreal-builder/scripts/run-task.py with --project-key and --publish-itch. Compilation,
+cook, archive creation and channel upload run entirely on Fargate. The local
+source archive can be removed after its S3 object has been verified. The helper
+does not change the itch.io page's visibility or password protection.
+
+To avoid a second local content archive, pass `-` as the output and pipe stdout
+to `aws s3 cp - s3://<private-bucket>/inputs/<release>/project.tar.gz`. Use
+`set -o pipefail` so failure on either side fails the transfer. Diagnostics go
+to stderr; stdout contains only gzip data. Verify the resulting S3 object
+before starting the Fargate task.
+
+The packaging configuration explicitly includes MainMenu, Depot and
+CentralBuilding. These maps are selected at runtime, so the default menu's
+asset dependency closure is insufficient. The Mac helper also passes the map
+list explicitly to UAT. If only the cook configuration needs correction,
+update that configuration in the isolated snapshot and use `--resume <run>
+--recook-only`; this reuses linked binaries after the object cleanup described
+above. Validate actual packaged map startup, rather than treating UAT success
+as evidence that every playable map is present.

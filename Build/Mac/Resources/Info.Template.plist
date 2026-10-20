@@ -9,6 +9,8 @@
 		<key>NSAllowsArbitraryLoads</key>
 		<true/>
 	</dict>
+	<key>NSLocalNetworkUsageDescription</key>
+	<string>Find LAN servers and host multiplayer matches with players on your local network.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 </dict>

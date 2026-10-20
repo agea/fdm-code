@@ -1,0 +1,176 @@
+#include "ERLobbyProbe.h"
+#include "ERPlayerController.h"
+#include "ERCharacter.h"
+#include "ERMatch.h"
+#include "ERWeapon.h"
+#include "ERBlockRoom.h"
+#include "EngineUtils.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
+#include "Misc/Paths.h"
+#include "UnrealClient.h"
+#include "Engine/Engine.h"
+#include "GameFramework/GameUserSettings.h"
+#include "Misc/ConfigCacheIni.h"
+
+AERLobbyProbe::AERLobbyProbe() { bReplicates = true; bAlwaysRelevant = true; PrimaryActorTick.bCanEverTick = true; }
+void AERLobbyProbe::Check(bool Value, const TCHAR* Label)
+{
+    Failed |= !Value;
+    UE_LOG(LogTemp, Display, TEXT("ER_LOBBY_%s %s"), Value ? TEXT("PASS") : TEXT("FAIL"), Label);
+}
+void AERLobbyProbe::Tick(float DeltaTime)
+{
+    Super::Tick(DeltaTime);
+#if !UE_BUILD_SHIPPING
+    auto* GI = GetGameInstance<UERGameInstance>();
+    auto* PC = Cast<AERPlayerController>(GetWorld()->GetFirstPlayerController());
+    if (!GI || !PC || !PC->IsLocalController()) return;
+    if (FParse::Param(FCommandLine::Get(), TEXT("ERSettingsWrite")) || FParse::Param(FCommandLine::Get(), TEXT("ERSettingsRead")))
+    {
+        if (GetWorld()->GetTimeSeconds() < 2 || Phase) return;
+        Phase = 1;
+        const bool Write = FParse::Param(FCommandLine::Get(), TEXT("ERSettingsWrite"));
+        auto* Settings = GEngine->GetGameUserSettings();
+        if (Write)
+        {
+            Check(Settings->GetFullscreenMode() == EWindowMode::WindowedFullscreen, TEXT("first_launch_fullscreen"));
+            PC->ApplyDisplaySize(60);
+            GI->SetSoundVolume(.67f); GI->SetMusicVolume(.27f); GI->SaveMusicVolume();
+            GI->SetMouseSensitivity(.36f); GI->SetMouseAcceleration(.19f); GI->SaveMouseSensitivity();
+            GI->MaxPlayers = 23; GI->SaveServerSettings();
+            GI->LocalName = TEXT("Saved Recruit"); GI->PlayerTeam = 1; GI->SaveProfile();
+        }
+        else
+        {
+            Check(GI->MaxPlayers == 23, TEXT("server_capacity_survives_restart"));
+            Check(Settings->GetFullscreenMode() == EWindowMode::Windowed, TEXT("saved_window_mode_restored"));
+            const auto Display = PC->GetDisplayResolution();
+            Check(Settings->GetScreenResolution() == FIntPoint(FMath::RoundToInt(Display.X * .6f), FMath::RoundToInt(Display.Y * .6f)), TEXT("saved_resolution_restored"));
+            Check(FMath::IsNearlyEqual(GI->GetSoundVolume(), .67f) && FMath::IsNearlyEqual(GI->GetMusicVolume(), .27f), TEXT("sound_settings_survive_restart"));
+            Check(FMath::IsNearlyEqual(GI->GetMouseSensitivity(), .36f) && FMath::IsNearlyEqual(GI->GetMouseAcceleration(), .19f), TEXT("input_settings_survive_restart"));
+            Check(GI->LocalName == TEXT("Saved Recruit") && GI->PlayerTeam == 1, TEXT("profile_survives_restart"));
+        }
+        UE_LOG(LogTemp, Display, TEXT("ER_SETTINGS_COMPLETE %s result=%s ini=%s"), Write ? TEXT("write") : TEXT("read"), Failed ? TEXT("FAIL") : TEXT("PASS"), *GGameUserSettingsIni);
+        FPlatformMisc::RequestExitWithStatus(false, Failed ? 1 : 0);
+        return;
+    }
+    const double GalleryTime = GetWorld()->GetTimeSeconds();
+    if (FParse::Param(FCommandLine::Get(), TEXT("ERMenuGallery")))
+    {
+        if (GalleryTime < 3) return;
+        if (GetNetMode() == NM_ListenServer)
+        {
+            if (Phase == 0) { PC->ERMenu(0); Phase = 1; Deadline = GalleryTime + 3; }
+            else if (Phase == 1 && GalleryTime > Deadline)
+            { FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir() / TEXT("Screenshots/Menu/lobby.png"), true, false); Phase = 2; Deadline = GalleryTime + 2; }
+            else if (Phase == 2 && GalleryTime > Deadline) { UE_LOG(LogTemp, Display, TEXT("ER_MENU_GALLERY_COMPLETE")); FPlatformMisc::RequestExit(false); }
+            return;
+        }
+        static const int32 Pages[] = {0, 7, 1, 2, 4, 5, 6, 3};
+        static const TCHAR* Names[] = {TEXT("home"),TEXT("credits"),TEXT("offline"),TEXT("server"),TEXT("setup"),TEXT("character"),TEXT("equipment"),TEXT("search")};
+        const int32 Index = Phase / 2;
+        if (Index >= UE_ARRAY_COUNT(Pages)) { GI->CancelLANSearch(); GI->StartLANServer(); return; }
+        if (Phase % 2 == 0 && GalleryTime >= Deadline)
+        {
+            if (Pages[Index] == 2) GI->AlphaBots = GI->OmegaBots = 0;
+            if (Pages[Index] == 3) GI->FindLANServer();
+            PC->ERMenu(Pages[Index]); ++Phase; Deadline = GalleryTime + 3;
+        }
+        else if (Phase % 2 == 1 && GalleryTime >= Deadline)
+        {
+            FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir() / (FString(TEXT("Screenshots/Menu/")) + Names[Index] + TEXT(".png")), true, false);
+            ++Phase; Deadline = GalleryTime + 1;
+        }
+        return;
+    }
+    const bool Host = FParse::Param(FCommandLine::Get(), TEXT("ERLobbyProbeHost"));
+    const bool Timeout = FParse::Param(FCommandLine::Get(), TEXT("ERLobbyProbeTimeout"));
+    int32 VotedMap = 1; FParse::Value(FCommandLine::Get(), TEXT("ERLobbyProbeMap="), VotedMap);
+    int32 Client = 0; FParse::Value(FCommandLine::Get(), TEXT("ERLobbyProbeClient="), Client);
+    const double Now = GetWorld()->GetTimeSeconds();
+    auto* GS = GetWorld()->GetGameState<AERGameState>();
+    if (Now < 1 || !GS) return;
+    if (PC->IsMenuLevel() && GetNetMode() == NM_Standalone)
+    {
+        if (Phase == 0)
+        {
+            Phase = 1;
+            GI->LocalName = Host ? TEXT("LobbyHost") : FString::Printf(TEXT("LobbyClient%d"), Client);
+            if (Host) { GI->AlphaBots = 1; GI->OmegaBots = 0; GI->StartLANServer(); }
+            else GI->FindLANServer();
+        }
+        if (Timeout && Phase == 1 && !GI->IsSearchingLAN())
+        {
+            Check(GI->LastError.Contains(TEXT("30 seconds")), TEXT("discovery_timeout_has_actionable_status"));
+            Phase = 99;
+            FPlatformMisc::RequestExitWithStatus(false, Failed ? 1 : 0);
+        }
+        return;
+    }
+    if (GS->bLobby)
+    {
+        if (!PC->GetPlayerState<AERPlayerState>()) return;
+        if (Phase == 0)
+        {
+            Check(!PC->GetPawn(), TEXT("lobby_has_no_gameplay_pawn"));
+            PC->ServerSetName(Host ? TEXT("LobbyHost") : FString::Printf(TEXT("LobbyClient%d"), Client));
+            PC->ServerLobbyTeam(Host ? 0 : 1);
+            PC->ServerSetSkins(2, 3);
+            PC->ServerSetPrimary(4);
+            PC->ServerSetSupplies(5, 4, 3, 2);
+            PC->ServerLobbyVote(VotedMap);
+            Phase = 1; Deadline = Now + 1;
+        }
+        if (Phase == 1 && Now > Deadline && Host && GS->PlayerArray.Num() == 3)
+        {
+            PC->ServerLobbyReady(true);
+            Check(!GS->bLobbyStarting, TEXT("one_of_three_ready_does_not_start"));
+            Phase = 2; Deadline = Now + 2;
+        }
+        if (Phase == 1 && Now > Deadline && Client == 1 && GS->PlayerArray.Num() == 3)
+        {
+            bool HostReady = false;
+            for (auto Item : GS->PlayerArray) if (auto* PS = Cast<AERPlayerState>(Item); PS && PS->GetPlayerName() == TEXT("LobbyHost")) HostReady = PS->bLobbyReady;
+            if (HostReady)
+            {
+                Phase = 2; Deadline = Now + 2;
+            }
+        }
+        else if (Phase == 2 && Client == 1 && Now > Deadline)
+        { PC->ServerLobbyReady(true); Phase = 3; }
+        return;
+    }
+    if (!PC->IsMenuLevel() && Now > 4 && Phase < 90)
+    {
+        if (!PC->GetPawn() || GS->PlayerArray.Num() < 3) return;
+        if (VotedMap == 0)
+        {
+            TActorIterator<AERBlockRoom> Room(GetWorld());
+            if (!Room || !Room->IsMapReady() || PC->IsBlockMapLoading()) return;
+            if (Host) for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
+                if (auto* Remote = Cast<AERPlayerController>(It->Get()); Remote && !Remote->IsLocalController() && Remote->AcknowledgedBlockEpoch != Room->GetMapEpoch()) return;
+        }
+        const auto* PS = PC->GetPlayerState<AERPlayerState>();
+        if (!PS) return;
+        if (VotedMap == 0) Check(true, TEXT("generated_geometry_ready_on_all_peers"));
+        Check(GetWorld()->GetMapName().Contains(VotedMap == 0 ? TEXT("L_CentralBuilding") : TEXT("L_Depot")), TEXT("voted_map_loaded"));
+        Check(PS->Team == (Host ? EERTeam::Alpha : EERTeam::Omega), TEXT("team_survives_travel"));
+        Check(PS->AlphaSkin == 2 && PS->OmegaSkin == 3 && PS->PrimaryWeapon == 4, TEXT("skin_and_weapon_survive_travel"));
+        Check(PS->SpareMagazines == 5 && PS->HECount == 4 && PS->SmokeCount == 3 && PS->StunCount == 2, TEXT("supplies_survive_travel"));
+        const auto* C = Cast<AERCharacter>(PC->GetPawn());
+        if (!C || C->Inventory.Num() != 10 || !C->Inventory[4] || !C->Inventory[8] || !C->Inventory[9]) return;
+        Check(C->Inventory[4]->ReserveAmmo == C->Inventory[4]->Data->MagazineSize * 5, TEXT("magazines_applied_on_server"));
+        Check(C->Inventory[8]->MagazineAmmo + C->Inventory[8]->ReserveAmmo == 4, TEXT("he_count_applied"));
+        Check(C->Inventory[9]->MagazineAmmo + C->Inventory[9]->ReserveAmmo == 3, TEXT("smoke_count_applied"));
+        if (Host)
+        {
+            auto* Mode = GetWorld()->GetAuthGameMode<AERGameMode>();
+            Check(Mode && Mode->GetNumPlayers() == 3 && Mode->GetNumTestBots() == 1, TEXT("humans_and_test_bot_arrive"));
+        }
+        UE_LOG(LogTemp, Display, TEXT("ER_LOBBY_PROBE_COMPLETE result=%s"), Failed ? TEXT("FAIL") : TEXT("PASS"));
+        Phase = 90; Deadline = Now + (Host ? 8 : 2);
+    }
+    if (Phase == 90 && Now > Deadline) FPlatformMisc::RequestExitWithStatus(false, Failed ? 1 : 0);
+#endif
+}

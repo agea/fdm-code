@@ -37,7 +37,7 @@ def wait_for(name, needle, seconds=60, count=1):
 
 
 try:
-    map_url = "/Game/EclipseRecoil/Maps/L_Depot?listen" + ("?ERBots=3?ERBotMode=Target" if with_bots else "")
+    map_url = "/Game/EclipseRecoil/Maps/L_Depot?listen?ERMaxPlayers=4" + ("?ERBots=3?ERBotMode=Target" if with_bots else "")
     host = launch("admission-host", [map_url, "-port=17778"])
     wait_for("admission-host", "listening on port 17778")
     if with_bots:

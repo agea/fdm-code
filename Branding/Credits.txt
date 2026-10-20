@@ -1,0 +1,117 @@
+TYPOGRAPHY
+Teko — The Teko Project Authors
+Copyright 2023. SIL Open Font License 1.1.
+Menu typeface: static SemiBold 600 instance adapted from the variable original.
+https://github.com/googlefonts/teko
+https://openfontlicense.org/open-font-license-official-text/
+
+CHARACTERS & ANIMATION
+Paragon: Twinblast, Drongo, Phase and Lt. Belica — Epic Games
+Adapted team materials, skins, retargeted locomotion, ragdolls and first-person forearms.
+Unreal Engine First Person / Shooter templates and Content Examples — Epic Games.
+https://www.fab.com/sellers/Epic%20Games
+
+WEAPONS — DJMaesen
+knife Animated, animated pistol, shotgun animated, fps animated carbine and sniper animated — DJMaesen (bumstrum).
+Creative Commons Attribution 4.0. Adapted meshes, materials, first-person poses and animation playback.
+https://sketchfab.com/3d-models/knife-animated-f3140db917cc43389c14b5b2536c1dc8
+https://sketchfab.com/3d-models/animated-pistol-bd896167e7ca44f19597d3afe6a8d83f
+https://sketchfab.com/3d-models/shotgun-animated-c3d3cf425869463a84d650c15e3af0d2
+https://sketchfab.com/3d-models/fps-animated-carbine-62977bb4c53047a185b9f3a0cdf56b87
+https://sketchfab.com/3d-models/sniper-animated-eae1ba5b43ae4bc89b0647fb5d8a2d27
+https://creativecommons.org/licenses/by/4.0/
+
+WEAPONS — SMG
+SMG FPS Animations — Cransh (ccransh).
+Masterpiece Arms 30 SST SMG model — eNse7en. First-person arms — DJMaesen.
+Creative Commons Attribution 4.0. Adapted mesh, materials, poses and animation playback.
+https://sketchfab.com/3d-models/smg-fps-animations-ca37ea9148dc4fcc9cc632175d311b23
+https://creativecommons.org/licenses/by/4.0/
+
+WEAPONS — ASSAULT RIFLE
+Ar15 — wburton (wburton95).
+Creative Commons Attribution 4.0. Adapted mesh, materials, poses and animation playback.
+https://sketchfab.com/3d-models/ar15-924e1cc70ce34c8887c3031f7658889b
+https://creativecommons.org/licenses/by/4.0/
+
+WEAPONS — GRENADE LAUNCHER
+Milkor M32 MGL - Animated — user77.
+Weapon model — JaumWF. Arms and animations — DJMaesen.
+Creative Commons Attribution-NonCommercial 4.0, as recorded in the supplied model metadata.
+Adapted skeletal mesh, materials, projectile and animation playback.
+https://sketchfab.com/3d-models/milkor-m32-mgl-animated-c1ec177cde0948f0a4b4b53b9be8aadd
+https://sketchfab.com/3d-models/milkor-m32-mgl-b27a628949b248399958e2fe8417421e
+https://sketchfab.com/3d-models/grenadelauncher-animated-f05bbd6934c84c1eac6053e0513e3b16
+https://creativecommons.org/licenses/by-nc/4.0/
+
+WEAPONS — GRENADES
+Game ready grenades set — Riskyerick.
+Sketchfab Free Standard license, as recorded with the original download.
+Adapted meshes and materials for in-game grenades.
+https://sketchfab.com/3d-models/game-ready-grenades-set-28730661f0b14cd39aed24c830120db5
+https://sketchfab.com/licenses
+
+RECON — DRONE
+S9 drone — blockv_lb.
+Creative Commons Attribution 4.0.
+Changes: static mesh conversion, centering and rescaling, recreated source-color materials; hull and four arm/rotor fragments for cosmetic debris.
+https://skfb.ly/6SSyD
+https://creativecommons.org/licenses/by/4.0/
+
+RECON — EQUIPMENT CASE
+Pelican Case Game Ready — polbrainstorm.
+Creative Commons Attribution 4.0.
+Changes: static mesh conversion, centering and rescaling, lid and lock aligned closed; original PBR textures retained.
+https://skfb.ly/6xwPJ
+https://creativecommons.org/licenses/by/4.0/
+
+EFFECTS
+Bullet Interactive Smoke — Theos.
+Adapted Niagara smoke simulation, materials and integration.
+https://www.fab.com/listings/34604c10-bd96-44be-a2be-8b8233774eac
+Bomb Crack_Ground_00 (Free) — Paul Yang.
+Adapted baked flying fragments; source floor excluded.
+https://www.fab.com/listings/ad281506-98a2-40b7-a5e8-f3fde43870b1
+Content Examples effects — Epic Games.
+
+ENVIRONMENTS
+Factory Environment Collection — Denys Rutkovskyi.
+Adapted industrial meshes, materials, container finishes and ladder surfaces.
+https://www.fab.com/listings/2ee66462-8c2b-4303-892c-83f7fc0d9b3e
+
+TEXTURES — POLY HAVEN
+Red Brick 03, Concrete Wall 006, Wood Planks, Stone Wall 02, Rusty Metal 04, Floor Tiles 02, Wood Floor and Asphalt 02.
+CC0 1.0. Adapted to the game's world-aligned materials.
+https://polyhaven.com
+https://creativecommons.org/publicdomain/zero/1.0/
+
+TEXTURES — ambientCG
+Plaster 001 and Office Ceiling 001.
+CC0 1.0. Adapted to the game's world-aligned materials.
+https://ambientcg.com
+https://creativecommons.org/publicdomain/zero/1.0/
+
+AUDIO & MUSIC
+RR-Menu-Loop — supplied by the project owner for the game menu.
+Sonniss GDC 2024 audio bundle — grenade1.wav and smoke_1.wav, supplied by the project owner.
+Adapted mono conversion, timing and smoke fade.
+https://sonniss.com/gameaudiogdc
+
+ENGINE & TOOLS
+Unreal Engine — Epic Games.
+PCG Extended Toolkit (PCGEx) — Timothé Lapetite (Nebukam).
+https://www.unrealengine.com
+https://github.com/Nebukam/PCGExtendedToolkit
+
+ADDITIONAL SOURCE CREDITS
+Low Poly Weapons VOL.1 — Simon Mercuzot. Additional arsenal assets and source materials.
+https://www.fab.com/listings/a1dde692-c321-4c0e-9835-06cf335e2e57
+AAA Modular Mercenary System — Waveforce Studio. Earlier fitted rig and pose derivatives.
+https://www.fab.com/listings/57082fbf-3f85-407e-98ef-d858c2eefba7
+Distant Explosion of Propelled Grenade — qubodup. Earlier explosion audio, CC0 1.0; credit retained voluntarily.
+https://freesound.org/people/qubodup/sounds/162363/
+Barlow Condensed — The Barlow Project Authors. Earlier menu font, Copyright 2017; SIL Open Font License 1.1.
+https://github.com/google/fonts/tree/main/ofl/barlowcondensed
+
+THANK YOU
+Thank you to all the artists, animators, sound designers and open-source contributors whose work supports Respawn & Rage.

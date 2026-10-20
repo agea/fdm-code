@@ -3921,3 +3921,179 @@ combat/recon LAN results remain historical.
   (removed from the current project); replaced here by the current industrial
   LAN probe above. No legacy lab assets recreated.
 - `git diff --check`: PASS. Other in-progress menu/music changes preserved.
+
+### Standalone distribution preparation — 19 October 2026
+
+- Mac Development universal compilation PASS, executable contains arm64 and
+  x86_64. Version `26.10.19.dd192e70`, UE5.8.3 / Xcode27.1. Isolated receipt:
+  `/private/tmp/rr-macos-builds/20261019-201705/receipt.json`.
+- Initial packaged startup exposed missing CentralBuilding: UAT's successful
+  default cook included only the menu dependency closure. Added explicit
+  MainMenu/Depot/CentralBuilding MapsToCook and recooked all three maps with
+  the existing linked binaries; 2223 packages cooked, packaging PASS.
+- Actual packaged Development executable, Metal offscreen host plus initial
+  and late LAN clients: PASS. Real stair/ladder traversal, rifle damage,
+  structural explosion, collapse and regeneration. Both remotes match destroyed
+  digest4196437526 and regenerated digest2556534412. Receipt:
+  `Saved/Testing/industrial-network-packaged-metal-report.json`. Runtime tested
+  on Apple Silicon; the Intel slice was inspected, not executed on an Intel Mac.
+- Local Editor rebuilt after generated-file cleanup: PASS (22.83s). Restored
+  the installed plugin's generated Editor headers from the isolated build only
+  after checking that every plugin source file was byte-identical. A fresh
+  headless Editor game process loaded MainMenu and exited cleanly.
+- Linux snapshot fixture verifies source-only Marketplace dependency inclusion,
+  unchanged original descriptor and gzip-only stdout streaming: PASS. Four
+  signing/notarization helper tests with mocked Apple tools: PASS. These tests
+  do not claim an actual Apple notarization.
+- Actual Developer ID identity created with the user's explicit confirmation:
+  Dr Wolf srl, team8V893A78SP. Private key remains in local Keychain.
+  Notarization and public distribution are still pending at this checkpoint.
+- Final app signed with Developer ID, secure timestamps and hardened runtime;
+  deep strict codesign verification PASS. Signed app MainMenu and Depot starts
+  with real offscreen Metal both PASS (expected stamp and clean exit). Logs:
+  `/private/tmp/rr-release-20261019/{L_MainMenu,L_Depot}-signed-metal.log`.
+- Notarization checkpoint: Xcode interface unavailable because the Mac is
+  locked; CLI upload fails `No Accounts` / missing `Xcode-Token`. The signed
+  app and an independent APFS-cloned xcarchive are retained. This is not an
+  Accepted notary submission or a verified Gatekeeper distribution.
+- Corrected Linux input uploaded directly to private S3 (6194953371 bytes),
+  task `7e45bc1a951e41a69a6bf5f1aef86602`, 16vCPU/64GiB, in progress.
+  Output prefix `outputs/1792436291`; earlier incomplete inputs were not
+  published. No claim of a completed Linux build at this checkpoint.
+
+### Menu, saved setup and LAN lobby — 20 October 2026
+
+- UE5.8.3 Editor arm64 module compilation: PASS. Final build log:
+  `Saved/Testing/lobby-build-final.log`. Existing engine/PCG deprecation warnings
+  remain; no new font-constructor deprecation.
+- Native `EclipseRecoil.Menu` automation: 2/2 PASS (IPv4 validation/name
+  sanitization; strict-majority quorum, absent/invalid votes, ties and plurality).
+  Log: `Saved/Testing/menu-automation.log`.
+- `scripts/test-lobby.py --timeout`: PASS. Three actual Unreal processes on
+  one Mac, broadcast discovery using the LAN IPv4 address, human quorum 2/3,
+  Depot seamless travel, replicated team/skin/weapon/supplies and actual
+  owner ammunition. Host and beacon UDP sockets verified by lsof as wildcard
+  listeners. Separate process confirms the real 30-second no-server timeout.
+- `scripts/test-lobby.py --settings`: PASS. Two real graphical launches using
+  an isolated user directory and config saving enabled. First launch fullscreen
+  5120x2880; saved 60% window 3072x1728 restored on the next launch. Sound/music,
+  mouse sensitivity/acceleration and name/team also restored. The development
+  launcher no longer supplies resolution/window-mode overrides. Logs:
+  `Saved/Testing/Lobby/settings-{write,read}.log`.
+- `scripts/test-lobby.py --gallery`: PASS. Eight 1280x720 Metal captures in
+  `Saved/Testing/Lobby/user-gallery/Saved/Screenshots/Menu`. Visually inspected
+  initial menu (only five large white entries on the right, no dark panel),
+  character selection with real 3D skin preview, equipment and complete lobby
+  READY control. Disabled Internet/privacy options remain visible. No claim
+  of testing all skins or of physical multi-machine LAN testing in this run.
+- `scripts/test-arsenal.py`: PASS, including remote weapon changes, ammo,
+  respawn, HE/smoke/stun, smoke cuts and replicated effects. Output:
+  `Saved/Testing/menu-arsenal-regression.txt`.
+- Source-only Linux build-input fixture: PASS, including the font/license;
+  Mac input now copies the same font directory. `zsh -n scripts/play.command`,
+  Python syntax checks and Mac Info.plist validation: PASS. No new standalone
+  package, notarization or publication performed for these menu changes.
+- Issues found and corrected before final checks: BSD broadcast address setup
+  cleared the destination port; manual camera exposure hid the preview;
+  weapon BeginPlay overwrote supplies set before world BeginPlay; a legacy
+  remote player's default weapon must use the server world's arsenal flag,
+  rather than looking for that flag in the client's connection URL.
+- Final `scripts/test-network.py`: PASS. Combat, manual respawn, ammo/reload,
+  team scoring, protection, corpse replication and round restart all passed
+  after correcting the legacy default. `Saved/Testing/menu-network-regression.txt`.
+- `scripts/test-admission.py`: PASS. Four humans, balanced 2/2 automatic
+  assignment, fifth player rejected, late join does not reset the match,
+  disconnect releases the slot; normal hosting creates no bots. Output:
+  `Saved/Testing/menu-admission-regression.txt`.
+- Final `scripts/test-lobby.py --industrial`: PASS. No MULTIHOME supplied by
+  the test launcher: Start Server selected IPv4 wildcard binding itself,
+  verified for both game and discovery sockets. READY 2/3 selected Central
+  Building; server generated 2318926 cells / 14 shards, epoch 1. Both remotes
+  reported `ER_BLOCK_NET_PLAYER_READY epoch=1` before the host accepted the
+  run; every peer then passed actual geometry-ready, travel and supply checks.
+  Output: `Saved/Testing/menu-industrial-lobby.txt`.
+- Final `git diff --check`: PASS. Existing unrelated distribution changes in
+  the working tree preserved; only font inclusion added to build-input helpers.
+
+### Configurable human capacity and expanded spawns — 20 October 2026
+
+- Editor arm64 compilation PASS (`Saved/Testing/capacity-build-final.log`).
+  Server configuration defaults to 16 humans including the listen host, accepts
+  positive typed capacities (spinner 1–64) and remains authoritative through
+  admission, beacon availability, replicated lobby status and seamless travel.
+- `scripts/test-capacity.py`: PASS with six actual Unreal peers on one Mac.
+  All six selected Alpha. Depot created four additional starts around its two
+  authored Alpha starts; all six pawns had supporting floor and non-overlapping
+  capsules. Six-player lobby required four READY; three waited. Configured 6
+  survived travel and matched GameSession. Full server stopped advertising;
+  seventh client was rejected despite injected MaxPlayers=999 URL options.
+  Disconnect released a slot, discovery resumed and replacement client 99 spawned.
+  Report: `Saved/Testing/capacity-depot-report.txt`, full logs `CapacityDepot/`.
+- `scripts/test-lobby.py --settings`: PASS, including the new server capacity 23
+  surviving two graphical launches with isolated settings. Existing fullscreen,
+  display, audio, mouse and profile checks remain PASS.
+  Report: `Saved/Testing/capacity-settings-report.txt`.
+- Native `EclipseRecoil.Menu` tests 2/2 PASS. Added positive/minimum capacity,
+  typed 128 above the spinner range and 16-player quorum boundary checks.
+  Log: `Saved/Testing/capacity-automation.log`.
+- `scripts/test-session.py --map L_Depot`: PASS for stationary and movement-only
+  bots, explicit per-team counts, clear spawns, real motion/no firing and remote
+  admission/team selection. Report: `Saved/Testing/capacity-bots-report.txt`.
+- Existing four-player admission test now explicitly requests ERMaxPlayers=4;
+  the number is a fixture, not the production default. No saved maps or private
+  art assets changed; procedural and overflow starts are runtime-only actors.
+- `scripts/test-capacity.py --industrial`: PASS with six humans on Alpha,
+  all ten industrial starts per team available, separated/supported pawns and
+  every remote reporting its generated map ready before the client spawn check.
+  Full-server rejection, beacon suppression and discovery/replacement after a
+  disconnect also passed. `Saved/Testing/capacity-industrial-report.txt`.
+- Metal menu gallery: PASS; inspected the numeric 16 field in Start Server and
+  the replicated 1/16 lobby header. READY remained fully visible. Captures:
+  `Saved/Testing/Lobby/user-gallery/Saved/Screenshots/Menu/{server,lobby}.png`.
+- `scripts/test-network.py`: PASS after the final spawn changes, including
+  manual respawn, initial/new-life ammo, hitscan, reload, team scoring, corpse
+  replication/protection and round restart. `Saved/Testing/capacity-network-report.txt`.
+- Python syntax checks and final `git diff --check`: PASS. Tests use local
+  processes; no claim of sixteen-machine testing or large-server performance.
+
+### Teko menu font and button feedback — 20 October 2026
+
+- Inspected the owner-supplied Teko ZIP and ran its download script unchanged.
+  Google Fonts original: 292108 bytes; generated a static weight-600 instance
+  with fonttools 4.67.0, preserving copyright and the full SIL OFL 1.1 notice.
+  Runtime font has no `fvar` table and contains printable ASCII glyphs.
+- Editor arm64 build PASS (`Saved/Testing/teko-menu-build.log`). Native Slate
+  logs confirm successful FreeType loading of `Teko-SemiBold.ttf`, rather than
+  fallback rendering (`Saved/Testing/teko-interaction.log`).
+- Metal menu gallery PASS (`Saved/Testing/teko-gallery-report.txt`), eight
+  captures at 1280x720. Inspected home, Setup, server and lobby. Five large
+  white shadowed home entries retain the artwork without a dark panel.
+  Wrapped map vote labels and reduced vote/READY padding after spotting clipping.
+- Native UI navigation: Return opened Play Offline, Esc returned home and
+  Tab/Return activated Exit Game in an isolated profile. Main button styles
+  implement gold hover, orange press, a small pressed offset and hand cursor.
+  macOS automated coordinate clicks did not reliably reach Slate; hover and
+  click activation are therefore not recorded as a successful physical mouse
+  test. Diagnostic log: `Saved/Testing/teko-input-debug.log`.
+- Linux build-input archive fixture PASS with the Teko font and license paths
+  (`python3 -m unittest discover -s scripts/tests -p test_archive_linux_project.py`).
+  Runtime dependencies include the static TTF, credits and full license; build
+  input scripts retain the font sources and regeneration instructions as well.
+- Final rebuild PASS (`Saved/Testing/teko-menu-build-final.log`); final gallery
+  PASS (`Saved/Testing/teko-gallery-final-report.txt`). Inspected the refreshed
+  lobby capture: both map vote labels and the entire READY button fit at 720p.
+  Final archive fixture and `git diff --check` PASS.
+
+### Dedicated Credits page — 20 October 2026
+
+- Editor arm64 builds PASS (`Saved/Testing/credits-build.log` and
+  `Saved/Testing/credits-build-final.log`). Added Credits before Exit Game in
+  the main/pause menu and a shortcut from Setup. Back retains its source page.
+- `scripts/test-lobby.py --gallery` PASS (`Saved/Testing/credits-gallery-report.txt`).
+  Inspected actual Metal `home.png` and `credits.png` at 1280x720: all six home
+  entries fit, the Credits title/Back sit above the scrollable content, Teko
+  headings and body text wrap inside the panel and the font credits load.
+  This checks rendering; it does not claim a physical mouse interaction test.
+- Existing Linux archive fixture PASS after adding `Branding/Credits.txt`
+  inclusion. Runtime staging and isolated Mac/Linux inputs carry the same file.
+  Final `git diff --check` PASS. No gameplay, map or private asset edits.

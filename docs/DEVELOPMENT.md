@@ -7,8 +7,11 @@ realizzare una versione alternativa in Unreal e riuscire a eseguirla localmente.
 La guida originale è conservata in `GAMEPLAY_BASE.md`.
 Queste decisioni aggiornano la guida senza cancellarne i criteri di accettazione.
 
-- **B10–B12 rinviati:** niente packaging, distribuzione, CI, pubblicazione o ZIP.
-- La compilazione del modulo Editor serve esclusivamente a eseguire il C++ locale.
+- **Aggiornamento 19 ottobre:** autorizzati packaging Mac/Linux e distribuzione
+  pubblica sulla pagina itch.io esistente. Linux usa il builder Fargate e il
+  publisher configurati; Mac produce un pacchetto universale locale, con firma
+  Developer ID Dr Wolf e notarizzazione Apple. Windows resta fuori da questa richiesta.
+- Il modulo Editor serve al gioco locale e alla preparazione dei pacchetti isolati.
 - Progetto mantenuto: `RespawnAndRage.uproject`; modulo `fdm`, titolo Respawn & Rage.
 - Unreal fissato a **5.8.3**. First Person Blueprint con variante Arena Shooter
   già creata dall'utente; aggiunto un modulo C++ senza sostituire il progetto.
@@ -2250,3 +2253,86 @@ server, HP/materiali, danni ai personaggi e replica delle celle restano separati
 DamagePreset verifica bordi con celle rotte e superstiti a pari distanza,
 ripetibilità, nucleo/raggio e conservazione della breccia. Il probe industriale
 applica anche una vera esplosione prima del confronto dei digest sui client.
+
+## Menu e lobby LAN — 20 ottobre 2026
+
+La schermata iniziale mostra solo Play Offline, Play Online, Start Server,
+Setup, Exit Game, in verticale a destra sul fondale originale senza pannello.
+Barlow Condensed SemiBold (Google Fonts, SIL OFL 1.1) è incluso localmente con
+licenza; testi principali bianchi grandi con ombra nera. Le schermate secondarie
+raggruppano configurazione locale, impostazioni, personaggio ed equipaggiamento.
+Il launcher di sviluppo non forza più finestra/risoluzione: primo avvio fullscreen,
+poi ripristino delle preferenze salvate, salvo override espliciti per i test.
+
+Play Online cerca un server compatibile via UDP broadcast (7778), ogni secondo
+per 30 secondi, mostra conto alla rovescia/errori e si connette automaticamente.
+Il server di gioco resta sulla porta 7777, ascolta su tutte le interfacce; il
+beacon risponde anche durante la partita se ci sono posti. EOS non è implementato.
+La schermata server permette solo bot per squadra (0 di default); Internet e
+pubblico/privato restano disabilitati. Limite umano invariato: quattro giocatori.
+
+Il server apre prima una lobby sulla mappa menu, senza generazione procedurale,
+pawn giocabili o bot attivi. Nome, squadra, skin, scorte e voto mappa sono
+validati dal server e replicati; la schermata mostra i due roster, bot previsti,
+voti e numero READY necessario. L'anteprima personaggio usa un attore locale e
+una SceneCapture 3D, senza collisione o replica. Le scelte si salvano sul profilo.
+L'arsenale attuale resta disponibile interamente; si sceglie l'arma iniziale e il
+numero di caricatori di riserva/HE/fumogene (stordenti solo nell'arsenale legacy).
+Scorte con intervallo tecnico 0–20, senza budget di peso o punti; applicazione
+solo allo spawn, senza rifornire armi vive.
+
+READY richiede floor(umani/2)+1, esclusi bot; basta un READY in una lobby solo.
+Squadra/skin/equipaggiamento modificati annullano il proprio READY. Al quorum
+si congela la scelta e il server estrae uniformemente fra le mappe più votate,
+anche tutte a zero voti. Seamless travel conserva nome, squadra, skin e scorte;
+solo allora viene caricata/generata la mappa, con seed server e bot configurati.
+
+### Capienza server configurabile — 20 ottobre 2026
+
+La richiesta successiva rimuove il precedente limite fisso di quattro umani.
+Start Server offre un campo numerico **Maximum human players (including you)**:
+valore iniziale 16, minimo 1, modificabile digitando un intero positivo (lo spinner
+propone 1–64). La preferenza si salva. Il limite riguarda gli umani, incluso
+l'host; i bot esplicitamente configurati restano aggiuntivi per i test.
+
+Il server convalida la capienza prima dei login e la conserva nel viaggio dalla
+lobby alla partita. GameSession, prenotazioni dei posti in ingresso, rifiuto del
+server pieno, disponibilità del beacon LAN e riepilogo replicato della lobby usano
+lo stesso valore. I client non possono cambiarlo tramite le proprie opzioni URL.
+I roster hanno scorrimento indipendente; READY conta la maggioranza degli umani
+presenti, senza legami con il numero massimo configurato.
+
+Gli spawn industriali usano tutti i dieci punti del layout per squadra, creati
+runtime senza modificare le mappe salvate. Metadati preparati una volta per
+seed/epoch; niente ricostruzione completa del layout a ogni nuovo giocatore.
+Se i punti sono occupati (anche nel Depot con due punti per squadra), il server
+cerca posizioni supplementari intorno alla base: capsula libera, piano camminabile
+e supporto ai piedi, percorso senza attraversare muri e distanza verticale limitata.
+Se non c'è spazio fisico sicuro il giocatore attende il normale tentativo successivo.
+
+### Teko e interazione menu principale — 20 ottobre 2026
+
+Su richiesta dell'utente, Teko sostituisce Barlow Condensed nei menu. Pacchetto
+fornito `Respawn-and-Rage-Teko-package.zip`: script di download, istruzioni,
+credits e licenza conservati in `Branding/Fonts/Teko`. Eseguito lo script fornito,
+che scarica il font variabile dal repository ufficiale Google Fonts; creato un
+SemiBold statico 600 con fonttools 4.67.0 per la composizione Slate nativa.
+Il font statico, credits e OFL completa sono inclusi nei file runtime e negli
+input isolati Mac/Linux. Nessun download del font richiesto al giocatore.
+
+Le voci principali mantengono il fondale senza pannelli: testo Teko 54 bianco con
+ombra nera a riposo, dorato al passaggio del mouse e arancione durante la pressione,
+con spostamento di 4px/2px e cursore a mano. Il testo eredita il foreground del
+pulsante, evitando che il bianco fisso nasconda gli stati hover/pressed.
+Le azioni esistenti vengono eseguite al rilascio del click.
+
+### Pagina Credits — 20 ottobre 2026
+
+Aggiunta la voce Credits al menu principale e al menu di pausa, prima di Exit
+Game; accessibile anche da Setup. Pagina scorrevole con titolo e Back fissi,
+font Teko e sezioni per tipografia, personaggi, armi/animazioni, ricognizione,
+effetti, ambienti, texture, audio e strumenti. `Branding/Credits.txt` è l'unica
+fonte dei testi, caricata localmente e inclusa nello staging e negli input di
+build Mac/Linux. Tolti i credits abbreviati da Setup. La pagina conserva autori,
+URL, licenze documentate e modifiche dei derivati; le fonti storiche rimangono
+esplicitamente indicate. Non aggiunge nuove autorizzazioni di distribuzione.

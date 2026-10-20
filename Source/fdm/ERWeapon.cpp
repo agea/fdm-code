@@ -66,7 +66,22 @@ void AERWeapon::BeginPlay()
         if(auto* Character=Cast<AERCharacter>(GetOwner()))
             AERSmokeCloud::Prewarm(GetWorld(),ProjectileClass->GetDefaultObject<AERProjectile>()->SmokeCloudClass,Character->Camera->GetComponentLocation());
     }
-    if (HasAuthority()) { MagazineAmmo = Data->MagazineSize; ReserveAmmo = Data->InitialReserve; ShotRandom.Initialize(FMath::Rand()); }
+    if (HasAuthority())
+    {
+        MagazineAmmo = Data->MagazineSize; ReserveAmmo = Data->InitialReserve;
+        ShotRandom.Initialize(FMath::Rand());
+        // Initial map spawns can precede world BeginPlay. Apply supplies here,
+        // after weapon defaults, so both initial travel and respawns agree.
+        const auto* Character = Cast<AERCharacter>(GetOwner());
+        const auto* PS = Character ? Character->GetPlayerState<AERPlayerState>() : nullptr;
+        if (PS)
+        {
+            const int32 Count = Data->Payload == EERPayload::HE ? PS->HECount : Data->Payload == EERPayload::Smoke ? PS->SmokeCount : Data->Payload == EERPayload::Stun ? PS->StunCount : -1;
+            if (Count >= 0) { MagazineAmmo = FMath::Min(Count, Data->MagazineSize); ReserveAmmo = FMath::Max(0, Count - MagazineAmmo); }
+            else if (PS->SpareMagazines >= 0 && Data->Payload != EERPayload::Melee)
+                ReserveAmmo = Data->MagazineSize * PS->SpareMagazines;
+        }
+    }
 }
 float AERWeapon::GetBloomDegrees() const
 {

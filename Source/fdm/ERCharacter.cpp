@@ -793,7 +793,7 @@ void AERCharacter::InitializeLoadout(int32 Primary)
         Item->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
         Inventory.Add(Item);
     }
-    Weapon = Inventory.IsEmpty() ? nullptr : Inventory[bReference ? 4 : 0];
+    Weapon = Inventory.IsEmpty() ? nullptr : Inventory[bReference ? FMath::Clamp(Primary, 0, 9) : 0];
     ForceNetUpdate();
     UE_LOG(LogTemp, Display, TEXT("ER_LOADOUT_SPAWN primary=%d slots=%d"), Primary, Inventory.Num());
 }

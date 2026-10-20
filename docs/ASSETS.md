@@ -751,3 +751,35 @@ No additional Factory ladder binaries were migrated. `setup_industrial_ladders.p
 saves recipe revision3 and a fresh PCG snapshot through Unreal. The originals,
 Depot and DA_ER_BlockMaterials remain unchanged; their hashes are checked in
 `docs/PLAYER_MECHANICS_RESULTS.json`.
+
+### Menu font (20 October 2026)
+
+The earlier Google Fonts Barlow Condensed prototype is retained with its SIL
+OFL 1.1 license in `Branding/Fonts`, but is superseded at runtime by Teko below.
+This is independent of licensed game assets.
+
+### Runtime team spawn expansion (20 October 2026)
+
+Configurable server capacity adds runtime-only team PlayerStarts, using all
+procedural layout starts plus collision/floor-validated overflow near team bases.
+No new binary assets or modifications to saved map packages are required.
+
+### Teko menu typography (20 October 2026)
+
+Teko replaces the earlier Barlow Condensed menu choice. The user-supplied
+package, download script, credits and complete SIL OFL 1.1 notice are retained
+under `Branding/Fonts/Teko`. Google Fonts variable original (292108 bytes),
+Copyright 2023 The Teko Project Authors; static SemiBold 600 instance generated
+with fonttools 4.67.0 for Slate. Runtime stages the instance, credits and license;
+Mac/Linux build inputs include the directory. See its README for provenance.
+
+### In-game Credits — 20 October 2026
+
+`Branding/Credits.txt` centralizes player-facing asset and font attribution,
+including original model names, authors, source/license links and adaptations.
+It is loaded by native Slate, staged as NonUFS and included in isolated Mac/Linux
+build inputs. Sources are the existing private provenance/Sketchfab metadata,
+recon credits, font notices and public inventory. The Factory author is Denys
+Rutkovskyi, as identified by its [Fab listing](https://www.fab.com/listings/2ee66462-8c2b-4303-892c-83f7fc0d9b3e).
+Historical assets are labelled separately; no acquisition terms or distribution
+permissions are inferred or changed. Original license files remain preserved.

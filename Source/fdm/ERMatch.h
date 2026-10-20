@@ -1,5 +1,6 @@
 #pragma once
 #include "CoreMinimal.h"
+#include "ERServerSettings.h"
 #include "GameFramework/GameMode.h"
 #include "GameFramework/GameState.h"
 #include "GameFramework/PlayerState.h"
@@ -22,6 +23,13 @@ public:
     UPROPERTY(Replicated, BlueprintReadOnly) int32 AlphaSkin = 0;
     UPROPERTY(Replicated, BlueprintReadOnly) int32 OmegaSkin = 0;
     UPROPERTY(Replicated, BlueprintReadOnly) int32 ActiveSkin = 0;
+    UPROPERTY(Replicated, BlueprintReadOnly) bool bLobbyReady = false;
+    UPROPERTY(Replicated, BlueprintReadOnly) int32 MapVote = -1;
+    UPROPERTY(Replicated, BlueprintReadOnly) int32 SpareMagazines = -1;
+    UPROPERTY(Replicated, BlueprintReadOnly) int32 HECount = -1;
+    UPROPERTY(Replicated, BlueprintReadOnly) int32 SmokeCount = -1;
+    UPROPERTY(Replicated, BlueprintReadOnly) int32 StunCount = -1;
+    virtual void CopyProperties(APlayerState* Target) override;
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 };
 
@@ -30,6 +38,11 @@ class FDM_API AERGameState : public AGameState
 {
     GENERATED_BODY()
 public:
+    UPROPERTY(Replicated, BlueprintReadOnly) int32 ServerMaxPlayers = ERServer::DefaultMaxPlayers;
+    UPROPERTY(Replicated, BlueprintReadOnly) bool bLobby = false;
+    UPROPERTY(Replicated, BlueprintReadOnly) bool bLobbyStarting = false;
+    UPROPERTY(Replicated, BlueprintReadOnly) int32 LobbyAlphaBots = 0;
+    UPROPERTY(Replicated, BlueprintReadOnly) int32 LobbyOmegaBots = 0;
     UPROPERTY(Replicated, BlueprintReadOnly) int32 AlphaScore = 0;
     UPROPERTY(Replicated, BlueprintReadOnly) int32 OmegaScore = 0;
     UPROPERTY(Replicated, BlueprintReadOnly) double MatchEndServerTime = 0;
@@ -70,9 +83,21 @@ public:
     void RecordDeath(class AERCharacter* Victim, AController* Killer);
     void RequestRespawn(AController* Player);
     int32 GetNumTestBots() const { return TestBots.Num(); }
+    int32 GetMaxPlayers() const { return MaxHumanPlayers; }
+    bool HasOpenPlayerSlot();
+    bool IsLobby() const { return bLobby; }
+    void CheckLobby();
     static FString SanitizeName(const FString& Name);
 private:
     friend class AERIndustrialMapProbe;
+    int32 MaxHumanPlayers = ERServer::DefaultMaxPlayers;
+    TWeakObjectPtr<class AERProceduralMap> PreparedSpawnMap;
+    uint32 PreparedSpawnEpoch = MAX_uint32;
+    int32 PreparedSpawnSeed = 0;
+    void PrepareTeamStarts();
+    class AERTeamPlayerStart* FindAdditionalStart(AController* Player, TConstArrayView<AERTeamPlayerStart*> Anchors);
+    bool bLobby = false;
+    bool bLobbyTravelPending = false;
     EERTeam NextTieTeam = EERTeam::Alpha;
     int32 DesiredBots = 0;
     bool bStationaryBots = false;

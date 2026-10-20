@@ -1,0 +1,103 @@
+"""Create the private Linux build input, including source for Marketplace plugins.
+
+Engine-installed Marketplace plugins are absent from the cached Linux engine.
+Include their source as project plugins; never copy Mac binaries/intermediates.
+"""
+import argparse
+import hashlib
+import io
+import json
+from pathlib import Path
+import subprocess
+import sys
+import tarfile
+
+
+def marketplace_plugins(project, engine):
+    descriptor = json.loads((project / 'RespawnAndRage.uproject').read_text())
+    candidates = list((engine / 'Engine/Plugins/Marketplace').rglob('*.uplugin'))
+    plugins = []
+    for reference in descriptor.get('Plugins', []):
+        if not reference.get('Enabled'):
+            continue
+        name = reference['Name']
+        if any((project / 'Plugins').rglob(name + '.uplugin')):
+            continue
+        matches = [p for p in candidates if p.stem == name]
+        if len(matches) > 1:
+            raise ValueError('Ambiguous Marketplace plugin: ' + name)
+        if not matches:
+            continue
+        plugin = matches[0]
+        if not (plugin.parent / 'Source').is_dir():
+            raise ValueError('Linux needs plugin source: ' + name)
+        plugins.append(plugin)
+    return plugins
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('output', type=Path)
+    parser.add_argument('--project', type=Path, default=Path(__file__).resolve().parents[1])
+    parser.add_argument('--engine', type=Path, default=Path('/Users/Shared/Epic Games/UE_5.8'))
+    parser.add_argument('--check', action='store_true')
+    args = parser.parse_args()
+    project = args.project.resolve()
+    streaming = str(args.output) == '-'
+    output = None if streaming else args.output.resolve()
+    if output and output.is_relative_to(project):
+        parser.error('Write private build inputs outside the public game repository')
+    plugins = marketplace_plugins(project, args.engine)
+    manifest = [{'name': p.stem, 'version': json.loads(p.read_text()).get('VersionName'),
+                 'descriptor_sha256': hashlib.sha256(p.read_bytes()).hexdigest()} for p in plugins]
+    print(json.dumps({'marketplace_plugins': manifest}), file=sys.stderr if streaming else sys.stdout, flush=True)
+    if args.check:
+        return
+    if output:
+        output.parent.mkdir(parents=True, exist_ok=True)
+    commit = subprocess.check_output(['git', '-C', str(project), 'rev-parse', 'HEAD'], text=True).strip()
+
+    def source_only(member):
+        parts = Path(member.name).parts
+        if any(p in ('.git', '__pycache__', '.DS_Store') for p in parts):
+            return None
+        if 'Plugins' in parts and any(p in ('Binaries', 'Intermediate') for p in parts):
+            return None
+        if member.name in ('Build/GameVersion.txt', 'Build/SourceCommit.txt'):
+            return None
+        return member
+
+    stream = (tarfile.open(fileobj=sys.stdout.buffer, mode='w|gz', dereference=True, compresslevel=1)
+              if streaming else tarfile.open(output, 'w:gz', dereference=True, compresslevel=1))
+    with stream as archive:
+        def add_bytes(name, value):
+            data = value.encode()
+            member = tarfile.TarInfo(name)
+            member.size, member.mode = len(data), 0o644
+            archive.addfile(member, io.BytesIO(data))
+
+        for name in ('RespawnAndRage.uproject', 'Config', 'Content', 'Source', 'Build', 'Plugins'):
+            if (project / name).exists():
+                archive.add(project / name, arcname=name, filter=source_only)
+        archive.add(project / 'scripts/stamp-build-version.py', arcname='scripts/stamp-build-version.py')
+        add_bytes('Build/SourceCommit.txt', commit + '\n')
+        add_bytes('Build/ExternalPlugins.json', json.dumps(manifest, indent=2) + '\n')
+        for name in ('background.jpg', 'icon.png', 'Credits.txt'):
+            archive.add(project / 'Branding' / name, arcname='Branding/' + name)
+        archive.add(project / 'Branding/Fonts', arcname='Branding/Fonts', filter=source_only)
+        for plugin in plugins:
+            prefix = 'Plugins/' + plugin.stem
+            # Keep the installed engine untouched. This disposable project copy
+            # compiles from source for Linux instead of expecting Mac binaries.
+            data = json.loads(plugin.read_text())
+            data['Installed'] = False
+            add_bytes(prefix + '/' + plugin.name, json.dumps(data, indent=2) + '\n')
+            for child in plugin.parent.iterdir():
+                if child.name in ('Binaries', 'Intermediate', '.git', plugin.name):
+                    continue
+                archive.add(child, arcname=prefix + '/' + child.name, filter=source_only)
+    print('STREAM_ARCHIVE_COMPLETE' if streaming else output, file=sys.stderr if streaming else sys.stdout, flush=True)
+
+
+if __name__ == '__main__':
+    main()

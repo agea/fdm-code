@@ -1,5 +1,14 @@
 # Respawn & Rage Unreal development
 
+Distribution (19 October): the user now authorizes Mac/Linux builds and public
+distribution on the existing itch.io page. This supersedes the earlier packaging
+deferral for these platforms. Linux builds run on the existing Fargate builder
+and publish via its configured itch channel; Mac universal builds use the local
+isolated workspace. Mac distribution must use Developer ID signing, Apple
+notarization, ticket stapling and Gatekeeper verification before upload. Never
+disable Gatekeeper or remove quarantine as the distribution solution. See
+docs/BUILD.md and scripts/notarize-macos.py. Keep credentials in Keychain/SSO.
+
 Menu music (19 October): use the original owner-supplied WAV in private maps
 SourceAssets/MenuMusic and setup_menu_music.py. Bind the looping Bink quality80
 SoundWave through BP_ERPlayerController defaults. Options expose a saved 0..100%
@@ -1018,3 +1027,17 @@ Drone hits multicast five source-derived local fragments, capped24, WorldStatic
 physics only, settle4s/expire6s and clear on epoch/reset/exit. Assets stay in
 Art/Recon Blueprint defaults with original CC BY4.0 credits. Verify SmokeOcclusion
 automation and the far-sight/smoke/real HUD/debris LAN cases in test-recon.py.
+
+## Configurable server capacity (20 October)
+
+The latest user request supersedes every earlier fixed four-player/four-slot
+rule. Start Server owns a saved positive human capacity (default 16, listen host
+included); there is no fixed upper player cap. GameSession, pending admission,
+LAN availability, replicated lobby status and travel must use that same setting.
+Explicit per-team test bots remain additional; ordinary patrol bot slot budgets
+use the configured capacity. Preserve strict majority of humans present for READY.
+Use all procedural team starts, with cached seed/epoch preparation, and safe
+server-side overflow positions near each team's base for occupied starts.
+Never spawn through walls, on unsupported floor or on top of another capsule;
+wait/retry when space is unavailable. Verify test-capacity.py on Depot and
+Central Building, native Menu tests, saved settings and combat/bot regressions.

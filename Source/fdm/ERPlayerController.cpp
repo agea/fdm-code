@@ -1,5 +1,7 @@
 #include "ERPlayerController.h"
 #include "ERRecon.h"
+#include "ERMenuPreview.h"
+#include "Containers/Ticker.h"
 #include "ERMapCatalog.h"
 #include "Internationalization/Internationalization.h"
 #include "ERMouseResponse.h"
@@ -77,6 +79,8 @@ void UERGameInstance::Init()
 #endif
     GConfig->GetInt(TEXT("EclipseRecoil.Loadout"), TEXT("PrimaryWeapon"), PrimaryWeapon, GGameUserSettingsIni);
     PrimaryWeapon = FMath::Clamp(PrimaryWeapon, 0, 6);
+    GConfig->GetInt(TEXT("EclipseRecoil.Loadout"), TEXT("ReferenceStartingWeapon"), ReferenceStartingWeapon, GGameUserSettingsIni);
+    ReferenceStartingWeapon = FMath::Clamp(ReferenceStartingWeapon, 0, 9);
     GConfig->GetInt(TEXT("EclipseRecoil.Appearance"), TEXT("AlphaSkin"), AlphaSkin, GGameUserSettingsIni);
     GConfig->GetInt(TEXT("EclipseRecoil.Appearance"), TEXT("OmegaSkin"), OmegaSkin, GGameUserSettingsIni);
     AlphaSkin = ERSkins::ValidIndex(AlphaSkin); OmegaSkin = ERSkins::ValidIndex(OmegaSkin);
@@ -84,14 +88,29 @@ void UERGameInstance::Init()
     MouseSensitivity = FMath::IsFinite(MouseSensitivity) ? FMath::Clamp(MouseSensitivity, 0.f, 1.f) : .5f;
     GConfig->GetFloat(TEXT("EclipseRecoil.Input"), TEXT("MouseAcceleration"), MouseAcceleration, GGameUserSettingsIni);
     MouseAcceleration = FMath::IsFinite(MouseAcceleration) ? FMath::Clamp(MouseAcceleration, 0.f, 1.f) : .5f;
+    GConfig->GetFloat(TEXT("EclipseRecoil.Audio"), TEXT("SoundVolume"), SoundVolume, GGameUserSettingsIni);
+    SetSoundVolume(SoundVolume);
     GConfig->GetFloat(TEXT("EclipseRecoil.Audio"), TEXT("MusicVolume"), MusicVolume, GGameUserSettingsIni);
     MusicVolume = FMath::IsFinite(MusicVolume) ? FMath::Clamp(MusicVolume, 0.f, 1.f) : 1.f;
+    GConfig->GetString(TEXT("EclipseRecoil.Profile"), TEXT("Name"), LocalName, GGameUserSettingsIni);
+    GConfig->GetInt(TEXT("EclipseRecoil.Profile"), TEXT("Team"), PlayerTeam, GGameUserSettingsIni);
+    PlayerTeam = FMath::Clamp(PlayerTeam, 0, 1);
+    for (auto Pair : {TPair<const TCHAR*, int32*>(TEXT("Magazines"), &SpareMagazines),
+        {TEXT("HE"), &HECount}, {TEXT("Smoke"), &SmokeCount}, {TEXT("Stun"), &StunCount}})
+    {
+        GConfig->GetInt(TEXT("EclipseRecoil.Loadout"), Pair.Key, *Pair.Value, GGameUserSettingsIni);
+        *Pair.Value = FMath::Clamp(*Pair.Value, 0, 20);
+    }
+    GConfig->GetInt(TEXT("EclipseRecoil.Server"), TEXT("MaxPlayers"), MaxPlayers, GGameUserSettingsIni);
+    MaxPlayers = ERServer::ValidMaxPlayers(MaxPlayers);
+    DiscoveryTicker = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateUObject(this, &UERGameInstance::TickDiscovery), .1f);
     NetworkFailureHandle = GEngine->OnNetworkFailure().AddUObject(this, &UERGameInstance::NetworkFailure);
     TravelFailureHandle = GEngine->OnTravelFailure().AddUObject(this, &UERGameInstance::TravelFailure);
 }
 void UERGameInstance::SaveLoadout()
 {
     GConfig->SetInt(TEXT("EclipseRecoil.Loadout"), TEXT("PrimaryWeapon"), PrimaryWeapon, GGameUserSettingsIni);
+    GConfig->SetInt(TEXT("EclipseRecoil.Loadout"), TEXT("ReferenceStartingWeapon"), ReferenceStartingWeapon, GGameUserSettingsIni);
     GConfig->Flush(false, GGameUserSettingsIni);
 }
 void UERGameInstance::SaveSkins()
@@ -102,6 +121,10 @@ void UERGameInstance::SaveSkins()
 }
 void UERGameInstance::Shutdown()
 {
+    FTSTicker::GetCoreTicker().RemoveTicker(DiscoveryTicker);
+    CloseDiscoverySocket();
+    SaveProfile();
+    SaveServerSettings();
     SaveMouseSensitivity();
     SaveMusicVolume();
     GEngine->OnNetworkFailure().Remove(NetworkFailureHandle); GEngine->OnTravelFailure().Remove(TravelFailureHandle); Super::Shutdown();
@@ -132,6 +155,13 @@ void UERGameInstance::SetMouseAcceleration(float Value)
     MouseAcceleration = FMath::Clamp(Value, 0.f, 1.f);
     GConfig->SetFloat(TEXT("EclipseRecoil.Input"), TEXT("MouseAcceleration"), MouseAcceleration, GGameUserSettingsIni);
 }
+void UERGameInstance::SetSoundVolume(float Value)
+{
+    if (!FMath::IsFinite(Value)) return;
+    SoundVolume = FMath::Clamp(Value, 0.f, 1.f);
+    FApp::SetVolumeMultiplier(SoundVolume);
+    GConfig->SetFloat(TEXT("EclipseRecoil.Audio"), TEXT("SoundVolume"), SoundVolume, GGameUserSettingsIni);
+}
 void UERGameInstance::SetMusicVolume(float Value)
 {
     if (!FMath::IsFinite(Value)) return;
@@ -144,16 +174,39 @@ void UERGameInstance::SaveMusicVolume()
     GConfig->SetFloat(TEXT("EclipseRecoil.Audio"), TEXT("MusicVolume"), MusicVolume, GGameUserSettingsIni);
     GConfig->Flush(false, GGameUserSettingsIni);
 }
+void UERGameInstance::SaveServerSettings()
+{
+    MaxPlayers = ERServer::ValidMaxPlayers(MaxPlayers);
+    GConfig->SetInt(TEXT("EclipseRecoil.Server"), TEXT("MaxPlayers"), MaxPlayers, GGameUserSettingsIni);
+    GConfig->Flush(false, GGameUserSettingsIni);
+}
+void UERGameInstance::SaveProfile()
+{
+    LocalName = AERGameMode::SanitizeName(LocalName);
+    GConfig->SetString(TEXT("EclipseRecoil.Profile"), TEXT("Name"), *LocalName, GGameUserSettingsIni);
+    GConfig->SetInt(TEXT("EclipseRecoil.Profile"), TEXT("Team"), PlayerTeam, GGameUserSettingsIni);
+    for (auto Pair : {TPair<const TCHAR*, int32*>(TEXT("Magazines"), &SpareMagazines),
+        {TEXT("HE"), &HECount}, {TEXT("Smoke"), &SmokeCount}, {TEXT("Stun"), &StunCount}})
+        GConfig->SetInt(TEXT("EclipseRecoil.Loadout"), Pair.Key, *Pair.Value, GGameUserSettingsIni);
+    GConfig->Flush(false, GGameUserSettingsIni);
+}
+int32 UERGameInstance::GetStartingWeapon() const
+{
+    const auto* PC = Cast<AERPlayerController>(GetFirstLocalPlayerController());
+    return PC && !PC->bReferenceArsenalMenu ? PrimaryWeapon : ReferenceStartingWeapon;
+}
 void UERGameInstance::StartSession()
 {
     if (SessionMode == 2) { Join(ServerAddress); return; }
+    SaveProfile();
     LastError.Empty();
     const auto& Map=ERMaps::At(MapChoice);
     const TCHAR* Behaviors[] = {TEXT("Target"), TEXT("Movement"), TEXT("Patrol")};
     FString Options = SessionMode == 1 ? TEXT("listen?Name=") : TEXT("Name=");
     Options += AERGameMode::SanitizeName(LocalName);
     Options += FString::Printf(TEXT("?Primary=%d?AlphaSkin=%d?OmegaSkin=%d?Team=%d?ERAlphaBots=%d?EROmegaBots=%d?ERBotMode=%s"),
-        PrimaryWeapon, AlphaSkin, OmegaSkin, FMath::Clamp(PlayerTeam,0,1), FMath::Clamp(AlphaBots,0,10), FMath::Clamp(OmegaBots,0,10), Behaviors[FMath::Clamp(BotBehavior,0,2)]);
+        GetStartingWeapon(), AlphaSkin, OmegaSkin, FMath::Clamp(PlayerTeam,0,1), FMath::Clamp(AlphaBots,0,10), FMath::Clamp(OmegaBots,0,10), Behaviors[FMath::Clamp(BotBehavior,0,2)]);
+    Options += FString::Printf(TEXT("?Magazines=%d?HE=%d?Smoke=%d?Stun=%d"), SpareMagazines, HECount, SmokeCount, StunCount);
     if(Map.Procedural)Options+=FString::Printf(TEXT("?MapSeed=%d"),FMath::Rand());
     UGameplayStatics::OpenLevel(GetWorld(), FName(Map.Package), true, Options);
 }
@@ -190,12 +243,14 @@ bool UERGameInstance::Join(const FString& RawAddress)
     if (!IsValidAddress(Address)) { LastError = TEXT("Enter a valid IPv4 address, e.g. 192.168.1.20:7777."); return false; }
     if (APlayerController* PC = GetFirstLocalPlayerController())
     {
-        LastError = TEXT("Connecting...");
-        PC->ClientTravel(Address + TEXT("?Name=") + AERGameMode::SanitizeName(LocalName) + FString::Printf(TEXT("?Primary=%d?AlphaSkin=%d?OmegaSkin=%d?Team=%d"), PrimaryWeapon, AlphaSkin, OmegaSkin, FMath::Clamp(PlayerTeam,0,1)), TRAVEL_Absolute); return true;
+        SaveProfile();
+        CancelLANSearch();
+        LastError = TEXT("Server found. Connecting to ") + Address + TEXT("...");
+        PC->ClientTravel(Address + TEXT("?Name=") + AERGameMode::SanitizeName(LocalName) + FString::Printf(TEXT("?Primary=%d?AlphaSkin=%d?OmegaSkin=%d?Team=%d?Magazines=%d?HE=%d?Smoke=%d?Stun=%d"), GetStartingWeapon(), AlphaSkin, OmegaSkin, FMath::Clamp(PlayerTeam,0,1), SpareMagazines, HECount, SmokeCount, StunCount), TRAVEL_Absolute); return true;
     }
     LastError = TEXT("Local player unavailable."); return false;
 }
-void UERGameInstance::ReturnToMenu() { UGameplayStatics::OpenLevel(GetWorld(), TEXT("/Game/EclipseRecoil/Maps/L_MainMenu")); }
+void UERGameInstance::ReturnToMenu() { CancelLANSearch(); CloseDiscoverySocket(); UGameplayStatics::OpenLevel(GetWorld(), TEXT("/Game/EclipseRecoil/Maps/L_MainMenu")); }
 void UERGameInstance::NetworkFailure(UWorld* World, UNetDriver* Driver, ENetworkFailure::Type Type, const FString& Error)
 {
     if (World != GetWorld()) return;
@@ -224,18 +279,20 @@ void AERPlayerController::BeginPlay()
     if (auto* GI = GetGameInstance<UERGameInstance>())
     {
         ServerSetName(GI->LocalName);
-        if (!GIsEditor && IsMenuLevel() && !GI->bInitialWindowSizeApplied &&
-            !FParse::Param(FCommandLine::Get(), TEXT("nullrhi")))
+        if (!GIsEditor && IsMenuLevel() && !GI->bInitialWindowSizeApplied && !FParse::Param(FCommandLine::Get(), TEXT("nullrhi")))
         {
             GI->bInitialWindowSizeApplied = true;
-            int32 Percent = 70;
             int32 ExplicitSize = 0;
-            const bool bRequestedPercent = FParse::Value(FCommandLine::Get(), TEXT("ERInitialWindowPercent="), Percent);
-            const bool bExplicitResolution = FParse::Value(FCommandLine::Get(), TEXT("ResX="), ExplicitSize) ||
-                FParse::Value(FCommandLine::Get(), TEXT("ResY="), ExplicitSize);
-            // Apply once after the native window exists, overriding stale saved sizes.
-            // Explicit capture/probe resolutions still work without the launcher flag.
-            if (bRequestedPercent || !bExplicitResolution) ApplyDisplaySize(FMath::Clamp(Percent, 50, 90));
+            const bool Explicit = FParse::Value(FCommandLine::Get(), TEXT("ResX="), ExplicitSize) ||
+                FParse::Value(FCommandLine::Get(), TEXT("ResY="), ExplicitSize) ||
+                FParse::Param(FCommandLine::Get(), TEXT("windowed")) || FParse::Param(FCommandLine::Get(), TEXT("fullscreen"));
+            bool Saved = false;
+            GConfig->GetBool(TEXT("EclipseRecoil.Display"), TEXT("Configured"), Saved, GGameUserSettingsIni);
+            if (!Explicit)
+            {
+                if (Saved) GEngine->GetGameUserSettings()->ApplyResolutionSettings(false);
+                else ApplyDisplaySize(100);
+            }
         }
     }
     if (ULocalPlayer* LP = GetLocalPlayer()) if (auto* Subsystem = LP->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>()) if (GameplayMapping) Subsystem->AddMappingContext(GameplayMapping, 0);
@@ -254,6 +311,9 @@ void AERPlayerController::PlayerTick(float DeltaTime)
 {
     Super::PlayerTick(DeltaTime);
     UpdateBlockMapLoading();
+    if (IsLocalController() && bShowingLobby && !IsMenuLevel()) { MenuPage = 0; ShowMenu(false); }
+    if (IsLocalController() && IsMenuLevel() && bShowingLobby != IsInLobby())
+    { MenuPage = 0; ShowMenu(true); }
     FlashOpacity = FMath::Max(0.f, FlashOpacity - DeltaTime * .35f);
     if (IsLocalController()) UpdateRenderResolution();
     if (IsLocalController() && DeltaTime > 0)
@@ -293,6 +353,8 @@ void AERPlayerController::EndPlay(const EEndPlayReason::Type Reason)
     if (MenuWidget.IsValid() && GetWorld() && GetWorld()->GetGameViewport()) GetWorld()->GetGameViewport()->RemoveViewportWidgetContent(MenuWidget.ToSharedRef());
     if (FrameRateWidget.IsValid() && GetWorld() && GetWorld()->GetGameViewport()) GetWorld()->GetGameViewport()->RemoveViewportWidgetContent(FrameRateWidget.ToSharedRef());
     FrameRateWidget.Reset(); DisplaySizeSelector.Reset();
+    if (MenuPreview) { MenuPreview->Destroy(); MenuPreview = nullptr; }
+    PreviewBrush.Reset();
     if (IsLocalController() && GetLocalPlayer()) if (auto* Subsystem = GetLocalPlayer()->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>()) if (GameplayMapping) Subsystem->RemoveMappingContext(GameplayMapping);
     MenuWidget.Reset(); Super::EndPlay(Reason);
 }
@@ -434,7 +496,12 @@ void AERPlayerController::CrouchReleased() { if (auto* C = Cast<AERCharacter>(Ge
 void AERPlayerController::ReloadPressed() { if (!bMenuOpen) if (auto* Character = Cast<AERCharacter>(GetPawn())) Character->ServerReload(); }
 void AERPlayerController::ScoreboardPressed() { bShowScoreboard = true; }
 void AERPlayerController::ScoreboardReleased() { bShowScoreboard = false; }
-void AERPlayerController::MenuPressed() { if (!IsMenuLevel()) ShowMenu(!bMenuOpen); }
+void AERPlayerController::MenuPressed()
+{
+    if (IsMenuLevel()) { if (MenuPage != 0) { GetGameInstance<UERGameInstance>()->CancelLANSearch(); OpenMenuPage(0); } }
+    else if (MenuPage != 0) OpenMenuPage(0);
+    else ShowMenu(!bMenuOpen);
+}
 void AERPlayerController::SelectSlot(int32 Slot)
 {
     if (bMenuOpen) return;
@@ -470,18 +537,25 @@ void AERPlayerController::ScrollWeapon(int32 Direction)
 }
 void AERPlayerController::ServerSetSkins_Implementation(int32 Alpha, int32 Omega)
 {
+    if (const auto* GS = GetWorld()->GetGameState<AERGameState>(); GS && GS->bLobbyStarting) return;
     if (Alpha < 0 || Alpha >= ERSkins::Count || Omega < 0 || Omega >= ERSkins::Count) return;
     if (auto* PS = GetPlayerState<AERPlayerState>())
-    { PS->AlphaSkin = Alpha; PS->OmegaSkin = Omega; PS->ForceNetUpdate(); }
+    { PS->bLobbyReady = false; PS->AlphaSkin = Alpha; PS->OmegaSkin = Omega; PS->ForceNetUpdate(); }
 }
 void AERPlayerController::ServerSetPrimary_Implementation(int32 Index)
 {
-    if (Index < 0 || Index > 6 || !PrimaryOptions.IsValidIndex(Index)) return;
-    if (auto* PS = GetPlayerState<AERPlayerState>()) { PS->PrimaryWeapon = Index; PS->ForceNetUpdate(); }
+    if (const auto* GS = GetWorld()->GetGameState<AERGameState>(); GS && GS->bLobbyStarting) return;
+    const bool Reference = bReferenceArsenalMenu && !GetWorld()->URL.HasOption(TEXT("ERLegacyArsenal"));
+    if (Index < 0 || Index > (Reference ? 9 : 6)) return;
+    if (auto* PS = GetPlayerState<AERPlayerState>()) { PS->bLobbyReady = false; PS->PrimaryWeapon = Index; PS->ForceNetUpdate(); }
 }
 void AERPlayerController::ClientFlash_Implementation(float Strength) { FlashOpacity = FMath::Max(FlashOpacity, FMath::Clamp(Strength, 0.f, .9f)); }
 void AERPlayerController::ServerRequestRespawn_Implementation() { if (auto* Mode = GetWorld()->GetAuthGameMode<AERGameMode>()) Mode->RequestRespawn(this); }
-void AERPlayerController::ServerSetName_Implementation(const FString& Name) { if (PlayerState) PlayerState->SetPlayerName(AERGameMode::SanitizeName(Name)); }
+void AERPlayerController::ServerSetName_Implementation(const FString& Name)
+{
+    if (const auto* GS = GetWorld()->GetGameState<AERGameState>(); GS && GS->bLobbyStarting) return;
+    if (PlayerState) PlayerState->SetPlayerName(AERGameMode::SanitizeName(Name));
+}
 void AERPlayerController::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps); DOREPLIFETIME_CONDITION(AERPlayerController, bAwaitingRespawn, COND_OwnerOnly); DOREPLIFETIME_CONDITION(AERPlayerController, RespawnAllowedAt, COND_OwnerOnly);
@@ -575,6 +649,8 @@ void AERPlayerController::ApplyDisplaySize(int32 Percent)
     Settings->ApplyResolutionSettings(false);
     Settings->ConfirmVideoMode();
     Settings->SaveSettings();
+    GConfig->SetBool(TEXT("EclipseRecoil.Display"), TEXT("Configured"), true, GGameUserSettingsIni);
+    GConfig->Flush(false, GGameUserSettingsIni);
     if (DisplaySizeSelector.IsValid()) DisplaySizeSelector->SetIsOpen(false);
     UE_LOG(LogTemp, Display, TEXT("ER_DISPLAY size=%d%% resolution=%dx%d fullscreen=%d"), Percent, Resolution.X, Resolution.Y, bFullscreen);
 }
@@ -600,210 +676,6 @@ void AERPlayerController::UpdateMenuMusic()
         UE_LOG(LogTemp, Display, TEXT("ER_MENU_MUSIC stopped (menu closed)"));
     }
     if (bShouldPlay && MenuMusicComponent) MenuMusicComponent->SetVolumeMultiplier(Volume);
-}
-void AERPlayerController::ShowMenu(bool bShow)
-{
-    if (!IsLocalController() || !GetWorld()->GetGameViewport()) return;
-    ForwardReleased(); LastForwardTap = LastCrouchTap = -1;
-    FireReleased(); WalkReleased(); CrouchReleased(); JumpReleased(); bShowScoreboard = false;
-    if (auto* C = Cast<AERCharacter>(GetPawn()); C && C->Weapon) C->Weapon->ServerClearScope();
-    bMenuOpen = bShow; bShowMouseCursor = bShow;
-    UpdateMenuMusic();
-    SetIgnoreMoveInput(false); SetIgnoreLookInput(false);
-    if (MenuWidget.IsValid()) { GetWorld()->GetGameViewport()->RemoveViewportWidgetContent(MenuWidget.ToSharedRef()); MenuWidget.Reset(); }
-    if (!bShow) { SetInputMode(FInputModeGameOnly()); return; }
-    auto* GI = GetGameInstance<UERGameInstance>(); if (!GI) return;
-    const bool bMain = IsMenuLevel();
-    auto Button = [](const FString& Label, TFunction<FReply()> Action) -> TSharedRef<SWidget>
-    {
-        return SNew(SButton).ContentPadding(FMargin(16,12)).OnClicked_Lambda(MoveTemp(Action))[SNew(STextBlock).Text(FText::FromString(Label)).Justification(ETextJustify::Center)];
-    };
-    TSharedRef<SVerticalBox> Panel = SNew(SVerticalBox);
-    TSharedRef<SVerticalBox> GamePanel = SNew(SVerticalBox);
-    TSharedRef<SVerticalBox> SetupPanel = SNew(SVerticalBox);
-    auto Heading = [](const TCHAR* Text) { return SNew(STextBlock).Text(FText::FromString(Text)).Font(FCoreStyle::GetDefaultFontStyle("Bold",22)); };
-    GamePanel->AddSlot().AutoHeight().Padding(0,0,0,12)[Heading(TEXT("MATCH"))];
-    Panel->AddSlot().AutoHeight().Padding(0,0,0,12)[Heading(TEXT("CHARACTER & WEAPONS"))];
-    SetupPanel->AddSlot().AutoHeight().Padding(0,0,0,12)[Heading(TEXT("SETTINGS"))];
-    TSharedPtr<SWidget> FocusWidget;
-    Panel->AddSlot().AutoHeight().Padding(0,0,0,20)[SNew(STextBlock).Text(FText::FromString(TEXT("ALPHA / OMEGA     •     TEAM DEATHMATCH")))];
-    const auto* Catalog = SkinCatalog ? SkinCatalog->GetDefaultObject<AERCharacter>() : nullptr;
-    for (bool Alpha : {true, false})
-    {
-        auto Label = [Catalog, Alpha](int32 Index)
-        {
-            if (Catalog)
-            {
-                const auto& Options = Alpha ? Catalog->AlphaSkins : Catalog->OmegaSkins;
-                if (Options.IsValidIndex(Index)) return Options[Index].DisplayName;
-            }
-            return FString::Printf(TEXT("Variant %d"), Index + 1);
-        };
-        TSharedRef<SVerticalBox> SkinChoices = SNew(SVerticalBox);
-        for (int32 Index = 0; Index < ERSkins::Count; ++Index)
-            SkinChoices->AddSlot().AutoHeight()[Button(Label(Index), [this, GI, Alpha, Index]()
-            {
-                (Alpha ? GI->AlphaSkin : GI->OmegaSkin) = Index;
-                GI->SaveSkins(); ServerSetSkins(GI->AlphaSkin, GI->OmegaSkin);
-                FSlateApplication::Get().DismissAllMenus();
-                return FReply::Handled();
-            })];
-        Panel->AddSlot().AutoHeight().Padding(0,8)[SNew(STextBlock)
-            .ColorAndOpacity(Alpha ? FLinearColor(.4f,.7f,1) : FLinearColor(1,.55f,.25f))
-            .Text(FText::FromString(Alpha ? TEXT("Alpha character · blue / cool") : TEXT("Omega character · orange / warm")))];
-        Panel->AddSlot().AutoHeight()[SNew(SComboButton)
-            .ButtonContent()[SNew(STextBlock).Text_Lambda([GI, Alpha, Label]() { return FText::FromString(Label(Alpha ? GI->AlphaSkin : GI->OmegaSkin)); })]
-            .MenuContent()[SNew(SBox).MaxDesiredHeight(400)[SNew(SScrollBox) + SScrollBox::Slot()[SkinChoices]]]];
-    }
-    Panel->AddSlot().AutoHeight().Padding(0,5)[SNew(STextBlock).AutoWrapText(true)
-        .Text(FText::FromString(bMain ? TEXT("Choose a skin for each team and the team you want to play on.") : TEXT("Character changes apply on your next spawn.")))];
-    if (bMain)
-    {
-        auto Choice = [Button](TSharedRef<SVerticalBox> Parent, const TCHAR* Title, TArray<FString> Labels, int32* Value, TFunction<bool()> Enabled)
-        {
-            Parent->AddSlot().AutoHeight().Padding(0,8,0,4)[SNew(STextBlock).Text(FText::FromString(Title))];
-            TSharedRef<SVerticalBox> Items = SNew(SVerticalBox);
-            for (int32 I=0; I<Labels.Num(); ++I)
-                Items->AddSlot().AutoHeight()[Button(Labels[I], [Value,I]() { *Value=I; FSlateApplication::Get().DismissAllMenus(); return FReply::Handled(); })];
-            Parent->AddSlot().AutoHeight()[SNew(SComboButton).IsEnabled_Lambda(MoveTemp(Enabled))
-                .ButtonContent()[SNew(STextBlock).Text_Lambda([Labels,Value]() { return FText::FromString(Labels[FMath::Clamp(*Value,0,Labels.Num()-1)]); })]
-                .MenuContent()[Items]];
-        };
-        auto Always = []() { return true; };
-        auto OwnGame = [GI]() { return GI->SessionMode != 2; };
-        GamePanel->AddSlot().AutoHeight()[SNew(STextBlock).Text(FText::FromString(TEXT("Player name")))];
-        GamePanel->AddSlot().AutoHeight().Padding(0,4)[SAssignNew(NameBox, SEditableTextBox).Text(FText::FromString(GI->LocalName))];
-        FocusWidget = NameBox;
-        Choice(GamePanel,TEXT("Connection"),{TEXT("Local"),TEXT("Host and play"),TEXT("Join a server")},&GI->SessionMode,Always);
-        Choice(GamePanel,TEXT("Map type"),ERMaps::Labels(),&GI->MapChoice,OwnGame);
-        Choice(GamePanel,TEXT("Your team"),{TEXT("Alpha"),TEXT("Omega")},&GI->PlayerTeam,Always);
-        TArray<FString> Counts; for (int32 I=0; I<=10; ++I) Counts.Add(FString::FromInt(I));
-        Choice(GamePanel,TEXT("Alpha bots"),Counts,&GI->AlphaBots,OwnGame);
-        Choice(GamePanel,TEXT("Omega bots"),Counts,&GI->OmegaBots,OwnGame);
-        Choice(GamePanel,TEXT("Bot behavior"),{TEXT("Stationary"),TEXT("Movement only"),TEXT("Movement and combat")},&GI->BotBehavior,OwnGame);
-        GamePanel->AddSlot().AutoHeight().Padding(0,10)[SNew(STextBlock).AutoWrapText(true).Text_Lambda([GI]() {
-            return FText::FromString(GI->SessionMode==2 ? TEXT("The server selects the map and bots.") : GI->SessionMode==1 ? TEXT("Hosting on port 7777. The match can start with one player.") : TEXT("Industrial maps vary each match. Depot is available as a reference environment."));
-        })];
-        GamePanel->AddSlot().AutoHeight().Padding(0,4)[SAssignNew(AddressBox, SEditableTextBox)
-            .IsEnabled_Lambda([GI]() { return GI->SessionMode==2; })
-            .Text(FText::FromString(GI->ServerAddress)).HintText(FText::FromString(TEXT("Server IP:port")))];
-        GamePanel->AddSlot().AutoHeight().Padding(0,12)[SNew(SButton).ContentPadding(FMargin(16,12))
-            .OnClicked_Lambda([this,GI]() { GI->LocalName=NameBox->GetText().ToString(); GI->ServerAddress=AddressBox->GetText().ToString(); GI->StartSession(); return FReply::Handled(); })
-            [SNew(STextBlock).Text_Lambda([GI]() { return FText::FromString(GI->SessionMode==2 ? TEXT("CONNECT") : TEXT("START MATCH")); })]];
-    }
-    else
-    {
-        FocusWidget = Button(TEXT("RESUME"), [this]() { ShowMenu(false); return FReply::Handled(); });
-        GamePanel->AddSlot().AutoHeight().Padding(0,10)[FocusWidget.ToSharedRef()];
-        GamePanel->AddSlot().AutoHeight().Padding(0,10)[Button(TEXT("MAIN MENU"), [GI]() { GI->ReturnToMenu(); return FReply::Handled(); })];
-    }
-    const auto* MenuPawn=Cast<AERCharacter>(GetPawn());
-    const bool bReferenceMenu=MenuPawn ? MenuPawn->UsesReferenceArsenal() : bReferenceArsenalMenu;
-    if (!PrimaryOptions.IsEmpty() && !bReferenceMenu)
-    {
-        TSharedRef<SVerticalBox> Choices = SNew(SVerticalBox);
-        for (int32 Index = 0; Index < FMath::Min(7, PrimaryOptions.Num()); ++Index)
-        {
-            const FString Label = PrimaryOptions[Index]->DisplayName;
-            Choices->AddSlot().AutoHeight()[Button(Label, [this, GI, Index]()
-            {
-                GI->PrimaryWeapon = Index; GI->SaveLoadout(); ServerSetPrimary(Index);
-                FSlateApplication::Get().DismissAllMenus();
-                return FReply::Handled();
-            })];
-        }
-        Panel->AddSlot().AutoHeight().Padding(0,8)[SNew(STextBlock).Text(FText::FromString(bMain ? TEXT("Primary weapon") : TEXT("Primary weapon · next spawn")))];
-        Panel->AddSlot().AutoHeight()[SNew(SComboButton)
-            .ButtonContent()[SNew(STextBlock).Text_Lambda([this, GI]()
-            { return FText::FromString(PrimaryOptions.IsValidIndex(GI->PrimaryWeapon) ? PrimaryOptions[GI->PrimaryWeapon]->DisplayName : TEXT("Assault Rifle")); })]
-            .MenuContent()[Choices]];
-        Panel->AddSlot().AutoHeight().Padding(0,5)[SNew(STextBlock).Text(FText::FromString(TEXT("1 Primary · 2 Pistol · 3 HE Grenade · 4 Smoke Grenade · 5 Stun Grenade\nMouse wheel: switch weapon · Right mouse: zoom"))).AutoWrapText(true)];
-    }
-    else Panel->AddSlot().AutoHeight().Padding(0,8)[SNew(STextBlock).AutoWrapText(true).Text(FText::FromString(
-        TEXT("1 Knife · 2 Pistol · 3 SMG · 4 Shotgun\n5 Assault Rifle · 6 Sniper Rifle\n7 Marksman Rifle · 8 Grenade Launcher\nF HE Grenade · G Smoke Grenade\nMouse wheel: switch weapon · Right mouse: zoom")))];
-    TSharedRef<SVerticalBox> DisplayChoices = SNew(SVerticalBox);
-    for (int32 Percent : {50, 60, 70, 80, 90, 100})
-    {
-        const FString Label = Percent == 100 ? TEXT("Fullscreen") : FString::Printf(TEXT("Windowed %d%%"), Percent);
-        DisplayChoices->AddSlot().AutoHeight()[Button(Label, [this, Percent]() { ApplyDisplaySize(Percent); return FReply::Handled(); })];
-    }
-    SetupPanel->AddSlot().AutoHeight().Padding(0,10,0,5)[SNew(STextBlock).Text(FText::FromString(TEXT("Window / display size")))];
-    SetupPanel->AddSlot().AutoHeight().Padding(0,5)[SAssignNew(DisplaySizeSelector, SComboButton)
-        .ButtonContent()[SNew(STextBlock).Text_Lambda([this]() { return GetDisplaySizeText(); })]
-        .MenuContent()[DisplayChoices]];
-    SetupPanel->AddSlot().AutoHeight().Padding(0,8,0,3)[SNew(STextBlock)
-        .Text(FText::FromString(TEXT("Automatic 3D resolution · target 60 FPS · tolerance and delayed adjustment"))).AutoWrapText(true)];
-    SetupPanel->AddSlot().AutoHeight().Padding(0,5)[Button(TEXT("RESET AUTOMATIC RESOLUTION"), [this]() {
-        ResetRenderResolution(); return FReply::Handled();
-    })];
-    SetupPanel->AddSlot().AutoHeight().Padding(0,12,0,5)[SNew(STextBlock).Text_Lambda([GI]() {
-        const int32 Percent = FMath::RoundToInt(GI->GetMusicVolume() * 100.f);
-        return FText::FromString(Percent == 0 ? TEXT("Music volume · Off") : FString::Printf(TEXT("Music volume · %d%%"), Percent));
-    })];
-    SetupPanel->AddSlot().AutoHeight().Padding(0,5)[SNew(SSlider)
-        .Value_Lambda([GI]() { return GI->GetMusicVolume(); })
-        .StepSize(.01f)
-        .OnValueChanged_Lambda([GI](float Value) { GI->SetMusicVolume(Value); })
-        .OnMouseCaptureEnd_Lambda([GI]() { GI->SaveMusicVolume(); })
-        .OnControllerCaptureEnd_Lambda([GI]() { GI->SaveMusicVolume(); })];
-    SetupPanel->AddSlot().AutoHeight().Padding(0,3)[SNew(STextBlock)
-        .Text(FText::FromString(TEXT("0% = off. Quieter in the in-game menu."))).AutoWrapText(true)];
-    SetupPanel->AddSlot().AutoHeight().Padding(0,12,0,5)[SNew(STextBlock).Text_Lambda([GI]() {
-        return FText::FromString(FString::Printf(TEXT("Mouse sensitivity · %d%%"), FMath::RoundToInt(GI->GetMouseSensitivity() * 100.f)));
-    })];
-    SetupPanel->AddSlot().AutoHeight().Padding(0,5)[SNew(SSlider)
-        .Value_Lambda([GI]() { return GI->GetMouseSensitivity(); })
-        .StepSize(.01f)
-        .OnValueChanged_Lambda([GI](float Value) { GI->SetMouseSensitivity(Value); })
-        .OnMouseCaptureEnd_Lambda([GI]() { GI->SaveMouseSensitivity(); })
-        .OnControllerCaptureEnd_Lambda([GI]() { GI->SaveMouseSensitivity(); })];
-    SetupPanel->AddSlot().AutoHeight().Padding(0,12,0,5)[SNew(STextBlock).Text_Lambda([GI]() {
-        return FText::FromString(FString::Printf(TEXT("Mouse acceleration · %d%%"), FMath::RoundToInt(GI->GetMouseAcceleration() * 100.f)));
-    })];
-    SetupPanel->AddSlot().AutoHeight().Padding(0,5)[SNew(SSlider)
-        .Value_Lambda([GI]() { return GI->GetMouseAcceleration(); })
-        .StepSize(.01f)
-        .OnValueChanged_Lambda([GI](float Value) { GI->SetMouseAcceleration(Value); })
-        .OnMouseCaptureEnd_Lambda([GI]() { GI->SaveMouseSensitivity(); })
-        .OnControllerCaptureEnd_Lambda([GI]() { GI->SaveMouseSensitivity(); })];
-    SetupPanel->AddSlot().AutoHeight().Padding(0,3)[SNew(STextBlock)
-        .Text(FText::FromString(TEXT("Precise slow movements, faster turns with quick movements. 0% = uniform response."))).AutoWrapText(true)];
-    SetupPanel->AddSlot().AutoHeight().Padding(0,15)[SNew(STextBlock).Text_Lambda([GI]() { return FText::FromString(GI->LastError); }).AutoWrapText(true).ColorAndOpacity(FLinearColor(1,.6f,.25f))];
-    SetupPanel->AddSlot().AutoHeight().Padding(0,10)[SNew(STextBlock).Text(FText::FromString(TEXT("WASD  Move     Mouse  Aim / Fire\nShift  Walk     Space  Jump / Climb / Respawn     Ctrl / C  Crouch\nDouble-tap W  Sprint (max 5 s / double recovery time)\nDouble-tap Ctrl / C  Prone\nW / S  Climb ladder (automatic weapon stow)     Space  Detach\nR  Reload     Tab  Scoreboard     Esc  Menu"))).AutoWrapText(true)];
-    SetupPanel->AddSlot().AutoHeight().Padding(0,12)[SNew(STextBlock)
-        .Text(FText::FromString(TEXT("Recon models: S9 drone by blockv_lb; Pelican Case Game Ready by polbrainstorm. CC BY 4.0. Adapted for the game.")))
-        .ToolTipText(FText::FromString(TEXT("S9 drone: https://skfb.ly/6SSyD\nPelican Case: https://skfb.ly/6xwPJ\nLicense: https://creativecommons.org/licenses/by/4.0/\nChanges: static conversion, scale, closed lid and material adaptation.")))
-        .Font(FCoreStyle::GetDefaultFontStyle("Regular",10)).AutoWrapText(true)];
-    auto Column = [](TSharedRef<SVerticalBox> Content) -> TSharedRef<SWidget>
-    {
-        return SNew(SBorder).Padding(20).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
-            .BorderBackgroundColor(FLinearColor(0,0,0,.76f))
-            .ForegroundColor(FLinearColor(.95f,.95f,.95f,1))
-            [SNew(SScrollBox) + SScrollBox::Slot()[Content]];
-    };
-    static const FSlateDynamicImageBrush BackgroundBrush(FName(*FPaths::ConvertRelativePathToFull(
-        FPaths::ProjectDir() / TEXT("Branding/background.jpg"))), FVector2D(2560, 1441));
-    MenuWidget = SNew(SOverlay)
-        + SOverlay::Slot()
-        [SNew(SScaleBox).Stretch(EStretch::ScaleToFill)
-            .Clipping(EWidgetClipping::ClipToBounds)
-            .Visibility(EVisibility::HitTestInvisible)
-            [SNew(SImage).Image(&BackgroundBrush)]]
-        + SOverlay::Slot().Padding(24,24,24,42)
-        [SNew(SHorizontalBox)
-            + SHorizontalBox::Slot().FillWidth(1.1f).Padding(0,0,8,0)[Column(GamePanel)]
-            + SHorizontalBox::Slot().FillWidth(1).Padding(8,0)[Column(Panel)]
-            + SHorizontalBox::Slot().FillWidth(1).Padding(8,0,0,0)[Column(SetupPanel)]]
-        + SOverlay::Slot().HAlign(HAlign_Right).VAlign(VAlign_Bottom).Padding(16,8)
-        [SNew(STextBlock)
-            .Text(FText::FromString(GI->BuildVersion))
-            .Font(FCoreStyle::GetDefaultFontStyle("Regular", 11))
-            .ColorAndOpacity(FLinearColor(.85f,.85f,.85f,.9f))
-            .ShadowOffset(FVector2D(1,1)).ShadowColorAndOpacity(FLinearColor::Black)
-            .Visibility(EVisibility::HitTestInvisible)];
-    GetWorld()->GetGameViewport()->AddViewportWidgetContent(MenuWidget.ToSharedRef(), 20);
-    // GameAndUI lets Esc reach Enhanced Input while the menu owns the mouse.
-    SetInputMode(FInputModeGameAndUI().SetWidgetToFocus(FocusWidget).SetHideCursorDuringCapture(false));
 }
 void AERPlayerController::ERBlockDamage(float Amount)
 {

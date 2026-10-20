@@ -1,0 +1,2 @@
+Teko font — Copyright 2023 The Teko Project Authors (https://www.github.com/googlefonts/teko)
+Licensed under SIL Open Font License, Version 1.1. See ThirdPartyLicenses/Teko-OFL.txt.

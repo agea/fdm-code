@@ -21,9 +21,12 @@ p.add_argument('--workspace', type=Path, default=PROJECT_ROOT.parent / 'builds' 
 p.add_argument('--architecture', choices=['universal', 'arm64', 'x64'], default='universal')
 p.add_argument('--configuration', choices=['Development', 'Shipping'], default='Development')
 p.add_argument('--resume', type=Path, help='Reuse an existing isolated build directory')
+p.add_argument('--recook-only', action='store_true', help='With --resume, reuse compiled binaries and rerun only cook/stage/package')
 p.add_argument('--xcode-stdin-workaround', action='store_true', help='Finalize outside UBA for the UE5.8.3/Xcode27 closed-stdin bug')
 p.add_argument('--check', action='store_true', help='Environment/space check with a temporary APFS clone probe')
 a = p.parse_args()
+if a.recook_only and not a.resume:
+    p.error('--recook-only requires --resume')
 project, engine, workspace = a.project.resolve(), a.engine.resolve(), a.workspace.resolve()
 if platform.system() != 'Darwin':
     raise RuntimeError('Run on macOS with Xcode and UE 5.8.3 installed')
@@ -83,10 +86,26 @@ else:
             shutil.copytree(src, dst, symlinks=False, copy_function=copy_file if use_clones else shutil.copy2, ignore=shutil.ignore_patterns('.git', '__pycache__', '.DS_Store'))
         elif src.is_file():
             (copy_file if use_clones else shutil.copy2)(src, dst)
+    # Installed Marketplace binaries cover the Editor, but do not necessarily
+    # include Game/universal manifests. Compile owned build copies from source.
+    plugin_spec = importlib.util.spec_from_file_location('build_plugins', Path(__file__).with_name('archive-linux-project.py'))
+    plugin_module = importlib.util.module_from_spec(plugin_spec)
+    plugin_spec.loader.exec_module(plugin_module)
+    for plugin in plugin_module.marketplace_plugins(project, engine):
+        destination = snapshot / 'Plugins' / plugin.stem
+        shutil.copytree(plugin.parent, destination, symlinks=False,
+                        copy_function=copy_file if use_clones else shutil.copy2,
+                        ignore=shutil.ignore_patterns('Binaries', 'Intermediate', '.git', '__pycache__', '.DS_Store'))
+        descriptor = destination / plugin.name
+        data = json.loads(descriptor.read_text())
+        data['Installed'] = False
+        descriptor.write_text(json.dumps(data, indent=2) + '\n')
     branding = snapshot / 'Branding'
     branding.mkdir(exist_ok=True)
-    for name in ('background.jpg', 'icon.png'):
+    for name in ('background.jpg', 'icon.png', 'Credits.txt'):
         (copy_file if use_clones else shutil.copy2)(project / 'Branding' / name, branding / name)
+    shutil.copytree(project / 'Branding/Fonts', branding / 'Fonts',
+                    copy_function=copy_file if use_clones else shutil.copy2)
     # Preserve the checkout identity without copying .git or requiring it at runtime.
     (snapshot / 'Build').mkdir(exist_ok=True)
     (snapshot / 'Build/SourceCommit.txt').write_text(
@@ -105,6 +124,7 @@ commands = [
      '-target=RespawnAndRage', '-platform=Mac', f'-clientconfig={a.configuration}',
      f'-clientarchitecture={arches}', '-nop4', '-unattended', '-utf8output', '-installed',
      '-allmaps', '-build', '-cook', '-stage', '-package', '-pak', '-iostore',
+     '-map=/Game/EclipseRecoil/Maps/L_MainMenu+/Game/EclipseRecoil/Maps/L_Depot+/Game/EclipseRecoil/Maps/L_CentralBuilding',
      '-skipbuildeditor', '-archive', f'-archivedirectory={archive}'],
 ]
 if a.resume:
@@ -121,7 +141,12 @@ if a.xcode_stdin_workaround:
                 f'-Input={sync_input}', f'-XmlConfigCache={snapshot / "Intermediate/Build/XmlConfigCache.bin"}',
                 f'-remoteini={snapshot}']
     commands[-1] = ['-skipbuild' if x == '-build' else x for x in commands[-1]]
-    commands[-1:-1] = [game_build, finalize]
+    if not a.recook_only:
+        commands[-1:-1] = [game_build, finalize]
+if a.recook_only:
+    # Cook an explicit map list using the already linked snapshot. Never rebuild
+    # the objects intentionally discarded after successful finalization.
+    commands = [[('-skipbuild' if x == '-build' else x) for x in commands[-1]]]
 spec = importlib.util.spec_from_file_location('stamp_build_version', snapshot / 'scripts/stamp-build-version.py')
 version_module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(version_module)
@@ -144,6 +169,30 @@ try:
                     time.sleep(5)
                 if process.returncode:
                     raise subprocess.CalledProcessError(process.returncode, command)
+                if len(command) > 1 and command[1] == 'RespawnAndRageEditor':
+                    # Cook loads the linked Editor modules, not their objects.
+                    # Retain binaries/headers while freeing completed Editor
+                    # PCH/object files before compiling two Game architectures.
+                    removed_bytes = 0
+                    for base in (snapshot / 'Intermediate', snapshot / 'Plugins'):
+                        for path in base.rglob('*'):
+                            if (path.is_file() and not path.is_symlink() and
+                                '/UnrealEditor/Development/' in str(path) and path.suffix in ('.o', '.gch')):
+                                removed_bytes += path.stat().st_size
+                                path.unlink()
+                    receipt['completed_editor_objects_removed_bytes'] = removed_bytes
+                if '-Mode=ApplePostBuildSync' in command:
+                    # Finalization has consumed the Game objects for linking
+                    # and symbols. BuildCookRun uses -skipbuild on this route.
+                    removed_bytes = 0
+                    for base in (snapshot / 'Intermediate', snapshot / 'Plugins'):
+                        for path in base.rglob('*'):
+                            if (path.is_file() and not path.is_symlink() and path.suffix in ('.o', '.gch') and
+                                any('/' + target + '/Development/' in str(path)
+                                    for target in ('RespawnAndRage', 'UnrealGame'))):
+                                removed_bytes += path.stat().st_size
+                                path.unlink()
+                    receipt['finalized_game_objects_removed_bytes'] = removed_bytes
             finally:
                 if process.poll() is None:
                     os.killpg(process.pid, signal.SIGTERM)

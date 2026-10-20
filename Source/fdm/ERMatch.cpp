@@ -1,4 +1,7 @@
 #include "ERMatch.h"
+#include "ERLobbyProbe.h"
+#include "ERCapacityProbe.h"
+#include "ERMapCatalog.h"
 #include "ERRecon.h"
 #include "ERReconProbe.h"
 #include "ERCharacter.h"
@@ -39,6 +42,9 @@
 void AERPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+    DOREPLIFETIME(AERPlayerState, bLobbyReady); DOREPLIFETIME(AERPlayerState, MapVote);
+    DOREPLIFETIME(AERPlayerState, SpareMagazines); DOREPLIFETIME(AERPlayerState, HECount);
+    DOREPLIFETIME(AERPlayerState, SmokeCount); DOREPLIFETIME(AERPlayerState, StunCount);
     DOREPLIFETIME(AERPlayerState, Team); DOREPLIFETIME(AERPlayerState, Kills);
     DOREPLIFETIME(AERPlayerState, Deaths); DOREPLIFETIME(AERPlayerState, TeamKills);
     DOREPLIFETIME(AERPlayerState, PrimaryWeapon);
@@ -47,6 +53,9 @@ void AERPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
 void AERGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+    DOREPLIFETIME(AERGameState, ServerMaxPlayers);
+    DOREPLIFETIME(AERGameState, bLobby); DOREPLIFETIME(AERGameState, bLobbyStarting);
+    DOREPLIFETIME(AERGameState, LobbyAlphaBots); DOREPLIFETIME(AERGameState, LobbyOmegaBots);
     DOREPLIFETIME(AERGameState, AlphaScore); DOREPLIFETIME(AERGameState, OmegaScore);
     DOREPLIFETIME(AERGameState, MatchEndServerTime); DOREPLIFETIME(AERGameState, RestartServerTime);
     DOREPLIFETIME(AERGameState, Winner);
@@ -64,6 +73,11 @@ AERGameMode::AERGameMode()
 void AERGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
 {
     Super::InitGame(MapName, Options, ErrorMessage);
+    bLobby = MapName.Contains(TEXT("L_MainMenu")) && UGameplayStatics::HasOption(Options, TEXT("ERLobby"));
+    bUseSeamlessTravel = bLobby;
+    MaxHumanPlayers = ERServer::ValidMaxPlayers(UGameplayStatics::GetIntOption(Options, TEXT("ERMaxPlayers"), ERServer::DefaultMaxPlayers));
+    // Set before PreLogin, including initial load and seamless travel.
+    if (GameSession) GameSession->MaxPlayers = MaxHumanPlayers;
     for (TActorIterator<AERProceduralMap> It(GetWorld()); It; ++It)
         {
             It->LayoutConfig.Seed = UGameplayStatics::GetIntOption(Options, TEXT("MapSeed"), It->LayoutConfig.Seed);
@@ -108,7 +122,7 @@ void AERGameMode::FillBots()
 {
     if (UGameplayStatics::GetCurrentLevelName(GetWorld()).Contains(TEXT("L_MainMenu")) || GetNumPlayers() == 0) return;
     PrunePendingSlots();
-    const int32 Count = (bStationaryBots || bConfiguredBots) ? DesiredBots : FMath::Min(DesiredBots, FMath::Max(0, 4-GetNumPlayers()-PendingHumanSlots.Num()));
+    const int32 Count = (bStationaryBots || bConfiguredBots) ? DesiredBots : FMath::Min(DesiredBots, FMath::Max(0, MaxHumanPlayers-GetNumPlayers()-PendingHumanSlots.Num()));
     while (TestBots.Num() > Count) RemoveBot();
     while (TestBots.Num() < Count)
     {
@@ -163,14 +177,19 @@ void AERGameMode::FillBots()
 void AERGameMode::BeginPlay()
 {
     Super::BeginPlay();
+    if (auto* State = GetGameState<AERGameState>())
+    { State->ServerMaxPlayers = MaxHumanPlayers; State->bLobby = bLobby; State->LobbyAlphaBots = AlphaBotCount; State->LobbyOmegaBots = OmegaBotCount; }
     if (!GetWorld()->GetMapName().Contains(TEXT("L_MainMenu")))
         GetWorld()->SpawnActor<AERReconDirector>(ReconClass ? ReconClass.Get() : AERReconDirector::StaticClass());
 #if !UE_BUILD_SHIPPING
+    if (FParse::Param(FCommandLine::Get(), TEXT("ERCapacityProbe"))) GetWorld()->SpawnActor<AERCapacityProbe>();
+    int32 LobbyProbeClient = 0;
+    if (FParse::Param(FCommandLine::Get(), TEXT("ERMenuGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERSettingsWrite")) || FParse::Param(FCommandLine::Get(), TEXT("ERSettingsRead")) || FParse::Param(FCommandLine::Get(), TEXT("ERLobbyProbeHost")) || FParse::Param(FCommandLine::Get(), TEXT("ERLobbyProbeTimeout")) || FParse::Value(FCommandLine::Get(), TEXT("ERLobbyProbeClient="), LobbyProbeClient)) GetWorld()->SpawnActor<AERLobbyProbe>();
     if (FParse::Param(FCommandLine::Get(),TEXT("ERReconProbe"))) GetWorld()->SpawnActor<AERReconProbe>();
     if (GetWorld()->GetMapName().Contains(TEXT("L_CentralBuilding")) && FParse::Param(FCommandLine::Get(),TEXT("ERIndustrialMapProbe")))GetWorld()->SpawnActor<AERIndustrialMapProbe>();
     if (FParse::Param(FCommandLine::Get(), TEXT("ERProtectionRespawnGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERProtectionGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERPostureGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERTeamGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERCorpseGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERSkinGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERFPSForearmsGallery"))) GetWorld()->SpawnActor<AERTeamGallery>();
 #endif
-    if (GameSession) GameSession->MaxPlayers = 4;
+    if (GameSession) GameSession->MaxPlayers = MaxHumanPlayers;
     GetWorldTimerManager().SetTimer(MatchTimer, this, &AERGameMode::CheckMatch, 0.2f, true);
 #if !UE_BUILD_SHIPPING
     if (GetWorld()->GetMapName().Contains(TEXT("L_Killhouse")) && FParse::Param(FCommandLine::Get(),TEXT("ERMapTemplateProbe"))) GetWorld()->SpawnActor<AERMapTemplateProbe>();
@@ -193,16 +212,22 @@ void AERGameMode::BeginPlay()
         GetWorld()->SpawnActor<AERArsenalProbe>();
 #endif
 }
+bool AERGameMode::HasOpenPlayerSlot()
+{
+    PrunePendingSlots();
+    return int64(GetNumPlayers()) + PendingHumanSlots.Num() < MaxHumanPlayers;
+}
 void AERGameMode::PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)
 {
     PrunePendingSlots();
-    const bool bFull = GetNumPlayers()+PendingHumanSlots.Num() >= 4;
+    const bool bFull = !HasOpenPlayerSlot();
     // PreLogin and spawning the human can happen in different frames. Keep the
     // freed slot reserved so CheckMatch cannot refill it with another bot.
     if (!bFull && !bStationaryBots && !bConfiguredBots)
-        while (!TestBots.IsEmpty() && GetNumPlayers()+TestBots.Num()+PendingHumanSlots.Num() >= 4) RemoveBot();
+        while (!TestBots.IsEmpty() && GetNumPlayers()+TestBots.Num()+PendingHumanSlots.Num() >= MaxHumanPlayers) RemoveBot();
     Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
-    if (bFull) ErrorMessage = TEXT("Server full: maximum 4 players.");
+    if (bLobbyTravelPending) ErrorMessage = TEXT("Match is starting. Try again shortly.");
+    if (bFull) ErrorMessage = FString::Printf(TEXT("Server full: maximum %d players."), MaxHumanPlayers);
     if (ErrorMessage.IsEmpty()) PendingHumanSlots.Add(GetWorld()->GetTimeSeconds()+30);
 }
 void AERGameMode::Logout(AController* Player)
@@ -226,7 +251,11 @@ FString AERGameMode::InitNewPlayer(APlayerController* Player, const FUniqueNetId
         auto* State = Player->GetPlayerState<AERPlayerState>();
         if (State)
         {
-            State->PrimaryWeapon = FMath::Clamp(UGameplayStatics::GetIntOption(Options, TEXT("Primary"), 0), 0, 6);
+            State->SpareMagazines = FMath::Clamp(UGameplayStatics::GetIntOption(Options, TEXT("Magazines"), -1), -1, 20);
+            State->HECount = FMath::Clamp(UGameplayStatics::GetIntOption(Options, TEXT("HE"), -1), -1, 20);
+            State->SmokeCount = FMath::Clamp(UGameplayStatics::GetIntOption(Options, TEXT("Smoke"), -1), -1, 20);
+            State->StunCount = FMath::Clamp(UGameplayStatics::GetIntOption(Options, TEXT("Stun"), -1), -1, 20);
+            State->PrimaryWeapon = FMath::Clamp(UGameplayStatics::GetIntOption(Options, TEXT("Primary"), GetWorld()->URL.HasOption(TEXT("ERLegacyArsenal")) ? 0 : 4), 0, 9);
             State->AlphaSkin = ERSkins::ValidIndex(UGameplayStatics::GetIntOption(Options, TEXT("AlphaSkin"), 0));
             State->OmegaSkin = ERSkins::ValidIndex(UGameplayStatics::GetIntOption(Options, TEXT("OmegaSkin"), 0));
             const int32 RequestedTeam = UGameplayStatics::GetIntOption(Options, TEXT("Team"), -1);
@@ -265,80 +294,9 @@ bool AERGameMode::ReadyToStartMatch_Implementation()
     if (GetMatchState() != MatchState::WaitingToStart || GetWorld()->GetMapName().Contains(TEXT("L_MainMenu"))) return false;
     return GetNumPlayers() > 0;
 }
-AActor* AERGameMode::ChoosePlayerStart_Implementation(AController* Player)
-{
-    auto* State = Player ? Player->GetPlayerState<AERPlayerState>() : nullptr;
-    if (!State) return nullptr;
-    const auto* Capsule = DefaultPawnClass->GetDefaultObject<ACharacter>()->GetCapsuleComponent();
-    auto* Bot = Cast<AERBotController>(Player);
-    if (Bot && Bot->TrainingStart)
-    {
-        FCollisionQueryParams Params(SCENE_QUERY_STAT(ERTrainingSpawn), false);
-        if (Player->GetPawn()) Params.AddIgnoredActor(Player->GetPawn());
-        return GetWorld()->OverlapBlockingTestByChannel(Bot->TrainingStart->GetActorLocation(), FQuat::Identity, ECC_Pawn,
-            FCollisionShape::MakeCapsule(Capsule->GetScaledCapsuleRadius(), Capsule->GetScaledCapsuleHalfHeight()), Params) ? nullptr : Bot->TrainingStart.Get();
-    }
-    // Resolve deterministic procedural spawns even before actor BeginPlay.
-    if (HasAuthority())
-        for (TActorIterator<AERProceduralMap> It(GetWorld()); It; ++It)
-        {
-            FERProceduralLayout Layout;
-            if (!ERProcedural::Build(It->LayoutConfig, It->Config, Layout)) continue;
-            int32 AlphaIndex=0,OmegaIndex=0;
-            for (TActorIterator<AERTeamPlayerStart> Start(GetWorld()); Start; ++Start)
-            {
-                bool bOwnedBotStart=false;
-                for (const auto& ExistingBot : TestBots) bOwnedBotStart |= ExistingBot->TrainingStart == *Start;
-                if (bOwnedBotStart) continue;
-                const bool Alpha=Start->Team==EERTeam::Alpha;
-                const auto& Starts=Alpha ? Layout.AlphaSpawns:Layout.OmegaSpawns;
-                const int32 Index=Alpha ? AlphaIndex++:OmegaIndex++;
-                const FVector Local=Starts.IsEmpty() ? (Alpha ? Layout.Spawn:Layout.Routes.Last()[0]):Starts[Index%Starts.Num()].GetLocation();
-                // Saved PlayerStarts default to Static; procedural sessions
-                // relocate only map starts, preserving each bot's clear spawn.
-                Start->GetRootComponent()->SetMobility(EComponentMobility::Movable);
-                Start->SetActorLocation(It->GetActorTransform().TransformPosition(Local));
-                if(!Starts.IsEmpty())Start->SetActorRotation(It->GetActorTransform().TransformRotation(Starts[Index%Starts.Num()].GetRotation()));
-            }
-        }
-    TArray<AERTeamPlayerStart*> Choices;
-    for (TActorIterator<AERTeamPlayerStart> It(GetWorld()); It; ++It)
-    {
-        if (It->Team != State->Team) continue;
-        // Exhibition starts belong only to their target; humans keep map starts.
-        bool bTrainingStart = false;
-        for (const auto& Target : TestBots) bTrainingStart |= Target->TrainingStart == *It;
-        if (bTrainingStart) continue;
-        if (Bot && bConfiguredBots)
-        {
-            // Search clear floor around team starts; bot counts are independent
-            // of the number of hand-authored human spawn points.
-            for (int32 Ring=1; Ring<=5; ++Ring) for (int32 Side=0; Side<8; ++Side)
-            {
-                const float Angle=Side*PI/4;
-                FVector Position=It->GetActorLocation()+FVector(FMath::Cos(Angle),FMath::Sin(Angle),0)*(Ring*150.f);
-                FHitResult Floor;
-                FCollisionQueryParams Query(SCENE_QUERY_STAT(ERBotSpawn),false);
-                FCollisionQueryParams FloorQuery(Query);
-                for (TActorIterator<APawn> Pawn(GetWorld()); Pawn; ++Pawn) FloorQuery.AddIgnoredActor(*Pawn);
-                if (!GetWorld()->LineTraceSingleByChannel(Floor,Position+FVector(0,0,150),Position-FVector(0,0,300),ECC_WorldStatic,FloorQuery) || Floor.ImpactNormal.Z<.7f) continue;
-                Position.Z=Floor.ImpactPoint.Z+Capsule->GetScaledCapsuleHalfHeight()+2;
-                if (FMath::Abs(Position.Z-It->GetActorLocation().Z)>40.f) continue;
-                if (GetWorld()->OverlapBlockingTestByChannel(Position,FQuat::Identity,ECC_Pawn,
-                    FCollisionShape::MakeCapsule(Capsule->GetScaledCapsuleRadius(),Capsule->GetScaledCapsuleHalfHeight()),Query)) continue;
-                Bot->TrainingStart=GetWorld()->SpawnActor<AERTeamPlayerStart>(Position,It->GetActorRotation());
-                if (Bot->TrainingStart) { Bot->TrainingStart->Team=State->Team; return Bot->TrainingStart; }
-            }
-        }
-        FCollisionQueryParams Params(SCENE_QUERY_STAT(ERSpawn), false);
-        if (Player->GetPawn()) Params.AddIgnoredActor(Player->GetPawn());
-        if (!GetWorld()->OverlapBlockingTestByChannel(It->GetActorLocation(), FQuat::Identity, ECC_Pawn,
-            FCollisionShape::MakeCapsule(Capsule->GetScaledCapsuleRadius(), Capsule->GetScaledCapsuleHalfHeight()), Params)) Choices.Add(*It);
-    }
-    return Choices.IsEmpty() ? nullptr : Choices[FMath::RandRange(0, Choices.Num()-1)];
-}
 void AERGameMode::RestartPlayer(AController* Player)
 {
+    if (bLobby) return;
     if (!Player || Player->IsPendingKillPending() || Player->GetPawn()) return;
     // The engine's generic fallback may use an occupied cached start or world origin.
     // A team match must wait for an actually clear start instead.
@@ -377,6 +335,7 @@ void AERGameMode::HandleMatchHasStarted()
 }
 void AERGameMode::CheckMatch()
 {
+    if (bLobby) { CheckLobby(); return; }
     if (UGameplayStatics::GetCurrentLevelName(GetWorld()).Contains(TEXT("L_MainMenu"))) return;
     auto* State = GetGameState<AERGameState>();
     if (!State) return;

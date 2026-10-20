@@ -1,5 +1,7 @@
 #pragma once
 #include "CoreMinimal.h"
+#include "Containers/Ticker.h"
+#include "ERServerSettings.h"
 #include "GameFramework/PlayerController.h"
 #include "Engine/GameInstance.h"
 #include "GameFramework/HUD.h"
@@ -19,6 +21,19 @@ public:
     void Host(int32 BotCount = 0, bool bStationaryTarget = false);
     void HostProcedural();
     void StartSession();
+    int32 GetStartingWeapon() const;
+    void StartLANServer();
+    int32 MaxPlayers = ERServer::DefaultMaxPlayers;
+    void SaveServerSettings();
+    void FindLANServer();
+    void CancelLANSearch();
+    bool IsSearchingLAN() const { return SearchDeadline > 0; }
+    int32 LANSecondsLeft() const;
+    void SaveProfile();
+    int32 SpareMagazines = 3;
+    int32 HECount = 2;
+    int32 SmokeCount = 2;
+    int32 StunCount = 2;
     int32 SessionMode = 0; // local, listen server, client
     int32 MapChoice = 0;
     int32 PlayerTeam = 0;
@@ -35,18 +50,29 @@ public:
     float GetMouseLookMultiplier() const;
     void SetMouseSensitivity(float Value);
     void SaveMouseSensitivity();
+    float GetSoundVolume() const { return SoundVolume; }
+    void SetSoundVolume(float Value);
     float GetMusicVolume() const { return MusicVolume; }
     void SetMusicVolume(float Value);
     void SaveMusicVolume();
-    int32 PrimaryWeapon = 0;
+    int32 PrimaryWeapon = 0; // legacy primary preference
+    int32 ReferenceStartingWeapon = 4;
     int32 AlphaSkin = 0;
     int32 OmegaSkin = 0;
     void SaveSkins();
     void SaveLoadout();
     bool bInitialWindowSizeApplied = false;
 private:
+    class FSocket* DiscoverySocket = nullptr;
+    FTSTicker::FDelegateHandle DiscoveryTicker;
+    double SearchDeadline = 0;
+    double NextDiscoveryAt = 0;
+    FString DiscoveryNonce;
+    bool TickDiscovery(float DeltaTime);
+    void CloseDiscoverySocket();
     float MouseSensitivity = .5f;
     float MouseAcceleration = .5f;
+    float SoundVolume = 1.f;
     float MusicVolume = 1.f;
     FDelegateHandle NetworkFailureHandle, TravelFailureHandle;
     void NetworkFailure(UWorld* World, class UNetDriver* Driver, ENetworkFailure::Type Type, const FString& Error);
@@ -94,11 +120,17 @@ public:
     UFUNCTION(Server, Reliable) void ServerSetName(const FString& Name);
     UFUNCTION(Server, Reliable) void ServerSetPrimary(int32 Index);
     UFUNCTION(Server, Reliable) void ServerSetSkins(int32 Alpha, int32 Omega);
+    UFUNCTION(Server, Reliable) void ServerLobbyTeam(int32 Team);
+    UFUNCTION(Server, Reliable) void ServerLobbyVote(int32 Map);
+    UFUNCTION(Server, Reliable) void ServerLobbyReady(bool Ready);
+    UFUNCTION(Server, Reliable) void ServerSetSupplies(int32 Magazines, int32 HE, int32 Smoke, int32 Stun);
     UFUNCTION(Client, Reliable) void ClientFlash(float Strength);
+    virtual void PostSeamlessTravel() override;
     bool IsMenuLevel() const;
     bool IsBlockMapLoading() const {return bBlockMapLoading;}
     void ShowMenu(bool bShow);
     void ScrollWeapon(int32 Direction);
+    UFUNCTION(Exec) void ERMenu(int32 Page = 0);
     UFUNCTION(Exec) void ERBlockDamage(float Amount = 25);
     UFUNCTION(Exec) void ERBlockDestroy();
     UFUNCTION(Exec) void ERBlockRegenerate();
@@ -111,6 +143,14 @@ public:
     UFUNCTION(Exec) void ERBlockGrenade();
 private:
     friend class UERGameInstance;
+    friend class AERLobbyProbe;
+    int32 SubmenuParent = 0;
+    int32 MenuPage = 0; // home, offline, server, search, setup, character, loadout
+    bool bShowingLobby = false;
+    void OpenMenuPage(int32 Page);
+    bool IsInLobby() const;
+    UPROPERTY(Transient) TObjectPtr<class AERMenuPreview> MenuPreview;
+    TSharedPtr<struct FSlateBrush> PreviewBrush;
     UPROPERTY(Transient) TObjectPtr<class UAudioComponent> MenuMusicComponent;
     void UpdateMenuMusic();
     uint32 AcknowledgedBlockEpoch=0;
