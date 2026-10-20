@@ -21,32 +21,56 @@ python3 scripts/release-macos.py --check
 python3 scripts/release-macos.py
 ```
 
-Before the first release, install the prerequisites below, a valid **Developer
-ID Application certificate with its private key** in Keychain, and
-[Butler](https://itch.io/docs/butler/installing.html) on PATH. Configure credentials
-once, interactively, keeping passwords out of the repository and command history:
+Before the first release, install the prerequisites below and a valid **Developer
+ID Application certificate with its private key** in Keychain. The script finds
+[Butler](https://itch.io/docs/butler/installing.html) on PATH, in the itch app's
+bundled versions, or in the existing sibling builder's `.work/butler/butler`.
+It also finds the existing login in the normal Mac/Linux-style Butler locations
+or `../unreal-builder/.work/itch-identity`. No separate builder repo is required;
+those legacy locations are optional migration fallbacks. Explicit `--butler` and
+`--butler-identity` values take precedence. Keys are never read into the script
+or printed; Butler reads the selected identity file itself.
+
+For notarization, the default `--notarization-method auto` checks the notarytool
+profile first, then uses the Apple Developer account already configured in
+**Xcode Settings → Accounts**. This uses Xcode's supported Developer ID archive
+upload and notarized export commands; it never extracts Xcode tokens/passwords.
+An account listed in Xcode can still need its login refreshed if Apple rejects
+authentication at upload time.
+
+To use notarytool explicitly, configure its credentials once in interactive
+prompts, keeping passwords out of the repository and command history:
 
 ```sh
 xcrun notarytool store-credentials RespawnAndRage
 butler login
 ```
 
+An existing Butler login is reused; run `butler login` only when none is present.
 The script auto-selects the signing identity only when exactly one valid
 Developer ID Application identity exists. Otherwise supply
 `--identity 'Developer ID Application: Your Name (TEAMID)'`.
 `--keychain-profile NAME` selects a different existing notarytool profile.
+`--notarization-method notarytool` requires that profile; `--notarization-method
+xcode` explicitly uses the configured Xcode account.
 Missing tools/credentials stop the release before compilation; software and
 certificates are not installed automatically. The initial checks include UE
 5.8.3, full Xcode/SDK/Metal, bundled .NET, plugin source, branding, asset mounts/LFS,
-a closed Editor, signing credentials and Butler authentication.
+a closed Editor, signing credentials and Butler authentication. If Metal is
+installed but its Xcode asset mapping/mount is stale, the check refreshes the
+installed component with `xcodebuild -showComponent MetalToolchain` and retries
+`xcrun --sdk macosx metal -v`. It does not download or reinstall Metal.
 
 The full release reserves **30 GiB for universal**, **25 GiB for a single
 architecture** on APFS, or **45 GiB for ordinary copies**, plus **5 GiB on the
 source and user-home volumes** for shared caches/tools (one margin when they
 share a volume). These are starting margins, not
 guaranteed peaks. After packaging, the script requires the app's uncompressed
-size plus 1 GiB free for notarization. The submission ZIP stays on the selected
-workspace disk, including when using an external SSD.
+size plus 1 GiB free for notarytool, or twice the app size plus 1 GiB for the
+Xcode archive/export route. Temporary notarization files stay on the selected
+workspace disk, including when using an external SSD. Xcode archives are retained
+beside the build receipt for diagnosis; the final upload still contains only the
+verified `.app`.
 
 ```sh
 # Use a larger build disk, an explicit identity and Shipping configuration:
@@ -98,6 +122,7 @@ as command arguments or written to receipts.
     receipt.json
     build.log                  # detailed Unreal output; tail -f while building
     RespawnAndRage-notarization.json
+    RespawnAndRage.xcarchive    # Xcode notarization route; retained for diagnostics
     dist/RespawnAndRage.app
     project/                   # isolated source/assets and intermediates
 ```
@@ -266,8 +291,22 @@ and its private key in the login Keychain (Xcode Settings → Accounts → Manag
 Certificates). An Apple Developer account alone does not install an identity.
 Confirm it with `security find-identity -v -p codesigning`.
 
-Create a notarytool Keychain profile locally; enter credentials only in its
-interactive prompts, never in source files or chat:
+The release command can reuse the existing Xcode account automatically. For
+manual helper use with that account (no notarytool profile required):
+
+```sh
+python3 scripts/notarize-macos.py /absolute/path/to/build/dist/RespawnAndRage.app \
+  --identity 'Developer ID Application: Your Name (TEAMID)' --method xcode
+```
+
+This creates an APFS-cloned xcarchive, submits it with Xcode's Developer ID
+distribution workflow, waits for its notarized export, and verifies the ticket,
+signature, version and Gatekeeper before replacing the packaged app. No account
+password/token is extracted. Failed archives remain beside `dist`; the helper
+waits up to 30 minutes for the export (`--timeout-seconds` changes that limit).
+
+Alternatively, create a notarytool Keychain profile locally; enter credentials
+only in its interactive prompts, never in source files or chat:
 
 ```sh
 xcrun notarytool store-credentials RespawnAndRage

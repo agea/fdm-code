@@ -4243,6 +4243,39 @@ combat/recon LAN results remain historical.
   data/links. `git diff --check` PASS. Native Windows junction/build execution
   remains to be confirmed on the Windows host.
 
+### Existing Mac release configuration discovery — 20 October 2026
+
+- `release-macos.py` now discovers the installed Butler executable and existing
+  login in standard itch locations and the optional sibling builder's `.work`.
+  Explicit paths take precedence; no key contents enter script output/receipts.
+  Real Butler 15.32.0 read-only status PASS for both current game channels.
+- Metal was installed (Xcode component 27A266a) but its mapping/mount was stale.
+  Refreshing the installed component made `xcrun --sdk macosx metal -v` work.
+  The script now attempts that refresh before reporting a missing compiler;
+  it does not download components or disable the compiler check.
+- Default notarization now selects a working notarytool profile or the existing
+  Xcode account. Only public account-list metadata is inspected; private Xcode
+  tokens/passwords are never extracted. Xcode export failures preserve the
+  original packaged app; ticket/signature/Gatekeeper/version verification is
+  required before replacing it or allowing a Butler upload.
+- **Real Apple integration PASS** with a tiny universal release probe: Developer
+  ID signing, Xcode upload, processing/poll, notarized export, stapling, strict
+  codesign and Gatekeeper (`source=Notarized Developer ID`). Receipt:
+  `/private/tmp/rr-xcode-notarization-probe-20261020/RespawnAndRageReleaseProbe-notarization.json`.
+  This was an Apple notarization test, not a new game build or an itch upload.
+- Full Python fixture suite PASS (51 tests). New cases cover auto-discovery and
+  explicit-path precedence, Metal refresh/rejection, Xcode account fallback,
+  empty account lists, pending notarization, accepted export and preservation
+  after upload/ticket/version failures. `git diff --check` PASS.
+- Real default Mac preflight now passes tool/authentication checks; it stops
+  solely on disk space (about 19.7 GiB free versus 30 GiB required for universal).
+  A SHA-256-verified APFS deduplication of 20 cooked container files in existing
+  package copies preserved every app/archive, but recovered no meaningful space
+  because their data was already shared. Receipt:
+  `Saved/AssetAudit/macos-release-apfs-dedup-20261020.json`. No disk-space guard
+  was weakened and no new game build started with insufficient space.
+
+
 ### Windows Editor compiler failures from user log — 20 October 2026
 
 - The supplied `editor.log` contains 43 MSVC errors: 24 C4458 inherited-member

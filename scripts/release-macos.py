@@ -74,6 +74,21 @@ def butler_arguments(args):
     return [args.butler] + (['--identity', args.butler_identity] if args.butler_identity else [])
 
 
+def discover_butler(args):
+    """Reuse installed CLI/app binaries and the existing builder login, without reading keys."""
+    if args.butler == 'butler' and not shutil.which('butler'):
+        legacy = PROJECT.parent / 'unreal-builder/.work/butler/butler'
+        bundled = Path.home() / 'Library/Application Support/itch/broth/butler/versions'
+        candidates = [legacy] + sorted(bundled.glob('*/butler'), key=lambda p: (
+            tuple(int(n) for n in re.findall(r'\d+', p.parent.name))), reverse=True)
+        args.butler = next((str(p.resolve()) for p in candidates if p.is_file() and os.access(p, os.X_OK)), 'butler')
+    if args.butler_identity is None and not os.environ.get('BUTLER_API_KEY', '').strip():
+        candidates = [Path.home() / 'Library/Application Support/itch/butler_creds',
+                      Path.home() / '.config/itch/butler_creds',
+                      PROJECT.parent / 'unreal-builder/.work/itch-identity']
+        args.butler_identity = next((p.resolve() for p in candidates if p.is_file() and p.stat().st_size), None)
+
+
 def check_butler(args):
     run([args.butler, 'version'])
     identity = args.butler_identity or Path.home() / 'Library/Application Support/itch/butler_creds'
@@ -122,11 +137,14 @@ def check_build(args, test):
             raise RuntimeError('Mac build environment check failed; inspect the diagnostic above')
 
     def metal():
-        try:
-            run(['xcrun', 'metal', '--version'])
-        except RuntimeError as error:
-            raise RuntimeError('Metal compiler unavailable; install the Xcode Metal Toolchain '
-                               '(xcodebuild -downloadComponent MetalToolchain)') from error
+        command = ['xcrun', '--sdk', 'macosx', 'metal', '-v']
+        if run(command, check=False).returncode:
+            # Xcode 26+ can have the Metal asset installed but not mounted or
+            # associated with the selected Xcode after an update/reboot.
+            run(['xcodebuild', '-showComponent', 'MetalToolchain'], check=False)
+            if run(command, check=False).returncode:
+                raise RuntimeError('Metal compiler unavailable; install the Xcode Metal Toolchain '
+                                   '(xcodebuild -downloadComponent MetalToolchain)')
 
     def dotnet():
         host = 'mac-arm64' if platform.machine() == 'arm64' else 'mac-x64'
@@ -194,10 +212,10 @@ def package(run_dir):
     return app, version, architecture
 
 
-def notarization_space(app, run_dir):
+def notarization_space(app, run_dir, method='notarytool'):
     size = sum(p.stat().st_size for p in app.rglob('*') if p.is_file() and not p.is_symlink())
     # ZIP can be almost as large as the bundle; leave another GiB for metadata.
-    disk_space(run_dir, size + GIB)
+    disk_space(run_dir, size * (2 if method in ('auto', 'xcode') else 1) + GIB)
 
 
 def verify_distribution(app):
@@ -215,6 +233,8 @@ def verify_distribution(app):
 def preflight(args):
     if platform.system() != 'Darwin':
         raise RuntimeError('Run this script on macOS')
+    if not args.no_upload:
+        discover_butler(args)
     failures = []
 
     def test(name, action):
@@ -249,13 +269,15 @@ def preflight(args):
             if args.upload_only:
                 verify_distribution(app)
             else:
-                notarization_space(app, args.resume)
+                notarization_space(app, args.resume, args.notarization_method)
         test('Existing package' + (' and distribution signature/ticket' if args.upload_only else ''), existing_package)
     if not args.upload_only:
         def signing():
-            args.identity = helper('notarize-macos').check_credentials(args.identity, args.keychain_profile)
+            args.identity, args.notarization_method = helper('notarize-macos').resolve_credentials(
+                args.identity, args.keychain_profile, args.notarization_method)
             print('Signing identity: ' + args.identity)
-        test('Developer ID private key and notarytool Keychain profile', signing)
+            print('Notarization method: ' + args.notarization_method)
+        test('Developer ID private key and notarization credentials (notarytool/Xcode)', signing)
     if not args.no_upload:
         test('Butler login and itch.io access', lambda: check_butler(args))
     if failures:
@@ -289,11 +311,12 @@ def release(args):
         if not args.upload_only:
             receipt['status'] = 'notarizing'
             save(receipt_path, receipt)
-            notarization_space(app, run_dir)
+            notarization_space(app, run_dir, args.notarization_method)
             scratch = run_dir / 'scratch'
             scratch.mkdir(exist_ok=True)
             run([sys.executable, SCRIPTS / 'notarize-macos.py', app, '--identity', args.identity,
-                 '--keychain-profile', args.keychain_profile, '--scratch-directory', scratch], log=run_dir / 'notarization.log')
+                 '--keychain-profile', args.keychain_profile, '--method', args.notarization_method,
+                 '--scratch-directory', scratch], log=run_dir / 'notarization.log')
         verify_distribution(app)
         receipt['status'] = 'ready'
         save(receipt_path, receipt)
@@ -322,6 +345,8 @@ def main(argv=None):
     parser.add_argument('--configuration', choices=('Development', 'Shipping'), default='Development')
     parser.add_argument('--identity', help='Developer ID Application name; auto-selects only if exactly one is valid')
     parser.add_argument('--keychain-profile', default='RespawnAndRage')
+    parser.add_argument('--notarization-method', choices=('auto', 'notarytool', 'xcode'), default='auto',
+                        help='Use the Keychain profile if available, otherwise the existing Xcode account')
     parser.add_argument('--butler', default='butler', help='Butler executable on PATH or absolute path')
     parser.add_argument('--butler-identity', type=Path, help='Alternate private Butler identity file')
     parser.add_argument('--init-assets', action='store_true', help='Fetch pinned private submodules/LFS and create mounts')

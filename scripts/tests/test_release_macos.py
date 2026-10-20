@@ -21,7 +21,7 @@ class MacReleaseTests(unittest.TestCase):
         values = dict(engine=root / 'engine', workspace=root / 'releases', architecture='universal',
                       configuration='Development', identity=IDENTITY, keychain_profile='fixture',
                       butler='butler', butler_identity=None, init_assets=False, check=False,
-                      no_upload=False, resume=None, upload_only=None)
+                      no_upload=False, resume=None, upload_only=None, notarization_method='auto')
         values.update(overrides)
         return SimpleNamespace(**values)
 
@@ -54,6 +54,7 @@ class MacReleaseTests(unittest.TestCase):
                 run_dir = Path(command[command.index('--run-directory') + 1]).parent
                 self.fixture(run_dir)
             if stage == 'notarize':
+                self.assertIn(command[command.index('--method') + 1], ('notarytool', 'xcode'))
                 app = Path(command[2])
                 module.save(app.parent.parent / 'RespawnAndRage-notarization.json',
                             {'status': 'accepted-and-gatekeeper-verified', 'app': str(app)})
@@ -69,7 +70,7 @@ class MacReleaseTests(unittest.TestCase):
             root = Path(temporary)
             calls = []
             args = self.args(root, no_upload=no_upload)
-            with patch.object(module, 'preflight'), patch.object(module, 'disk_space'), \
+            with patch.object(module, 'preflight', side_effect=lambda a: setattr(a, 'notarization_method', 'xcode')), patch.object(module, 'disk_space'), \
                     patch.object(module, 'run', side_effect=self.runner(calls, fail)):
                 if fail:
                     with self.assertRaises(RuntimeError):
@@ -136,7 +137,7 @@ class MacReleaseTests(unittest.TestCase):
             root = Path(temporary)
             args = self.args(root)
             fake_helper = SimpleNamespace(ensure_idle=lambda: None,
-                check_credentials=lambda *args: (_ for _ in ()).throw(RuntimeError('missing Keychain profile')))
+                resolve_credentials=lambda *args: (_ for _ in ()).throw(RuntimeError('missing Keychain profile')))
             calls = []
             with patch.object(module.platform, 'system', return_value='Darwin'), \
                     patch.object(module.shutil, 'which', return_value='/fixture/tool'), \
@@ -164,6 +165,43 @@ class MacReleaseTests(unittest.TestCase):
                     module.notarization_space(app, root)
                 self.assertEqual(space.call_args.args[0], root)
                 self.assertGreater(space.call_args.args[1], module.GIB)
+
+    def test_discovers_existing_builder_cli_and_identity_without_reading_the_key(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            binary = root / 'unreal-builder/.work/butler/butler'
+            binary.parent.mkdir(parents=True)
+            binary.write_text('fixture executable')
+            binary.chmod(0o755)
+            identity = binary.parent.parent / 'itch-identity'
+            identity.write_text('test fixture; never read')
+            args = self.args(root)
+            with patch.object(module, 'PROJECT', root / 'core'), patch.object(module.Path, 'home', return_value=root / 'home'), \
+                    patch.object(module.shutil, 'which', return_value=None), patch.dict(module.os.environ, {}, clear=True):
+                module.discover_butler(args)
+            self.assertEqual(args.butler, str(binary.resolve()))
+            self.assertEqual(args.butler_identity, identity.resolve())
+
+    def test_explicit_butler_configuration_is_preserved(self):
+        args = self.args(Path('/fixture'), butler='/explicit/butler', butler_identity=Path('/explicit/identity'))
+        module.discover_butler(args)
+        self.assertEqual(args.butler, '/explicit/butler')
+        self.assertEqual(args.butler_identity, Path('/explicit/identity'))
+
+    def test_installed_metal_component_is_refreshed_before_retrying_compiler(self):
+        args = self.args(Path('/fixture'))
+        results = [subprocess.CompletedProcess([], 1), subprocess.CompletedProcess([], 0),
+                   subprocess.CompletedProcess([], 0)]
+        with patch.object(module, 'run', side_effect=results) as run:
+            module.check_build(args, lambda name, action: action() if name == 'Metal shader compiler' else None)
+        self.assertEqual(run.call_args_list[1].args[0], ['xcodebuild', '-showComponent', 'MetalToolchain'])
+        self.assertEqual(run.call_args_list[2].args[0], ['xcrun', '--sdk', 'macosx', 'metal', '-v'])
+
+    def test_missing_metal_compiler_still_blocks_the_release(self):
+        args = self.args(Path('/fixture'))
+        with patch.object(module, 'run', return_value=subprocess.CompletedProcess([], 1)):
+            with self.assertRaisesRegex(RuntimeError, 'Metal compiler unavailable'):
+                module.check_build(args, lambda name, action: action() if name == 'Metal shader compiler' else None)
 
 
 if __name__ == '__main__':

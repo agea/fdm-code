@@ -1,15 +1,20 @@
 """Sign a packaged Mac app, notarize it, staple the ticket and verify Gatekeeper.
 
-Requires a Developer ID Application identity and notarytool Keychain profile.
+Requires a Developer ID Application identity and notarytool profile or Xcode account.
 Credentials stay in Keychain. Does not upload anything to itch.io.
 """
 import argparse
+from datetime import datetime, timezone
+import importlib.util
 import json
+import os
 from pathlib import Path
 import plistlib
 import re
+import shutil
 import subprocess
 import tempfile
+import time
 
 
 MACHO = {bytes.fromhex(x) for x in (
@@ -48,16 +53,134 @@ def check_credentials(identity, keychain_profile, sign_only=False):
     return identity
 
 
+def xcode_account_available():
+    # This preference contains public account identifiers, not Xcode tokens.
+    # Never inspect/extract Xcode's private authentication material.
+    result = run('defaults', 'read', 'com.apple.dt.Xcode', 'DVTDeveloperAccountManagerAppleIDLists',
+                 capture_output=True, text=True, check=False)
+    if result.returncode:
+        return False
+    # Xcode versions use different namespaces/identifier formats (IDE.Prod,
+    # Xcode.Account.AppleID, etc.). Parse the public lists rather than assuming
+    # that an account identifier is a UUID.
+    converted = run('plutil', '-convert', 'json', '-o', '-', '-', input=result.stdout,
+                    capture_output=True, text=True, check=False)
+    if converted.returncode:
+        return False
+    data = json.loads(converted.stdout)
+    return isinstance(data, dict) and any(isinstance(v, list) and v for v in data.values())
+
+
+def resolve_credentials(identity, keychain_profile, method='auto'):
+    identity = check_credentials(identity, keychain_profile, sign_only=True)
+    if method != 'xcode':
+        result = run('xcrun', 'notarytool', 'history', '--keychain-profile', keychain_profile,
+                     '--output-format', 'json', capture_output=True, text=True, check=False)
+        if result.returncode == 0:
+            return identity, 'notarytool'
+        if method == 'notarytool':
+            raise RuntimeError('Notarytool profile unavailable: ' + str(keychain_profile) +
+                               '; configure it locally or select --notarization-method xcode')
+    if not xcode_account_available():
+        raise RuntimeError('Configure an Apple Developer account in Xcode Settings > Accounts, '
+                           'or a notarytool Keychain profile. No credentials are read from Xcode.')
+    return identity, 'xcode'
+
+
+def copy_app(source, destination):
+    spec = importlib.util.spec_from_file_location('apfs_snapshot', Path(__file__).with_name('apfs_snapshot.py'))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    shutil.copytree(source, destination, symlinks=True, copy_function=module.copy_file)
+
+
+def notarize_with_xcode(app, identity, scratch, receipt, timeout):
+    """Use Xcode's existing account through its supported archive distribution CLI."""
+    info = plistlib.loads((app / 'Contents/Info.plist').read_bytes())
+    team = re.search(r'\(([A-Z0-9]{10})\)$', identity)
+    if not team:
+        raise RuntimeError('Cannot determine the Developer ID team from the signing identity')
+    archive = app.parent.parent / (app.stem + '.xcarchive')
+    # Retain failed attempts; a retry must not silently overwrite their archive.
+    if archive.exists():
+        archive = archive.with_name(app.stem + '-' + str(time.time_ns()) + '.xcarchive')
+    product = archive / 'Products/Applications' / app.name
+    product.parent.mkdir(parents=True)
+    copy_app(app, product)
+    arches = run('lipo', '-archs', app / 'Contents/MacOS' / info['CFBundleExecutable'],
+                 capture_output=True, text=True).stdout.split()
+    (archive / 'Info.plist').write_bytes(plistlib.dumps({
+        'ArchiveVersion': 2, 'CreationDate': datetime.now(timezone.utc).replace(tzinfo=None),
+        'Name': app.stem, 'SchemeName': app.stem,
+        'ApplicationProperties': {'ApplicationPath': 'Applications/' + app.name,
+            'Architectures': arches, 'CFBundleIdentifier': info['CFBundleIdentifier'],
+            'CFBundleShortVersionString': info.get('CFBundleShortVersionString', '1.0'),
+            'CFBundleVersion': info.get('CFBundleVersion', '1'), 'SigningIdentity': identity, 'Team': team[1]}}))
+    options = scratch / 'ExportOptions.plist'
+    options.write_bytes(plistlib.dumps({'method': 'developer-id', 'destination': 'upload',
+        'signingStyle': 'manual', 'signingCertificate': identity, 'teamID': team[1],
+        'stripSwiftSymbols': False, 'manageAppVersionAndBuildNumber': False}))
+    receipt['submission'] = {'method': 'xcode', 'archive': str(archive), 'status': 'uploading'}
+    run('xcodebuild', '-exportArchive', '-archivePath', archive, '-exportOptionsPlist', options,
+        '-allowProvisioningUpdates')
+    receipt['submission']['status'] = 'processing'
+    exported = scratch / 'notarized-export'
+    deadline = time.monotonic() + timeout
+    while True:
+        if exported.exists():
+            shutil.rmtree(exported)
+        result = run('xcodebuild', '-exportNotarizedApp', '-archivePath', archive,
+                     '-exportPath', exported, capture_output=True, text=True, check=False)
+        if result.returncode == 0:
+            break
+        diagnostic = (result.stdout or '') + (result.stderr or '')
+        if re.search(r'No Accounts|Xcode-Token|rejected|invalid credentials', diagnostic, re.I):
+            raise RuntimeError('Xcode notarization failed: ' + diagnostic[-3000:])
+        if not re.search(r'not yet|in progress|processing|not been notarized|not notarized', diagnostic, re.I):
+            raise RuntimeError('Xcode notarized export failed: ' + diagnostic[-3000:])
+        if time.monotonic() >= deadline:
+            raise RuntimeError('Xcode did not export an accepted notarized app within the timeout. '
+                               'Archive retained at ' + str(archive) + '\n' + diagnostic[-3000:])
+        print('Waiting for Apple notarization through Xcode...', flush=True)
+        time.sleep(15)
+    apps = [p for p in exported.rglob(app.name) if p.is_dir() and not p.is_symlink()]
+    if len(apps) != 1:
+        raise RuntimeError('Xcode did not export exactly one notarized app')
+    final = apps[0]
+    run('xcrun', 'stapler', 'validate', final)
+    run('codesign', '--verify', '--deep', '--strict', '--verbose=2', final)
+    run('spctl', '--assess', '--type', 'execute', '--verbose=2', final)
+    version = Path('Contents/UE/RespawnAndRage/Build/GameVersion.txt')
+    if (final / version).read_bytes() != (app / version).read_bytes():
+        raise RuntimeError('Xcode export changed the packaged game version')
+    # Prepare on the app volume, then swap only the verified export into dist.
+    prepared = archive.with_suffix('.final.app')
+    backup = archive.with_suffix('.original.app')
+    copy_app(final, prepared)
+    os.replace(app, backup)
+    try:
+        os.replace(prepared, app)
+    except BaseException:
+        os.replace(backup, app)
+        raise
+    shutil.rmtree(backup)
+    receipt['submission']['status'] = 'exported-notarized-app'
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('app', type=Path)
     parser.add_argument('--identity', required=True, help='Full Developer ID Application identity name')
     parser.add_argument('--keychain-profile')
+    parser.add_argument('--method', choices=('notarytool', 'xcode'), default='notarytool')
+    parser.add_argument('--timeout-seconds', type=int, default=1800, help='Xcode notarized export timeout')
     parser.add_argument('--sign-only', action='store_true', help='Sign and verify locally; notarization will be done through Xcode Organizer')
     parser.add_argument('--check', action='store_true', help='Check prerequisites without changing the app or submitting it')
     parser.add_argument('--scratch-directory', type=Path, help='Existing directory for the temporary submission ZIP (e.g. the build SSD)')
     args = parser.parse_args()
-    if not args.sign_only and not args.keychain_profile:
+    if args.timeout_seconds <= 0:
+        parser.error('--timeout-seconds must be positive')
+    if not args.sign_only and args.method == 'notarytool' and not args.keychain_profile:
         parser.error('--keychain-profile is required unless --sign-only is selected')
     app = args.app.resolve()
     if app.suffix != '.app' or not (app / 'Contents/Info.plist').is_file():
@@ -65,7 +188,10 @@ def main():
     if args.scratch_directory and not args.scratch_directory.is_dir():
         parser.error('--scratch-directory must exist')
     try:
-        check_credentials(args.identity, args.keychain_profile, args.sign_only)
+        if args.sign_only or args.method == 'notarytool':
+            check_credentials(args.identity, args.keychain_profile, args.sign_only)
+        else:
+            resolve_credentials(args.identity, args.keychain_profile, 'xcode')
     except RuntimeError as error:
         parser.error(str(error))
     if args.check:
@@ -93,20 +219,23 @@ def main():
             if args.sign_only:
                 receipt['status'] = 'signed-not-yet-notarized'
                 return
-            archive = scratch / 'submission.zip'
-            run('ditto', '-c', '-k', '--keepParent', app, archive)
             receipt['status'] = 'submitting'
-            submission = run('xcrun', 'notarytool', 'submit', archive,
-                '--keychain-profile', args.keychain_profile, '--wait',
-                '--output-format', 'json', capture_output=True, text=True, check=False)
-            receipt['submission'] = json.loads(submission.stdout)
-            if submission.returncode or receipt['submission'].get('status') != 'Accepted':
-                submission_id = receipt['submission'].get('id')
-                if submission_id:
-                    run('xcrun', 'notarytool', 'log', submission_id,
-                        '--keychain-profile', args.keychain_profile,
-                        receipt_path.with_name(app.stem + '-notary-log.json'))
-                raise RuntimeError('Apple did not accept the submission; inspect notarization receipt/log')
+            if args.method == 'xcode':
+                notarize_with_xcode(app, args.identity, scratch, receipt, args.timeout_seconds)
+            else:
+                archive = scratch / 'submission.zip'
+                run('ditto', '-c', '-k', '--keepParent', app, archive)
+                submission = run('xcrun', 'notarytool', 'submit', archive,
+                    '--keychain-profile', args.keychain_profile, '--wait',
+                    '--output-format', 'json', capture_output=True, text=True, check=False)
+                receipt['submission'] = json.loads(submission.stdout)
+                if submission.returncode or receipt['submission'].get('status') != 'Accepted':
+                    submission_id = receipt['submission'].get('id')
+                    if submission_id:
+                        run('xcrun', 'notarytool', 'log', submission_id,
+                            '--keychain-profile', args.keychain_profile,
+                            receipt_path.with_name(app.stem + '-notary-log.json'))
+                    raise RuntimeError('Apple did not accept the submission; inspect notarization receipt/log')
             run('xcrun', 'stapler', 'staple', app)
             run('xcrun', 'stapler', 'validate', app)
             run('codesign', '--verify', '--deep', '--strict', '--verbose=2', app)
