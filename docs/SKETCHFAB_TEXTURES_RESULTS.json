@@ -1,0 +1,82 @@
+{
+  "date": "2026-10-20",
+  "engine": "UE5.8.3",
+  "result": "PASS",
+  "recipe_revision": 7,
+  "preparation_revision": 2,
+  "ground_shader_revision": 1,
+  "original_packages": 14,
+  "materials": 16,
+  "runtime_maps": 68,
+  "archive_bytes": 1089613135,
+  "native_tests": [
+    "CentralBuildingCollision",
+    "CentralBuildingEvolution",
+    "CentralBuildingFinishes",
+    "CentralBuildingLayout"
+  ],
+  "validated_layout_seeds": 516,
+  "finish_test_seeds": 32,
+  "palette_sizes": {
+    "concrete_surfaces": 2,
+    "brick_surfaces": 4,
+    "wood_surfaces": 1,
+    "ground_surfaces": 3
+  },
+  "protected_sha256": {
+    "Assets/maps/Content/EclipseRecoil/Maps/L_Depot.umap": "a3dd11ab855c133436a9e02d2a5c29e7b455449994922f73d3ede71e657dbb5c",
+    "Assets/maps/Content/EclipseRecoil/Art/Destruction/DA_ER_BlockMaterials.uasset": "89adba9a120333e23b443cc5bf70358c33d1151050affe0a7d8f1b113b553779"
+  },
+  "credits": "All 14 acquired source URLs retained in menu; per-source metadata, CREDITS.txt, licenses, archive and file hashes retained privately.",
+  "precision_check": "Concrete2K 16-bit albedo 12189..51706 becomes 47..201, not solid white.",
+  "network": {
+    "result": "PASS",
+    "seed": 16,
+    "rule": 3,
+    "gallery": false,
+    "finish_gallery": false,
+    "render": true,
+    "network": true,
+    "factory_shaders": true,
+    "states": {
+      "1": 1295029505,
+      "2": 851614393,
+      "3": 851614393,
+      "4": 3514103708
+    },
+    "logs": {
+      "host": "Saved/Testing/industrial-network-metal-host.log",
+      "initial": "Saved/Testing/industrial-network-metal-initial.log",
+      "late": "Saved/Testing/industrial-network-metal-late.log"
+    }
+  },
+  "final_ground_shader_review": {
+    "asphalt": {
+      "result": "PASS",
+      "seed": 16,
+      "rule": 3,
+      "render": "Metal, offscreen 1280x720",
+      "image": "Saved/Testing/SketchfabTextures/asphalt/Industrial-Plan-rule3-seed16.png",
+      "image_sha256": "b5708883b9db1481e29af07c1e52053170279fa4b72ad1bcffb8a0e2e726f2dd"
+    },
+    "grass": {
+      "result": "PASS",
+      "seed": 1,
+      "rule": 3,
+      "render": "Metal, offscreen 1280x720",
+      "image": "Saved/Testing/SketchfabTextures/grass/Industrial-Plan-rule3-seed1.png",
+      "image_sha256": "0c0014b39e015bca1b072f8cfb0b1e6c4be8983fbde7540cdae693642e32529e"
+    },
+    "snow": {
+      "result": "PASS",
+      "seed": 42,
+      "rule": 3,
+      "render": "Metal, offscreen 1280x720",
+      "image": "Saved/Testing/SketchfabTextures/snow/Industrial-Plan-rule3-seed42.png",
+      "image_sha256": "2462db9cbb158679a1c089d4515d689deaf292ddd71c4e47d36d3e79137edb77"
+    }
+  },
+  "validation_note": "LAN passed before the final ground-only two-sample blend/grass tint. Final Metal galleries validate those shader edits; material identities, palette selection, geometry, physical profiles and network code are unchanged.",
+  "scope": "Historical initial acquisition and validation, before the subsequent requested unused-texture cleanup.",
+  "current_inventory": "TEXTURE_CLEANUP_RESULTS.json"
+}

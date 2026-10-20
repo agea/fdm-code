@@ -1,5 +1,8 @@
 #include "ERPlayerController.h"
 #include "ERRecon.h"
+#include "ERInterfaceStyle.h"
+#include "Fonts/FontMeasure.h"
+#include "Rendering/SlateRenderer.h"
 #include "ERMenuPreview.h"
 #include "Containers/Ticker.h"
 #include "ERMapCatalog.h"
@@ -40,6 +43,7 @@
 #include "EnhancedInputSubsystems.h"
 #include "InputMappingContext.h"
 #include "Engine/Canvas.h"
+#include "Engine/Font.h"
 #include "CanvasItem.h"
 #include "GlobalRenderResources.h"
 #include "Engine/Engine.h"
@@ -301,9 +305,9 @@ void AERPlayerController::BeginPlay()
     UpdateRenderResolution();
     FrameRateWidget = SNew(SOverlay)
         + SOverlay::Slot().HAlign(HAlign_Right).VAlign(VAlign_Top).Padding(12)
-        [SNew(SBorder).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
-            .BorderBackgroundColor(FLinearColor(0,0,0,.55f)).Padding(8)
-            [SNew(STextBlock).Text_Lambda([this]() { return GetFrameRateText(); })]];
+        [SNew(SBox).Padding(4)
+            [SNew(STextBlock).Font(ERInterface::Font(11)).ShadowOffset(FVector2D(1,1))
+                .ShadowColorAndOpacity(FLinearColor::Black).Text_Lambda([this]() { return GetFrameRateText(); })]];
     FrameRateWidget->SetVisibility(EVisibility::HitTestInvisible);
     GetWorld()->GetGameViewport()->AddViewportWidgetContent(FrameRateWidget.ToSharedRef(), 30);
 }
@@ -586,8 +590,8 @@ FText AERPlayerController::GetFrameRateText() const
     const float Primary = bDynamic ? Info.ResolutionFractionApproximations[GDynamicPrimaryResolutionFraction] : 1.f;
     const FIntPoint RenderSize(FMath::RoundToInt(LastRenderViewport.X * SceneOutputFraction * Primary),
         FMath::RoundToInt(LastRenderViewport.Y * SceneOutputFraction * Primary));
-    return FText::FromString(FString::Printf(TEXT("%.0f FPS   %.1f ms   ·   3D %d × %d%s"),
-        1000.f / FrameTimeMs, FrameTimeMs, RenderSize.X, RenderSize.Y, bDynamic ? TEXT(" auto") : TEXT("")));
+    return FText::FromString(FString::Printf(TEXT("%.0f FPS   ·   %d × %d"),
+        1000.f / FrameTimeMs, RenderSize.X, RenderSize.Y));
 }
 
 void AERPlayerController::ResetRenderResolution()
@@ -801,6 +805,32 @@ void AERPlayerController::ERBlockGrenade()
         }
 #endif
 }
+void AERHUD::DrawHUDText(const FString& Value, float X, float Y, FLinearColor Color, float Scale, bool Centered)
+{
+    DrawHUDTextAnchored(Value,FVector2D(X,Y),Color,Scale,FVector2D(Centered ? .5f : 0.f,0));
+}
+
+FVector2D AERHUD::DrawHUDTextAnchored(const FString& Value, FVector2D Position, FLinearColor Color, float Scale, FVector2D Anchor)
+{
+    if (!Canvas || !Canvas->Canvas) return FVector2D::ZeroVector;
+    const float ViewScale = FMath::Clamp(Canvas->SizeY / 720.f, .75f, 2.f);
+    if (!HUDTypeface)
+    {
+        // Canvas requires a UFont even when given a composite Slate typeface.
+        HUDTypeface = NewObject<UFont>(this);
+        HUDTypeface->FontCacheType = EFontCacheType::Runtime;
+        HUDTypeface->GetMutableInternalCompositeFont() = *ERInterface::Font(24).GetCompositeFont();
+    }
+    const FSlateFontInfo Font(HUDTypeface,FMath::RoundToInt(24.f*Scale*ViewScale),TEXT("SemiBold"));
+    const float DPI=Canvas->Canvas->GetDPIScale();
+    const FVector2D Size=FSlateApplication::Get().GetRenderer()->GetFontMeasureService()->Measure(Value,Font,DPI)/DPI;
+    Position-=Size*Anchor;
+    FCanvasTextItem Item(FVector2D(FMath::RoundToFloat(Position.X),FMath::RoundToFloat(Position.Y)),FText::FromString(Value),Font,Color);
+    Item.EnableShadow(FLinearColor(0,0,0,.9f), FVector2D(2,2)*ViewScale);
+    Canvas->DrawItem(Item);
+    return Size;
+}
+
 void AERHUD::DrawHUD()
 {
     Super::DrawHUD();
@@ -812,7 +842,9 @@ void AERHUD::DrawHUD()
     }
     auto* GS = GetWorld()->GetGameState<AERGameState>(); if (!GS) return;
     const float W = Canvas->SizeX, H = Canvas->SizeY;
-    auto Text = [this](const FString& Value, float X, float Y, FLinearColor Color = FLinearColor::White, float Scale = 1.3f) { DrawText(Value, Color, X, Y, nullptr, Scale); };
+    const float HUDScale = FMath::Clamp(H / 720.f, .75f, 2.f);
+    const float EdgeMargin=40.f*HUDScale;
+    auto Text = [this](const FString& Value, float X, float Y, FLinearColor Color = FLinearColor::White, float Scale = 1.3f) { DrawHUDText(Value, X, Y, Color, Scale); };
     for (TActorIterator<AERBlockRoom> It(GetWorld()); It; ++It)
     {
         if(PC->IsBlockMapLoading())Text(TEXT("Synchronizing map..."),30,83,FLinearColor::Yellow,1);
@@ -847,20 +879,20 @@ void AERHUD::DrawHUD()
         }
     }
 
-    DrawRect(FLinearColor(0.01f,0.02f,0.04f,.8f), W/2-220, 15, 440, 70);
-    Text(bLab ? FString(TEXT("MOVEMENT LAB  |  185 cm")) : FString::Printf(TEXT("ALPHA  %02d     /     %02d  OMEGA"), GS->AlphaScore, GS->OmegaScore), W/2-160, 25, FLinearColor::White, 1.5f);
+    const FLinearColor AlphaColor=ERRecon::TeamColor(EERTeam::Alpha), OmegaColor=ERRecon::TeamColor(EERTeam::Omega);
+    DrawHUDText(FString::Printf(TEXT("%02d"),GS->AlphaScore),W/2-85*HUDScale,20*HUDScale,AlphaColor,1.45f,true);
+    DrawHUDText(TEXT("50"),W/2,27*HUDScale,FLinearColor(.8f,.82f,.85f),1.f,true);
+    DrawHUDText(FString::Printf(TEXT("%02d"),GS->OmegaScore),W/2+85*HUDScale,20*HUDScale,OmegaColor,1.45f,true);
     FString Status = TEXT("Waiting for players");
     if (GS->IsMatchInProgress())
     {
         const int32 Seconds = FMath::Max(0, FMath::CeilToInt(GS->MatchEndServerTime - GS->GetServerWorldTimeSeconds()));
-        Status = FString::Printf(TEXT("%02d:%02d    •    First to 50"), Seconds/60, Seconds%60);
+        Status = FString::Printf(TEXT("%02d:%02d"), Seconds/60, Seconds%60);
     }
     else if (GS->GetMatchState() == MatchState::WaitingPostMatch)
-        Status = GS->Winner == EERTeam::None ? TEXT("DRAW • Next match in 10 seconds") : (GS->Winner == EERTeam::Alpha ? TEXT("ALPHA WINS") : TEXT("OMEGA WINS"));
+        Status = GS->Winner == EERTeam::None ? TEXT("DRAW") : TEXT("ROUND OVER");
     if (bLab && Character) Status = FString::Printf(TEXT("%.1f km/h   |   Feet height: %.0f cm"), Character->GetVelocity().Size2D()*.036f, Character->GetActorLocation().Z-Character->GetCapsuleComponent()->GetScaledCapsuleHalfHeight()-2.1f);
-    Text(Status, W/2-150, 58);
-    const auto* PS = PC->GetPlayerState<AERPlayerState>();
-    Text(PS && PS->Team == EERTeam::Omega ? TEXT("OMEGA") : TEXT("ALPHA"), 30, 30, PS && PS->Team == EERTeam::Omega ? FLinearColor(1,.25f,.1f) : FLinearColor(.2f,.65f,1));
+    DrawHUDText(Status, W/2, 59*HUDScale, FLinearColor(.8f,.82f,.85f), .9f, true);
     if (TActorIterator<AERReconDirector> It(GetWorld()); It) It->DrawMinimap(this,PC);
     if (bLab)
     {
@@ -871,19 +903,23 @@ void AERHUD::DrawHUD()
     {
         const auto* Movement = Cast<UERMovement>(Character->GetCharacterMovement());
         const float Sprint = Movement->GetSprintRemaining(), Recovery = Movement->GetRecoveryRemaining();
-        Text(Sprint > 0 ? FString::Printf(TEXT("SPRINT %.1f s"), Sprint) : (Recovery > 0 ? FString::Printf(TEXT("RECOVERY %.1f s"), Recovery) : TEXT("SPRINT READY  |  double-tap W")), 30, H-100, FLinearColor(.6f,.8f,1), 1.f);
-        if (Movement->bProneWanted || Movement->IsProne()) Text(TEXT("PRONE  |  C / Ctrl to stand up"), 30, H-125, FLinearColor::White, 1.f);
+        const FVector2D HealthSize=DrawHUDTextAnchored(FString::Printf(TEXT("HP  %.0f   AP  %.0f"),Character->Health->Health,Character->Health->Armor),
+            FVector2D(EdgeMargin,H-EdgeMargin),FLinearColor(.4f,1,.7f),1.35f,FVector2D(0,1));
+        const float SprintBottom=H-EdgeMargin-HealthSize.Y-6.f*HUDScale;
+        const FVector2D SprintSize=DrawHUDTextAnchored(Sprint > 0 ? FString::Printf(TEXT("SPRINT %.1f s"), Sprint) : (Recovery > 0 ? FString::Printf(TEXT("RECOVERY %.1f s"), Recovery) : TEXT("SPRINT READY  |  double-tap W")),
+            FVector2D(EdgeMargin,SprintBottom),FLinearColor(.6f,.8f,1),.85f,FVector2D(0,1));
+        if (Movement->bProneWanted || Movement->IsProne()) DrawHUDTextAnchored(TEXT("PRONE  |  C / Ctrl to stand up"),
+            FVector2D(EdgeMargin,SprintBottom-SprintSize.Y-6.f*HUDScale),FLinearColor::White,.85f,FVector2D(0,1));
         const bool bOptical = Character->Weapon && Character->Weapon->HasOpticalScope();
         if (!bOptical)
         {
             DrawLine(W/2-8,H/2,W/2-3,H/2,FLinearColor::White); DrawLine(W/2+3,H/2,W/2+8,H/2,FLinearColor::White);
             DrawLine(W/2,H/2-8,W/2,H/2-3,FLinearColor::White); DrawLine(W/2,H/2+3,W/2,H/2+8,FLinearColor::White);
         }
-        Text(FString::Printf(TEXT("HP  %.0f   AP  %.0f"), Character->Health->Health, Character->Health->Armor), 30, H-65, FLinearColor(.4f,1,.7f), 2.f);
         if (const auto* Weapon = Character->Weapon.Get())
         {
-            Text(Weapon->bReloading ? TEXT("RELOADING...") : FString::Printf(TEXT("%02d / %02d    %s"),Weapon->MagazineAmmo,Weapon->ReserveAmmo,
-                Weapon->Data ? *Weapon->Data->DisplayName : TEXT("Assault Rifle")),W-440,H-65,FLinearColor::White,1.4f);
+            DrawHUDTextAnchored(Weapon->bReloading ? TEXT("RELOADING...") : FString::Printf(TEXT("%02d / %02d    %s"),Weapon->MagazineAmmo,Weapon->ReserveAmmo,
+                Weapon->Data ? *Weapon->Data->DisplayName : TEXT("Assault Rifle")),FVector2D(W-EdgeMargin,H-EdgeMargin),FLinearColor::White,1.1f,FVector2D(1,1));
             const int32 Capacity = Weapon->Data ? FMath::Clamp(Weapon->Data->MagazineSize, 1, 120) : 30;
             const int32 Remaining = FMath::Clamp(Weapon->MagazineAmmo, 0, Capacity);
             const float Scale = FMath::Clamp(H / 720.f, .65f, 2.f);
@@ -903,10 +939,9 @@ void AERHUD::DrawHUD()
                 const float Angle = -PI * .5f + (2.f * PI * I) / Capacity;
                 const FVector2D Direction(FMath::Cos(Angle), FMath::Sin(Angle));
                 const FVector2D Center = FVector2D(W*.5f,H*.5f) + Direction * ReticleRadius;
-                const FLinearColor DotColor = I < Remaining ? FLinearColor(1,1,1,.70f) : FLinearColor(0,0,0,.10f);
-                constexpr int32 DotSegments = 12;
-                const float DotRadius = 1.5f * Scale;
-                const float SolidRadius = DotRadius - .5f * Scale;
+                const FLinearColor DotColor = I < Remaining ? AmmoColor : FLinearColor(.14f,.19f,.23f,.55f);
+                constexpr int32 DotSegments = 16;
+                const float DotRadius = 1.85f * Scale;
                 TArray<FCanvasUVTri> DotTriangles;
                 DotTriangles.Reserve(DotSegments * 3);
                 const auto AddDotTriangle = [&DotTriangles](const FVector2D& A, const FLinearColor& ColorA,
@@ -919,27 +954,26 @@ void AERHUD::DrawHUD()
                     Triangle.V2_Pos = C; Triangle.V2_Color = ColorC;
                     DotTriangles.Add(Triangle);
                 };
-                const FLinearColor TransparentDotColor(DotColor.R, DotColor.G, DotColor.B, 0.f);
-                for (int32 Segment = 0; Segment < DotSegments; ++Segment)
+                const auto AddDisc = [&](FVector2D At, float Radius, float Feather, FLinearColor Ink)
                 {
-                    const float A = Segment * 2.f * PI / DotSegments, B = (Segment+1) * 2.f * PI / DotSegments;
-                    const FVector2D InnerA = Center + FVector2D(FMath::Cos(A), FMath::Sin(A)) * SolidRadius;
-                    const FVector2D InnerB = Center + FVector2D(FMath::Cos(B), FMath::Sin(B)) * SolidRadius;
-                    const FVector2D OuterA = Center + FVector2D(FMath::Cos(A), FMath::Sin(A)) * DotRadius;
-                    const FVector2D OuterB = Center + FVector2D(FMath::Cos(B), FMath::Sin(B)) * DotRadius;
-
-                    AddDotTriangle(Center, DotColor, InnerA, DotColor, InnerB, DotColor);
-                    AddDotTriangle(InnerA, DotColor, OuterA, TransparentDotColor, OuterB, TransparentDotColor);
-                    AddDotTriangle(InnerA, DotColor, OuterB, TransparentDotColor, InnerB, DotColor);
-                }
+                    const FLinearColor Clear = Ink.CopyWithNewOpacity(0);
+                    for (int32 Segment = 0; Segment < DotSegments; ++Segment)
+                    {
+                        const float A = Segment * 2.f * PI / DotSegments, B = (Segment+1) * 2.f * PI / DotSegments;
+                        const FVector2D DA(FMath::Cos(A),FMath::Sin(A)), DB(FMath::Cos(B),FMath::Sin(B));
+                        const FVector2D InnerA=At+DA*(Radius-Feather), InnerB=At+DB*(Radius-Feather);
+                        const FVector2D OuterA=At+DA*Radius, OuterB=At+DB*Radius;
+                        AddDotTriangle(At,Ink,InnerA,Ink,InnerB,Ink);
+                        AddDotTriangle(InnerA,Ink,OuterA,Clear,OuterB,Clear);
+                        AddDotTriangle(InnerA,Ink,OuterB,Clear,InnerB,Ink);
+                    }
+                };
+                AddDisc(Center+FVector2D(0,.75f*Scale),DotRadius+1.5f*Scale,1.4f*Scale,FLinearColor(0,0,0,.8f));
+                AddDisc(Center,DotRadius,.7f*Scale,DotColor);
                 FCanvasTriangleItem Dot(DotTriangles, GWhiteTexture);
                 Dot.BlendMode = SE_BLEND_Translucent;
                 Canvas->DrawItem(Dot);
             }
-            const FString CenterAmmo = Weapon->bReloading ? FString(TEXT("R")) : FString::FromInt(Remaining);
-            float TextW = 0, TextH = 0;
-            GetTextSize(CenterAmmo, TextW, TextH, nullptr, .9f*Scale);
-            Text(CenterAmmo,W*.5f-TextW*.5f,H*.5f+ReticleRadius+10.f*Scale,AmmoColor,.9f*Scale);
 #if !UE_BUILD_SHIPPING
             if (FParse::Param(FCommandLine::Get(), TEXT("ERAccuracyAudit")) && GetWorld()->GetTimeSeconds() >= NextReticleAuditAt)
             {
@@ -949,22 +983,30 @@ void AERHUD::DrawHUD()
             }
 #endif
         }
-        if (Character->Health->IsProtected()) Text(TEXT("SPAWN PROTECTION"), W/2-145,H-100,FLinearColor(.4f,.8f,1));
+        if (Character->Health->IsProtected()) DrawHUDText(TEXT("SPAWN PROTECTION"), W/2,H-119*HUDScale,FLinearColor(.4f,.8f,1),1.3f,true);
     }
     if (PC->bAwaitingRespawn)
     {
         const int32 Seconds = FMath::Max(0, FMath::CeilToInt(PC->RespawnAllowedAt-GS->GetServerWorldTimeSeconds()));
-        Text(Seconds > 0 ? FString::Printf(TEXT("Respawn available in %d"),Seconds) : TEXT("Press fire or jump to respawn"),W/2-175,H/2+60,FLinearColor(1,.6f,.3f),1.6f);
+        DrawHUDText(Seconds > 0 ? FString::Printf(TEXT("Respawn available in %d"),Seconds) : TEXT("Press fire or jump to respawn"),W/2,H/2+60,FLinearColor(1,.6f,.3f),1.6f,true);
     }
-    Text(TEXT("TAB  Scoreboard     ESC  Menu"),30,H-25,FLinearColor(.6f,.65f,.7f),1.f);
     if (PC->bShowScoreboard || GS->GetMatchState() == MatchState::WaitingPostMatch)
     {
-        DrawRect(FLinearColor(.015f,.025f,.04f,.92f),W/2-340,130,680,240);
-        Text(TEXT("TEAM          PLAYER                     K     D     TK"), W/2-320,150);
-        float Y = 190;
+        const float Left=W/2-340*HUDScale, Top=130*HUDScale;
+        DrawRect(FLinearColor(.015f,.025f,.04f,.92f),Left,Top,680*HUDScale,FMath::Min(H-Top-40*HUDScale,(65+GS->PlayerArray.Num()*36)*HUDScale));
+        const auto Row = [&](const FString& Team, const FString& Name, const FString& K, const FString& D, const FString& TK, float Y)
+        {
+            const FString Values[]={Team,Name,K,D,TK};
+            const float Columns[]={20,140,490,545,600};
+            for(int32 I=0;I<5;++I) Text(Values[I],Left+Columns[I]*HUDScale,Y,FLinearColor::White,1.05f);
+        };
+        Row(TEXT("TEAM"),TEXT("PLAYER"),TEXT("K"),TEXT("D"),TEXT("TK"),Top+12*HUDScale);
+        float Y = Top+54*HUDScale;
         for (APlayerState* Item : GS->PlayerArray) if (const auto* State = Cast<AERPlayerState>(Item))
         {
-            Text(FString::Printf(TEXT("%-10s    %-24s   %d     %d     %d"), State->Team == EERTeam::Alpha ? TEXT("Alpha") : TEXT("Omega"),*State->GetPlayerName(), State->Kills, State->Deaths, State->TeamKills),W/2-320,Y); Y += 36;
+            if(Y+36*HUDScale>H-40*HUDScale) break;
+            Row(State->Team == EERTeam::Alpha ? TEXT("Alpha") : TEXT("Omega"),State->GetPlayerName().Left(24),FString::FromInt(State->Kills),FString::FromInt(State->Deaths),FString::FromInt(State->TeamKills),Y);
+            Y += 36*HUDScale;
         }
     }
 }

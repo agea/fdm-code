@@ -32,6 +32,12 @@ struct FERCentralBuildingRecipe
     // Visual palette only: steel calibration and container reinforcement are unchanged.
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> SteelSurface;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<TObjectPtr<class UMaterialInterface>> ContainerSurfaces;
+    // One coherent finish per construction type and round, independent of geometry RNG.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<TObjectPtr<class UMaterialInterface>> ConcreteSurfaces;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<TObjectPtr<class UMaterialInterface>> BrickSurfaces;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<TObjectPtr<class UMaterialInterface>> WoodSurfaces;
+    // Asphalt, grass or snow are cosmetic; ground collision/friction stay identical.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<TObjectPtr<class UMaterialInterface>> GroundSurfaces;
 };
 
 UENUM(BlueprintType)

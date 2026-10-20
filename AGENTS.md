@@ -1,5 +1,24 @@
 # Respawn & Rage Unreal development
 
+Unused map textures (20 October, subsequent request): remove the four inactive
+Sketchfab library finishes and three unreferenced legacy floor/ceiling sets,
+including their active sources and menu credits. This supersedes earlier source
+retention for those seven sets only. Preserve every referenced material and all
+seeded alternatives. Use cleanup_unused_map_textures.py through Unreal after an
+outside-reference check and verified private rollback archive. Current selection:
+ten Sketchfab sources / twelve materials, seven CC0 sets plus authored Glass.
+Do not reacquire/reimport the discarded sets on routine pipeline reruns.
+
+Sketchfab textures (20 October): the user authorized the RR collection's texture
+downloads/replacements and seeded asphalt, grass or snow exteriors. See
+docs/SKETCHFAB_TEXTURES.md. Keep original ZIPs, metadata, source/license/author
+links and hashes privately in maps SourceAssets/SketchfabTextures; retain credits
+in material metadata and Branding/Credits.txt. Use the new texture pipeline and
+recipe7 palettes; preserve shared combat profiles, Factory originals and Depot.
+Palette choices must not consume geometry RNG and must agree on all LAN peers.
+Check UV connections and preserve 16-bit grayscale intensities during conversion.
+Do not rerun historical Factory finishes over the completed Sketchfab palette.
+
 Distribution (19 October): the user now authorizes Mac/Linux builds and public
 distribution on the existing itch.io page. This supersedes the earlier packaging
 deferral for these platforms. Linux builds run on the existing Fargate builder
@@ -1041,3 +1060,38 @@ server-side overflow positions near each team's base for occupied starts.
 Never spawn through walls, on unsupported floor or on top of another capsule;
 wait/retry when space is unavailable. Verify test-capacity.py on Depot and
 Central Building, native Menu tests, saved settings and combat/bot regressions.
+
+
+## HUD readability and local minimap (20 October)
+
+The latest user request supersedes the earlier full-map overview and reticle
+number requirements. Share Teko SemiBold between menu titles, HUD and FPS text
+through ERInterfaceStyle.h; retain larger viewport-scaled text and dark shadows.
+Keep the numeric ammo summary in the bottom weapon panel only. Ammo/spread dots
+retain the real server cone and count in every aiming mode, with dark feathered
+shadows and state colors. The minimap follows the local pawn at a fixed40m radius,
+rotates with local yaw and clips terrain/fog/contacts together. Preserve world
+fog coordinates, server visibility and stale-contact rules. Static bird capture
+is now mipmapped trilinear1024px; the circular shadow/rim use feathered alpha128-segment
+geometry. Do not change the main-scene60FPS governor for minimap presentation.
+
+
+HUD refinement (20 October): the performance overlay uses Teko11 (half the
+previous22), showing FPS and effective scene dimensions only, without ms/3D/auto.
+Top-center HUD has blue Alpha score, neutral50 target, orange Omega score and
+a smaller timer, without a panel or team names. Remove the top-left team name
+and bottom TAB/ESC hints. Bottom-left HP/AP is25% smaller; sprint/posture about19%
+smaller with viewport-scaled left margin and clear space below. Preserve inputs.
+
+
+HUD edge alignment (20 October): bottom rows use a shared40*HUDScale edge inset.
+Measure the actual font text in Canvas logical units with its current DPI.
+Anchor HP/AP bottom-left and stack sprint/posture above using measured heights.
+Anchor ammo/weapon/reload bottom-right using measured width and height, never a
+fixed left X chosen for one weapon name. Preserve the current font sizes.
+
+
+Menu version footer (20 October): keep Teko16 and shadow, disable AutoWrapText
+for the single-line version, and anchor it bottom-right inside a title-safe
+SSafeZone with32 padding. The footer must remain hit-test invisible and inside
+the viewport after fullscreen/resolution changes on every menu page.

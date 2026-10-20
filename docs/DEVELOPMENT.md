@@ -1,5 +1,20 @@
 # Respawn & Rage — sviluppo Unreal
 
+20 ottobre2026 — texture mappe richieste dalla raccolta Sketchfab RR: conservati12
+materiali da10 pacchetti originali dopo la pulizia richiesta dei set inutilizzati,
+con crediti/metadati/licenze/hash nel privato
+mappe e attribuzioni nel menu. Ricetta industriale7: palette coerenti per seed di
+cemento/muratura/legno e suoli asfalto/erba/neve; nuovi acciaio e piastre, colori
+container Factory mantenuti. Scelta estetica separata dal RNG geometrico e inclusa
+nel digest dei client. Conversione corretta dei16bit grayscale, UV world-aligned
+verificati, normal map erba/neve convertite e campionatura doppia del terreno per
+attenuare la ripetizione. Nessuna modifica a geometria, calibrazione danni, supporto
+o collisioni, né al Depot. Dettagli e ricostruzione: [SKETCHFAB_TEXTURES.md](SKETCHFAB_TEXTURES.md).
+Rimossi attraverso Unreal quattro set Sketchfab inutilizzati e tre vecchi set
+pavimento/controsoffitto senza referencer esterni, con sorgenti e crediti relativi.
+Pipeline e manifest aggiornati per evitare reimportazioni; backup privato verificato
+fuori dal progetto. Le palette attive e il catalogo condiviso sono preservati.
+
 ## Ambito concordato
 
 Richiesta del 12 ottobre 2026: partire dal progetto Unreal locale,
@@ -2336,3 +2351,70 @@ fonte dei testi, caricata localmente e inclusa nello staging e negli input di
 build Mac/Linux. Tolti i credits abbreviati da Setup. La pagina conserva autori,
 URL, licenze documentate e modifiche dei derivati; le fonti storiche rimangono
 esplicitamente indicate. Non aggiunge nuove autorizzazioni di distribuzione.
+
+
+### Leggibilità HUD e minimappa — 20 ottobre 2026
+
+Teko SemiBold condiviso fra titoli, HUD Canvas e contatore prestazioni. Testi HUD
+più grandi, ombra nera e dimensionamento proporzionale all'altezza del viewport;
+punteggio/stato centrati, più spazio per salute, sprint e munizioni, colonne
+esplicite in scoreboard per il font proporzionale. Rimosso il numero sotto il
+mirino in tutte le modalità di mira. I puntini mantengono numero di colpi e cono
+autorevole: azzurro chiaro normalmente, arancio con pochi colpi, ambra durante
+ricarica/indisponibilità, con ombra scura e bordo sfumato. Conteggio numerico
+sempre nel riepilogo arma in basso.
+
+Minimappa centrata sul giocatore con raggio fisso 40m: il resto viene tagliato,
+senza adattare lo zoom alla dimensione totale del livello. Proiezione comune
+per terreno, celle esplorate e contatti; orientamento in avanti invariato.
+Bordo 128 segmenti con alpha sfumata e ombra circolare morbida; cattura statica
+aumentata da 512 a 1024px con mipmap e filtro trilineare. Restano la griglia server 64x64,
+i controlli di visibilità e lo scarto dei contatti scaduti. Nessuna modifica
+alla risoluzione dinamica della scena principale o al suo obiettivo 60 FPS.
+
+
+### HUD minimale e margini inferiori — 20 ottobre 2026
+
+Contatore prestazioni: Teko da22 a11 (50%), padding e ombra dimezzati; mostra
+solo FPS e dimensioni effettive della scena dopo cap e risoluzione dinamica.
+Rimossi millisecondi, prefisso3D e suffissoauto; calcolo della risoluzione invariato.
+
+Indicatore superiore senza pannello: punteggio Alpha azzurro a sinistra, target50
+neutro al centro e punteggio Omega arancio a destra, timer più piccolo sotto.
+Rimossi nomi squadra dal punteggio e dall'angolo superiore sinistro; fine round
+usa DRAW/ROUND OVER. Salute/armatura ridotte del25%, sprint e postura di circa19%;
+ancoraggio sinistro proporzionale al viewport e maggiore margine utile in basso.
+Rimossi i suggerimenti TAB/ESC; i relativi comandi restano disponibili.
+
+La verifica Retina ha rilevato anche lo stato recon fuori dal margine destro:
+ora N e stato seguono la dimensione effettiva del disco, che ha un massimo in
+pixel, anziché continuare a crescere con il font generale dell'HUD.
+
+Ulteriore riduzione del riepilogo arma/munizioni in basso a destra: scala1.4→1.1
+(circa21%), con posizione riadattata per mantenere il margine destro e allineare
+il testo più piccolo alla fascia di salute/armatura.
+
+
+### Ancoraggi e margini HUD — 20 ottobre 2026
+
+Il bordo inferiore usa ora un margine comune ai lati (40unità × scala HUD),
+con altezza/larghezza reali del testo misurate tramite il servizio font Slate
+alla DPI del Canvas. HP/AP si ancorano in basso a sinistra; sprint e postura
+si impilano sopra con spaziatura costante, senza offset verticali indipendenti.
+Munizioni/arma e RELOADING si ancorano in basso a destra: il bordo destro resta
+fermo al cambiare del nome arma o delle cifre. Font e dimensioni restano quelli
+richiesti; l'altezza misurata alza le righe rispetto ai vecchi offset fissi.
+
+
+Contatore FPS/risoluzione (20 ottobre): rimosso il pannello scuro di sfondo,
+sostituito da un contenitore senza disegno. Conservati font11, ombra, padding
+e posizione del testo.
+
+
+### Numero di versione nei menu fullscreen — 20 ottobre 2026
+
+Il footer versione conserva Teko16 e ombra, ma disabilita il ritorno a capo
+automatico usato dal generico helper dei menu. È allineato in basso a destra
+all'interno di SSafeZone (title-safe), con padding32 anziché16/8; il contenitore
+non intercetta input. La stessa struttura serve menu principale, pausa e
+sottopagine e viene riallineata al cambio di dimensioni del viewport.

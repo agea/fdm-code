@@ -1,5 +1,14 @@
 # Pulizia e separazione del repository
 
+20 ottobre2026 — pulizia texture richiesta dall'utente: rimossi tramite Unreal
+sette set senza referencer esterni (quattro Sketchfab e tre CC0 precedenti),
+37 package /193.219.599byte e90 file sorgente /813.823.213byte. Aggiornati
+manifest, pipeline e crediti del menu. Conservate tutte le alternative attive e
+verificati identici781 file di asset/sorgenti rimasti. Il backup privato verificato
+è in `../_backups/unused-map-textures-20261020.tar.gz`, fuori dal progetto;
+non è una misura di spazio netto liberato sul disco. Nessun prune Git/LFS o
+modifica a download esterni/build distribuite. Dettagli: [TEXTURE_CLEANUP_RESULTS.json](TEXTURE_CLEANUP_RESULTS.json).
+
 Pulizia eseguita il 14 ottobre 2026. Nessun commit, push o cambio di visibilità.
 La configurazione Git locale usa ora una cache LFS esterna al progetto. Il rapporto
 distingue spazio locale, file necessari al gioco e materiali per ricostruirli.

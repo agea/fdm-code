@@ -5,6 +5,8 @@ import json
 import unreal as ue
 source = (Path(ue.Paths.project_dir()).resolve() / 'SourceAssets/ProceduralTextures').resolve()
 manifest = json.loads((source / 'manifest.json').read_text())
+if {entry['id'] for entry in manifest['assets']} != {'Plaster001','red_brick_03','concrete_wall_006','wood_planks','stone_wall_02','rusty_metal_04','asphalt_02'}:
+    raise RuntimeError('Use the seven-set source manifest after the 20 October unused-texture cleanup')
 assets = ue.EditorAssetLibrary
 tools = ue.AssetToolsHelpers.get_asset_tools()
 edit = ue.MaterialEditingLibrary
@@ -55,7 +57,7 @@ for entry in manifest['assets']:
         position = expr(material, ue.MaterialExpressionWorldPosition, -1000, 0)
         normal = expr(material, ue.MaterialExpressionVertexNormalWS, -1000, 150)
         tiling = expr(material, ue.MaterialExpressionScalarParameter, -1000, 300)
-        tiling.set_editor_property('parameter_name', 'TileSizeCm'); tiling.set_editor_property('default_value', {'asphalt_02':400,'concrete_wall_006':300,'OfficeCeiling001':120}.get(entry['id'],200))
+        tiling.set_editor_property('parameter_name', 'TileSizeCm'); tiling.set_editor_property('default_value', {'asphalt_02':400,'concrete_wall_006':300}.get(entry['id'],200))
         uv = custom(material, 'float3 a=abs(N); if(a.x>a.y && a.x>a.z) return float2(P.y*sign(N.x),-P.z)/Size; if(a.y>a.z) return float2(-P.x*sign(N.y),-P.z)/Size; return float2(P.x*sign(N.z),-P.y)/Size;', {'P':position,'N':normal,'Size':tiling}, ue.CustomMaterialOutputType.CMOT_FLOAT2, -700, 0)
         for index, (role, texture) in enumerate(maps.items()):
             sample = expr(material, ue.MaterialExpressionTextureSample, -400, index*170)
@@ -93,9 +95,6 @@ if assets.get_metadata_tag(catalog, 'ERPBRVersion') != '1':
         kind=row.get_editor_property('type')
         if kind in mapping: row.set_editor_property('surface',materials[mapping[kind]])
     catalog.set_editor_property('materials', rows); assets.set_metadata_tag(catalog, 'ERPBRVersion', '1'); save(catalog)
-levels = ue.get_editor_subsystem(ue.LevelEditorSubsystem)
-if not levels.load_level('/Game/EclipseRecoil/Maps/L_DestructionLab'): raise RuntimeError('Cannot load lab')
-for actor in ue.get_editor_subsystem(ue.EditorActorSubsystem).get_all_level_actors():
-    if isinstance(actor, ue.ERBlockRoom) and not actor.get_editor_property('floor_surface'): actor.set_editor_property('floor_surface', materials['floor_tiles_02'])
-if not levels.save_current_level(): raise RuntimeError('Cannot save floor setup')
-ue.log('ER_TEXTURE_LIBRARY_SAVED: sets=10 imported=' + str(imported) + ' PBR=10 glass=1 checksums=84')
+# The old destruction/procedural laboratories and their unused floor/ceiling
+# sets were retired. Never reopen/recreate them during a library import.
+ue.log('ER_TEXTURE_LIBRARY_SAVED: sets=' + str(len(materials)) + ' imported=' + str(imported) + ' glass=1 checksums=' + str(sum(len(entry['files']) for entry in manifest['assets'])))

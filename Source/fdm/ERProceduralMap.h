@@ -40,6 +40,7 @@ struct FERProceduralLayout
     TArray<FERLayoutFixedPiece> FixedPieces;
     TArray<FTransform> AlphaSpawns, OmegaSpawns;
     FVector ArenaSize=FVector::ZeroVector;
+    class UMaterialInterface* GroundSurface=nullptr;
     TArray<FERTemplateBase> Bases;
     TArray<EERTemplateModule> ModuleKinds;
     TArray<TArray<FVector>> RoomAccessRoutes;

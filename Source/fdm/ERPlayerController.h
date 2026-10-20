@@ -219,7 +219,12 @@ class FDM_API AERHUD : public AHUD
     friend class AERReconDirector;
 public:
     virtual void DrawHUD() override;
+    void DrawHUDText(const FString& Value, float X, float Y, FLinearColor Color = FLinearColor::White,
+        float Scale = 1.3f, bool Centered = false);
 private:
+    FVector2D DrawHUDTextAnchored(const FString& Value, FVector2D Position, FLinearColor Color,
+        float Scale, FVector2D Anchor);
+    UPROPERTY(Transient) TObjectPtr<class UFont> HUDTypeface;
     TWeakObjectPtr<class AERWeapon> ReticleWeapon;
     float ReticleRadius = 0;
     double NextReticleAuditAt = 0;

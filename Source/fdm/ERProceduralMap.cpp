@@ -284,7 +284,7 @@ void AERProceduralMap::ConfigureTemplateFloors()
     const auto* Template=LayoutConfig.TemplateAsset.Get();const FVector Size=Layout.ArenaSize;
     Floor->SetStaticMesh(BlockMesh);Floor->SetRelativeLocation(FVector(0,0,-10));Floor->SetRelativeScale3D(FVector(Size.X+40,Size.Y+40,20)/100);
     Floor->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);Floor->SetVisibility(true);
-    if(FloorSurface)Floor->SetMaterial(0,FloorSurface);
+    if(auto* Surface=Layout.GroundSurface ? Layout.GroundSurface:FloorSurface.Get())Floor->SetMaterial(0,Surface);
     for(auto* Mesh:{TileFloors.Get(),WoodFloors.Get(),Ceilings.Get(),Stairs.Get()}){Mesh->ClearInstances();Mesh->SetStaticMesh(BlockMesh);}
     FixedCollision->SetStaticMesh(BlockMesh);
     FenceCollision->SetStaticMesh(BlockMesh);
@@ -390,6 +390,7 @@ uint32 AERProceduralMap::GetTemplateGeometryDigest() const
     uint32 H=GetTypeHash(LayoutConfig.TemplateAsset->Revision);
     H=HashCombine(H,FCrc::StrCrc32(*LayoutConfig.TemplateAsset->TemplateId));
     H=HashCombine(H,GetTypeHash(uint8(LayoutConfig.TemplateAsset->Archetype)));
+    if(Layout.GroundSurface)H=HashCombine(H,FCrc::StrCrc32(*Layout.GroundSurface->GetPathName()));
     auto MixVector=[&](FVector V){for(int32 I=0;I<3;++I)H=HashCombine(H,GetTypeHash(FMath::RoundToInt(V[I]*100)));};
     MixVector(Layout.ArenaSize);H=HashCombine(H,GetTypeHash(bCeilings));H=HashCombine(H,GetTypeHash(uint8(LayoutConfig.TemplateAsset->Symmetry)));
     for(const auto& P:Layout.FixedPieces)

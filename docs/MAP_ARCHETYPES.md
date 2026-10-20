@@ -1,5 +1,14 @@
 # Industrial map archetypes
 
+20 October2026 art update: revision7 adds the owner's
+[Sketchfab texture palette](SKETCHFAB_TEXTURES.md). Concrete, masonry and timber
+finishes vary coherently by seed; exteriors choose asphalt, grass or snow. New
+gray steel and riveted deck finishes replace the corresponding Factory surface
+overrides; Factory prop meshes and four container paint colors remain. This
+supersedes the revision5 steel/deck art choice below while preserving physical
+profiles and all geometry. The active PCG snapshot is now
+`DA_CentralBuilding_42_SketchfabTextures`.
+
 Current scope, 19 October 2026: production maps use industrial art only. The
 playable recipe is **Central Building**. **Depot** is a selectable reference
 environment, excluded from the production rotation. Movement, destruction and

@@ -2,6 +2,7 @@
 #include "ERMatch.h"
 #include "ERCharacter.h"
 #include "ERMenuPreview.h"
+#include "ERInterfaceStyle.h"
 #include "ERMapCatalog.h"
 #include "ERWeapon.h"
 #include "Engine/GameViewportClient.h"
@@ -18,6 +19,7 @@
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Layout/SBox.h"
 #include "Widgets/Layout/SScaleBox.h"
+#include "Widgets/Layout/SSafeZone.h"
 #include "Widgets/Layout/SScrollBox.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Input/SComboButton.h"
@@ -31,9 +33,7 @@ namespace
 {
 FSlateFontInfo MenuFont(int32 Size)
 {
-    static const auto Font = MakeShared<FCompositeFont>(FName(TEXT("SemiBold")),
-        FPaths::ProjectDir() / TEXT("Branding/Fonts/Teko/Fonts/Teko-SemiBold.ttf"), EFontHinting::Default, EFontLoadingPolicy::LazyLoad);
-    return FSlateFontInfo(Font, Size);
+    return ERInterface::Font(Size);
 }
 TSharedRef<STextBlock> Text(const FString& Value, int32 Size = 24)
 {
@@ -340,7 +340,11 @@ void AERPlayerController::ShowMenu(bool bShow)
                     [Content]]];
     }
     if (MenuPage != 3) Overlay->AddSlot().VAlign(VAlign_Bottom).Padding(30,8,200,10)[SNew(STextBlock).Font(MenuFont(22)).ColorAndOpacity(FLinearColor(1,.65f,.3f)).ShadowOffset(FVector2D(2,2)).ShadowColorAndOpacity(FLinearColor::Black).AutoWrapText(true).Text_Lambda([GI]() { return FText::FromString(GI->LastError); })];
-    Overlay->AddSlot().HAlign(HAlign_Right).VAlign(VAlign_Bottom).Padding(16,8)[Text(GI->BuildVersion, 16)];
+    auto Version=Text(GI->BuildVersion,16);
+    Version->SetAutoWrapText(false);
+    Overlay->AddSlot()
+        [SNew(SSafeZone).IsTitleSafe(true).HAlign(HAlign_Right).VAlign(VAlign_Bottom).Padding(32)
+            .Visibility(EVisibility::HitTestInvisible)[Version]];
     MenuWidget = Overlay;
     GetWorld()->GetGameViewport()->AddViewportWidgetContent(MenuWidget.ToSharedRef(), 20);
     SetInputMode(FInputModeGameAndUI().SetWidgetToFocus(Focus).SetHideCursorDuringCapture(false));

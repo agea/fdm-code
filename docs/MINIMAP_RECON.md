@@ -4,9 +4,14 @@ The circular minimap sits at the top right, below the FPS readout. It follows
 the local player's heading: forward is always up, for either team. Terrain,
 fog, contacts, heading ticks and the north reference rotate together every
 rendered frame using the controller's yaw. The owner's direction tick stays
-up; the overview remains centered on the map. This works for generated and
+up. The view follows the owner's current position and shows a fixed 40m radius
+(80m diameter), clipping larger maps instead of shrinking them. Small maps can
+fit within that range. Terrain UVs and the shared fog mask retain their original
+world coordinates while the view moves and rotates. This works for generated and
 authored maps, without waiting for a server sight update when turning.
-A 512px orthographic bird view is captured once after map generation/loading,
+The circular frame uses 128 segments with feathered alpha edges, a soft radial
+shadow and a team-colored antialiased rim.
+A trilinear-filtered, mipmapped 1024px orthographic bird view is captured once after map generation/loading,
 with characters, corpses, weapons, projectiles and drones excluded. It remains
 static until a new generation/round. A 64x64 shared team fog mask reveals only
 explored cells; the unexplored area stays opaque. Geometry and fog snapshots
@@ -56,7 +61,8 @@ melee and radial damage do not trigger it. The team's vision loses that source
 immediately, but already explored terrain remains. A new drone launches after
 30 real server seconds if stock remains. Five means five total, including the
 initial drone; after the fifth destruction reconnaissance stays offline. The HUD
-shows remaining stock including the active unit, live status, and launch countdown.
+shows remaining stock including the active unit, live status, and launch countdown,
+using the same Teko SemiBold typography and black text shadow as the rest of the HUD.
 A hit also multicasts one cosmetic breakup through the surviving recon director.
 Each rendered peer spawns five actual source fragments (hull plus four arms/
 rotors), with gravity/spin, physics-only WorldStatic contacts and no player,

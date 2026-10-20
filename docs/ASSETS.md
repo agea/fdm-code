@@ -1,5 +1,15 @@
 # Inventario asset — primo prototipo locale
 
+20 ottobre2026 — [Palette Sketchfab RR](SKETCHFAB_TEXTURES.md): dieci pacchetti
+originali conservati nel repository privato mappe, dodici materiali PBR importati
+in `Art/Industrial/SketchfabTextures`. Attivi due cementi, quattro murature, legno,
+acciaio, piastre e tre suoli esterni (asfalto/erba/neve). I quattro set di libreria
+inutilizzati sono stati rimossi su richiesta, insieme ai tre vecchi set
+pavimento legno/piastrelle/controsoffitto e ai loro crediti. Metadati/licenze CC BY4.0, crediti per autore, originali,
+hash e modifiche sono conservati; i crediti sono anche nel menu. Nessuna geometria
+dei modelli dimostrativi è importata. Restano sette set CC0 referenziati e il vetro
+proprio; Factory e tutte le alternative attive sono preservati.
+
 | Origine / autore | Contenuto usato | Percorso | Compatibilità osservata | Condizioni / crediti |
 |---|---|---|---|---|
 | Template First Person / Arena Shooter, Epic Games, UE 5.8.3 | Manny semplice, animazione rifle idle e locomozione rifle per gli avversari | `Content/Characters/Mannequins/`, `Content/Variant_Shooter/Anims/ABP_TP_Rifle` | Caricato dal progetto originale e dal prototipo; vista FPS verificata con Metal | Contenuto incluso nel template installato. Registrare le condizioni applicabili prima della condivisione dei sorgenti o distribuzione; nessuna pubblicazione effettuata |
@@ -783,3 +793,13 @@ recon credits, font notices and public inventory. The Factory author is Denys
 Rutkovskyi, as identified by its [Fab listing](https://www.fab.com/listings/2ee66462-8c2b-4303-892c-83f7fc0d9b3e).
 Historical assets are labelled separately; no acquisition terms or distribution
 permissions are inferred or changed. Original license files remain preserved.
+
+
+### HUD typography and minimap presentation — 20 October 2026
+
+The existing Teko SemiBold runtime file is shared by menus, Canvas HUD and the
+performance overlay through ERInterfaceStyle.h. No new font or binary content.
+The transient, once-per-epoch bird-view target is now mipmapped trilinear RGBA8 1024x1024
+(about 5.33 MiB including mips, up from 1 MiB; excludes RHI/capture overhead).
+Soft circular frame, shadow and ammo dots are generated Canvas triangles.
+No saved maps, recon art or source assets changed.

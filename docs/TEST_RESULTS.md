@@ -1,5 +1,59 @@
 # Verifiche locali — 12 ottobre 2026
 
+## 20 ottobre2026 — rimozione texture inutilizzate, successiva richiesta
+
+Audit Unreal: nessun referencer esterno per quattro set Sketchfab non selezionati
+e tre vecchi set CC0 pavimento/controsoffitto. Rimossi tramite Editor37 package
+(7 materiali/30 texture) e90 file sorgente; crediti del menu e inventari privati
+aggiornati. Archivio di ripristino esterno verificato membro per membro SHA256.
+Confronto hash PASS su781 file conservati, inclusi Depot, catalogo condiviso,
+ricetta industriale e finiture attive. Restano12 materiali/51 mappe Sketchfab da10
+sorgenti, sette set CC0 e vetro proprio. Tutti gli originali/hash dei set rimasti
+e le attribuzioni incluse/escluse sono stati ricontrollati.
+
+PASS la reimportazione (solo12 materiali conservati), la verifica asset/ricetta
+salvata su516 seed e la galleria reale Metal regola3/seed42 (quattro viste,
+nessun errore shader; ispezionata la vista dall'alto). Risultati e percorsi dei
+log sono in [TEXTURE_CLEANUP_RESULTS.json](TEXTURE_CLEANUP_RESULTS.json).
+Le verifiche di importazione iniziali qui sotto descrivono l'inventario prima
+della pulizia. Nessuna modifica al codice di gioco o alle palette attive.
+
+## 20 ottobre2026 — texture Sketchfab RR e tre suoli esterni
+
+Editor UE5.8.3 Mac Development arm64: build finale riuscita,14.29s.
+Quattordici ZIP originali conservati (1,089,613,135byte), sedici set materiali e68
+mappe runtime fino a2048px. Verificati i14 URL sorgente nei crediti del menu,
+crediti/metadati per ogni autore e hash invariati del Depot e del catalogo danni.
+La conversione16bit è controllata anche sul caso Concrete2K: albedo originale
+12189..51706, copia preparata47..201; nessun clipping a bianco uniforme.
+
+PASS i quattro test `CentralBuildingCollision`, `CentralBuildingEvolution`,
+`CentralBuildingFinishes` e `CentralBuildingLayout`. Layout valido su516 seed;
+nuovo test su32 seed: tutte le tre varianti di terreno campionate, superfici
+deterministiche, volumi/identità/trasformazioni e resistenza immutati, palette
+vuote compatibili e riferimenti nulli/eccessivi rifiutati.
+Log: `Saved/Testing/sketchfab-textures-native.log` e `industrial-automation.log`.
+
+PASS importazione e verifica degli asset salvati tramite Unreal. Ricetta7,
+palette2 cementi/4 murature/1 legno/3 terreni, acciaio e piastre Sketchfab,
+quattro vernici container Factory e PCGEx `DA_CentralBuilding_42_SketchfabTextures`.
+Log: `sketchfab-textures-import.log`, `sketchfab-textures-verify.log`;
+ricevuta privata in `SourceAssets/SketchfabTextures/import-receipt.json`.
+
+PASS LAN con rendering Metal del server, seed16/rule3, client iniziale e tardivo:
+fase1 digest1295029505, fase2/3 digest851614393, nuovo round/epoch2 digest3514103708.
+Verificate le superfici dei chunk effettivi, il materiale del terreno, distruzione,
+supporto, brecce, ripristino ed epoch; client coerenti nelle fasi attese.
+Log/rapporto: `sketchfab-textures-network.log`, `industrial-network-metal-report.json`.
+
+La rifinitura successiva modifica esclusivamente gli shader dei tre terreni:
+seconda campionatura ruotata/miscelata e tinta dell'erba più contenuta. Percorsi
+dei materiali, palette, fisica e codice LAN restano identici. La verifica visiva
+Metal finale di questa rifinitura è conservata separatamente per asfalto seed16,
+erba seed1 e neve seed42 in `Saved/Testing/SketchfabTextures/{asphalt,grass,snow}`.
+I risultati aggregati e i limiti della sequenza sono in `SKETCHFAB_TEXTURES_RESULTS.json`.
+
+
 Unreal **5.8.3**, Editor runtime Mac Development arm64, macOS 27.0.1,
 M2 Pro / 32 GB / Xcode 27. Nessun cook o pacchetto standalone.
 
@@ -4296,3 +4350,104 @@ combat/recon LAN results remain historical.
 - Native MSVC/Win64 compilation, linking, cooking and packaging were not run on
   this Mac. The Windows host must rerun the build with the corrected sources;
   the failed build workspace contains its previous source copy.
+
+
+## HUD Teko e minimappa locale — 20 ottobre 2026
+
+- `scripts/build-editor.command`: **Succeeded** (Unreal 5.8.3, Mac arm64
+  Development Editor). Ultima compilazione 10.20s; log
+  `Saved/Testing/hud-minimap-build.log`.
+- `python3 scripts/test-recon.py --automation`: **3/3 Success**
+  (Flight, FogAndSight, SmokeOcclusion), prima degli ultimi soli ritocchi di
+  presentazione. Output `hud-minimap-automation.log` / `recon-automation.log`.
+- `python3 scripts/test-recon.py --render`: **PASS** con listen host Metal,
+  avversario, alleato e late join; 31 asserzioni host e 48 conferme client
+  (22/22/4). Inclusi contatto realmente disegnato a 40m sul bordo, visibilità,
+  fumo, ricambio drone e reset. Report `Saved/Testing/recon-metal-report.json`.
+  Questa esecuzione precede il ponte UFont e il filtraggio mipmap finali.
+- La prima cattura ha rilevato testi Canvas assenti con il solo composite font
+  Slate: corretto usando un UFont runtime transiente, conservato dall'HUD, con
+  lo stesso Teko SemiBold. Nessun nuovo asset salvato.
+- `python3 scripts/test-industrial-map.py --finish-gallery --offscreen`:
+  **PASS**, ripetuto dopo la correzione del font e dopo gli ultimi ritocchi
+  a pannello punteggio/mipmap. Rendering reale Metal 1280x720 su Central Building
+  seed42/crossing3; catture Plan, Container e Ground. Ispezionata visivamente
+  `Saved/Testing/Industrial-Ground-rule3-seed42.png`: testi presenti/leggibili,
+  pannello punteggio con margini, numero centrale assente, puntini con ombra,
+  minimappa circolare morbida e ritaglio del terreno attorno al giocatore.
+  Report `Saved/Testing/industrial-game-metal-report.json`, output
+  `hud-minimap-industrial-render.log`.
+- `git diff --check`: superato. Nessuna modifica al gameplay, ai pacchetti
+  salvati o alla politica di risoluzione della scena principale; nessun nuovo
+  cook/pacchetto distribuito per questa modifica. Le catture verificano 1280x720,
+  non certificano tutte le risoluzioni o stati possibili della scoreboard.
+
+
+## HUD minimale e margini Retina — 20 ottobre 2026
+
+- `scripts/build-editor.command`: **Succeeded**, ultima compilazione9.52s;
+  `Saved/Testing/hud-minimal-build.log`.
+- La prova Metal nativa con `-fullscreen -ForceRes -ResX=1920 -ResY=1080`
+  ha effettivamente usato3456x2234 (Retina). Il probe industriale è passato,
+  ma le catture fullscreen erano nere: non usate come evidenza visiva.
+- Ripetuto `test-industrial-map.py --finish-gallery --offscreen` con
+  ResX3456/ResY2234/ForceRes: **PASS** dopo gli ultimi cambi. Controllata la
+  cattura Ground reale Metal3456x2234: punteggi colorati/target neutro senza
+  pannello o nomi squadra, timer, HP/AP e sprint con margine inferiore, nessun
+  suggerimento TAB/ESC. Individuato e corretto anche il testo recon che prima
+  usciva a destra; ripetuta/ispezionata la cattura con etichette entro il viewport.
+- Evidenza: `Saved/Testing/HUDMinimal/Retina-3456x2234.png` e
+  `retina-report.json`; log `hud-minimal-retina-render.log`. Le catture del
+  probe escludono l'overlay Slate: formato FPS/risoluzione e font11 invece di22
+  verificati nel codice compilato, senza attribuire loro una verifica visiva.
+- `git diff --check`: superato. Nessun cambiamento alle scorciatoie,
+  al calcolo della risoluzione effettiva o alle regole della partita.
+
+
+### Dimensione testo arma/munizioni — 20 ottobre 2026
+
+Scala1.4→1.1 (circa21%) e ancoraggio riadattato alla fascia HP/AP.
+`scripts/build-editor.command`: **Succeeded**,11.80s; log
+`Saved/Testing/hud-ammo-size-build.log`. `git diff --check`: superato.
+Modifica solo tipografica; nessuna nuova cattura o prova gameplay per questo ritocco.
+
+
+### Ancoraggio inferiore e allineamento a destra — 20 ottobre 2026
+
+- `scripts/build-editor.command`: **Succeeded**,28.02s; log
+  `Saved/Testing/hud-edge-alignment-build.log`.
+- Rendering Metal industriale `--finish-gallery --offscreen` a3456x2234:
+  **PASS**; cattura Ground ispezionata in
+  `Saved/Testing/HUDEdgeAlignment/Retina-3456x2234.png`, report adiacente.
+- Misurati i pixel delle lettere rispetto all'area visibile, escluse le bande
+  nere: margine sinistro HP84px, destro del riepilogo arma83px. HP termina121px
+  sopra il margine inferiore visibile, contro80px nella cattura precedente:
+  riga alzata di41px. Testo arma a108px dal bordo inferiore, con larghezza
+  misurata dal font; sprint impilato sopra HP/AP. Nessun testo tagliato.
+- `git diff --check`: superato. Nessuna modifica a dimensioni font, munizioni,
+  comandi o gameplay. La verifica visiva usa la stessa risoluzione del
+  fullscreen Retina tramite rendering senza finestra.
+
+
+### Contatore prestazioni senza sfondo — 20 ottobre 2026
+
+SBorder sostituito da SBox senza sfondo, mantenendo testo/ombra/padding.
+`scripts/build-editor.command`: **Succeeded**,11.85s; log
+`Saved/Testing/fps-no-background-build.log`. `git diff --check`: superato.
+Nessuna nuova prova grafica per questa modifica del solo contenitore Slate.
+
+
+### Versione menu entro il viewport — 20 ottobre 2026
+
+- `scripts/build-editor.command`: **Succeeded**,11.82s;
+  `Saved/Testing/menu-version-inset-build.log`.
+- Avvio di L_MainMenu con `-ERMenuGallery -fullscreen -RenderOffscreen
+  -ForceRes -ResX=3456 -ResY=2234` e UserDir isolata: catture Slate reali
+  di home e Credits a3456x2234, ispezionate entrambe. Versione completa
+  visibile con margine inferiore e destro; font/dimensione conservati.
+  Catture in `Saved/Testing/MenuVersionInset/{home,credits}.png`, report e log
+  nella stessa cartella. La galleria è stata fermata dopo queste catture,
+  senza attendere il passaggio automatico al server LAN.
+- Le catture includono anche l'overlay prestazioni: FPS/dimensioni piccoli
+  e senza pannello di sfondo, coerenti con le modifiche precedenti.
+- `git diff --check`: superato. Nessun asset o stato di gioco modificato.

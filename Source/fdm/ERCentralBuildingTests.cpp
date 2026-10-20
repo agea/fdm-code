@@ -88,6 +88,47 @@ bool FERCentralBuildingLayoutTest::RunTest(const FString& Parameters)
     return true;
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FERCentralBuildingFinishesTest,"EclipseRecoil.Destruction.CentralBuildingFinishes",EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
+bool FERCentralBuildingFinishesTest::RunTest(const FString& Parameters)
+{
+    auto* T=NewObject<UERMapTemplate>();T->TemplateId=TEXT("test.central.finishes");T->Archetype=EERMapArchetype::CentralBuilding;T->Symmetry=EERTemplateSymmetry::HalfTurn;T->ArenaSize=FVector(8000,10000,1600);
+    FERProceduralConfig C;C.TemplateAsset=T;FERBlockRoomConfig B;
+    auto& V=T->CentralBuilding;
+    TSet<int32> GroundIndices;
+    for(int32 Seed=0;Seed<32;++Seed)
+    {
+        C.Seed=Seed;FERProceduralLayout Before,After,Repeat;
+        V.ConcreteSurfaces.Reset();V.BrickSurfaces.Reset();V.WoodSurfaces.Reset();V.GroundSurfaces.Reset();
+        if(!TestTrue(TEXT("baseline layout"),ERProcedural::Build(C,B,Before)))return false;
+        TestNull(TEXT("empty palette preserves saved floor"),Before.GroundSurface);
+        for(auto* Palette:{&V.ConcreteSurfaces,&V.BrickSurfaces,&V.WoodSurfaces,&V.GroundSurfaces})
+            for(int32 I=0;I<3;++I)Palette->Add(NewObject<UMaterial>(T));
+        if(!TestTrue(TEXT("visual palette layout"),ERProcedural::Build(C,B,After)) || !TestTrue(TEXT("repeat palette layout"),ERProcedural::Build(C,B,Repeat)))return false;
+        TestEqual(TEXT("palette keeps panel count"),Before.Panels.Num(),After.Panels.Num());
+        TestEqual(TEXT("palette keeps fixed count"),Before.FixedPieces.Num(),After.FixedPieces.Num());
+        TestEqual(TEXT("palette keeps arena"),Before.ArenaSize,After.ArenaSize);
+        TestEqual(TEXT("ground choice repeats"),After.GroundSurface,Repeat.GroundSurface);
+        TestTrue(TEXT("ground belongs to palette"),V.GroundSurfaces.Contains(After.GroundSurface));
+        GroundIndices.Add(V.GroundSurfaces.IndexOfByKey(After.GroundSurface));
+        for(int32 I=0;I<After.Panels.Num();++I)
+        {
+            const auto& A=After.Panels[I];const auto& Old=Before.Panels[I];
+            TestTrue(TEXT("palette preserves collision, material type and strength"),A.Id==Old.Id && A.Transform.Equals(Old.Transform) && A.Size==Old.Size && A.Material==Old.Material && A.Strength==Old.Strength);
+            TestEqual(TEXT("finish repeats on clients"),A.Surface,Repeat.Panels[I].Surface);
+            const auto* Palette=A.Material==EERBlockMaterial::Concrete ? &V.ConcreteSurfaces:A.Material==EERBlockMaterial::Brick ? &V.BrickSurfaces:A.Material==EERBlockMaterial::Wood ? &V.WoodSurfaces:nullptr;
+            if(Palette)TestTrue(TEXT("construction uses its visual palette"),Palette->Contains(A.Surface));
+        }
+        for(int32 I=0;I<After.FixedPieces.Num();++I)TestTrue(TEXT("palette preserves fixed collision"),After.FixedPieces[I].Transform.Equals(Before.FixedPieces[I].Transform));
+    }
+    TestEqual(TEXT("all three ground finishes sampled"),GroundIndices.Num(),3);
+    FERProceduralLayout L;
+    V.GroundSurfaces.Add(nullptr);TestFalse(TEXT("null ground rejected"),ERProcedural::Build(C,B,L));V.GroundSurfaces.Pop();
+    while(V.BrickSurfaces.Num()<9)V.BrickSurfaces.Add(NewObject<UMaterial>(T));
+    TestFalse(TEXT("oversized finish palette rejected"),ERProcedural::Build(C,B,L));
+    AddInfo(TEXT("ER_CENTRAL_FINISHES seeds=32 geometry_preserved=1 deterministic=1"));
+    return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FERCentralBuildingCollisionTest,"EclipseRecoil.Destruction.CentralBuildingCollision",EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
 bool FERCentralBuildingCollisionTest::RunTest(const FString& Parameters)
 {

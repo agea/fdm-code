@@ -28,6 +28,14 @@ bool BuildCentralBuilding(const UERMapTemplate& T,int32 Seed,TArray<FERMapTempla
     for(auto* Mesh:{V.FenceMesh.Get(),V.ContainerMesh.Get(),V.TankMesh.Get(),V.BarrelMesh.Get()})
         if(Mesh && (Mesh->GetBoundingBox().GetSize().ContainsNaN() || Mesh->GetBoundingBox().GetSize().GetMin()<.1))return false;
     if(V.ContainerSurfaces.Num()>8 || V.ContainerSurfaces.Contains(nullptr))return false;
+    for(const auto* Palette:{&V.ConcreteSurfaces,&V.BrickSurfaces,&V.WoodSurfaces,&V.GroundSurfaces})
+        if(Palette->Num()>8 || Palette->Contains(nullptr))return false;
+    auto Surface=[&](const TArray<TObjectPtr<UMaterialInterface>>& Palette,uint32 Salt)->UMaterialInterface*
+    {return Palette.IsEmpty() ? nullptr:Palette[HashCombineFast(uint32(Seed),Salt)%Palette.Num()].Get();};
+    auto* Concrete=Surface(V.ConcreteSurfaces,0x434f4e43u);
+    auto* Brick=Surface(V.BrickSurfaces,0x42524943u);
+    auto* Wood=Surface(V.WoodSurfaces,0x574f4f44u);
+    L.GroundSurface=Surface(V.GroundSurfaces,0x47524f55u);
     FRandomStream R(Seed);
     auto Pick=[&](float A,float B){return float(R.RandRange(int32(A/50),int32(B/50))*50);};
     L.CrossingRule=CrossingOverride ? EERCrossingRule(CrossingOverride):EERCrossingRule(R.RandRange(1,3));
@@ -51,6 +59,11 @@ bool BuildCentralBuilding(const UERMapTemplate& T,int32 Seed,TArray<FERMapTempla
         {
             if(Fixed)B.FixedSurface=Deck && V.DeckSurface ? V.DeckSurface:V.SteelSurface;
             else B.CellSurface=V.SteelSurface;
+        }
+        else if(!Mesh)
+        {
+            auto* Finish=M==EERBlockMaterial::Concrete ? Concrete:M==EERBlockMaterial::Brick ? Brick:M==EERBlockMaterial::Wood ? Wood:nullptr;
+            if(Fixed)B.FixedSurface=Finish;else B.CellSurface=Finish;
         }
         return B;
     };

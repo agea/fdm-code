@@ -48,7 +48,7 @@ try:
         wait_for('ER_INDUSTRIAL_STATE phase=3 ');launch('late','127.0.0.1:17791?Name=Late')
     host.wait(timeout=300)
     text=read('host');passed=host.returncode==0 and 'ER_INDUSTRIAL_PROBE_COMPLETE result=PASS' in text and 'ER_INDUSTRIAL_PROBE_FAIL' not in text
-    factory_shader_ok=not any('Art/Industrial/Materials/' in line and 'Failed to compile' in line for line in text.splitlines())
+    factory_shader_ok=not any('Art/Industrial/' in line and 'Failed to compile' in line for line in text.splitlines())
     passed&=factory_shader_ok
     if not factory_shader_ok:print('FAIL: Factory material shader compilation')
     states={int(a):int(b) for a,b in re.findall(r'ER_INDUSTRIAL_STATE phase=(\d+) digest=(\d+)',text)}

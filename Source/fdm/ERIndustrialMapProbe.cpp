@@ -41,12 +41,29 @@ void AERIndustrialMapProbe::Capture(AERProceduralMap* Map,int32 View)
         const auto& C=L.Containers[0];Camera->SetActorLocation(C.Frame.TransformPosition({0,C.Size.Y*.5+700,150}));
         Camera->SetActorRotation((C.Frame.TransformPosition({0,0,0})-Camera->GetActorLocation()).Rotation());
     }
+    if(View==3)
+    {
+        // Inspect a real concrete face with an unobstructed view, avoiding the
+        // timber cover that often fills the ordinary ground camera.
+        for(const auto& P:Map->GetCellWorld().GetPanels())if(P.Material==EERBlockMaterial::Concrete && P.Surface && P.Size.X>=200 && P.Size.Z>=150)
+        {
+            const FVector Target=P.Transform.TransformPosition(P.Size*.5),Normal=P.Transform.GetRotation().GetAxisY();
+            bool Found=false;
+            for(float Side:{-1.f,1.f})
+            {
+                const FVector Eye=Target+Normal*Side*450;FHitResult Hit;
+                if(GetWorld()->LineTraceSingleByChannel(Hit,Eye,Target,ECC_Visibility) && Hit.GetComponent() && Hit.GetComponent()->GetName().StartsWith(FString::Printf(TEXT("Cells_P%d_C"),P.Id)))
+                {Camera->SetActorLocation(Eye);Camera->SetActorRotation((Target-Eye).Rotation());Found=true;break;}
+            }
+            if(Found)break;
+        }
+    }
     if(!Ground)
     {
         Camera->GetCameraComponent()->ProjectionMode=ECameraProjectionMode::Orthographic;
         Camera->GetCameraComponent()->OrthoWidth=FMath::Max(L.ArenaSize.X,L.ArenaSize.Y*16.f/9)*1.08;
     }
-    const FString Filename=FPaths::ProjectSavedDir()/FString::Printf(TEXT("Testing/Industrial-%s-rule%d-seed%d.png"),View==2 ? TEXT("Container"):Ground ? TEXT("Ground"):TEXT("Plan"),int32(L.CrossingRule),Map->LayoutConfig.Seed);
+    const FString Filename=FPaths::ProjectSavedDir()/FString::Printf(TEXT("Testing/Industrial-%s-rule%d-seed%d.png"),View==3 ? TEXT("Concrete"):View==2 ? TEXT("Container"):Ground ? TEXT("Ground"):TEXT("Plan"),int32(L.CrossingRule),Map->LayoutConfig.Seed);
     FTimerHandle ScreenshotTimer;GetWorldTimerManager().SetTimer(ScreenshotTimer,[Filename](){FScreenshotRequest::RequestScreenshot(Filename,false,false);},.35f,false);
 }
 void AERIndustrialMapProbe::Tick(float Delta)
@@ -99,7 +116,8 @@ void AERIndustrialMapProbe::Tick(float Delta)
         {Check(ERIndustrialTest::FactoryPaletteMatches(*Map),TEXT("factory_palette_applied_to_rendered_metal"));Check(ERIndustrialTest::IntermediateCoverMatches(*Map),TEXT("intermediate_cover_access_and_concealment"));Capture(Map);Publish(1,Map);}
         if(Phase && Elapsed>7 && Gallery==0){Capture(Map,2);++Gallery;}
         if(Phase && Elapsed>11 && Gallery==1){Capture(Map,1);++Gallery;}
-        if(Elapsed>15){UE_LOG(LogTemp,Display,TEXT("ER_INDUSTRIAL_PROBE_COMPLETE result=%s"),Failed ? TEXT("FAIL"):TEXT("PASS"));FPlatformMisc::RequestExitWithStatus(false,Failed ? 1:0);}
+        if(Phase && Elapsed>15 && Gallery==2){Capture(Map,3);++Gallery;}
+        if(Elapsed>19){UE_LOG(LogTemp,Display,TEXT("ER_INDUSTRIAL_PROBE_COMPLETE result=%s"),Failed ? TEXT("FAIL"):TEXT("PASS"));FPlatformMisc::RequestExitWithStatus(false,Failed ? 1:0);}
         return;
     }
     const float DamageAt=DamageTime,RegenAt=DamageTime+(Network ? 43:8),EndAt=DamageTime+(Network ? 70:18);

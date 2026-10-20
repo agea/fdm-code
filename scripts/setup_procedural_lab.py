@@ -1,4 +1,5 @@
 """Create the standalone procedural lab; preserve existing map edits on reruns."""
+raise RuntimeError('Historical setup: this laboratory was retired on 19 October; its unused floor/ceiling textures were removed on 20 October. Use the current industrial map setup.')
 import unreal as ue
 assets = ue.EditorAssetLibrary
 levels = ue.get_editor_subsystem(ue.LevelEditorSubsystem)

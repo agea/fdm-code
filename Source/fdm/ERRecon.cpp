@@ -455,7 +455,10 @@ void AERReconDirector::CaptureBirdView()
     {
         BirdView=NewObject<UTextureRenderTarget2D>(this);
         BirdView->RenderTargetFormat=RTF_RGBA8; BirdView->ClearColor=FLinearColor(.04,.05,.06,1);
-        BirdView->InitAutoFormat(512,512); BirdView->UpdateResourceImmediate(true);
+        BirdView->Filter=TF_Trilinear;
+        BirdView->bAutoGenerateMips=true;
+        BirdView->MipsSamplerFilter=TF_Bilinear;
+        BirdView->InitAutoFormat(1024,1024); BirdView->UpdateResourceImmediate(true);
     }
     BirdCamera->TextureTarget=BirdView;
     BirdCamera->OrthoWidth=Frame.Span;
@@ -465,5 +468,5 @@ void AERReconDirector::CaptureBirdView()
     for (TActorIterator<AActor> It(GetWorld()); It; ++It)
         if (It->IsA<APawn>() || It->IsA<AERCorpse>() || It->IsA<AERWeapon>() || It->IsA<AERReconDrone>() || It->IsA<AERProjectile>() || It->IsA<AERBlockDebris>() || It->IsA<AERSmokeCloud>()) BirdCamera->HiddenActors.Add(*It);
     BirdCamera->CaptureScene(); CapturedEpoch=Frame.Epoch; bCapturePending=false;
-    UE_LOG(LogTemp,Display,TEXT("ER_RECON_CAPTURE epoch=%u size=512"),CapturedEpoch);
+    UE_LOG(LogTemp,Display,TEXT("ER_RECON_CAPTURE epoch=%u size=1024"),CapturedEpoch);
 }

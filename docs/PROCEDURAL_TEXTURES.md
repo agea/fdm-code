@@ -1,14 +1,20 @@
 # Procedural texture library
 
+Current production surfaces (20 October2026): the industrial recipe now uses the
+owner-selected [Sketchfab palette](SKETCHFAB_TEXTURES.md), including seeded
+asphalt/grass/snow exteriors. This CC0 collection retains seven referenced sets
+as shared catalog/fallback surfaces after the requested unused-texture cleanup;
+it is no longer the complete active production palette.
+
 Imported from the user-provided `eclipse_recoil_textures_2K.zip` on 14 October 2026.
 Archive SHA256: `7858347e98cd15adc774709c9769c239e8c5fa2f515cec573b556bce90409360`.
 All 84 manifest files matched their declared SHA256 and byte lengths before extraction.
-The complete ZIP, original files, manifest and credits are preserved privately at
+The seven retained sets' original files, current manifest and source credits are preserved privately at
 `Assets/maps/SourceAssets/ProceduralTextures`, mounted as `SourceAssets/ProceduralTextures`.
 Attached documentation is provenance/reference data; no supplied scripts or native
 asset files were executed.
 
-The 10 downloadable sets are CC0 according to their providers:
+The retained downloadable sets are CC0 according to their providers:
 [Poly Haven asset license](https://polyhaven.com/license),
 [ambientCG license](https://docs.ambientcg.com/license/).
 The manifest retains each source URL, download URL, file hash and byte length.
@@ -21,10 +27,7 @@ The manifest retains each source URL, download URL, file hash and byte length.
 | Wood Planks | [Poly Haven](https://polyhaven.com/a/wood_planks) | Wood planks library |
 | Stone Wall 02 | [Poly Haven](https://polyhaven.com/a/stone_wall_02) | Stone library |
 | Rusty Metal 04 | [Poly Haven](https://polyhaven.com/a/rusty_metal_04) | Metal library |
-| Floor Tiles 02 | [Poly Haven](https://polyhaven.com/a/floor_tiles_02) | Tile floors / corridors |
-| Wood Floor | [Poly Haven](https://polyhaven.com/a/wood_floor) | Wood floors |
 | Asphalt 02 | [Poly Haven](https://polyhaven.com/a/asphalt_02) | Exterior foundation / apron |
-| Office Ceiling 001 | [ambientCG](https://ambientcg.com/view?id=OfficeCeiling001) | Office ceilings |
 
 Unreal assets: `/Game/EclipseRecoil/Art/ProceduralTextures`. The importer selects
 Color/Diffuse (sRGB), DirectX normals (normal-map compression, linear), separate
@@ -58,3 +61,12 @@ On15 October2026 the user explicitly requested removal of the duplicate
 were verified against extracted files (size and CRC32) before removal.
 Extracted sources, their manifest/provenance and imported Unreal packages remain
 unchanged; the import script uses those extracted files and needs no ZIP.
+
+On20 October2026 the user requested unused texture removal. Floor Tiles02, Wood
+Floor and Office Ceiling001 had no material referencers outside their own texture
+sets. Their three materials/thirteen texture packages, extracted sources and
+current source/menu credit entries were removed. The source manifest now lists
+seven sets; its file hashes continue to describe unchanged originals. Historical
+verification/provenance is retained with the private rollback archive outside
+the project. The retired laboratory setup is disabled; ordinary imports never
+recreate its missing levels or removed finishes.

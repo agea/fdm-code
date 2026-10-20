@@ -4,6 +4,7 @@
 #include "EngineUtils.h"
 #include "GameFramework/Pawn.h"
 #include "Components/DynamicMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
 
 // Deterministic authority cuts for probes: gameplay still uses real shot/blast
 // damage. These isolate structural connectivity and route changes in tests.
@@ -16,10 +17,19 @@ inline bool FactoryPaletteMatches(AERProceduralMap& Map)
     if(!T || !T->CentralBuilding.SteelSurface || T->CentralBuilding.ContainerSurfaces.IsEmpty())return false;
     const auto& V=T->CentralBuilding;
     TMap<FString,UMaterialInterface*> Expected;
-    for(const auto& P:Map.GetCellWorld().GetPanels())if(P.Material==EERBlockMaterial::Metal)
+    for(const auto& P:Map.GetCellWorld().GetPanels())
     {
-        if(P.Strength==8 ? !V.ContainerSurfaces.Contains(P.Surface):P.Surface!=V.SteelSurface)return false;
-        Expected.Add(FString::Printf(TEXT("Cells_P%d"),P.Id),P.Surface);
+        if(P.Material==EERBlockMaterial::Metal && (P.Strength==8 ? !V.ContainerSurfaces.Contains(P.Surface):P.Surface!=V.SteelSurface))return false;
+        const auto* Palette=P.Material==EERBlockMaterial::Concrete ? &V.ConcreteSurfaces:P.Material==EERBlockMaterial::Brick ? &V.BrickSurfaces:P.Material==EERBlockMaterial::Wood ? &V.WoodSurfaces:nullptr;
+        if(Palette && !Palette->IsEmpty() && !Palette->Contains(P.Surface))return false;
+        if(P.Surface)Expected.Add(FString::Printf(TEXT("Cells_P%d"),P.Id),P.Surface);
+    }
+    if(Map.GetLayout().GroundSurface)
+    {
+        TInlineComponentArray<UStaticMeshComponent*> Floors(&Map);bool Found=false;
+        for(const auto* Mesh:Floors)if(Mesh->GetName()==TEXT("IndestructibleFloor"))
+        {Found=true;if(Mesh->GetMaterial(0)!=Map.GetLayout().GroundSurface)return false;}
+        if(!Found)return false;
     }
     TInlineComponentArray<UDynamicMeshComponent*> Components(&Map);int32 Matched=0;
     for(const auto* Mesh:Components)

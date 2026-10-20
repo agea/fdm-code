@@ -80,13 +80,13 @@ Adapted industrial meshes, materials, container finishes and ladder surfaces.
 https://www.fab.com/listings/2ee66462-8c2b-4303-892c-83f7fc0d9b3e
 
 TEXTURES — POLY HAVEN
-Red Brick 03, Concrete Wall 006, Wood Planks, Stone Wall 02, Rusty Metal 04, Floor Tiles 02, Wood Floor and Asphalt 02.
+Red Brick 03, Concrete Wall 006, Wood Planks, Stone Wall 02, Rusty Metal 04 and Asphalt 02.
 CC0 1.0. Adapted to the game's world-aligned materials.
 https://polyhaven.com
 https://creativecommons.org/publicdomain/zero/1.0/
 
 TEXTURES — ambientCG
-Plaster 001 and Office Ceiling 001.
+Plaster 001.
 CC0 1.0. Adapted to the game's world-aligned materials.
 https://ambientcg.com
 https://creativecommons.org/publicdomain/zero/1.0/
@@ -112,6 +112,51 @@ Distant Explosion of Propelled Grenade — qubodup. Earlier explosion audio, CC0
 https://freesound.org/people/qubodup/sounds/162363/
 Barlow Condensed — The Barlow Project Authors. Earlier menu font, Copyright 2017; SIL Open Font License 1.1.
 https://github.com/google/fonts/tree/main/ofl/barlowcondensed
+
+
+
+TEXTURES — SKETCHFAB COLLECTION
+Brick : Tiled material — Cat O..
+https://sketchfab.com/3d-models/brick-tiled-material-022d7b8e846345f487fbe751b3974c2b
+https://sketchfab.com/CatalinObreja
+http://creativecommons.org/licenses/by/4.0/
+Seamless PBR Texture Concrete 01 — -Arthur-.
+https://sketchfab.com/3d-models/seamless-pbr-texture-concrete-01-64e67e4fb8a14ddeae07bd91d50fc846
+https://sketchfab.com/.arthur
+http://creativecommons.org/licenses/by/4.0/
+Concrete 2K — Matthew Hartman.
+https://sketchfab.com/3d-models/concrete-2k-9b129e388857498f9fe395a43268c3e8
+https://sketchfab.com/MatthewHartman
+http://creativecommons.org/licenses/by/4.0/
+Iron Plates 2K — Matthew Hartman.
+https://sketchfab.com/3d-models/iron-plates-2k-d52ea063c93a4bbc8c35962c18ee1bf7
+https://sketchfab.com/MatthewHartman
+http://creativecommons.org/licenses/by/4.0/
+wood 05 — Publicdomaintextures.
+https://sketchfab.com/3d-models/wood-05-f7b6f74ef9294c189ce7dd4876d8f6f7
+https://sketchfab.com/Publicdomaintextures
+http://creativecommons.org/licenses/by/4.0/
+Snow01 — Publicdomaintextures.
+https://sketchfab.com/3d-models/snow01-1698b2f676ef4fa2ac8e2faab21ae83d
+https://sketchfab.com/Publicdomaintextures
+http://creativecommons.org/licenses/by/4.0/
+Grass02 — Publicdomaintextures.
+https://sketchfab.com/3d-models/grass02-9ed1e321c74c4828baebf084a5d53c80
+https://sketchfab.com/Publicdomaintextures
+http://creativecommons.org/licenses/by/4.0/
+Asphalt11 — Publicdomaintextures.
+https://sketchfab.com/3d-models/asphalt11-08a8a0341f6d4a399d571d0133eec58b
+https://sketchfab.com/Publicdomaintextures
+http://creativecommons.org/licenses/by/4.0/
+Steel texture with irregularities — PixelatoR.
+https://sketchfab.com/3d-models/steel-texture-with-irregularities-e708ce13ea8843668ff833e347d4612e
+https://sketchfab.com/pixelator111
+http://creativecommons.org/licenses/by/4.0/
+brick textures — DJMaesen.
+https://sketchfab.com/3d-models/brick-textures-b758a52fa80a44bfb0fc9fc0b2beba5e
+https://sketchfab.com/bumstrum
+http://creativecommons.org/licenses/by/4.0/
+Creative Commons Attribution 4.0. Changes: texture-only Unreal PBR adaptation, world projection, ground blending/grass tint and runtime resolution up to 2K. Original maps and credits retained privately.
 
 THANK YOU
 Thank you to all the artists, animators, sound designers and open-source contributors whose work supports Respawn & Rage.
