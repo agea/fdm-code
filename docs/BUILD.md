@@ -1,5 +1,8 @@
 # Local macOS builds
 
+To package Windows/Linux x64 on Windows, see [the desktop build guide](BUILD_WINDOWS.md)
+and `scripts/package-windows.ps1`.
+
 Use these commands from the game repository. The Mac build uses the locally
 installed Unreal Engine and Xcode directly. It needs no separate builder
 repository, container, AWS account or CI runner.

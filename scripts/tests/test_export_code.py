@@ -14,7 +14,7 @@ class CodeExportTests(unittest.TestCase):
             root = Path(directory).resolve() / 'project'
             for name in ('RespawnAndRage.uproject', '.gitignore', 'Source/fdm/main.cpp', 'Config/DefaultEngine.ini',
                          'Content/private.uasset', 'SourceAssets/private.fbx', '.git/secret',
-                         'scripts/private.zip', 'docs/private.png'):
+                         'scripts/private.zip', 'scripts/package-windows.ps1', 'docs/private.png'):
                 path = root / name
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(name)
@@ -25,7 +25,8 @@ class CodeExportTests(unittest.TestCase):
             module.export(root, output)
             manifest = json.loads((output / 'CODE_EXPORT.json').read_text())
             self.assertEqual({f['path'] for f in manifest['files']},
-                             {'RespawnAndRage.uproject', '.gitignore', 'Source/fdm/main.cpp', 'Config/DefaultEngine.ini'})
+                             {'RespawnAndRage.uproject', '.gitignore', 'Source/fdm/main.cpp', 'Config/DefaultEngine.ini',
+                              'scripts/package-windows.ps1'})
             self.assertIn('/Content/', (output / '.gitignore').read_text())
             self.assertNotIn('/Content/', (root / '.gitignore').read_text())
             self.assertFalse((output / '.git').exists())

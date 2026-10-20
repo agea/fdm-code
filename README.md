@@ -7,6 +7,21 @@ maps and server-authoritative gunplay. Built with Unreal Engine **5.8.3**;
 playable locally and over LAN. Standalone macOS universal packaging is available;
 see [local macOS build instructions](docs/BUILD.md).
 
+To build and upload **Windows and Linux x64 from Windows**, install the
+prerequisites in the [desktop build guide](docs/BUILD_WINDOWS.md), then run from
+64-bit PowerShell:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\package-windows.ps1 -InitAssets
+```
+
+Use `-Check` instead of `-InitAssets` to check dependencies without building.
+Later builds need neither switch. Packages and logs go to `../builds/desktop/`.
+The default builds both targets and uploads to `windows-x86_64` and
+`linux-x86_64` on `aaggeeaa/respawn-and-rage`. Linux needs Epic's v26 cross-compile
+toolchain. Use `-TargetPlatform Windows` or `-TargetPlatform Linux` for one
+platform. Run `butler login` once; add `-NoUpload` to keep packages local.
+
 ## Industrial map generation — 19 October 2026
 
 The match menu now uses **Central Building · Industrial**, with seeded open-yard,

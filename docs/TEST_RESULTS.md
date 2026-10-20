@@ -4097,3 +4097,66 @@ combat/recon LAN results remain historical.
 - Existing Linux archive fixture PASS after adding `Branding/Credits.txt`
   inclusion. Runtime staging and isolated Mac/Linux inputs carry the same file.
   Final `git diff --check` PASS. No gameplay, map or private asset edits.
+
+### Windows packaging helper — 20 October 2026
+
+- PowerShell 7.6.7 on macOS: script parsing and
+  `scripts/tests/test_package_windows.ps1` PASS. Checks cover missing executables,
+  nonzero native exit codes, successful stderr, combined log streams, spaces in
+  arguments, aggregated preflight errors, Launcher manifest/environment engine
+  discovery, disk-space rejection, and stopping before UAT after an Editor
+  failure. Mocked UAT failure propagates; Shipping applies to Game while Editor
+  stays Development.
+- Running the real helper with `-Check` on macOS correctly rejects the host
+  with exit code 1. No Unreal build or cook was launched.
+- Public-tree fixture tests PASS (7 tests), including allowing textual `.ps1`
+  scripts while still rejecting embedded binary blobs. Source-export fixture
+  includes the new PowerShell helper while excluding assets and symlinks.
+- Native Windows PowerShell 5.1 execution, actual MSVC/SDK discovery, Windows
+  junction preparation, UE compilation/cooking and packaged game launch remain
+  unverified; no Windows build success or distribution is claimed.
+
+### Windows Butler upload helper — 20 October 2026
+
+- The requested Windows helper now publishes successful packages to
+  `aaggeeaa/respawn-and-rage:windows-x86_64` by default, using the packaged menu
+  version; `-NoUpload` retains local-only builds.
+- PowerShell 7.6.7 helper regression checks PASS with mocked Butler. Cases cover
+  missing credentials, failed read-only auth preflight, explicit identity paths
+  with spaces, environment credentials absent from command arguments, selecting
+  the staged launcher instead of the nested runtime executable, correct target
+  and version, upload success/failure receipts, retained files after failure,
+  invalid/mismatched versions and missing cooked containers.
+- Main-script integration PASS on macOS with a temporary Windows-host test
+  environment and a local fake Butler executable: `-UploadOnly -Check` made no
+  push and left the build receipt unchanged; a simulated exit-37 push failure
+  returned 1 and saved `upload_failed`; a subsequent retry returned 0, saved
+  `uploaded`, removed the stale error and retained the original package. These
+  tests used no network, credentials, Unreal installation or compiler.
+- `git diff --check` PASS. No actual Butler upload or native Windows build was
+  performed; Windows execution and the downloadable game remain unverified.
+
+### Windows-hosted Windows/Linux packaging — 20 October 2026
+
+- `package-windows.ps1` now selects Both (default), Windows or Linux. Preflight
+  checks Linux target support plus v26/clang20.1.8 metadata, executable tools,
+  libc++ headers/libraries and a C++20 compile/link producing ELF64 x86_64.
+  The smoke command and toolchain selection were exercised with mocked tools;
+  the real Windows cross-compiler was not run on this Mac.
+- PowerShell helper regression suite PASS: native stdout capture, one shared
+  Windows Editor command, distinct Win64/Linux UAT arguments, Linux SDK/support
+  rejection, wrong compiler/missing library/link failures, correct SDK environment,
+  Linux ELF architecture rejection, shell line endings and correct per-platform
+  Butler channels/permission flag, in addition to earlier Windows/auth tests.
+- Desktop workspace Python fixtures PASS (2 tests): isolated source copies,
+  shared Content, original commit/version stamper, Marketplace source-only
+  plugins with Installed=false, preserved engine descriptors, and rejection of
+  existing/nested workspaces. Windows junction creation still needs native testing.
+- Dual-platform main-script upload integration PASS on macOS with a local fake
+  Butler: check-only made no pushes or receipt changes; a Windows upload failure
+  returned 1 while Linux still uploaded; retry pushed only Windows and cleared
+  its stale error; old Windows receipts without platform metadata still worked.
+  No network, real credential or real upload was used.
+- No native Windows Editor/Game build, Windows-to-Linux cross-build, or target
+  game startup is claimed. Both targets require validation on the Windows host
+  and runtime testing on their respective operating systems.

@@ -13,7 +13,7 @@ import shutil
 PROJECT = Path(__file__).resolve().parents[1]
 SUFFIXES = {
     'Source': {'.cpp', '.h', '.cs'}, 'Config': {'.ini'},
-    'scripts': {'.py', '.command', '.sh'}, 'docs': {'.md', '.txt', '.json'},
+    'scripts': {'.py', '.command', '.sh', '.ps1'}, 'docs': {'.md', '.txt', '.json'},
 }
 ROOT_FILES = ('RespawnAndRage.uproject', 'README.md', 'AGENTS.md', '.gitignore', '.gitattributes', 'assets.json', '.gitmodules')
 

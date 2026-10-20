@@ -32,6 +32,21 @@ class PublicTreeTests(unittest.TestCase):
             self.git(root, 'commit', '-m', 'Asset link only')
             self.assertEqual(module.verify(root)[0], 2)
 
+    def test_powershell_source_allowed_but_binary_in_script_rejected(self):
+        for content, allowed in ((b'Write-Host "Windows build"\n', True), (b'binary\0payload', False)):
+            with self.subTest(allowed=allowed), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                self.fixture(root)
+                (root / 'scripts').mkdir()
+                (root / 'scripts/package-windows.ps1').write_bytes(content)
+                self.git(root, 'add', '.')
+                self.git(root, 'commit', '-m', 'Windows helper')
+                if allowed:
+                    self.assertEqual(module.verify(root)[0], 2)
+                else:
+                    with self.assertRaisesRegex(RuntimeError, 'binary/LFS'):
+                        module.verify(root)
+
     def test_removed_asset_still_blocks_publication_of_history(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
