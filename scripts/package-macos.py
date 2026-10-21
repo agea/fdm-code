@@ -243,6 +243,12 @@ try:
             subprocess.run([sys.executable, str(Path(__file__).with_name('test-packaged-runtime.py')),
                             '--executable', str(binary), '--output', str(run_dir / 'runtime-smoke')], check=True)
             receipt['packaged_runtime_smoke'] = str(run_dir / 'runtime-smoke/null.json')
+            for shader_model in ('sm5', 'sm6'):
+                subprocess.run([sys.executable, str(Path(__file__).with_name('test-packaged-runtime.py')),
+                                '--executable', str(binary), '--render', '--shader-model', shader_model,
+                                '--output', str(run_dir / 'runtime-smoke')], check=True)
+            receipt['packaged_metal_smoke'] = {
+                model: str(run_dir / ('runtime-smoke/metal-' + model + '.json')) for model in ('sm5', 'sm6')}
     receipt['status'] = 'packaged'
     receipt['game_version'] = (snapshot / 'Build/GameVersion.txt').read_text().strip()
 except BaseException:

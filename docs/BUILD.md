@@ -165,6 +165,9 @@ python3 scripts/package-macos.py
 The default is a **Development universal** app containing Apple Silicon
 (`arm64`) and Intel (`x86_64`) executables. The script checks the final binary
 with `lipo`, verifies Retina metadata and requires the embedded application icon.
+Mac packages cook both Metal SM6 and SM5 shaders, retaining the SM5 fallback
+for Macs that cannot select SM6. CPU architecture alone does not establish GPU
+compatibility; verify both shader paths on the actual cooked app before upload.
 It creates an isolated project snapshot and follows the private Content mounts.
 Compilation and cooking take place in that copy, preserving the live checkout.
 Only the runtime background and icon are included from Branding; source artwork
@@ -173,13 +176,16 @@ under Branding/Originals is not shipped.
 Development packages also boot a real cooked Depot session with six bots,
 including the pistol, before the package is accepted. This checks the native
 rendering profile and animation evaluation; starting the main menu alone misses
-these failures. The log and receipt are saved under `runtime-smoke/` in the build
+these failures. Both SM5 and SM6 also run with real offscreen Metal rendering.
+The logs and receipts are saved under `runtime-smoke/` in the build
 directory. To repeat it, run:
 
 ```sh
 python3 scripts/test-packaged-runtime.py --executable /path/to/RespawnAndRage.app/Contents/MacOS/RespawnAndRage
 # Optional real Metal rendering and FPS samples:
 python3 scripts/test-packaged-runtime.py --executable /path/to/RespawnAndRage.app/Contents/MacOS/RespawnAndRage --render
+# Force the compatibility path (use sm6 for the other shader path):
+python3 scripts/test-packaged-runtime.py --executable /path/to/RespawnAndRage.app/Contents/MacOS/RespawnAndRage --render --shader-model sm5
 ```
 
 The game applies AA2/GI0/reflections0/shadows1 in native startup for both local
