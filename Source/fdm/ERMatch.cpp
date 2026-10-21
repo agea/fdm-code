@@ -20,6 +20,7 @@
 #include "ERTraversalProbe.h"
 #include "ERAccuracyProbe.h"
 #include "ERRecoilProbe.h"
+#include "ERAudioProbe.h"
 #include "ERArsenalProbe.h"
 #include "ERGrenadeProbe.h"
 #include "ERReferenceWeaponProbe.h"
@@ -204,6 +205,7 @@ void AERGameMode::BeginPlay()
     if (FParse::Param(FCommandLine::Get(),TEXT("ERBotMotionProbe"))) GetWorld()->SpawnActor<AERBotMotionProbe>();
     if (FParse::Param(FCommandLine::Get(), TEXT("ERBotProbe")) || FParse::Param(FCommandLine::Get(), TEXT("ERTargetSkinsProbe"))) GetWorld()->SpawnActor<AERBotProbe>();
     if (FParse::Param(FCommandLine::Get(), TEXT("ERAccuracyProbe"))) GetWorld()->SpawnActor<AERAccuracyProbe>();
+    if (FParse::Param(FCommandLine::Get(), TEXT("ERAudioProbe"))) GetWorld()->SpawnActor<AERAudioProbe>();
     if (FParse::Param(FCommandLine::Get(), TEXT("ERRecoilProbe"))) GetWorld()->SpawnActor<AERRecoilProbe>();
     if (FParse::Param(FCommandLine::Get(), TEXT("ERReferenceWeaponProbe"))) GetWorld()->SpawnActor<AERReferenceWeaponProbe>();
     if (FParse::Param(FCommandLine::Get(), TEXT("ERGrenadeProbe")) || FParse::Param(FCommandLine::Get(), TEXT("ERGrenadeCombatProbe"))) GetWorld()->SpawnActor<AERGrenadeProbe>();

@@ -329,7 +329,7 @@ void AERWeapon::ReleaseGrenade(bool bThrow)
             else Velocity=Character->GetVelocity()*.5f;
         }
         P->ReleaseHeld(Position,Velocity);
-        if(bThrow && Character) Character->MulticastShot(Position,Position+Velocity.GetSafeNormal()*250,false);
+        if(bThrow && Character) Character->MulticastShot(Position,Position+Velocity.GetSafeNormal()*250,false,Data);
         UE_LOG(LogTemp,Display,TEXT("ER_GRENADE_RELEASE thrown=%d remaining=%.3f position=%s velocity=%s"),bThrow,
             P->FuseEndServerTime-GetWorld()->GetTimeSeconds(),*Position.ToString(),*Velocity.ToString());
     }
@@ -434,7 +434,7 @@ void AERWeapon::TryFire()
             UGameplayStatics::ApplyPointDamage(Hit.GetActor(), Data->Damage, Aim.Vector(), Hit,
                 Character->Controller, this, UDamageType::StaticClass());
         }
-        Character->MulticastShot(Eye, LastShotTraceEnd, false);
+        Character->MulticastShot(Eye, LastShotTraceEnd, false, Data);
     }
     else if (Data->Payload == EERPayload::Bullet)
     {
@@ -486,7 +486,7 @@ void AERWeapon::TryFire()
             }
         }
         const bool bTracer = Data->TracerEveryNShots > 0 && (AuthorizedShotCount - 1) % uint32(Data->TracerEveryNShots) == 0;
-        Character->MulticastShot(LastShotTraceStart, FeedbackEnd, bTracer);
+        Character->MulticastShot(LastShotTraceStart, FeedbackEnd, bTracer, Data);
     }
     else
     {
@@ -513,7 +513,7 @@ void AERWeapon::TryFire()
             Projectile->SetLifeSpan(Data->ProjectileLife);
             UGameplayStatics::FinishSpawningActor(Projectile, Projectile->GetActorTransform());
         }
-        Character->MulticastShot(IntendedMuzzle, IntendedMuzzle + LastShotDirection * 250, false);
+        Character->MulticastShot(IntendedMuzzle, IntendedMuzzle + LastShotDirection * 250, false, Data);
     }
     if (MagazineAmmo <= 0) StopFire();
     else if (bWantsFire && Data->bAutomatic) GetWorldTimerManager().SetTimer(FireTimer, this, &AERWeapon::TryFire, Data->ShotInterval, false);

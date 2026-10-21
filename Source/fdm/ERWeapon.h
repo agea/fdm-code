@@ -38,6 +38,7 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") TObjectPtr<class USkeletalMesh> ProjectileMesh;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") bool bOneHanded = false;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") float SoundPitch = 1;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation|Audio") TObjectPtr<class UEROneShotAudio> ShotAudio;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) bool bAutomatic = true;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) int32 Pellets = 1;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Ballistics") bool bUseBodyHitZones = false;

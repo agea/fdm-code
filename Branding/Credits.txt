@@ -160,3 +160,31 @@ Creative Commons Attribution 4.0. Changes: texture-only Unreal PBR adaptation, w
 
 THANK YOU
 Thank you to all the artists, animators, sound designers and open-source contributors whose work supports Respawn & Rage.
+
+
+Audio — firearm and footstep recordings
+
+The Free Firearm Sound Library — Ben Jaszczak, Brian Nelson, Kevin Heras,
+Matthew Nanney — CC0 1.0
+https://opengameart.org/content/the-free-firearm-sound-library
+https://creativecommons.org/publicdomain/zero/1.0/
+
+Footsteps on different surfaces — mastered by congusbongus — CC BY 3.0
+https://opengameart.org/content/footsteps-on-different-surfaces
+https://creativecommons.org/licenses/by/3.0/
+Concrete, wood and grass recordings by swuing (CC BY 3.0):
+https://freesound.org/people/swuing/sounds/38873/
+https://freesound.org/people/swuing/sounds/38876/
+https://freesound.org/people/swuing/sounds/38874/
+Metal recording by Eelke (CC BY 3.0):
+https://freesound.org/people/Eelke/sounds/462598/
+Gravel recordings by Ali_6868 (CC0 1.0):
+https://freesound.org/people/Ali_6868/packs/21608/
+
+Different steps on wood, stone, leaves, gravel and mud — TinyWorlds,
+edited pdsounds.org recordings — CC0 1.0
+https://opengameart.org/content/different-steps-on-wood-stone-leaves-gravel-and-mud
+https://creativecommons.org/publicdomain/zero/1.0/
+
+Recordings edited for the game: isolated shots, silence trimming, mono
+conversion/resampling, adjusted levels and short fades at the ends.

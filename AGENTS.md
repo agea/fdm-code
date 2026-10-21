@@ -1,5 +1,26 @@
 # Respawn & Rage Unreal development
 
+Audio pass (21 October, latest request): see docs/AUDIO_PASS.md. Six current
+Bullet weapon data assets reference separate real-recording palettes (4/6/4/6/4/4)
+under the private weapons Audio mount. Launcher retains one existing Epic take;
+never claim extra recordings. Preserve server-only firing and the existing shot
+multicast, whose accepted weapon-data snapshot avoids property-replication races.
+No variant indices or client-selected audio/gameplay authority. Shuffle bags use
+an independent cosmetic RNG and exclude immediate repeats across bag boundaries.
+SoundCue graph edits/saves go through Unreal; keep authoring references intact.
+UERFootsteps emits authority-distance-based grounded transient events for humans
+and bots. Clients play once, owner 2D/others 3D; keep camera bob independent.
+Surface/fallback mappings and levels belong in DA_ER_Footsteps, including cell
+material IDs; never change HP/collision for audio. Preserve current crouch/prone,
+sprint, menus, death and traversal gates. No looping walk track or landing double.
+Smoke ReleaseVolume starts at the prior .65 * .31622777 (~.205548), local only;
+preserve later Blueprint tuning on all regeneration. Keep HE, original/runtime
+Sonniss WAVs, 6s audio/12s cloud, offset and cleanup unchanged. Originals/licenses/
+hashes stay in private SourceAssets/AudioPass; retain swuing/Eelke/congusbongus
+CC BY3.0 credits. Tabasco's conflicting license is not cleared or imported.
+Run test-audio.py, --network --render, network --shot-feedback, movement and
+grenades --render --audio. Headless tests never establish subjective listening.
+
 Worksheet recoil (21 October, subsequent request): six Bullet firearms now use
 bUseWorksheetRecoil, HipRecoil/ScopedRecoil, exact magnitude and both variances
 from the same XLSX. See docs/WEAPON_RECOIL.md for the explicit project response

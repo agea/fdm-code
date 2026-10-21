@@ -147,3 +147,26 @@ ReconDrones source folder. Changes and attribution are recorded in
 MINIMAP_RECON.md, private CREDITS.txt/import receipt, asset metadata and the game
 menu. This preserves supplied provenance without claiming a separate online
 license verification or performing publication.
+
+## Audio pass — 21 October 2026
+
+28 real single-shot firearm takes and 41 step samples are imported under
+`/Game/EclipseRecoil/Audio/`, owned by the private weapons submodule. Originals,
+creator-page captures, included license/attribution files, archive/source/derived
+SHA-256s and exact preparation manifest are preserved in
+`Assets/weapons/SourceAssets/AudioPass`. See [AUDIO_PASS.md](AUDIO_PASS.md).
+
+The Free Firearm Sound Library (Ben Jaszczak, Brian Nelson, Kevin Heras, Matthew
+Nanney) and TinyWorlds' stone sample are declared CC0. The imported concrete,
+wood, grass and metal steps from congusbongus's pack retain swuing/Eelke CC BY3.0
+attribution; its gravel recordings credit Ali_6868 under CC0. All required
+author/source/license links and edits appear in the private CREDITS/license
+files and public `Branding/Credits.txt` shown in-game. Derivatives are trimmed,
+converted to mono PCM48kHz, level matched by attenuation, and end faded.
+
+Thimras' CC0 metal-foot recordings remain source-only. Tabasco's ZIP is not
+imported: the page's CC0 label conflicts with the included Copyright2009 Vincent
+Sevedge / CC BY3.0 notice. Both records are preserved; no CC0 clearance is
+asserted for that pack. The launcher retains the existing Epic template sample.
+No new audio binaries belong in public core. Sonniss HE/smoke original/runtime
+WAVs are unchanged; smoke reduction is a local playback gain only.

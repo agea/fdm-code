@@ -83,9 +83,9 @@ void AERSmokeCloud::BeginPlay()
         const float Age=FMath::Max(0.f,float(ServerNow()-StartedAtServerTime));
         if(Age<ReleaseSound->GetDuration())
             ReleaseAudio=UGameplayStatics::SpawnSoundAtLocation(this,ReleaseSound,GetActorLocation(),FRotator::ZeroRotator,
-                .65f,1.f,Age,ReleaseAttenuation,ReleaseConcurrency,true);
-        UE_LOG(LogTemp,Display,TEXT("ER_SMOKE_AUDIO sound=%s started=%d spatial=%d concurrency=%d age=%.2f"),
-            *GetNameSafe(ReleaseSound),ReleaseAudio && ReleaseAudio->IsPlaying(),ReleaseAttenuation!=nullptr,ReleaseConcurrency!=nullptr,Age);
+                ReleaseVolume,1.f,Age,ReleaseAttenuation,ReleaseConcurrency,true);
+        UE_LOG(LogTemp,Display,TEXT("ER_SMOKE_AUDIO sound=%s started=%d spatial=%d concurrency=%d age=%.2f gain=%.8f"),
+            *GetNameSafe(ReleaseSound),ReleaseAudio && ReleaseAudio->IsPlaying(),ReleaseAttenuation!=nullptr,ReleaseConcurrency!=nullptr,Age,ReleaseVolume);
     }
     SetActorEnableCollision(false);
     Fumes->Deactivate(); Fumes->SetComponentTickEnabled(false);

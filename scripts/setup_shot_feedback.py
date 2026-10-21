@@ -108,7 +108,9 @@ save(attenuation)
 blueprint = load('/Game/EclipseRecoil/Core/BP_ERCharacter')
 defaults = ue.get_default_object(blueprint.generated_class())
 defaults.set_editor_property('first_person_fire_animation', animation)
-defaults.set_editor_property('fire_sound', load('/Game/Weapons/GrenadeLauncher/Audio/FirstPersonTemplateWeaponFire02'))
+# This remains a legacy fallback only; per-weapon ShotAudio palettes survive regeneration.
+if not defaults.get_editor_property('fire_sound'):
+    defaults.set_editor_property('fire_sound', load('/Game/Weapons/GrenadeLauncher/Audio/FirstPersonTemplateWeaponFire02'))
 defaults.set_editor_property('fire_attenuation', attenuation)
 defaults.set_editor_property('muzzle_flash_mesh', load('/Engine/BasicShapes/Sphere'))
 defaults.set_editor_property('muzzle_flash_material', material)

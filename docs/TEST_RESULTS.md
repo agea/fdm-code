@@ -1,5 +1,68 @@
 # Verifiche locali — 12 ottobre 2026
 
+## 21 ottobre2026 — passi, varianti di sparo e smoke -10dB
+
+Implementazione e pipeline: [AUDIO_PASS.md](AUDIO_PASS.md). Importazione Unreal
+UE5.8.3 e build Editor Mac Development arm64 riuscite. Asset nuovi soltanto nel
+privato armi: 69 SoundWave mono PCM48kHz (28 spari/41 passi), 13 cue a durata
+finita, 13 palette, mappa superfici e cinque impostazioni attenuazione/concurrency.
+Aggiornati sette binding armi attuali, il componente nel BP_ERCharacter privato
+mappe e il salvataggio BP smoke. Sonniss originali/runtime, audio HE, LowPoly
+storico e mappe esistenti risultano invariati nel diff dei submodule.
+
+PASS i cinque test EclipseRecoil.Audio: Cadence (30/60/144Hz, muro senza
+avanzamento, salti/teleport/landing), NoRepeat (anche cambio ciclo), SavedAssets
+(armi distinte, grafi finiti, component binding, smoke gain), SurfaceQueries
+(PhysicalMaterial e veri trace celle wood/metal/concrete), NoDeviceCleanup
+(100 selezioni senza accumulo di componenti in un mondo senza audio).
+Log: Saved/Testing/audio-automation.log.
+
+PASS test-grenades.py --render --audio: fuse/rimbalzi/containment/interazioni/
+cleanup, audio HE e release smoke realmente avviati; guadagno smoke .20554803
+sia host sia remoto, equivalente a .65 * 10^(-10/20), senza cambiamenti al WAV.
+Nuovo controllo numerico nel runner. Ispezionata la cattura Metal OpenWindow;
+cloud/fade/temporizzazioni originali. Log e JSON grenades-render-audio-* sotto
+Saved/Testing; nessuna valutazione soggettiva in cuffia dichiarata.
+
+PASS test-network.py --shot-feedback: danni/ammo, morte/respawn, materiali,
+feedback locale/remoto, camera e fixture LAN preesistente. PASS il successivo
+run completo test-movement.py su host/client, incluse soglie10..200cm, crouch/
+prone, sprint/stamina, dispersione e input reali W/E/C/Ctrl. Due run precedenti
+avevano segnalato, rispettivamente, soglia50cm e doppio C; assenti
+nel run finale PASS. Conservati i log concorrente e isolato iniziali sotto
+Saved/Testing/audio-movement-*. Nessuna modifica al codice di movimento o input.
+
+PASS test-audio.py --network --render nella versione finale: 54 controlli,
+445 eventi/altrettante voci per host e 445 per client, 20+ colpi per arma e
+prospettiva, raffiche SMG/Assault4s, nessuna ripetizione immediata nelle sei
+palette multiple, nessun audio su vuoto/cooldown, uno sparo per sei pallini,
+passi owner2D e bot3D. Concurrency 24/owner e96/global per gli spari,
+StopOldest/25ms per conservare gli attacchi, passi4/48 con priorità inferiore,
+budget reale mixer128. Verificato autostart=0 su ogni voce di sparo: la
+registrazione del componente non avvia il fallback prima della selezione. Dataset e cue verificati dopo rigenerazione UE.
+Risultati macchina: [AUDIO_PASS_RESULTS.json](AUDIO_PASS_RESULTS.json).
+
+PASS anche test-network.py --recoil sull’ultima build: tutte le sei armi/
+modalità, colpi rifiutati, raffica remota autorevole, camera owner/input e
+recupero. La decisione audio usa il dato dello sparo, mentre la condizione
+visiva/recoil rimane esattamente quella precedente.
+
+La prima prova audio ha esposto una dipendenza reale dalla replica tardiva di
+Weapon->Data: ora l'identità dell'arma accettata accompagna il multicast
+esistente; nessun indice sample replicato. Il test aspetta inoltre un ACK del
+modello effettivo sul peer dopo frame di presentazione stabili, evitando di
+contare eventi storici mentre il client carica. La prova del passo owner usa
+un pavimento temporaneo libero, anziché attraversare ostacoli del Depot.
+Durante il controllo è stato sostituito WaveParam (durata infinita in UE) con
+Switch locale e fallback Random, disabilitando la virtualizzazione dei one-shot.
+
+Le sessioni sono due processi sullo stesso Mac tramite loopback, non una prova
+su due PC fisici o Internet. Audio mixer reale attivo nelle prove grafiche;
+nessun ascolto soggettivo o confronto umano A/B in cuffia dichiarato. Nessun
+nuovo cook/package/piattaforma pubblicata da questa sessione. Launcher e light
+hard hanno un solo sample; snow/dirt fallback documentati. Tabasco non importato
+per conflitto di licenza. Conservati originali, crediti e hash nel privato.
+
 ## 20 ottobre2026 — rimozione texture inutilizzate, successiva richiesta
 
 Audit Unreal: nessun referencer esterno per quattro set Sketchfab non selezionati

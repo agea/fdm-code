@@ -1,4 +1,5 @@
 #include "ERCharacter.h"
+#include "ERFootsteps.h"
 #include "ERPostureMesh.h"
 #include "ERCorpse.h"
 #include "Engine/DamageEvents.h"
@@ -269,6 +270,7 @@ AERCharacter::AERCharacter(const FObjectInitializer& ObjectInitializer)
     BaseEyeHeight = 77.5f; CrouchedEyeHeight = 50;
     bUseControllerRotationYaw = true;
     Health = CreateDefaultSubobject<UERHealthComponent>(TEXT("Health"));
+    Footsteps = CreateDefaultSubobject<UERFootsteps>(TEXT("Footsteps"));
     ProneHitVolume = CreateDefaultSubobject<UCapsuleComponent>(TEXT("ProneHitVolume"));
     ProneHitVolume->SetupAttachment(GetCapsuleComponent());
     ProneHitVolume->InitCapsuleSize(22,105);
@@ -1000,7 +1002,7 @@ void AERCharacter::UpdateWeaponPresentation()
     MuzzleFlashUntil = 0;
     UE_LOG(LogTemp, Display, TEXT("ER_WEAPON_MODEL name=%s mesh=%s"), *Data->DisplayName, *Data->Mesh->GetPathName());
 }
-void AERCharacter::MulticastShot_Implementation(FVector_NetQuantize Start, FVector_NetQuantize End, bool bTracer)
+void AERCharacter::MulticastShot_Implementation(FVector_NetQuantize Start, FVector_NetQuantize End, bool bTracer, UERWeaponData* FiredData)
 {
     ++ShotFeedbackCount;
     const auto* Data = Weapon ? Weapon->Data.Get() : nullptr;
@@ -1029,7 +1031,16 @@ void AERCharacter::MulticastShot_Implementation(FVector_NetQuantize Start, FVect
         AERSpentCasing::Eject(GetWorld(), CasingClass, Port, Right, Forward, bFirstPerson ? .2f : 1.f);
     }
     const auto* Animation = Data && Data->Mesh ? Data->FireAnimation.Get() : FirstPersonFireAnimation.Get();
-    const float Pitch = Data ? Data->SoundPitch : 1.f;
+    // New weapon palettes preserve their recorded identity (no legacy per-gun pitch).
+    // The accepted weapon identity travels with the existing event: its actor
+    // pointer/data replication may arrive later on a joining peer or after a
+    // quick switch. Variant selection remains entirely local.
+    const auto* AudioData=FiredData ? FiredData : Data;
+    const auto* Palette=AudioData ? AudioData->ShotAudio.Get() : nullptr;
+    const float Pitch = AudioData ? AudioData->SoundPitch : 1.f;
+    int32 AudioVariant=INDEX_NONE;
+    const bool bAudioGunshot = !AudioData || AudioData->Payload == EERPayload::Bullet || AudioData->Payload == EERPayload::Rocket || AudioData->Payload == EERPayload::LaunchedHE;
+    // Keep the original visual/recoil decision independent of the audio snapshot.
     const bool bGunshot = !Data || Data->Payload == EERPayload::Bullet || Data->Payload == EERPayload::Rocket || Data->Payload == EERPayload::LaunchedHE;
     if (bFirstPerson)
     {
@@ -1045,13 +1056,22 @@ void AERCharacter::MulticastShot_Implementation(FVector_NetQuantize Start, FVect
             const float Recoil=Weapon?Weapon->GetScopeRecoilMultiplier():1.f;
             CameraKick = FMath::Min(CameraKick + .35f*Recoil, .65f*Recoil);
         }
-        if (FireSound && bGunshot) UGameplayStatics::PlaySound2D(this, FireSound, .35f, Pitch);
+        if (bAudioGunshot)
+        {
+            if (Palette) AudioVariant=ERAudio::Play(this,Palette,ShotShuffles.FindOrAdd(Palette),GetVisualMuzzle(true),true,.35f,nullptr);
+            else if (FireSound) UGameplayStatics::PlaySound2D(this, FireSound, .35f, Pitch);
+        }
     }
-    else if (FireSound && bGunshot)
+    else if (bAudioGunshot)
     {
-        UGameplayStatics::PlaySoundAtLocation(this, FireSound, GetVisualMuzzle(false),
-            .6f, Pitch, 0.f, FireAttenuation);
+        if (Palette) AudioVariant=ERAudio::Play(this,Palette,ShotShuffles.FindOrAdd(Palette),GetVisualMuzzle(false),false,.6f,FireAttenuation);
+        else if (FireSound) UGameplayStatics::PlaySoundAtLocation(this, FireSound, GetVisualMuzzle(false), .6f, Pitch, 0.f, FireAttenuation);
     }
+#if !UE_BUILD_SHIPPING
+    if (FParse::Param(FCommandLine::Get(),TEXT("ERAudioAudit")) && bAudioGunshot)
+        UE_LOG(LogTemp,Display,TEXT("ER_SHOT_AUDIO pawn=%s local=%d palette=%s variant=%d event=%u pellets=%d"),
+            *GetName(),bFirstPerson,*GetNameSafe(Palette),AudioVariant,ShotFeedbackCount,AudioData?AudioData->Pellets:1);
+#endif
     // Align the glow along the rifle's model-space barrel (+Y), without rotating the rifle.
     const FVector FlashScale(.012f, .025f, .012f);
     for (auto* Flash : {FirstPersonMuzzleFlash.Get(), WorldMuzzleFlash.Get()})

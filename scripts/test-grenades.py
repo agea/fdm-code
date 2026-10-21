@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Real listen/client grenade fuses, tumble, smoke walls/windows and cleanup."""
 from pathlib import Path
-import argparse,json,os,subprocess,time
+import argparse,json,os,subprocess,time,re
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--render',action='store_true',help='Render the fixture on Metal and save captures')
 parser.add_argument('--combat',action='store_true',help='Test 2/6m blast, armor, cover, cook and real press/release inputs')
@@ -54,6 +54,8 @@ try:
         checks['smoke_audio_started']='ER_SMOKE_AUDIO sound=S_ER_SmokeRelease started=1 spatial=1 concurrency=1' in server
         checks['remote_smoke_audio_asset']='ER_SMOKE_AUDIO sound=S_ER_SmokeRelease' in remote
         checks['remote_audio_asset']='ER_GRENADE_AUDIO sound=S_ER_GrenadeExplosion' in remote
+        smoke_gains=[float(v) for v in re.findall(r'ER_SMOKE_AUDIO[^\n]*gain=([0-9.]+)',server+'\n'+remote)]
+        checks['smoke_only_minus_10db']=bool(smoke_gains) and all(abs(v-.65*10**(-10/20))<1e-6 for v in smoke_gains)
     if args.render:
         checks['fresh_captures']=all((logs/'Grenades'/name).exists() and (logs/'Grenades'/name).stat().st_mtime>=started for name in (['Cook00_Ready.png','Cook01_Held.png','Cook02_Released.png','Cook03_RemoteReady.png'] if args.combat else ['01_Bounce.png','02_HE.png','02_HE_After.png','03_ClosedWall.png','04_OpenWindow.png','05_InsideSmoke.png','06_HE_Dispersed.png']))
     for label,value in checks.items():print('ER_GRENADE_CHECK',label,value)

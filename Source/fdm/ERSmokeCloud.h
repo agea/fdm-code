@@ -18,6 +18,8 @@ public:
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) TObjectPtr<class USoundBase> ReleaseSound;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) TObjectPtr<class USoundAttenuation> ReleaseAttenuation;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) TObjectPtr<class USoundConcurrency> ReleaseConcurrency;
+    // Local playback gain: existing .65 multiplied by -10 dB. WAV/HE unchanged.
+    UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta=(ClampMin="0")) float ReleaseVolume = .65f * .31622777f;
     UPROPERTY(Transient) TObjectPtr<class UAudioComponent> ReleaseAudio;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) FVector SimSize = FVector(800,800,400);
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) int32 GridResolution = 40;

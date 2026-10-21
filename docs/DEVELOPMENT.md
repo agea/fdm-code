@@ -1,5 +1,30 @@
 # Respawn & Rage — sviluppo Unreal
 
+## Audio passi, spari e fumogena — 21 ottobre 2026
+
+Implementati i passi per distanza orizzontale reale sul server, con eventi
+singoli per umani/bot e mappatura superfici in DataAsset, inclusi gli ID delle
+celle senza modificare collisioni o danni. Owner2D, altri3D; posture e velocità
+modulano stride e volume, senza cambiare il bob della camera. Cinque famiglie
+hanno otto registrazioni ciascuna; light hard una sola, dirt/snow fallback
+espliciti. Sei armi Bullet hanno set reali distinti4/6/4/6/4/4; il launcher
+conserva un solo campione preesistente con pitch precedente. Shuffle senza
+ripetizioni consecutive, anche fra cicli, con RNG cosmetico indipendente.
+SoundCue Random/Modulator e Switch locale impostato prima di Play; nessun doppio
+ramo owner. Il multicast esistente porta l'identità dell'arma autorizzata per
+non dipendere dalla replica tardiva delle proprietà; nessun indice variante in
+rete, nessuna nuova autorità client. Concurrency e budget128 proteggono gli
+attacchi. I casi senza dispositivo audio non registrano componenti destinati a
+restare inattivi. Pipeline e asset binari salvati esclusivamente attraverso UE.
+
+ReleaseVolume smoke configurabile: il precedente .65 diventa ~.205548 (-10dB).
+HE, WAV Sonniss, fade/durate e cinematica nube preservati. Provenienze/hash nel
+privato armi, crediti CC BY3.0 inclusi nel menu; Tabasco escluso per conflitto
+licenza pagina/archivio. Nessun nuovo binario nel core pubblico. Dettagli,
+limiti dei campioni e comandi: [AUDIO_PASS.md](AUDIO_PASS.md); esiti effettivi in
+[TEST_RESULTS.md](TEST_RESULTS.md). Bilanciamento, recoil, accuratezza, input,
+movimento e mappe esistenti non sono stati ritoccati.
+
 20 ottobre2026 — texture mappe richieste dalla raccolta Sketchfab RR: conservati12
 materiali da10 pacchetti originali dopo la pulizia richiesta dei set inutilizzati,
 con crediti/metadati/licenze/hash nel privato

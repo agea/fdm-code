@@ -1,4 +1,5 @@
 #include "ERPlayerController.h"
+#include "ERAudioProbe.h"
 #include "EROnline.h"
 #include "ERRecon.h"
 #include "ERInterfaceStyle.h"
@@ -1226,5 +1227,12 @@ void AERPlayerController::ServerBlockProbeReport_Implementation(AERBlockNetworkP
 {
 #if !UE_BUILD_SHIPPING
     if(FParse::Param(FCommandLine::Get(),TEXT("ERBlockNetworkProbe")) && Probe && Probe->GetWorld()==GetWorld())Probe->ReceiveReport(this,Stage,Epoch,Sequence,Digest,Passed);
+#endif
+}
+
+void AERPlayerController::ServerAudioProbeReady_Implementation(AERAudioProbe* Probe,uint32 Token)
+{
+#if !UE_BUILD_SHIPPING
+    if(FParse::Param(FCommandLine::Get(),TEXT("ERAudioProbe")) && Probe && Probe->GetWorld()==GetWorld())Probe->ConfirmReady(this,Token);
 #endif
 }

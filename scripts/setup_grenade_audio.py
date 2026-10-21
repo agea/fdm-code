@@ -55,6 +55,11 @@ smoke_bp = ue.load_asset('/Game/EclipseRecoil/Effects/Smoke/BP_ERSmokeCloud')
 ue.BlueprintEditorLibrary.compile_blueprint(smoke_bp)
 for key, value in dict(release_sound=smoke, release_attenuation=atten, release_concurrency=concurrency).items():
     ue.get_default_object(smoke_bp.generated_class()).set_editor_property(key, value)
+# Native default is the actual previous .65 playback gain * 10**(-10/20).
+# Preserve subsequent Blueprint tuning on reruns; never normalize the source WAV.
+if ue.EditorAssetLibrary.get_metadata_tag(smoke_bp, 'ERReleaseGainVersion') != '1':
+    ue.EditorAssetLibrary.set_metadata_tag(smoke_bp, 'ERReleaseGainVersion', '1')
+ue.log('ER_SMOKE_RELEASE_GAIN %.8f' % ue.get_default_object(smoke_bp.generated_class()).get_editor_property('release_volume'))
 ue.BlueprintEditorLibrary.compile_blueprint(smoke_bp)
 for obj in [smoke, smoke_bp]:
     assert ue.EditorAssetLibrary.save_loaded_asset(obj, only_if_is_dirty=False)

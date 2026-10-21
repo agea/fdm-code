@@ -1,5 +1,17 @@
 # Inventario asset — primo prototipo locale
 
+21 ottobre2026 — audio passi/spari/fumogena: 28 take reali distinti per le sei
+armi Bullet (4/6/4/6/4/4), 41 campioni passi (8 ciascuno hard/wood/metal/grass/
+gravel, uno light hard), 13 SoundCue e relativi DataAsset; impostazioni di
+attenuazione/concurrency in `/Game/EclipseRecoil/Audio/`, repository privato armi.
+Il launcher conserva un solo sample Epic esistente; dirt/snow hanno fallback
+espliciti, senza varietà dichiarata inesistente. Originali/licenze/crediti/hash
+e tagli nel privato `SourceAssets/AudioPass`, attribuzioni nel menu. FFSL e
+TinyWorlds CC0; swuing/Eelke CC BY3.0, Ali_6868 CC0. Tabasco escluso per conflitto
+fra pagina e licenza inclusa; Thimras solo sorgente. Nessun nuovo WAV nel core
+pubblico, nessuna modifica ai WAV Sonniss: solo ReleaseVolume smoke da .65 a
+~.205548 (-10dB). [Dettagli e pipeline](AUDIO_PASS.md).
+
 21 ottobre2026 — animazioni FPS compatibili con il cooked: il rig indipendente
 `Characters/FirstPerson/SKEL_ER_FirstPerson` conserva le traslazioni authored di
 pelvis/upperarm_r. Migrati attraverso Unreal51 clip esistenti nei repository
