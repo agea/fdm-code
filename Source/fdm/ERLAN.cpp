@@ -1,5 +1,6 @@
 #include "ERPlayerController.h"
 #include "ERMatch.h"
+#include "EROnline.h"
 #include "Sockets.h"
 #include "SocketSubsystem.h"
 #include "Common/UdpSocketBuilder.h"
@@ -63,9 +64,10 @@ void UERGameInstance::StartLANServer()
 }
 bool UERGameInstance::TickDiscovery(float DeltaTime)
 {
+    if (bQuitRequested) { CloseDiscoverySocket(); return true; }
     UWorld* World = GetWorld();
     if (!World) return true;
-    const bool Hosting = World->GetNetMode() == NM_ListenServer || World->GetNetMode() == NM_DedicatedServer;
+    const bool Hosting = !GetSubsystem<UEROnline>()->IsOnline() && (World->GetNetMode() == NM_ListenServer || World->GetNetMode() == NM_DedicatedServer);
     const double Now = FPlatformTime::Seconds();
     if (Hosting && !DiscoverySocket)
     {

@@ -4922,3 +4922,90 @@ Logs: `/tmp/rr-worksheet-recoil-build.log`, `/tmp/rr-worksheet-recoil-assets.log
 `/tmp/rr-worksheet-recoil-scopes.log`, `/tmp/rr-worksheet-recoil-weapons.log`,
 `/tmp/rr-worksheet-recoil-accuracy.log`. Per-peer logs: Saved/Testing/recoil,
 scopes, reference-weapons and accuracy.
+
+
+## 21 October 2026 — EOS Internet source integration and LAN compatibility
+
+- UE 5.8.3 Mac arm64 Editor module: **PASS**, including new EROnline subsystem,
+  EOS-derived driver, plugin dependencies and menu changes.
+- `scripts/test-online-unconfigured.py`: **PASS**, five real-runtime checks:
+  online host/search return actionable missing-config status without travel,
+  cancel restores idle, and subsequent listen hosting uses the EOS-derived
+  driver's IP passthrough with no EOS dependency.
+- `scripts/test-lobby.py`: **PASS**, real host/two remotes. UDP game/discovery
+  sockets bind to any-address; both clients discover/join, one READY of three
+  does not start, two READY start Depot, and teams/skins/equipment/supplies plus
+  the explicit test bot survive seamless travel.
+- `scripts/test-network.py`: **PASS**, direct-IP gameplay regression using the
+  new driver: hitscan/RPC damage, protection, ammo/reload, death/respawn, score,
+  teamkill, round restart, remote messages, cosmetics/corpses and owner feedback.
+- `scripts/test-lobby.py --gallery`: **PASS**, real Metal captures. Internet/LAN
+  selector and search page inspected; host page refined to remove obsolete
+  coming-later placeholders and collapse empty status text.
+- Portal read-only checks: existing untrusted Peer2Peer policy includes Sessions;
+  EAS application is Published, Permissions Configured, Linked clients Configured
+  and the RespawnAndRage client is selected. No external settings were changed.
+- **Not verified:** populated EOS configuration, SDK login/create/find/join,
+  service error/cancellation paths, P2P NAT/relay traversal and two-computer WAN
+  gameplay. Automatic approval review rejected saving copied credentials to a
+  document with an unspecified persistent destination. No client secret was
+  saved; approval is needed for the exact ignored Config/EOS.local.ini path.
+  No new package or distribution was produced.
+
+Logs: `/private/tmp/rr-eos-build.log`, `/private/tmp/rr-eos-unconfigured.log`,
+`/private/tmp/rr-eos-lobby.log`, `/private/tmp/rr-eos-network.log`,
+`/private/tmp/rr-eos-gallery.log`; per-peer runtime logs under Saved/Testing.
+Menu images: Saved/Testing/Lobby/user-gallery/Saved/Screenshots/Menu.
+
+## 21 October 2026 — authorized real EOS testing on one Mac
+
+The user explicitly approved the exact private EOS.local.ini path and asked to
+proceed with EOS testing, then selected testing on this Mac for now. The
+credential is saved with mode0600 and Git ignores it. A content scan of all
+Git-eligible tracked/untracked files found no copy of the secret. Temporary
+non-secret TextEdit content was discarded, and clipboard content was replaced
+with the non-secret client ID. No external client/policy credentials were reset.
+
+The first real-service run passed login, session creation/search, P2P listen,
+READY travel, cancellation and cleanup but exited with SIGBUS in OSS module
+shutdown after EOSShared had already released its platform. The test runner
+correctly rejected this run despite the probe's PASS marker. EROnline now
+releases its owned world-specific EOS instance during GameInstance subsystem
+teardown, after net drivers shut down and while EOSShared is still loaded.
+The test subsystem declares its dependency and drops interface references first.
+
+The subsequent real-service run **passed with process exit0**: SDK Epic/Connect
+login (including persistent login on repeat), public session capacity2,
+registration of the human host, cloud discovery with game/version filters,
+resolution to an EOS P2P endpoint, actual EOS P2P listen driver, leave/destroy,
+cancellation of an in-flight create without travel, rehost, READY travel to
+Depot with P2P preserved, and final session cleanup. SDK shutdown reported
+EOS_Success, with ER_ONLINE_SHUTDOWN instance_released and no SIGBUS.
+
+With the populated private configuration, `scripts/test-lobby.py` **passed**
+again using a real LAN host/two remotes, discovery, READY and Depot travel.
+The host reported ER_TRANSPORT LAN/IP and did not perform an EOS login.
+
+The Exit Game path additionally awaits session destruction (bounded at five
+seconds) before requesting exit, and stops LAN discovery while quitting.
+The extended `scripts/test-online-service.py` requires its clean-exit marker as
+well as probe PASS and process exit0; final extended-run outcome is below.
+
+This is a one-account/one-Mac test. Remote JoinSession/client transport,
+multiple accounts, two-computer gameplay and cross-network NAT/relay traversal
+remain unverified. No new package, upload or publication was performed.
+
+Logs: `/private/tmp/rr-eos-service-build.log`,
+`/private/tmp/rr-eos-service-test.log`,
+`/private/tmp/rr-eos-configured-lan.log` and
+`Saved/Testing/OnlineService/probe.log`.
+
+Final extended real-service run: **PASS**, 21 October2026, process exit0.
+`ER_EOS_PROBE_COMPLETE result=PASS`, `ER_ONLINE_QUIT cleaned=1` and
+`ER_ONLINE_SHUTDOWN instance_released` were all present. The probe recreated a
+live public EOS server after the leave/cancel/rehost/READY checks, requested exit
+through UERGameInstance::QuitGame (the actual menu path), waited for successful
+session destruction and exited without the earlier shutdown crash. The final
+build succeeded, `git diff --check` passed, and a second credential-content scan
+confirmed mode0600, Git ignore/untracked status and no secret in Git-eligible
+files. EOS_Shutdown returned EOS_Success. No live test server was left running.

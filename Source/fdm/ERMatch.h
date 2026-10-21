@@ -39,6 +39,7 @@ class FDM_API AERGameState : public AGameState
     GENERATED_BODY()
 public:
     UPROPERTY(Replicated, BlueprintReadOnly) int32 ServerMaxPlayers = ERServer::DefaultMaxPlayers;
+    UPROPERTY(Replicated, BlueprintReadOnly) bool bOnline = false;
     UPROPERTY(Replicated, BlueprintReadOnly) bool bLobby = false;
     UPROPERTY(Replicated, BlueprintReadOnly) bool bLobbyStarting = false;
     UPROPERTY(Replicated, BlueprintReadOnly) int32 LobbyAlphaBots = 0;
@@ -70,6 +71,7 @@ public:
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) float MatchDuration = 600;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Training") TSubclassOf<class AERCharacter> TrainingTargetPawnClass;
     virtual UClass* GetDefaultPawnClassForController_Implementation(AController* InController) override;
+    virtual void PostLogin(APlayerController* Player) override;
     virtual void InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage) override;
     virtual void BeginPlay() override;
     virtual void PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage) override;

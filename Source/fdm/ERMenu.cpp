@@ -1,4 +1,5 @@
 #include "ERPlayerController.h"
+#include "EROnline.h"
 #include "ERMatch.h"
 #include "ERCharacter.h"
 #include "ERMenuPreview.h"
@@ -102,7 +103,8 @@ void AERPlayerController::ShowMenu(bool bShow)
     auto Panel = SNew(SVerticalBox);
     TSharedPtr<SWidget> Focus;
     auto Go = [this](int32 Page) { return [this, Page]() { OpenMenuPage(Page); return FReply::Handled(); }; };
-    auto Back = [this, GI]() { GI->CancelLANSearch(); OpenMenuPage(MenuPage == 5 || MenuPage == 6 || MenuPage == 7 ? SubmenuParent : 0); return FReply::Handled(); };
+    auto* Online = GI->GetSubsystem<UEROnline>();
+    auto Back = [this, GI, Online]() { Online->Cancel(); GI->CancelLANSearch(); OpenMenuPage(MenuPage == 5 || MenuPage == 6 || MenuPage == 7 ? SubmenuParent : 0); return FReply::Handled(); };
     auto SaveSupplies = [this, GI]() { GI->SaveProfile(); ServerSetSupplies(GI->SpareMagazines, GI->HECount, GI->SmokeCount, GI->StunCount); };
     auto IntChoice = [Panel](const FString& Label, TArray<FString> Labels, int32* Value)
     { Choice(Panel, Label, Labels, [Value]() { return *Value; }, [Value](int32 I) { *Value = I; }); };
@@ -113,7 +115,7 @@ void AERPlayerController::ShowMenu(bool bShow)
         if (Main)
         {
             Focus = Button(TEXT("Play Offline"), Go(1), true); Add(Panel, Focus.ToSharedRef());
-            Add(Panel, Button(TEXT("Play Online"), [this, GI]() { GI->FindLANServer(); OpenMenuPage(3); return FReply::Handled(); }, true));
+            Add(Panel, Button(TEXT("Play Online"), Go(3), true));
             Add(Panel, Button(TEXT("Start Server"), [this, GI]() { GI->AlphaBots = GI->OmegaBots = 0; OpenMenuPage(2); return FReply::Handled(); }, true));
         }
         else
@@ -125,11 +127,11 @@ void AERPlayerController::ShowMenu(bool bShow)
         }
         Add(Panel, Button(TEXT("Setup"), Go(4), true));
         Add(Panel, Button(TEXT("Credits"), Go(7), true));
-        Add(Panel, Button(TEXT("Exit Game"), [this, GI]() { GI->SaveProfile(); ConsoleCommand(TEXT("quit")); return FReply::Handled(); }, true));
+        Add(Panel, Button(TEXT("Exit Game"), [GI]() { GI->QuitGame(); return FReply::Handled(); }, true));
     }
     else
     {
-        const TCHAR* Titles[] = {TEXT("LAN LOBBY"), TEXT("PLAY OFFLINE"), TEXT("START SERVER"), TEXT("PLAY ONLINE"), TEXT("SETUP"), TEXT("CHARACTER"), TEXT("EQUIPMENT"), TEXT("CREDITS")};
+        const TCHAR* Titles[] = {TEXT("MULTIPLAYER LOBBY"), TEXT("PLAY OFFLINE"), TEXT("START SERVER"), TEXT("PLAY ONLINE"), TEXT("SETUP"), TEXT("CHARACTER"), TEXT("EQUIPMENT"), TEXT("CREDITS")};
         Focus = Button(MenuPage == 0 ? TEXT("Leave Server") : TEXT("Back"), MenuPage == 0 ? TFunction<FReply()>([GI]() { GI->ReturnToMenu(); return FReply::Handled(); }) : TFunction<FReply()>(Back));
         if (MenuPage != 7)
         {
@@ -144,7 +146,7 @@ void AERPlayerController::ShowMenu(bool bShow)
                 int32 Humans = 0, Ready = 0;
                 if (GS) for (auto Item : GS->PlayerArray) if (const auto* PS = Cast<AERPlayerState>(Item); PS && !PS->IsABot() && !PS->IsInactive())
                 { ++Humans; Ready += PS->bLobbyReady; }
-                return FText::FromString(GS && GS->bLobbyStarting ? TEXT("Starting match · generating map...") : FString::Printf(TEXT("LAN · %d / %d players    |    READY %d / %d needed"), Humans, GS ? GS->ServerMaxPlayers : GI->MaxPlayers, Ready, Humans / 2 + 1));
+                return FText::FromString(GS && GS->bLobbyStarting ? TEXT("Starting match · generating map...") : FString::Printf(TEXT("%s · %d / %d players    |    READY %d / %d needed"), GS && GS->bOnline ? TEXT("INTERNET") : TEXT("LAN"), Humans, GS ? GS->ServerMaxPlayers : GI->MaxPlayers, Ready, Humans / 2 + 1));
             });
             Add(Panel, Status);
             auto Body = SNew(SHorizontalBox);
@@ -214,17 +216,38 @@ void AERPlayerController::ShowMenu(bool bShow)
                 .Value_Lambda([GI]() { return TOptional<int32>(GI->MaxPlayers); })
                 .OnValueChanged_Lambda([GI](int32 Value) { GI->MaxPlayers = ERServer::ValidMaxPlayers(Value); })
                 .OnValueCommitted_Lambda([GI](int32 Value, ETextCommit::Type) { GI->MaxPlayers = ERServer::ValidMaxPlayers(Value); GI->SaveServerSettings(); }));
-            Add(Panel, Text(TEXT("LAN · port 7777 · test bots are additional"), 21));
-            Add(Panel, SNew(SBox).IsEnabled(false)[Button(TEXT("Internet / EOS · coming later"), []() { return FReply::Handled(); })]);
-            Add(Panel, SNew(SBox).IsEnabled(false)[Button(TEXT("Public / Private · coming later"), []() { return FReply::Handled(); })]);
-            Add(Panel, Button(TEXT("Start Server & Enter Lobby"), [GI]() { GI->StartLANServer(); return FReply::Handled(); }));
+            Choice(Panel, TEXT("Connection"), {TEXT("Internet (Epic Online Services)"), TEXT("LAN")},
+                [GI]() { return GI->bInternetMenu ? 0 : 1; },
+                [GI, Online](int32 I) { Online->Cancel(); GI->CancelLANSearch(); GI->bInternetMenu = I == 0; });
+            Add(Panel, Text(TEXT("Internet: sign in to Epic Games. LAN: same local network. Test bots are additional."), 21));
+            Add(Panel, SNew(STextBlock).Font(MenuFont(23)).AutoWrapText(true)
+                .Visibility_Lambda([Online]() { return Online->Status.IsEmpty() ? EVisibility::Collapsed : EVisibility::Visible; })
+                .Text_Lambda([Online]() { return FText::FromString(Online->Status); }));
+            Add(Panel, Button(TEXT("Start Server & Enter Lobby"), [GI, Online]() { if (GI->bInternetMenu) Online->Host(); else { Online->Cancel(); GI->StartLANServer(); } return FReply::Handled(); }));
         }
         else if (MenuPage == 3)
         {
-            Add(Panel, SNew(STextBlock).Font(MenuFont(32)).AutoWrapText(true).Text_Lambda([GI]()
-            { return FText::FromString(GI->IsSearchingLAN() ? FString::Printf(TEXT("Searching LAN... %ds"), GI->LANSecondsLeft()) : GI->LastError); }));
-            Add(Panel, Text(TEXT("Start a server on another computer connected to the same local network. We connect automatically when one is found.")));
-            Add(Panel, Button(TEXT("Search Again"), [GI]() { GI->FindLANServer(); return FReply::Handled(); }));
+            Choice(Panel, TEXT("Connection"), {TEXT("Internet (Epic Online Services)"), TEXT("LAN")},
+                [GI]() { return GI->bInternetMenu ? 0 : 1; },
+                [GI, Online](int32 I) { Online->Cancel(); GI->CancelLANSearch(); GI->bInternetMenu = I == 0; });
+            Add(Panel, SNew(STextBlock).Font(MenuFont(28)).AutoWrapText(true).Text_Lambda([GI, Online]()
+            { return FText::FromString(GI->bInternetMenu ? Online->Status : GI->IsSearchingLAN() ? FString::Printf(TEXT("Searching LAN... %ds"), GI->LANSecondsLeft()) : GI->LastError); }));
+            Add(Panel, Text(TEXT("Internet: sign in to Epic Games and choose a server. LAN: we connect automatically to an available local server."), 21));
+            auto Servers = SNew(SVerticalBox);
+            for (int32 I = 0; I < 100; ++I)
+                Add(Servers, SNew(SButton).ContentPadding(8)
+                    .Visibility_Lambda([GI, Online, I]() { return GI->bInternetMenu && Online->Results.IsValidIndex(I) ? EVisibility::Visible : EVisibility::Collapsed; })
+                    .IsEnabled_Lambda([Online]() { return !Online->IsBusy(); })
+                    .OnClicked_Lambda([Online, I]() { Online->Join(I); return FReply::Handled(); })
+                    [SNew(STextBlock).Font(MenuFont(25)).AutoWrapText(true).Text_Lambda([Online, I]()
+                    {
+                        if (!Online->Results.IsValidIndex(I)) return FText::GetEmpty();
+                        const auto& Session = Online->Results[I].Session;
+                        return FText::FromString(FString::Printf(TEXT("Join %s · %d / %d players"), *Session.OwningUserName,
+                            Session.SessionSettings.NumPublicConnections - Session.NumOpenPublicConnections, Session.SessionSettings.NumPublicConnections));
+                    })]);
+            Add(Panel, SNew(SBox).MaxDesiredHeight(240)[SNew(SScrollBox) + SScrollBox::Slot()[Servers]]);
+            Add(Panel, Button(TEXT("Search Servers"), [GI, Online]() { if (GI->bInternetMenu) Online->Search(); else { Online->Cancel(); GI->FindLANServer(); } return FReply::Handled(); }));
             Add(Panel, Button(TEXT("Cancel"), Back));
         }
         else if (MenuPage == 4)

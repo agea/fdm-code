@@ -27,3 +27,6 @@ __pycache__/
 !/Content/
 /Content/*
 !/Content/Splash/
+
+# Per-build EOS client credentials. Never commit the populated file.
+/Config/EOS.local.ini

@@ -1,4 +1,5 @@
 #include "ERPlayerController.h"
+#include "EROnline.h"
 #include "ERRecon.h"
 #include "ERInterfaceStyle.h"
 #include "Fonts/FontMeasure.h"
@@ -137,6 +138,7 @@ void UERGameInstance::Shutdown()
 {
     FTSTicker::GetCoreTicker().RemoveTicker(DiscoveryTicker);
     CloseDiscoverySocket();
+    GetSubsystem<UEROnline>()->Leave();
     SaveProfile();
     SaveServerSettings();
     SaveMouseSensitivity();
@@ -264,7 +266,28 @@ bool UERGameInstance::Join(const FString& RawAddress)
     }
     LastError = TEXT("Local player unavailable."); return false;
 }
-void UERGameInstance::ReturnToMenu() { CancelLANSearch(); CloseDiscoverySocket(); UGameplayStatics::OpenLevel(GetWorld(), TEXT("/Game/EclipseRecoil/Maps/L_MainMenu")); }
+void UERGameInstance::ReturnToMenu() { GetSubsystem<UEROnline>()->Leave(); CancelLANSearch(); CloseDiscoverySocket(); UGameplayStatics::OpenLevel(GetWorld(), TEXT("/Game/EclipseRecoil/Maps/L_MainMenu")); }
+void UERGameInstance::QuitGame()
+{
+    if (bQuitRequested) return;
+    bQuitRequested = true;
+    SaveProfile();
+    CancelLANSearch();
+    auto* Online = GetSubsystem<UEROnline>();
+    Online->Leave();
+    const double Deadline = FPlatformTime::Seconds() + 5;
+    // Let the public session's destroy request finish before the SDK/platform
+    // is released. A failed network or cancelled login must not trap Quit.
+    FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateWeakLambda(this, [this, Deadline](float)
+    {
+        const auto* Service = GetSubsystem<UEROnline>();
+        const bool Clean = !Service->IsBusy() && !Service->HasSession();
+        if (!Clean && FPlatformTime::Seconds() < Deadline) return true;
+        UE_LOG(LogTemp, Display, TEXT("ER_ONLINE_QUIT cleaned=%d"), Clean);
+        FPlatformMisc::RequestExit(false);
+        return false;
+    }), .1f);
+}
 void UERGameInstance::NetworkFailure(UWorld* World, UNetDriver* Driver, ENetworkFailure::Type Type, const FString& Error)
 {
     if (World != GetWorld()) return;
@@ -275,7 +298,8 @@ void UERGameInstance::TravelFailure(UWorld* World, ETravelFailure::Type Type, co
 {
     if (World != GetWorld()) return;
     LastError = TEXT("Travel failed: ") + Error.Left(180);
-    if (!UGameplayStatics::GetCurrentLevelName(World).Contains(TEXT("L_MainMenu"))) ReturnToMenu();
+    GetSubsystem<UEROnline>()->Leave();
+    if (World->GetNetMode() != NM_Standalone || !UGameplayStatics::GetCurrentLevelName(World).Contains(TEXT("L_MainMenu"))) ReturnToMenu();
 }
 bool AERPlayerController::IsMenuLevel() const { return UGameplayStatics::GetCurrentLevelName(GetWorld()).Contains(TEXT("L_MainMenu")); }
 AERPlayerController::AERPlayerController()
@@ -571,7 +595,7 @@ void AERPlayerController::ScoreboardPressed() { bShowScoreboard = true; }
 void AERPlayerController::ScoreboardReleased() { bShowScoreboard = false; }
 void AERPlayerController::MenuPressed()
 {
-    if (IsMenuLevel()) { if (MenuPage != 0) { GetGameInstance<UERGameInstance>()->CancelLANSearch(); OpenMenuPage(0); } }
+    if (IsMenuLevel()) { if (MenuPage != 0) { GetGameInstance<UERGameInstance>()->CancelLANSearch(); GetGameInstance()->GetSubsystem<UEROnline>()->Cancel(); OpenMenuPage(0); } }
     else if (MenuPage != 0) OpenMenuPage(0);
     else ShowMenu(!bMenuOpen);
 }

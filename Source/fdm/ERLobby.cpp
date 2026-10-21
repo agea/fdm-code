@@ -43,6 +43,7 @@ void AERGameMode::CheckLobby()
     {
         const auto& Entry = ERMaps::At(Map);
         FString URL = FString(Entry.Package) + FString::Printf(TEXT("?listen?ERAlphaBots=%d?EROmegaBots=%d?ERBotMode=Patrol?ERMaxPlayers=%d?MaxPlayers=%d"), AlphaBotCount, OmegaBotCount, MaxHumanPlayers, MaxHumanPlayers);
+        if (GetGameState<AERGameState>()->bOnline) URL += TEXT("?EROnline=1");
         if (Entry.Procedural) URL += FString::Printf(TEXT("?MapSeed=%d"), FMath::Rand());
         if (!GetWorld()->ServerTravel(URL, true))
         {

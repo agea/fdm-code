@@ -1168,3 +1168,27 @@ input sources independent, clear both on menus/new gesture pawn, preserve
 saved-move intent and the 10s stamina/20s refill rules. Held E alone must not
 auto-restart after exhaustion. Verify real remote InputKey E/W press/release,
 E-before-W and overlapping double-W release in test-movement.py.
+
+
+Internet multiplayer (21 October): preserve LAN/offline alongside the new EOS
+path. See docs/EOS_ONLINE.md. Internet explicitly selects OSS EOS/EAS/Connect
+and public Sessions, while the default NULL subsystem supports local execution.
+UERNetDriverEOS must use IP passthrough for ordinary listen launches and P2P
+only with EROnline=1, including lobby travel. Never restore obsolete
+bIsUsingP2PSockets config. Keep the private Config/EOS.local.ini ignored and use
+only an untrusted Peer2Peer client credential. Do not claim EOS authentication,
+NAT traversal or Internet matches verified until exercised against the service
+with distinct accounts/two networks. A previous automatic approval rejection
+blocked saving the clipboard credential to an unspecified document destination.
+The user subsequently explicitly authorized saving the existing secret at
+/Users/agea/git/respawn-and-rage/core/Config/EOS.local.ini and EOS service testing;
+do not request the same approval again. Keep mode0600 and never print the secret.
+The user limited the current EOS test to this Mac. Real one-account EOS
+login/public-session discovery/P2P listen/READY travel and destroy/cancel/rehost
+are exercised by scripts/test-online-service.py. Require process exit0 as well
+as the PASS marker; a real module-shutdown crash was found this way. EROnline
+must release its owned world-specific OSS instance while EOSShared is still
+loaded, after world net drivers have shut down. Exit Game waits briefly for
+session destruction before exit and suppresses LAN discovery while quitting.
+Keep cross-account JoinSession and two-network NAT/relay claims separate from
+this single-Mac service test. See docs/TEST_RESULTS.md for executed outcomes.

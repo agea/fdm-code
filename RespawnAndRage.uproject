@@ -2,10 +2,16 @@
   "FileVersion": 3,
   "EngineAssociation": "5.8",
   "Category": "",
-  "Description": "Respawn & Rage — Serious guns. Questionable players",
+  "Description": "Respawn & Rage \u2014 Serious guns. Questionable players",
   "Plugins": [
-    { "Name": "PCG", "Enabled": true },
-    { "Name": "PCGExtendedToolkit", "Enabled": true },
+    {
+      "Name": "PCG",
+      "Enabled": true
+    },
+    {
+      "Name": "PCGExtendedToolkit",
+      "Enabled": true
+    },
     {
       "Name": "NiagaraFluids",
       "Enabled": true
@@ -38,6 +44,18 @@
       "TargetAllowList": [
         "Editor"
       ]
+    },
+    {
+      "Name": "OnlineSubsystemEOS",
+      "Enabled": true
+    },
+    {
+      "Name": "OnlineSubsystemNull",
+      "Enabled": true
+    },
+    {
+      "Name": "SocketSubsystemEOS",
+      "Enabled": true
     }
   ],
   "Modules": [

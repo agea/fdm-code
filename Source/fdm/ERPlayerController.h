@@ -35,6 +35,7 @@ public:
     int32 HECount = 2;
     int32 SmokeCount = 2;
     int32 StunCount = 2;
+    bool bInternetMenu = true;
     int32 SessionMode = 0; // local, listen server, client
     int32 MapChoice = 0;
     int32 PlayerTeam = 0;
@@ -44,6 +45,7 @@ public:
     FString ServerAddress = TEXT("127.0.0.1:7777");
     bool Join(const FString& Address);
     void ReturnToMenu();
+    void QuitGame();
     static bool IsValidAddress(const FString& Address);
     float GetMouseSensitivity() const { return MouseSensitivity; }
     float GetMouseAcceleration() const { return MouseAcceleration; }
@@ -64,6 +66,7 @@ public:
     void SaveLoadout();
     bool bInitialWindowSizeApplied = false;
 private:
+    bool bQuitRequested = false;
     class FSocket* DiscoverySocket = nullptr;
     FTSTicker::FDelegateHandle DiscoveryTicker;
     double SearchDeadline = 0;

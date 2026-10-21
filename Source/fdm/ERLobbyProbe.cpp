@@ -1,4 +1,6 @@
 #include "ERLobbyProbe.h"
+#include "EROnline.h"
+#include "ERNetDriverEOS.h"
 #include "ERPlayerController.h"
 #include "ERCharacter.h"
 #include "ERMatch.h"
@@ -26,6 +28,32 @@ void AERLobbyProbe::Tick(float DeltaTime)
     auto* GI = GetGameInstance<UERGameInstance>();
     auto* PC = Cast<AERPlayerController>(GetWorld()->GetFirstPlayerController());
     if (!GI || !PC || !PC->IsLocalController()) return;
+    if (FParse::Param(FCommandLine::Get(), TEXT("EROnlineUnconfiguredProbe")))
+    {
+        if (GetWorld()->GetTimeSeconds() < 2 || Phase) return;
+        Phase = 1;
+        auto* Online = GI->GetSubsystem<UEROnline>();
+        if (GetNetMode() == NM_Standalone)
+        {
+            Online->Host();
+            Check(!Online->IsBusy() && !Online->IsOnline() && Online->Status.Contains(TEXT("not configured")), TEXT("unconfigured_online_host_fails_without_travel"));
+            Online->Search();
+            Check(!Online->IsBusy() && Online->Results.IsEmpty() && Online->Status.Contains(TEXT("not configured")), TEXT("unconfigured_online_search_is_actionable"));
+            Online->Cancel();
+            Check(!Online->IsBusy() && Online->Status.IsEmpty(), TEXT("online_cancel_restores_idle"));
+            if (Failed) { FPlatformMisc::RequestExitWithStatus(false, 1); return; }
+            GI->StartLANServer();
+        }
+        else
+        {
+            auto* Driver = Cast<UERNetDriverEOS>(GetWorld()->GetNetDriver());
+            Check(Driver && Driver->bIsPassthrough, TEXT("lan_host_uses_ip_with_eos_plugin_enabled"));
+            Check(!Online->IsOnline() && !GetWorld()->GetGameState<AERGameState>()->bOnline, TEXT("lan_has_no_eos_dependency"));
+            UE_LOG(LogTemp, Display, TEXT("ER_ONLINE_UNCONFIGURED_COMPLETE result=%s"), Failed ? TEXT("FAIL") : TEXT("PASS"));
+            FPlatformMisc::RequestExitWithStatus(false, Failed ? 1 : 0);
+        }
+        return;
+    }
     if (FParse::Param(FCommandLine::Get(), TEXT("ERSettingsWrite")) || FParse::Param(FCommandLine::Get(), TEXT("ERSettingsRead")))
     {
         if (GetWorld()->GetTimeSeconds() < 2 || Phase) return;

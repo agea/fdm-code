@@ -31,6 +31,30 @@ mantengono le loro pose effettive precedenti. Backup privato e confronto di
 Il packaging Development verifica ora una partita cooked con sei bot e pistola,
 oltre ai precedenti controlli di architettura/branding/versione.
 
+## Multiplayer Internet EOS — 21 ottobre 2026
+
+Aggiunto il percorso Internet al multiplayer LAN: scelta della connessione nei
+menu host/ricerca, accesso Epic, sessioni pubbliche EOS, filtro versione e P2P.
+La lobby replica le stesse squadre, equipaggiamento, voto e maggioranza READY;
+travel con opzione Internet e cleanup asincrono alla cancellazione/uscita.
+Il driver deriva dal NetDriverEOS di UE5.8.3 ma mantiene IP per ogni avvio LAN
+o diretto. La configurazione privata è letta solo su richiesta del giocatore.
+Dettagli e limiti: [EOS_ONLINE.md](EOS_ONLINE.md). Dopo autorizzazione esplicita,
+il client secret è salvato nel file locale ignorato, con permessi0600. Il
+collaudo su questo Mac ha esercitato realmente accesso Epic/Connect, creazione e
+ricerca di una sessione pubblica, endpoint P2P, lobby e travel al Depot,
+cancellazione della creazione e riavvio. La prima esecuzione ha evidenziato un
+crash nel rilascio tardivo del sottosistema EOS dopo EOSShared: l'istanza creata
+dal gioco ora viene rilasciata durante la chiusura della GameInstance, prima
+dello scaricamento dei moduli. L'ultima prova è passata con codice di uscita0,
+anche da un server attivo tramite Exit Game, attendendo la distruzione della
+sessione prima di terminare. Regressione LAN con tre giocatori nuovamente
+superata con il file privato presente. Esiti e limiti in TEST_RESULTS.md.
+Per richiesta dell'utente il collaudo resta su questo Mac; nessuna verifica
+fra account diversi/due computer o reti Internet diverse è dichiarata.
+Verificati nel portale app pubblicata, permessi configurati, client collegato e
+policy Peer2Peer/Sessions; nessuna modifica ai permessi esterni.
+
 ## Ambito concordato
 
 Richiesta del 12 ottobre 2026: partire dal progetto Unreal locale,

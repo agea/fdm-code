@@ -1,4 +1,5 @@
 #include "ERMatch.h"
+#include "EROnline.h"
 #include "ERLobbyProbe.h"
 #include "ERCapacityProbe.h"
 #include "ERMapCatalog.h"
@@ -57,6 +58,7 @@ void AERGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
     DOREPLIFETIME(AERGameState, ServerMaxPlayers);
+    DOREPLIFETIME(AERGameState, bOnline);
     DOREPLIFETIME(AERGameState, bLobby); DOREPLIFETIME(AERGameState, bLobbyStarting);
     DOREPLIFETIME(AERGameState, LobbyAlphaBots); DOREPLIFETIME(AERGameState, LobbyOmegaBots);
     DOREPLIFETIME(AERGameState, AlphaScore); DOREPLIFETIME(AERGameState, OmegaScore);
@@ -173,13 +175,13 @@ void AERGameMode::BeginPlay()
 {
     Super::BeginPlay();
     if (auto* State = GetGameState<AERGameState>())
-    { State->ServerMaxPlayers = MaxHumanPlayers; State->bLobby = bLobby; State->LobbyAlphaBots = AlphaBotCount; State->LobbyOmegaBots = OmegaBotCount; }
+    { State->bOnline = GetGameInstance()->GetSubsystem<UEROnline>()->IsOnline(); State->ServerMaxPlayers = MaxHumanPlayers; State->bLobby = bLobby; State->LobbyAlphaBots = AlphaBotCount; State->LobbyOmegaBots = OmegaBotCount; }
     if (!GetWorld()->GetMapName().Contains(TEXT("L_MainMenu")))
         GetWorld()->SpawnActor<AERReconDirector>(ReconClass ? ReconClass.Get() : AERReconDirector::StaticClass());
 #if !UE_BUILD_SHIPPING
     if (FParse::Param(FCommandLine::Get(), TEXT("ERCapacityProbe"))) GetWorld()->SpawnActor<AERCapacityProbe>();
     int32 LobbyProbeClient = 0;
-    if (FParse::Param(FCommandLine::Get(), TEXT("ERMenuGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERSettingsWrite")) || FParse::Param(FCommandLine::Get(), TEXT("ERSettingsRead")) || FParse::Param(FCommandLine::Get(), TEXT("ERLobbyProbeHost")) || FParse::Param(FCommandLine::Get(), TEXT("ERLobbyProbeTimeout")) || FParse::Value(FCommandLine::Get(), TEXT("ERLobbyProbeClient="), LobbyProbeClient)) GetWorld()->SpawnActor<AERLobbyProbe>();
+    if (FParse::Param(FCommandLine::Get(), TEXT("EROnlineUnconfiguredProbe")) || FParse::Param(FCommandLine::Get(), TEXT("ERMenuGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERSettingsWrite")) || FParse::Param(FCommandLine::Get(), TEXT("ERSettingsRead")) || FParse::Param(FCommandLine::Get(), TEXT("ERLobbyProbeHost")) || FParse::Param(FCommandLine::Get(), TEXT("ERLobbyProbeTimeout")) || FParse::Value(FCommandLine::Get(), TEXT("ERLobbyProbeClient="), LobbyProbeClient)) GetWorld()->SpawnActor<AERLobbyProbe>();
     if (FParse::Param(FCommandLine::Get(),TEXT("ERBotLoadoutProbe"))) GetWorld()->SpawnActor<AERBotLoadoutProbe>();
     if (FParse::Param(FCommandLine::Get(),TEXT("ERReconProbe"))) GetWorld()->SpawnActor<AERReconProbe>();
     if (GetWorld()->GetMapName().Contains(TEXT("L_CentralBuilding")) && FParse::Param(FCommandLine::Get(),TEXT("ERIndustrialMapProbe")))GetWorld()->SpawnActor<AERIndustrialMapProbe>();
@@ -223,14 +225,22 @@ void AERGameMode::PreLogin(const FString& Options, const FString& Address, const
     if (!bFull && !bStationaryBots && !bConfiguredBots)
         while (!TestBots.IsEmpty() && GetNumPlayers()+TestBots.Num()+PendingHumanSlots.Num() >= MaxHumanPlayers) RemoveBot();
     Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
+    if (GetGameInstance()->GetSubsystem<UEROnline>()->IsOnline() && (!UniqueId.IsValid() || UniqueId.GetType() != FName(TEXT("EOS")))) ErrorMessage = TEXT("Epic sign-in is required for this Internet server.");
     if (bLobbyTravelPending) ErrorMessage = TEXT("Match is starting. Try again shortly.");
     if (bFull) ErrorMessage = FString::Printf(TEXT("Server full: maximum %d players."), MaxHumanPlayers);
     if (ErrorMessage.IsEmpty()) PendingHumanSlots.Add(GetWorld()->GetTimeSeconds()+30);
+}
+void AERGameMode::PostLogin(APlayerController* Player)
+{
+    Super::PostLogin(Player);
+    GetGameState<AERGameState>()->bOnline = GetGameInstance()->GetSubsystem<UEROnline>()->IsOnline();
+    GetGameInstance()->GetSubsystem<UEROnline>()->RegisterPlayer(Player);
 }
 void AERGameMode::Logout(AController* Player)
 {
     if (auto* Character = Cast<AERCharacter>(Player->GetPawn())) if (Character->Weapon) Character->Weapon->Cancel();
     GetWorld()->GetSubsystem<UERGameplayMessages>()->Forget(Player->GetPlayerState<AERPlayerState>());
+    GetGameInstance()->GetSubsystem<UEROnline>()->UnregisterPlayer(Player);
     Super::Logout(Player);
     UE_LOG(LogTemp,Display,TEXT("ER_PLAYER_LEFT players=%d"),GetNumPlayers());
 }
