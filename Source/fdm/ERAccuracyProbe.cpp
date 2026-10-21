@@ -31,7 +31,7 @@ void AERAccuracyProbe::Tick(float DeltaTime)
         auto* Pawn = Cast<AERCharacter>(UGameplayStatics::GetPlayerPawn(GetWorld(),0));
         if (!Pawn || !Pawn->Weapon || !Pawn->Weapon->Data) return;
         auto* Weapon = Pawn->Weapon.Get();
-        if (!SawOwnerBase && FMath::IsNearlyEqual(Weapon->GetSpreadDegrees(),Weapon->Data->StandingSpreadDegrees,.01f))
+        if (!SawOwnerBase && FMath::IsNearlyEqual(Weapon->GetSpreadDegrees(),ERWeaponAccuracy::Degrees(7.01f),.01f))
         {
             SawOwnerBase=true; UE_LOG(LogTemp,Display,TEXT("ER_ACCURACY_CLIENT_PASS owner_base_data"));
         }
@@ -71,28 +71,45 @@ void AERAccuracyProbe::Tick(float DeltaTime)
         Host->SetControlRotation(FRotator::ZeroRotator); Host->ClientSetRotation(FRotator::ZeroRotator);
         Client->SetControlRotation(FRotator(0,180,0)); Client->ClientSetRotation(FRotator(0,180,0));
         H->Health->ProtectionEndServerTime=C->Health->ProtectionEndServerTime=Now+60;
-        const FVector SavedVelocity=Move->Velocity;
-        for(int32 Slot=0;Slot<H->Inventory.Num();++Slot)
+        Move->SetMovementMode(MOVE_Walking);Move->Velocity=FVector::ZeroVector;
+        const FVector SavedVelocity=Move->Velocity;const auto SavedPosture=Move->Locomotion;
+        for(int32 Slot=1;Slot<=6;++Slot)
         {
-            auto* Weapon=H->Inventory[Slot].Get();
-            if(!Weapon || !Weapon->Data || Weapon->Data->Payload==EERPayload::Melee || AERWeapon::IsHandGrenade(Weapon->Data->Payload))continue;
-            H->ServerSelectWeapon(Slot);
-            for(int32 Aim=0;Aim<=(Weapon->Data->ScopeMode?1:0);++Aim)
+            auto* Weapon=H->Inventory[Slot].Get();H->ServerSelectWeapon(Slot);
+            Check(Weapon->Data->bUseWorksheetAccuracy,TEXT("all_firearms_use_workbook_accuracy"));
+            Weapon->FiringInaccuracyAtLastShot=0;Weapon->AccuracyLandingSpeed=0;
+            for(int32 Aim=0;Aim<=(Weapon->HasOpticalScope()?1:0);++Aim)
             {
                 if(Aim)Weapon->ServerCycleScope();
-                Move->Velocity=FVector(1000.f/3.6f,0,0);const float RunCone=Weapon->GetSpreadDegrees();
-                Move->Velocity=FVector(1400.f/3.6f,0,0);const float MidCone=Weapon->GetSpreadDegrees();
-                Move->Velocity=FVector(500,0,0);const float SprintCone=Weapon->GetSpreadDegrees();
-                Move->Velocity=FVector(700,0,0);const float OverSpeedCone=Weapon->GetSpreadDegrees();
-                const bool Wider=FMath::IsNearlyEqual(MidCone-RunCone,.75f,.001f) && FMath::IsNearlyEqual(SprintCone-RunCone,1.5f,.001f);
-                Check(Wider,TEXT("all_ranged_weapons_sprint_widens_hip_and_aim_cones"));
-                Check(FMath::IsNearlyEqual(OverSpeedCone,SprintCone,.001f),TEXT("sprint_penalty_is_bounded_above_eighteen_kmh"));
-                Move->Velocity=FVector(1000.f/3.6f,0,0);
-                Check(FMath::IsNearlyEqual(Weapon->GetSpreadDegrees(),RunCone,.001f),TEXT("return_to_normal_run_clears_extra_sprint_spread"));
-                UE_LOG(LogTemp,Display,TEXT("ER_SPRINT_CONE slot=%d aim=%d run=%.3f mid=%.3f sprint=%.3f"),Slot,Aim,RunCone,MidCone,SprintCone);
+                const auto& P=Weapon->GetAccuracyMode();
+                for(int32 Low=0;Low<3;++Low)
+                {
+                    Move->Locomotion.HalfHeight=Low==0?92.5f:Low==1?62.5f:34.f;
+                    Move->Locomotion.ProneBlend=Low==2?1.f:0.f;
+                    for(float Speed:{0.f,138.889f,277.778f,500.f,P.MaxSpeed*2.54f,P.MaxSpeed*2.54f*1.5f})
+                    {
+                        Move->Velocity=FVector(Speed,0,0);
+                        const float Raw=P.Spread+(Low?P.Crouch:P.Stand)+P.Move*FMath::Clamp(Speed/(P.MaxSpeed*2.54f),0.f,1.f);
+                        Check(FMath::IsNearlyEqual(Weapon->GetSpreadDegrees(),ERWeaponAccuracy::Degrees(Raw),.001f),
+                            TEXT("runtime_worksheet_posture_speed_and_scope_cone"));
+                    }
+                }
             }
         }
+        Move->Locomotion=SavedPosture;
         Move->Velocity=SavedVelocity;H->ServerSelectWeapon(4);
+        auto* AK=H->Weapon.Get();
+        AK->FiringInaccuracyAtLastShot=100;AK->AccuracyBurstShots=1;
+        AK->AccuracyRecoveryTime=.368f;AK->AccuracyRecoveryServerTime=Now-.1;
+        const float BeforeCrouch=AK->GetFiringInaccuracy();
+        Move->Locomotion.HalfHeight=62.5f;AK->UpdateAccuracyRecovery();
+        Check(FMath::IsNearlyEqual(BeforeCrouch,AK->GetFiringInaccuracy(),.0001f) &&
+            FMath::IsNearlyEqual(AK->AccuracyRecoveryTime,.305257f,.00001f),TEXT("crouching_changes_recovery_slope_without_rewriting_history"));
+        AK->AccuracyRecoveryServerTime=Now-.1;const float BeforeStand=AK->GetFiringInaccuracy();
+        Move->Locomotion.HalfHeight=92.5f;AK->UpdateAccuracyRecovery();
+        Check(FMath::IsNearlyEqual(BeforeStand,AK->GetFiringInaccuracy(),.0001f) && AK->AccuracyRecoveryTime==.368f,
+            TEXT("standing_does_not_resurrect_recovered_inaccuracy"));
+        AK->FiringInaccuracyAtLastShot=0;Move->Locomotion=SavedPosture;
         Advance(1,.5f); return;
     }
     if (Phase==3 || Phase==4) H->AddMovementInput(FVector(1,0,0));
@@ -115,7 +132,7 @@ void AERAccuracyProbe::Tick(float DeltaTime)
     {
     case 1:
         Standing=H->Weapon->GetSpreadDegrees();
-        Check(FMath::IsNearlyEqual(Standing,H->Weapon->Data->StandingSpreadDegrees,.001f),TEXT("standing_base_cone"));
+        Check(FMath::IsNearlyEqual(Standing,ERWeaponAccuracy::Degrees(7.01f),.001f),TEXT("standing_base_cone"));
         H->Crouch(); Advance(2,.5f); break;
     case 2:
         Check(H->bIsCrouched && H->Weapon->GetSpreadDegrees()<Standing,TEXT("crouch_narrows_cone"));
@@ -130,11 +147,13 @@ void AERAccuracyProbe::Tick(float DeltaTime)
         H->Jump(); Advance(5,.2f); break;
     case 5:
         Check(Move->IsFalling() && H->Weapon->GetSpreadDegrees()>Running,TEXT("jump_adds_airborne_spread"));
-        Advance(6,.7f); break;
+        Host->SetControlRotation(FRotator(65,0,0));Advance(6,.7f); break;
     case 6:
         Check(ConeSamples==10 && SamplesWithinCone,TEXT("ten_hitscan_traces_within_server_cone_no_bullet_actors"));
+        Check(H->Weapon->AccuracyLandingSpeed>0 && H->Weapon->AccuracyLandingServerTime>Now-3,
+            TEXT("real_jump_landing_records_authority_measured_impulse"));
         Check(SamplesVary,TEXT("server_samples_different_directions"));
-        Check(H->Weapon->GetBloomDegrees()<=H->Weapon->Data->MaxBloomDegrees+.001f,TEXT("burst_bloom_bounded"));
+        Check(H->Weapon->FiringInaccuracyAtLastShot>=7.8f && FMath::IsFinite(H->Weapon->GetFiringInaccuracy()),TEXT("worksheet_fire_impulses_accumulate_without_legacy_cap"));
         H->Health->ProtectionEndServerTime=Now+60;
         AmmoBeforeBurst=C->Weapon->MagazineAmmo; Advance(7,.65f); break;
     case 7:
@@ -142,7 +161,7 @@ void AERAccuracyProbe::Tick(float DeltaTime)
         Advance(8,.4f); break;
     case 8:
         Check(!C->Weapon->bReloading && C->Weapon->GetBloomDegrees()>0,TEXT("stopped_burst_recovers_gradually"));
-        Advance(9,1.4f); break;
+        Advance(9,2.5f); break;
     case 9:
         Check(C->Weapon->GetBloomDegrees()<.001f && FMath::IsNearlyEqual(C->Weapon->GetSpreadDegrees(),Standing,.01f),TEXT("server_bloom_returns_to_base"));
         C->Weapon->MagazineAmmo=0; C->Weapon->ForceNetUpdate();

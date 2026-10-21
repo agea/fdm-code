@@ -4715,3 +4715,210 @@ text allowlist, preserving binary/LFS/symlink and all other path restrictions.
 - Python compilation and `git diff --check`: **PASS**.
 
 No history rewriting, commit or push performed by this fix.
+
+
+## Random bot firearms and headshot diagnosis — 21 October 2026
+
+- Mac UE5.8.3 Development Editor build: **PASS**.
+- `python3 scripts/test-bot-loadouts.py`: **PASS**, actual listen/client peers
+  for Target, Movement and Patrol. Six bots per mode, each observed at initial
+  spawn, after a real death/manual respawn delay, and after round reset:54
+  server selections and matching client observations. Every group uses six
+  distinct Bullet slots1..6 (mask126), fresh magazine capacity and new pawn
+  identities. The dedicated fixture pauses AI decisions to isolate loadouts.
+- `python3 scripts/test-target-skins.py`: **PASS**, all20 team skin variants,
+  firearm-only mask126, stationary behavior and support-hand contacts, remotely
+  replicated. The updated request supersedes the earlier all-ten-weapon gallery.
+- `python3 scripts/test-reference-weapons.py`: **PASS**, current saved data
+  explicitly reports anatomical=1 only for slot3 Shotgun; all other slots0.
+  Existing six physical anatomical pellet hits, body-zone multipliers,
+  helmet/armor depletion and cover checks pass. A separate authoritative lethal
+  head point-damage event also verifies a nonempty private Headshot catalog
+  toast for the killer after higher-priority recognition has expired.
+  This confirms message dispatch; it does not enable head zones on other guns.
+- `python3 scripts/test-bots.py`: **PASS**, both legacy Patrol and Target modes,
+  including actual firing, reload, damage, death, protection, respawn, match
+  reset and remote team/model/health replication.
+- `python3 scripts/test-recon.py`: **PASS**, actual owner/teammate/enemy/late-join
+  visibility, stock/replacement, packet delay/loss fixture and round reset after
+  reserving bot corridors during case placement.
+- Python compilation and `git diff --check`: **PASS**.
+
+The first legacy route-clearance test found BP_ReconBase_C_0/C_1 on authored
+Depot segments0/5. Diagnostics identified actual case collisions, not weapon
+selection. Runtime case placement now keeps120cm clear of vertically intersecting
+patrol segments. The unchanged standing-capsule sweep and complete legacy probe
+then pass. Maps, vendor assets, collision rules and weapon balance were preserved.
+
+Logs: `/tmp/rr-bot-firearms-build.log`, `/tmp/rr-bot-firearms-test.log`,
+`/tmp/rr-body-zones-test.log`, `/tmp/rr-bot-firearms-skins.log`,
+`/tmp/rr-bot-firearms-legacy.log`, `/tmp/rr-bot-firearms-recon.log` and
+`Saved/Testing/bot-loadouts-{target,movement,patrol}-{host,client}.log`.
+Headless checks verify gameplay/replication; no new graphical or packaged-build
+claim, binary asset edits, commit or publication for this increment.
+
+## All-firearm hit zones and cover HP absorption — 21 October 2026
+
+Latest request supersedes the shotgun-only scope above. Source: the supplied
+CS2 XLSX, March18,2026 update; complete private archive matches the original
+byte for byte, SHA-256
+`77389fd80fe6ffc55b62345c20dfaa1e99d774e631973fe4e8f848e31fdb7fde`.
+
+- Read-only extraction: **PASS**, six Raw Values profiles, explicit Analysis
+  stomach/leg formulas and24 Damage @Range cached results at2.54/12.7/25.4/76.2m.
+  Deagle head3.9; other five4. Source cell references retained in public JSON.
+- RespawnAndRageEditor Mac Development, UE5.8.3: **PASS**, final build43.80s.
+  Existing unrelated deprecated API warnings remain.
+- Unreal Python migration: **PASS**, saved only six owned firearm data assets
+  with anatomical tracing and workbook damage/armor/range/head multipliers.
+  Original presentation assets and per-weapon scopes/accuracy retained.
+- `EclipseRecoil.Weapons.ReferenceBallistics`: **PASS**, range/armor/fractional
+  math, Deagle3.9, grenade armor and deterministic bounded shotgun pattern.
+- `python3 scripts/test-cell-destruction.py`: **PASS**, all four native cell
+  suites, real Chaos ray/collision and terminal damage. A physical target takes
+  exactly40 from100 through60HP wood,85 when the wood was reduced to15HP,
+  nothing after exact exhaustion or a surviving cell. Two20HP drywall boards
+  share one budget:60 leaves20;36 leaves the rear board at4HP. Brick100 absorbs
+  all36 in its first layer. Existing blast/calibration/network storage checks pass.
+- `python3 scripts/test-reference-weapons.py`: **PASS**, two real Depot peers,
+  ten remote weapon slots;60 zone/armor combinations at12.7m plus six head hits
+  without helmets. Real AK anatomical hit uses the source range/armor formula;
+  its single ray matches the sampled direction. Six real shotgun pellets consume
+  one shell. Real AK headshot kills a100HP/100AP helmeted target and delivers the
+  private Headshot message. Ordinary confirmation remains on the shared path.
+- `python3 scripts/test-network.py --accuracy`: **PASS**, actual server-sampled
+  single-bullet cones, posture/sprint/burst recovery and remote owner replication.
+- `EclipseRecoil.Destruction.CentralBuildingEvolution`: **PASS**, reinforced
+  steel stops the bullet, damages locally and preserves support/breach behavior.
+- `python3 scripts/test-scopes.py`: **PASS**, all26 remote scope states,
+  zoom/FOV, unscope behavior and physical launcher trajectories.
+- Python compilation, source/archive hash equality, public/private diff checks:
+  **PASS**. No commit, push, cook or packaged/graphical validation in this change.
+
+Initial physical tests were corrected without weakening assertions: the wood
+fixture needed the room's world transform (it previously shot the original40HP
+room); AK now aims at an actual torso bone; the six-pellet contact fixture is80cm
+away so all six bounded rays physically intersect the body. The older
+`test-cell-destruction.py --game` cannot run because L_DestructionLab is absent
+from this checkout. This is an unavailable historical fixture, not a passing
+test. Current validation uses native physical cell tests and the real Depot LAN
+weapon/accuracy/scope probes. No retired map was recreated.
+
+Logs: `/tmp/rr-zone-cover-build.log`, `/tmp/rr-weapon-zones-assets.log`,
+`/tmp/rr-zone-cover-ballistics.log`, `/tmp/rr-zone-cover-cells.log`,
+`/tmp/rr-zone-cover-reference.log`, `/tmp/rr-zone-cover-accuracy.log`,
+`/tmp/rr-zone-cover-central.log`, `/tmp/rr-zone-cover-scopes.log`.
+Historical unavailable game fixture: `/tmp/rr-zone-cover-game.log` and
+`Saved/Testing/cells-game.log`. Detailed successful peer logs remain in
+`Saved/Testing/reference-weapons-{host,client}.log`, `accuracy-{host,client}.log`
+and `scopes-{host,client}.log`; cell automation in `cells-automation.log`.
+
+## Worksheet dispersion and inaccuracy — 21 October 2026
+
+User request: align all six firearm accuracy profiles with the supplied CS2
+workbook, including motion, posture, firing, recovery and sights. This supersedes
+the prior custom scope/rosette/sprint accuracy expectations. Full source archive
+and SHA-256 are unchanged. Numeric extraction now preserves hip/Alt fields,
+source cells, source firing intervals and independently cached comparison values.
+Implementation and the worksheet's unspecified intermediate-motion/prone
+adaptations are documented in WEAPON_ACCURACY.md.
+
+- RespawnAndRageEditor Mac Development UE5.8.3: **PASS**, final build10.54s.
+- Unreal Python numeric migration: **PASS**, all15 hip and15 scoped properties
+  checked on each of six existing owned data assets, plus source firing cycles.
+  No meshes, animations, physics assets or sight meshes regenerated. Backups in
+  `/tmp/rr-weapon-accuracy-backup` preserve the preceding zone-damage increment.
+- `Automation RunTests EclipseRecoil.Weapons`: **PASS**, ReferenceBallistics and
+  new WorksheetAccuracy. Saved assets match every extracted coefficient; computed
+  results match108 cached standing/crouched burst samples,36 tapping samples,
+  36 Simple posture/movement/ladder/apex/landing results, and six Analysis full
+  angles. Optical Analysis angles explicitly reference the scoped profile.
+  4096 deterministic, varying spread/inaccuracy samples stay inside the HUD's
+  enclosing half-angle. Existing damage/armor/range/grenade math remains valid.
+- `python3 scripts/test-network.py --accuracy`: **PASS**, two real Depot peers.
+  144 runtime combinations of six firearms, available optical modes, standing/
+  crouch/prone and actual speeds0/138.889/277.778/500cm/s plus source maximum and
+  beyond maximum. Physical crouch/walk/run/jump/landing, actual sampled shots,
+  remote RPC burst, owner snapshots and server-clock recovery pass. Crouch changes
+  the recovery slope continuously; standing cannot resurrect recovered error.
+  Empty shots add no firing impulse.
+- `python3 scripts/test-scopes.py`: **PASS**, all26 owner input/replicated states,
+  source hip and nonzero scoped minima, source-scaled crouch/prone motion, actual
+  scoped shot, unscope/reload/holster behavior and existing launcher trajectories.
+- `python3 scripts/test-reference-weapons.py`: **PASS**, all ten remote slots,
+  source damage/armor/range/zone checks, actual AK and six-pellet shotgun hits,
+  one shell per trigger, real armored headshot and private Headshot notification.
+- `python3 scripts/test-movement.py --posture-only`: **PASS**, real host/client
+  sprint/posture/stamina and InputKey binding cases, including wider actual
+  sprint shots and the same cone on the owner HUD.
+- `python3 scripts/test-player-mechanics.py`: **PASS**, actual ladder equipment,
+  stationary/moving pistol accuracy and shots, predicted climb/stow/roof behavior
+  and replicated fall damage under60ms packet lag plus15ms variance.
+- `python3 scripts/test-grenades.py --combat`: **PASS**, gameplay and remote
+  hand/release checks. Its intentional zero-spread detonation fixture explicitly
+  disables worksheet accuracy on its transient data clone; production firearms
+  retain their worksheet mode.
+- Python compilation, source archive hash and public/private diff checks:
+  **PASS**. No commit/push, cook, packaged build or new graphical validation.
+
+Initial assertions were corrected to compare the right source/physical state:
+Analysis AO uses optical Alt standing accuracy for SCAR/AWP, while Simple uses
+hip values. Grounded accuracy calibration now explicitly starts MOVE_Walking
+instead of inadvertently measuring a spawn fall. The scope test retains and
+calculates any real landing residual rather than assuming it is already zero.
+Source values or tolerances were not changed to mask those differences.
+
+Logs: `/tmp/rr-worksheet-accuracy-build.log`, `/tmp/rr-worksheet-accuracy-assets.log`,
+`/tmp/rr-worksheet-accuracy-native.log`, `/tmp/rr-worksheet-accuracy-lan.log`,
+`/tmp/rr-worksheet-accuracy-scopes.log`, `/tmp/rr-worksheet-accuracy-weapons.log`,
+`/tmp/rr-worksheet-accuracy-movement.log`, `/tmp/rr-worksheet-accuracy-traversal.log`,
+`/tmp/rr-worksheet-accuracy-grenades.log`. Detailed per-peer logs remain in
+Saved/Testing under accuracy, scopes, reference-weapons, movement,
+player-mechanics and grenade-combat.
+
+## Worksheet recoil — 21 October 2026
+
+- UE5.8.3 Editor Development build: **PASS** (37.85s full incremental compile;
+  latest fixture build10.65s).
+- Narrow `setup_weapon_recoil.py` migration: **PASS**, six READY markers,
+  exit0. Only the six owned firearm data assets were saved.
+- `EclipseRecoil.Weapons`: **PASS** — ReferenceBallistics, WorksheetAccuracy,
+  WorksheetRecoil. All36 hip/Alt raw recoil values, pattern class and stable
+  project seeds match the extraction;6144 bounded samples distinguish fixed
+  and Random behavior; analytic response agrees at30/60/144Hz and recovers.
+- `test-network.py --recoil`: **PASS**,134 server/owner assertions across ten
+  hip/optical cases. Actual shot impulses, one per shotgun shell; first/next
+  bullet timing and server aim; remaining velocity accumulation; cooldown,
+  empty and reload rejection; shared residual on holster; mouse compensation
+  and vertical limit; remote RPC burst, owner camera/input and clock recovery.
+- `test-scopes.py`: **PASS**, all26 owner states and authority scope checks,
+  including real AWP scoped-shot/automatic-unscope behavior.
+- `test-reference-weapons.py`: **PASS**, all ten remote slots, anatomical
+  AK/body/range/armor checks, six real shotgun pellet hits, physical head-centre
+  trace with source .4016° stationary cone and lethal/private headshot message.
+- `test-network.py --accuracy`: **PASS**,144 runtime posture/speed/profile
+  cases, real sampled shot rays, physical jump/landing, stance-continuous
+  recovery, remote burst and all three owner replication/clock markers.
+- Python compilation, original XLSX SHA256, public/private diff checks and
+  current working text paths against the public asset policy: **PASS**. The
+  original XLSX remains private; no commit/push, cook or packaged/Metal run.
+
+The workbook contains no spray seeds, per-shot coordinates or recoil decay
+settings. Exact extracted parameters are used with the explicitly documented
+project impulse/return model; this is not a claim of identical CS2 spray paths.
+See WEAPON_RECOIL.md.
+
+The initial LAN fixture exhausted AWP's five-round magazine across its three
+mode cases; each case now starts with its own normal magazine. No production
+ammo rule changed. The final headshot fixture also exposes its physical head
+centre and requires production stationary accuracy: teleporting a suspended
+shooter had restored falling and correctly selected the AK's approximately14°
+airborne cone. The fixture now fixes movement state after teleport and aims at
+the real head collision centre with mouse-style recoil compensation; no
+production cone, anatomy, damage or headshot/message condition was relaxed.
+
+Logs: `/tmp/rr-worksheet-recoil-build.log`, `/tmp/rr-worksheet-recoil-assets.log`,
+`/tmp/rr-worksheet-recoil-native.log`, `/tmp/rr-worksheet-recoil-lan.log`,
+`/tmp/rr-worksheet-recoil-scopes.log`, `/tmp/rr-worksheet-recoil-weapons.log`,
+`/tmp/rr-worksheet-recoil-accuracy.log`. Per-peer logs: Saved/Testing/recoil,
+scopes, reference-weapons and accuracy.

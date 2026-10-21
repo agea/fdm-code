@@ -166,14 +166,13 @@ FERBlockBatchResult AERBlockRoom::ApplyCellBatch(const TMap<FERCellId, float>& D
 }
 
 AERBlockRoom::FERCellShotStep AERBlockRoom::ShootCells(const FHitResult& Hit, const FVector& Cursor, const FVector& Ray, double Range,
-    float Structural, const FERBlockShotSettings& Settings, float& Energy, int32 RunsLeft)
+    float& RemainingDamage, int32 RunsLeft)
 {
     FERCellShotStep Step; Step.Exit = Hit.ImpactPoint;
     FERCellId First;
-    if (!ResolveCell(Hit, First) || !(Settings.Energy > 0)) return Step;
+    if (!ResolveCell(Hit, First) || !FMath::IsFinite(RemainingDamage) || RemainingDamage <= 0) return Step;
     const int32 Panel = First.Panel;
     const auto& P = CellWorld.GetPanels()[Panel];
-    const auto* Material = MaterialCatalog->Find(P.Material);
     const FTransform& Actor = GetActorTransform();
     const double Scale = Actor.GetScale3D().GetAbs().GetMin();
     // Never restart behind the cursor: cells already crossed are not hit twice.
@@ -181,7 +180,6 @@ AERBlockRoom::FERCellShotStep AERBlockRoom::ShootCells(const FHitResult& Hit, co
     if (FVector::DotProduct(Start - Cursor, Ray) < 0) Start = Cursor;
     const double Length = FMath::Min(Range - FVector::DotProduct(Start - Cursor, Ray), 5000.);
     if (Length <= 0 || Scale < .0001) return Step;
-    const bool bGrazing = !Hit.bStartPenetrating && FMath::Abs(FVector::DotProduct(Ray, Hit.ImpactNormal)) < FMath::Clamp(Settings.MinImpactCosine, .01f, 1.f);
     TMap<FERCellId, float> Damage;
     bool bInside = false, bStopped = false;
     double ExitT = 0;
@@ -192,11 +190,13 @@ AERBlockRoom::FERCellShotStep AERBlockRoom::ShootCells(const FHitResult& Hit, co
         const bool bEnter = !bInside;
         if (bEnter && Step.Runs >= RunsLeft) { Step.bLimited = bStopped = true; ExitT = T0; return false; }
         if (bEnter) { bInside = true; ++Step.Runs; }
-        // Residual energy at this cell's entry: never restart from full damage.
-        Damage.FindOrAdd({Panel, C.X, C.Y, C.Z}) += Structural * Energy / Settings.Energy * Material->BulletDamageScale; ++Step.Cells;
-        const double Cost = ((bEnter ? Material->EntryEnergyCost : 0) + (T1 - T0) * Length * Material->EnergyCostPerCm)*P.Strength;
-        if (bGrazing || Cost >= Energy) { bStopped = true; ExitT = (T0 + T1) * .5; return false; }
-        Energy = float(Energy - Cost);
+        // Snapshot HP includes prior damage and reinforcement. Never charge full HP again.
+        if (P.bIndestructible) { bStopped = true; ExitT = T0; return false; }
+        const FERCellId Id{Panel, C.X, C.Y, C.Z};
+        const float Absorbed = FMath::Min(RemainingDamage, CellWorld.GetHealth(Id));
+        Damage.Add(Id, Absorbed); ++Step.Cells;
+        RemainingDamage = FMath::Max(0.f, RemainingDamage - Absorbed);
+        if (RemainingDamage <= 0) { bStopped = true; ExitT = (T0 + T1) * .5; return false; }
         return true;
     });
     ApplyCellBatch(Damage);

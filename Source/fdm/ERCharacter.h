@@ -4,6 +4,7 @@
 #include "Components/ActorComponent.h"
 #include "ERTeamAppearance.h"
 #include "ERGameplayMessages.h"
+#include "ERWeaponRecoil.h"
 #include "ERCharacter.generated.h"
 
 USTRUCT()
@@ -99,6 +100,10 @@ public:
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="First person") TArray<int32> FirstPersonVisibleMaterialSlots;
     UPROPERTY(Replicated, BlueprintReadOnly) TObjectPtr<class AERWeapon> Weapon;
     UPROPERTY(Replicated) TArray<TObjectPtr<class AERWeapon>> Inventory;
+    UPROPERTY(Replicated) FERWeaponRecoilState RecoilState;
+    FRotator GetRecoilRotation() const;
+    virtual FRotator GetViewRotation() const override;
+    void AddWeaponRecoil(const FVector2D& Impulse);
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Arsenal") TArray<TObjectPtr<class UERWeaponData>> Arsenal;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Arsenal") TArray<TObjectPtr<class UERWeaponData>> ReferenceArsenal;
     bool UsesReferenceArsenal() const;

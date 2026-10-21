@@ -12,9 +12,9 @@ inline EHitZone ZoneForBone(FName Bone)
     if(Name==TEXT("pelvis") || Name==TEXT("spine_01")) return EHitZone::Stomach;
     return EHitZone::ChestArms;
 }
-inline float ZoneMultiplier(EHitZone Zone)
+inline float ZoneMultiplier(EHitZone Zone, float HeadshotMultiplier = 4.f)
 {
-    switch(Zone) { case EHitZone::Head:return 4; case EHitZone::Stomach:return 1.25f; case EHitZone::Legs:return .75f; default:return 1; }
+    switch(Zone) { case EHitZone::Head:return HeadshotMultiplier; case EHitZone::Stomach:return 1.25f; case EHitZone::Legs:return .75f; default:return 1; }
 }
 inline FVector PelletDirection(const FVector& Aim,int32 Index,int32 Count,float Spread,FRandomStream& Random)
 {

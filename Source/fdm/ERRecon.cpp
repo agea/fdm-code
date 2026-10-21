@@ -1,5 +1,6 @@
 #include "ERRecon.h"
 #include "ERCharacter.h"
+#include "ERBotController.h"
 #include "ERCorpse.h"
 #include "ERPlayerController.h"
 #include "ERProceduralMap.h"
@@ -230,6 +231,9 @@ void AERReconDirector::ConfigureMap()
         SurfaceHeights[Cell]=GetWorld()->LineTraceSingleByChannel(Surface,FVector(P.X,P.Y,Frame.Top+100),FVector(P.X,P.Y,Frame.Center.Z-100),ECC_Visibility,Query)
             ? Surface.ImpactPoint.Z+8 : P.Z;
     }
+    TArray<AERBotPatrolPoint*> Patrol;
+    for (TActorIterator<AERBotPatrolPoint> It(GetWorld());It;++It) Patrol.Add(*It);
+    Patrol.Sort([](const AERBotPatrolPoint& A,const AERBotPatrolPoint& B){return A.RouteIndex<B.RouteIndex;});
     for (int32 Index=0; Index<2; ++Index)
     {
         FVector Spawn = Frame.Center + FVector(Index ? 2000 : -2000,0,100);
@@ -261,6 +265,14 @@ void AERReconDirector::ConfigureMap()
             Placed = !GetWorld()->OverlapBlockingTestByChannel(Placement+FVector(0,0,25),FQuat::Identity,ECC_Pawn,FCollisionShape::MakeBox(FVector(45,40,24)),Query);
             for (TActorIterator<AERTeamPlayerStart> It(GetWorld()); It && Placed; ++It)
                 if (FVector::DistSquared2D(Placement,It->GetActorLocation()) < FMath::Square(120.f)) Placed = false;
+            // Reserve the walking corridor as well as spawn capsules. A clear
+            // point beside a start can otherwise block an authored bot loop.
+            for (int32 I=0; Placed && Patrol.Num()>1 && I<Patrol.Num(); ++I)
+            {
+                const FVector Closest=FMath::ClosestPointOnSegment(Placement,Patrol[I]->GetActorLocation(),Patrol[(I+1)%Patrol.Num()]->GetActorLocation());
+                if (Placement.Z+50.f>Closest.Z-92.5f && Placement.Z<Closest.Z+92.5f &&
+                    FVector::DistSquared2D(Placement,Closest)<FMath::Square(120.f)) Placed=false;
+            }
         }
         if (!Placed)
         {

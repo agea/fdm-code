@@ -56,13 +56,10 @@ FERBlockShotResult ERBlockCombat::ContinueShot(UWorld* World, const FHitResult& 
     Result.End = InitialHit.ImpactPoint;
     Result.TerminalHit = InitialHit;
     if (!World || World->GetNetMode() == NM_Client || Start.ContainsNaN() || Direction.ContainsNaN() || Direction.IsNearlyZero() ||
-        !FMath::IsFinite(Range) || Range <= 0 || !FMath::IsFinite(Damage) || Damage <= 0 ||
-        !FMath::IsFinite(Settings.Energy) || Settings.Energy <= 0 || !FMath::IsFinite(Settings.MinImpactCosine) ||
-        !FMath::IsFinite(Settings.GetStructuralDamage(Damage)) || Settings.GetStructuralDamage(Damage) < 0) return Result;
+        !FMath::IsFinite(Range) || Range <= 0 || !FMath::IsFinite(Damage) || Damage <= 0) return Result;
     const FVector Ray = Direction.GetSafeNormal();
-    const float Structural = Settings.GetStructuralDamage(Damage);
     const int32 Limit = FMath::Clamp(Settings.MaxPenetrations, 1, 16);
-    Result.RemainingEnergy = Settings.Energy;
+    Result.RemainingDamage = Damage;
     FHitResult Hit = InitialHit;
     FVector Cursor = Start;
     double RemainingRange = Range;
@@ -74,10 +71,10 @@ FERBlockShotResult ERBlockCombat::ContinueShot(UWorld* World, const FHitResult& 
         auto* Room = Cast<AERBlockRoom>(Hit.GetActor());
         if (Room && Room->CanMutateBlocks())
         {
-            // 5cm cells: one voxel traversal per panel, entry cost once per material run.
+            // One shared HP budget across every cell, panel and room on this ray.
             if (Result.Penetrations >= Limit || ++CellSteps > 4 * Limit) { Result.bLimited = true; break; }
             Rooms.AddUnique(Room);
-            const auto Step = Room->ShootCells(Hit, Cursor, Ray, RemainingRange, Structural, Settings, Result.RemainingEnergy, Limit - Result.Penetrations);
+            const auto Step = Room->ShootCells(Hit, Cursor, Ray, RemainingRange, Result.RemainingDamage, Limit - Result.Penetrations);
             Result.BlockHits += Step.Cells; Result.bLimited |= Step.bLimited;
             if (Step.bStop) { Result.End = Step.Exit; break; }
             Result.Penetrations += Step.Runs;
@@ -86,7 +83,7 @@ FERBlockShotResult ERBlockCombat::ContinueShot(UWorld* World, const FHitResult& 
         }
         else
         {
-            Result.TerminalDamage = UGameplayStatics::ApplyPointDamage(Hit.GetActor(), Damage * Result.RemainingEnergy / Settings.Energy, Ray, Hit, Instigator, Causer, UDamageType::StaticClass());
+            Result.TerminalDamage = UGameplayStatics::ApplyPointDamage(Hit.GetActor(), Result.RemainingDamage, Ray, Hit, Instigator, Causer, UDamageType::StaticClass());
             break;
         }
         Result.End = Cursor + Ray * RemainingRange;
@@ -98,7 +95,7 @@ FERBlockShotResult ERBlockCombat::ContinueShot(UWorld* World, const FHitResult& 
             World->LineTraceSingleByChannel(Hit, Cursor, Result.End, ECC_GameTraceChannel1, Query))) break;
     }
     for (auto* Room : Rooms)
-        Room->LastCombat = FString::Printf(TEXT("shot hits=%d penetrations=%d energy=%.1f limited=%d target=%s damage=%.1f"), Result.BlockHits, Result.Penetrations, Result.RemainingEnergy, Result.bLimited, Result.TerminalHit.GetActor() && !Result.TerminalHit.GetActor()->IsA<AERBlockRoom>() ? *Result.TerminalHit.GetActor()->GetName() : TEXT("none"), Result.TerminalDamage);
+        Room->LastCombat = FString::Printf(TEXT("shot hits=%d penetrations=%d remaining_damage=%.1f limited=%d target=%s damage=%.1f"), Result.BlockHits, Result.Penetrations, Result.RemainingDamage, Result.bLimited, Result.TerminalHit.GetActor() && !Result.TerminalHit.GetActor()->IsA<AERBlockRoom>() ? *Result.TerminalHit.GetActor()->GetName() : TEXT("none"), Result.TerminalDamage);
     Result.TotalMs=(FPlatformTime::Seconds()-StartTime)*1000;
     return Result;
 }

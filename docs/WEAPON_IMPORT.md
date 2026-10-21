@@ -29,12 +29,24 @@ with the server URL option `?ERLegacyArsenal=1` for its existing regression fixt
 | F | Riskyerick F1 | Project HE | 140 peak | 0.80 | 1.600 | n/a |
 | G | Riskyerick M18 | Smoke | 0 | 0.80 | n/a | n/a |
 
-The downloaded worksheet snapshot is
+The original downloaded worksheet snapshot is
 [references/weapon-stats-2069175273.csv](references/weapon-stats-2069175273.csv).
 Its source is the [user-supplied Google sheet](https://docs.google.com/spreadsheets/d/11tDzUNBq9zIX6_9Rel__fdAUezAQzSnh5AVYzCP060c/edit?gid=2069175273#gid=2069175273).
-Only the five numeric fields above are supplied by that worksheet. Magazine,
-reserve, reload duration, spread, zoom, melee and explosive values are project
+It is superseded for ballistics by the owner-supplied **CS2 Weapon Spreadsheet
+(Last Weapon Update: March 18, 2026)**, received on 21 October. The complete XLSX
+is preserved privately in `Assets/weapons/SourceAssets/References/`; its SHA-256,
+six exact `Raw Values` ranges and 24 cached `Damage @Range` checks are recorded in
+`references/cs2-weapon-ballistics-2026-03-18.json`. The new damage, armor and range
+values match the earlier snapshot. HeadshotMultiplier is 3.9 for deagle and 4
+for mp9/xm1014/ak47/scar20/awp. Analysis formulas BB/BC explicitly specify stomach
+1.25 and legs .75; chest/arms retain base damage. Fractional runtime damage is
+preserved (Analysis rounds only its displayed comparison values).
+Magazine,
+reserve, reload duration, zoom, melee and explosive values are project
 choices, explicitly defined in `scripts/import_sketchfab_weapons.py`.
+The subsequent accuracy request also imports the workbook's spread, posture,
+motion, recovery, firing and optical Alt values for all six firearms, including
+unrounded source cycle times. See [WEAPON_ACCURACY.md](WEAPON_ACCURACY.md).
 Model names and statistical profiles are intentionally shown together: applying
 Desert Eagle numbers does not turn the supplied Beretta geometry into a Deagle.
 
@@ -44,13 +56,25 @@ Bullets retain server-sampled spread, first-hit muzzle obstruction, per-pellet
 hitscan, block penetration, tracers and impact feedback. Range attenuation is
 `damage * RangeModifier^(distance_cm / 1270)`: 500 Source units are 12.7m.
 The receiving character applies that attenuation to each actual bullet hit,
-including residual damage after a penetrated destructible block.
+including residual damage after a penetrated destructible cell. Cover now
+subtracts its current HP directly, in traversal order, from one shared bullet
+damage budget: 100 against 60HP leaves 40; against an already damaged 15HP cell
+it leaves 85. A cell that survives stops the ray. Exact exhaustion destroys the
+cell but deals nothing behind it. Multiple cells/panels/rooms share the budget;
+empty cells cost nothing and indestructible geometry blocks. This replaces the
+old entry/per-cm energy and structural bullet multiplier model. Blast damage,
+HP presets and cover exposure are unchanged. Residual bullet damage then receives
+the worksheet range factor, anatomical multiplier and target armor once.
 
 Armor is server owned and replicated. The protected health fraction is
 `clamp(ArmorRatio / 2, 0, 1)`; armor costs half the prevented health damage.
 Insufficient armor prevents only the amount paid for, then reaches zero.
-Spawn protection does not consume armor. Armor covers the existing uniform
-character hit volume; separate helmet/head/leg hit zones are not introduced.
+Spawn protection does not consume armor. All six Bullet weapons now query the
+existing skeletal physics bodies for head/neck, stomach, chest/arms and legs;
+movement capsules do not determine bullet hit zones. Legs bypass armor; the head
+is protected only with a helmet. Single bullets keep their sampled direction;
+only multiple pellets receive the shotgun rosette. Knife and explosive payloads
+have no corresponding worksheet ballistic entries and keep their existing rules.
 The HUD displays HP and AP. Direct environmental damage retains its existing
 behavior. Tests for the original 36-damage fixture use the legacy catalog.
 
@@ -203,3 +227,12 @@ after recovery. Milkor retains normal press-to-fire behavior.
 
 Run scripts/setup_grenade_combat.py through Unreal once to migrate existing
 profiles, then test-grenades.py --combat (also --render).
+
+### Worksheet recoil
+
+The six worksheet firearms also import exact hip/Alt recoil magnitude, magnitude
+variance and angle variance plus the Simple Random/Set Pattern label. Use
+`setup_weapon_recoil.py` through Unreal for an existing install, saving only six
+data assets. See [WEAPON_RECOIL.md](WEAPON_RECOIL.md) for source cells, authoritative
+view/shot integration and the declared project patterns/return response. The
+workbook supplies no original spray path, seed or recoil decay settings.

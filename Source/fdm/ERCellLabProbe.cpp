@@ -81,7 +81,7 @@ void AERCellLabProbe::Tick(float DeltaSeconds)
         Check(Cells.GetRemovedCount() == 0 && Room->LastHit.Contains(TEXT("HP=10.0")) && Room->LastHit.Contains(TEXT("material=0")), TEXT("console_aim_damages_one_drywall_cell"));
         PC->ConsoleCommand(TEXT("ERBlockDestroy"));
         Check(Cells.GetRemovedCount() == 1 && Room->ValidateCells(), TEXT("console_aim_destroys_exactly_one_cell"));
-        // Real authorized cartridge: crosses both drywall boards, the cavity, then the rear target.
+        // The real 36-damage cartridge exhausts itself against two 20HP boards.
         MoveTo(FVector(0, 0, 100));
         TargetBefore = Drywall->Health;
         const int32 Ammo = Character->Weapon->MagazineAmmo;
@@ -89,8 +89,8 @@ void AERCellLabProbe::Tick(float DeltaSeconds)
         Character->Weapon->StartFire(); Character->Weapon->StopFire();
         const int64 Removed = Cells.GetRemovedCount() - Before;
         UE_LOG(LogTemp, Display, TEXT("ER_CELL_PROBE_WEAPON_SHOT removed=%lld target=%.1f->%.1f %s"), Removed, TargetBefore, Drywall->Health, *Room->LastCombat);
-        Check(Character->Weapon->MagazineAmmo == Ammo - 1 && Removed >= 2 && Removed <= 4 && Drywall->Health < TargetBefore && Room->ValidateCells(),
-            TEXT("one_cartridge_removes_only_crossed_board_cells_and_reaches_rear_target"));
+        Check(Character->Weapon->MagazineAmmo == Ammo - 1 && Removed == 1 && Drywall->Health == TargetBefore && Room->ValidateCells(),
+            TEXT("36_damage_cartridge_stops_in_two_20hp_boards_before_rear_target"));
         Room->Regenerate();
         Capture(Character, PC, TEXT("Cells-Overview.png"), FVector(170, 170, 100), -135, 20);
     }

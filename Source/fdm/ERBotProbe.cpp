@@ -57,7 +57,8 @@ void AERBotProbe::Tick(float DeltaTime)
             bValid &= PS->ActiveSkin >= 0 && PS->ActiveSkin < ERSkins::Count &&
                 It->GetTeamAppearance().Matches(It->GetMesh()) && It->GetVelocity().Size() < 1.f &&
                 !It->Health->bDead && It->Weapon && It->Weapon->Data &&
-                (!HasAuthority() || It->Weapon->MagazineAmmo == It->Weapon->Data->MagazineSize);
+                (!HasAuthority() || It->Weapon->MagazineAmmo == It->Weapon->Data->MagazineSize) &&
+                It->Weapon->Data->Payload == EERPayload::Bullet;
             const int32 Slot=It->Inventory.IndexOfByKey(It->Weapon);
             if (Slot>=0 && Slot<10) WeaponMask |= 1<<Slot;
             if (It->Weapon && It->Weapon->Data && It->Weapon->Data->bFitSupportHand)
@@ -84,7 +85,7 @@ void AERBotProbe::Tick(float DeltaTime)
             }
         }
         bValid &= Count == 2 * ERSkins::Count && AlphaMask == (1 << ERSkins::Count) - 1 && OmegaMask == (1 << ERSkins::Count) - 1;
-        bValid &= WeaponMask == 1023 && SupportCount == 12 && ContactError<1.f;
+        bValid &= WeaponMask == 126 && SupportCount >= 16 && SupportCount <= 17 && ContactError<1.f;
         if (!HasAuthority() && bReplicaSeen) return;
         if (!HasAuthority() && !bValid)
         {
@@ -145,11 +146,15 @@ void AERBotProbe::Tick(float DeltaTime)
         for (TActorIterator<AERCharacter> It(GetWorld()); It; ++It) Params.AddIgnoredActor(*It);
         for (TActorIterator<AERBotPatrolPoint> It(GetWorld()); It; ++It) Route.Add(*It);
         Route.Sort([](const AERBotPatrolPoint& A, const AERBotPatrolPoint& B) { return A.RouteIndex < B.RouteIndex; });
+        UE_LOG(LogTemp,Display,TEXT("ER_BOT_ROUTE_COUNT count=%d"),Route.Num());
         bool ClearRoute = Route.Num() == 12;
         for (int32 I=0; I<Route.Num(); ++I)
         {
             FHitResult Hit;
-            ClearRoute &= !GetWorld()->SweepSingleByChannel(Hit,Route[I]->GetActorLocation(),Route[(I+1)%Route.Num()]->GetActorLocation(),FQuat::Identity,ECC_Pawn,FCollisionShape::MakeCapsule(34,92.5f),Params);
+            const bool Blocked=GetWorld()->SweepSingleByChannel(Hit,Route[I]->GetActorLocation(),Route[(I+1)%Route.Num()]->GetActorLocation(),FQuat::Identity,ECC_Pawn,FCollisionShape::MakeCapsule(34,92.5f),Params);
+            ClearRoute &= !Blocked;
+            if (Blocked) UE_LOG(LogTemp,Display,TEXT("ER_BOT_ROUTE_BLOCKED segment=%d actor=%s point=%s start=%s end=%s"),I,
+                *GetNameSafe(Hit.GetActor()),*Hit.ImpactPoint.ToString(),*Route[I]->GetActorLocation().ToString(),*Route[(I+1)%Route.Num()]->GetActorLocation().ToString());
         }
         Check(ClearRoute,TEXT("all_patrol_segments_clear_for_capsule"));
         for (TActorIterator<AERCharacter> It(GetWorld()); It; ++It) if (It->Controller != Bot) It->Health->ProtectionEndServerTime=Now+60;

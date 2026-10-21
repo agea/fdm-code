@@ -52,7 +52,9 @@ Bullet cuts are recorded on dedicated servers before skipping cosmetic shot
 feedback. Smoke changes no bullets, damage, movement or bot AI target selection.
 
 Each team has one fixed, closed, indestructible Pelican case on clear outdoor
-ground near a spawn. The first drone takes off automatically, climbs vertically
+ground near a spawn. Placement also reserves a120cm corridor around authored
+bot patrol segments (with vertical overlap checked), keeping the cases out of
+the Depot walking loop. The first drone takes off automatically, climbs vertically
 for four seconds, joins its circular orbit over the roofs during the next four,
 and completes a lap in about 39 seconds. The server and clients evaluate the
 same replicated flight parameters against server time; damage remains server-only.

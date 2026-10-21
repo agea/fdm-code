@@ -841,3 +841,47 @@ weapon assets changed. Owner-only death-camera state uses runtime references.
 
 Smooth approach/60-degree framing and lower respawn text use native runtime
 camera/Canvas state only. No new or modified binary assets.
+
+
+### Bot firearm selection — 21 October 2026
+
+Server spawn/respawn selection reuses the six existing Bullet weapon data/meshes
+and normal replicated inventory selection. No binary assets, weapon damage data,
+animations, hitboxes or player loadouts were edited. The stationary20-skin test
+now expects firearm slots1..6 (mask126), replacing all-ten-weapon coverage.
+
+### CS2 workbook and firearm hit zones — 21 October 2026
+
+The complete owner-supplied XLSX is retained unchanged at
+`Assets/weapons/SourceAssets/References/CS2-Weapon-Spreadsheet-2026-03-18.xlsx`
+in the private weapons submodule, with XLSX covered by Git LFS. The public
+`docs/references/cs2-weapon-ballistics-2026-03-18.json` records its SHA-256,
+exact worksheet cells, six profiles and 24 cached distance results. Read-only
+extraction uses `scripts/extract-weapon-ballistics.py`; workbook formulas are
+inspected as text, never executed. License!B4 states Public Domain.
+`setup_weapon_hit_zones.py` saved only DA_Pistol/SMG/Shotgun/Assault/Carbine/Sniper
+through Unreal: bUseBodyHitZones, HeadshotMultiplier and source damage/armor/range
+fields. Existing meshes, poses, physics bodies, scopes and source artwork remain
+the authored versions. Pre-migration data backups: `/tmp/rr-weapon-zones-backup`.
+
+### Workbook accuracy profiles — 21 October 2026
+
+`setup_weapon_accuracy.py` saves only the same six owned firearm data assets:
+HipAccuracy/ScopedAccuracy, bUseWorksheetAccuracy and exact source ShotInterval.
+The two structs preserve source units and Alt fields rather than overwriting
+art/presentation. No new mesh, animation, sight or physics packages. The complete
+original XLSX/archive/hash is unchanged; the public numeric JSON now also stores
+accuracy source cells and cached Simple/Analysis/burst/tapping results.
+Pre-accuracy package backups: `/tmp/rr-weapon-accuracy-backup`. The original
+rosette/legacy accuracy fields remain serialized for compatibility; current
+firearms use the worksheet structs. Visual scope meshes/controls/FOV persist.
+
+### Workbook recoil profiles — 21 October 2026
+
+`setup_weapon_recoil.py` saves only the six owned firearm data assets:
+HipRecoil/ScopedRecoil, bUseWorksheetRecoil, Random/Set Pattern classification
+and explicit stable project pattern seeds. Exact worksheet values and cell
+provenance extend the existing public numeric JSON. Artwork, animations, optics
+and the byte-identical full private XLSX are preserved. Pre-migration data asset
+backups: `/tmp/rr-weapon-recoil-backup`. See WEAPON_RECOIL.md for the response
+adaptation (the workbook does not contain spray coordinates, seeds or decay).

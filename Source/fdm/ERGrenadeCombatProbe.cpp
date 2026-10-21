@@ -231,6 +231,7 @@ void AERGrenadeProbe::TickCombat(float DeltaSeconds)
     {
         C->ServerSelectWeapon(4);Place(C,FVector(-250,0,11922.5));C->Health->ProtectionEndServerTime=0;
         auto* Data=DuplicateObject<UERWeaponData>(C->Weapon->Data,this);
+        Data->bUseWorksheetAccuracy=false; // This fixture deliberately requires an exact zero-spread ray.
         Data->StandingSpreadDegrees=Data->RunningSpreadDegrees=Data->AirborneSpreadDegrees=Data->MaxBloomDegrees=Data->BloomPerShotDegrees=0;
         Data->Damage=1;C->Weapon->Data=Data;C->Weapon->MagazineAmmo=20;
         const FTransform T(FRotator::ZeroRotator,FVector(0,0,12000));

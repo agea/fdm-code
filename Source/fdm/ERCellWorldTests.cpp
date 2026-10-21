@@ -1,5 +1,6 @@
 #include "ERBlockCombat.h"
 #include "ERBlockRoom.h"
+#include "ERBlockTarget.h"
 #include "ERCellMesher.h"
 #include "ERCellNetShard.h"
 #include "ERCellWorld.h"
@@ -233,23 +234,48 @@ bool FERCellCombatTest::RunTest(const FString& Parameters)
     UWorld* World = CreateCellWorld(); if (!World) return false;
     auto* Room = SpawnCellRoom(World);
     const auto& W = Room->GetCellWorld();
-    // Bullets: both drywall boards removed, cavity crossed, energy charged per material run.
+    // Each drywall board absorbs its 20 current HP, with one budget across the cavity.
     const FERCellId Front = CellAt(W, 0 * 8 + 1, 50, 0, 30), Back = CellAt(W, 0 * 8, 50, 0, 30);
     const FVector Aim = W.GetCellCenter(Front);
-    auto Shot = Fire(World, FVector(Aim.X, 0, Aim.Z), FVector(0, -1, 0), 36);
+    auto Shot = Fire(World, FVector(Aim.X, 0, Aim.Z), FVector(0, -1, 0), 60);
     TestTrue(TEXT("bullet removes the inner board cell"), !W.IsAlive(Front));
-    TestTrue(TEXT("residual energy still removes the outer board cell"), !W.IsAlive(Back));
+    TestTrue(TEXT("remaining damage removes the outer board cell"), !W.IsAlive(Back));
     TestEqual(TEXT("only the two crossed cells"), W.GetRemovedCount(), int64(2));
-    TestTrue(TEXT("entry cost once per board"), FMath::IsNearlyEqual(Shot.RemainingEnergy, 100 - 2 * (5 + 1.25f * .5f), .01f));
-    // Brick stops inside its four layers; each cell gets the residual energy at its entry.
+    TestTrue(TEXT("two 20HP boards leave 20 damage from 60"), FMath::IsNearlyEqual(Shot.RemainingDamage, 20.f, .01f));
+    // A weaker bullet exhausts itself in the second board.
+    Room->Regenerate();
+    Shot = Fire(World, FVector(Aim.X, 0, Aim.Z), FVector(0, -1, 0), 36);
+    TestTrue(TEXT("36 breaks first board and leaves second at 4HP"), !W.IsAlive(Front) && FMath::IsNearlyEqual(W.GetHealth(Back),4.f,.01f) && Shot.RemainingDamage==0);
+    // Brick stops the bullet in its first surviving layer.
     Room->Regenerate();
     const FERCellId B0 = CellAt(W, 1 * 8, 54, 3, 30), B1 = CellAt(W, 1 * 8, 54, 2, 30), B2 = CellAt(W, 1 * 8, 54, 1, 30), B3 = CellAt(W, 1 * 8, 54, 0, 30);
     const FVector BrickAim = W.GetCellCenter(B0);
     Shot = Fire(World, FVector(0, BrickAim.Y, BrickAim.Z), FVector(1, 0, 0), 36);
-    TestTrue(TEXT("first layer takes 36 x 0.75"), FMath::IsNearlyEqual(W.GetHealth(B0), 73.f, .01f));
-    TestTrue(TEXT("second layer attenuated: 27 x 0.55"), FMath::IsNearlyEqual(W.GetHealth(B1), 100 - 27 * .55f, .01f));
-    TestTrue(TEXT("damage keeps decreasing"), W.GetHealth(B2) > W.GetHealth(B1) && W.GetHealth(B3) > W.GetHealth(B2) && W.GetHealth(B3) < 100);
+    TestTrue(TEXT("first 100HP layer absorbs all 36 damage"), FMath::IsNearlyEqual(W.GetHealth(B0), 64.f, .01f) && Shot.RemainingDamage==0);
+    TestTrue(TEXT("intact first layer protects every deeper layer"), W.GetHealth(B1)==100 && W.GetHealth(B2)==100 && W.GetHealth(B3)==100);
     TestEqual(TEXT("penetration never removes brick at 36"), W.GetRemovedCount(), int64(0));
+    // Owner's example, using a real wood cell and a physical target behind it.
+    auto* Wood=SpawnCellRoom(World,FVector(0,5000,0));
+    for(auto& Material:Wood->MaterialCatalog->Materials)
+        if(Material.Type==EERBlockMaterial::Wood)Material.MaxHealth=60;
+    Wood->Regenerate();
+    const auto& WoodWorld=Wood->GetCellWorld();
+    const FERCellId WoodCell=CellAt(WoodWorld,4*8,15,0,20);
+    const FVector WoodCenter=Wood->GetActorTransform().TransformPosition(WoodWorld.GetCellCenter(WoodCell)),WoodStart=WoodCenter+FVector(60,0,0);
+    auto* Rear=World->SpawnActor<AERBlockTarget>(WoodCenter-FVector(80,0,0),FRotator::ZeroRotator);
+    Shot=Fire(World,WoodStart,FVector(-1,0,0),100);
+    TestTrue(TEXT("100 minus 60HP wood delivers exactly 40 to rear target"), !WoodWorld.IsAlive(WoodCell) && Shot.TerminalHit.GetActor()==Rear && Shot.RemainingDamage==40 && Rear->Health==460);
+    Wood->Regenerate(); Rear->ResetHealth();
+    TMap<FERCellId,float> PriorDamage;PriorDamage.Add(WoodCell,45);Wood->ApplyCellBatch(PriorDamage);
+    Shot=Fire(World,WoodStart,FVector(-1,0,0),100);
+    TestTrue(TEXT("previously damaged wood absorbs only remaining 15HP"),Shot.RemainingDamage==85 && Rear->Health==415);
+    Wood->Regenerate(); Rear->ResetHealth();
+    Shot=Fire(World,WoodStart,FVector(-1,0,0),60);
+    TestTrue(TEXT("exact HP destroys cover but delivers no damage behind it"),!WoodWorld.IsAlive(WoodCell) && Shot.RemainingDamage==0 && Rear->Health==500);
+    Wood->Regenerate();
+    Shot=Fire(World,WoodStart,FVector(-1,0,0),20);
+    TestTrue(TEXT("insufficient bullet leaves cover alive and target untouched"),WoodWorld.GetHealth(WoodCell)==40 && Rear->Health==500 && Shot.RemainingDamage==0);
+    Rear->Destroy(); Wood->Destroy();
     // Grenade: full local damage inside 25cm, nothing from 200cm, shielding by layers.
     Room->Regenerate();
     const FERCellId C0 = CellAt(W, 2 * 8, 50, 0, 22), C3 = CellAt(W, 2 * 8, 50, 3, 22);

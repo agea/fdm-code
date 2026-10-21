@@ -18,6 +18,7 @@
 #include "ERMovementProbe.h"
 #include "ERTraversalProbe.h"
 #include "ERAccuracyProbe.h"
+#include "ERRecoilProbe.h"
 #include "ERArsenalProbe.h"
 #include "ERGrenadeProbe.h"
 #include "ERReferenceWeaponProbe.h"
@@ -38,6 +39,8 @@
 #include "Kismet/GameplayStatics.h"
 #include "Net/UnrealNetwork.h"
 #include "TimerManager.h"
+#include "HAL/PlatformTime.h"
+#include "ERBotLoadoutProbe.h"
 
 void AERPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
@@ -73,6 +76,7 @@ AERGameMode::AERGameMode()
 void AERGameMode::InitGame(const FString& MapName, const FString& Options, FString& ErrorMessage)
 {
     Super::InitGame(MapName, Options, ErrorMessage);
+    BotWeaponRandom.Initialize(int32(FPlatformTime::Cycles()));
     bLobby = MapName.Contains(TEXT("L_MainMenu")) && UGameplayStatics::HasOption(Options, TEXT("ERLobby"));
     bUseSeamlessTravel = bLobby;
     MaxHumanPlayers = ERServer::ValidMaxPlayers(UGameplayStatics::GetIntOption(Options, TEXT("ERMaxPlayers"), ERServer::DefaultMaxPlayers));
@@ -131,16 +135,6 @@ void AERGameMode::FillBots()
         auto* State = Bot ? Bot->GetPlayerState<AERPlayerState>() : nullptr;
         if (!State) { if (Bot) Bot->Destroy(); break; }
         Bot->bTrainingTarget = bStationaryBots;
-        if (bStationaryBots)
-        {
-            // Draw without replacement within each exhibition batch. Keep the
-            // chosen slot on the controller so respawns never refill another gun.
-            TArray<int32> Available;
-            for (int32 Slot=0; Slot<10; ++Slot) Available.Add(Slot);
-            const int32 BatchStart=(TestBots.Num()/10)*10;
-            for (int32 I=BatchStart; I<TestBots.Num(); ++I) Available.Remove(TestBots[I]->TrainingWeaponSlot);
-            Bot->TrainingWeaponSlot=Available[FMath::RandHelper(Available.Num())];
-        }
         Bot->bMovementOnly = bMovementBots;
         Bot->MovementPhaseOffset=(TestBots.Num()%6)*.4f;
         State->SetIsABot(true);
@@ -186,6 +180,7 @@ void AERGameMode::BeginPlay()
     if (FParse::Param(FCommandLine::Get(), TEXT("ERCapacityProbe"))) GetWorld()->SpawnActor<AERCapacityProbe>();
     int32 LobbyProbeClient = 0;
     if (FParse::Param(FCommandLine::Get(), TEXT("ERMenuGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERSettingsWrite")) || FParse::Param(FCommandLine::Get(), TEXT("ERSettingsRead")) || FParse::Param(FCommandLine::Get(), TEXT("ERLobbyProbeHost")) || FParse::Param(FCommandLine::Get(), TEXT("ERLobbyProbeTimeout")) || FParse::Value(FCommandLine::Get(), TEXT("ERLobbyProbeClient="), LobbyProbeClient)) GetWorld()->SpawnActor<AERLobbyProbe>();
+    if (FParse::Param(FCommandLine::Get(),TEXT("ERBotLoadoutProbe"))) GetWorld()->SpawnActor<AERBotLoadoutProbe>();
     if (FParse::Param(FCommandLine::Get(),TEXT("ERReconProbe"))) GetWorld()->SpawnActor<AERReconProbe>();
     if (GetWorld()->GetMapName().Contains(TEXT("L_CentralBuilding")) && FParse::Param(FCommandLine::Get(),TEXT("ERIndustrialMapProbe")))GetWorld()->SpawnActor<AERIndustrialMapProbe>();
     if (FParse::Param(FCommandLine::Get(), TEXT("ERProtectionRespawnGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERProtectionGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERPostureGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERTeamGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERCorpseGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERSkinGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERFPSForearmsGallery"))) GetWorld()->SpawnActor<AERTeamGallery>();
@@ -207,6 +202,7 @@ void AERGameMode::BeginPlay()
     if (FParse::Param(FCommandLine::Get(),TEXT("ERBotMotionProbe"))) GetWorld()->SpawnActor<AERBotMotionProbe>();
     if (FParse::Param(FCommandLine::Get(), TEXT("ERBotProbe")) || FParse::Param(FCommandLine::Get(), TEXT("ERTargetSkinsProbe"))) GetWorld()->SpawnActor<AERBotProbe>();
     if (FParse::Param(FCommandLine::Get(), TEXT("ERAccuracyProbe"))) GetWorld()->SpawnActor<AERAccuracyProbe>();
+    if (FParse::Param(FCommandLine::Get(), TEXT("ERRecoilProbe"))) GetWorld()->SpawnActor<AERRecoilProbe>();
     if (FParse::Param(FCommandLine::Get(), TEXT("ERReferenceWeaponProbe"))) GetWorld()->SpawnActor<AERReferenceWeaponProbe>();
     if (FParse::Param(FCommandLine::Get(), TEXT("ERGrenadeProbe")) || FParse::Param(FCommandLine::Get(), TEXT("ERGrenadeCombatProbe"))) GetWorld()->SpawnActor<AERGrenadeProbe>();
     if (FParse::Param(FCommandLine::Get(), TEXT("ERArsenalProbe")) || FParse::Param(FCommandLine::Get(), TEXT("ERArsenalGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERHitscanGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERGrenadeGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERSmokeGallery")))
@@ -311,9 +307,31 @@ void AERGameMode::RestartPlayer(AController* Player)
     if (auto* Character = Cast<AERCharacter>(Player->GetPawn()))
     {
         Character->InitializeLoadout(Player->GetPlayerState<AERPlayerState>()->PrimaryWeapon);
-        if (const auto* Bot=Cast<AERBotController>(Player); Bot && Bot->bTrainingTarget && Character->Inventory.Num()==10)
-            Character->ServerSelectWeapon(Bot->TrainingWeaponSlot);
+        if (auto* Bot = Cast<AERBotController>(Player)) SelectBotSpawnWeapon(Bot, Character);
     }
+}
+void AERGameMode::SelectBotSpawnWeapon(AERBotController* Bot, AERCharacter* Character)
+{
+    // ERLegacyArsenal is a pinned regression catalog. Ordinary sessions use the
+    // current ten-slot inventory and select afresh on every spawn/respawn.
+    if (!Character->UsesReferenceArsenal()) return;
+    TArray<int32> Eligible;
+    for (int32 Slot = 0; Slot < Character->Inventory.Num(); ++Slot)
+    {
+        const auto* Gun = Character->Inventory[Slot].Get();
+        if (Gun && Gun->Data && Gun->Data->Payload == EERPayload::Bullet && Gun->Data->MagazineSize > 0) Eligible.Add(Slot);
+    }
+    if (!ensureMsgf(!Eligible.IsEmpty(), TEXT("Bot loadout has no bullet firearm"))) return;
+    BotWeaponBag.RemoveAll([&](int32 Slot) { return !Eligible.Contains(Slot); });
+    if (BotWeaponBag.IsEmpty())
+    {
+        BotWeaponBag = Eligible;
+        for (int32 I = BotWeaponBag.Num()-1; I > 0; --I) BotWeaponBag.Swap(I, BotWeaponRandom.RandRange(0,I));
+    }
+    Bot->SpawnWeaponSlot = BotWeaponBag.Pop();
+    Character->ServerSelectWeapon(Bot->SpawnWeaponSlot);
+    if (auto* PS = Bot->GetPlayerState<AERPlayerState>()) { PS->PrimaryWeapon = Bot->SpawnWeaponSlot; PS->ForceNetUpdate(); }
+    UE_LOG(LogTemp,Display,TEXT("ER_BOT_SPAWN_WEAPON bot=%s slot=%d weapon=%s"),*Bot->GetName(),Bot->SpawnWeaponSlot,*Character->Weapon->Data->DisplayName);
 }
 UClass* AERGameMode::GetDefaultPawnClassForController_Implementation(AController* InController)
 {

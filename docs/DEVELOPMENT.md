@@ -2484,3 +2484,107 @@ calcolata per la figura intera (circa65% dell'altezza dello schermo), adattata
 ad aspect ratio e altezza della capsula. Sweep statico12cm lungo ogni tratto
 per fermare l'avvicinamento davanti ai muri. Il testo respawn scende al bordo
 inferiore. Stato e movimento della camera restano locali/cosmetici.
+
+
+## Armi casuali dei bot e stato delle zone colpite — 21 ottobre 2026
+
+Richiesta dell'utente: i bot delle prove locali nascono con un'arma da fuoco
+casuale, escludendo coltelli e granate. La selezione ora avviene sul server
+per ogni nascita/respawn e reset partita di Target, Movement e Patrol. Il pool
+filtra il payload Bullet: pistola, SMG, pompa, assault, sniper e marksman;
+esclusi anche il lanciagranate e tutti gli altri esplosivi. Un sacchetto mescolato
+esaurisce le sei alternative prima di ripeterle, con RNG separato da combattimento
+e geometria. Il preset ERLegacyArsenal mantiene il fucile della fixture storica.
+L'assegnazione precedente dei soli Target fra tutti i dieci slot è superata da
+questa richiesta; la verifica delle20 skin controlla ora i sei slot da fuoco.
+
+Indagine headshot precedente (superata dalla richiesta successiva): il flag bUseBodyHitZones era attivo soltanto sul pompa nel
+catalogo corrente, come previsto dal suo incremento precedente. Le altre armi
+usano ancora la capsula, con danno uniforme per zona. Sul pompa ciascun pallino
+applica testa/collo x4, addome x1.25, torace/braccia x1, gambe x0.75, poi distanza
+e armatura; le gambe bypassano l'armatura e la testa considera l'elmetto.
+Il messaggio Headshot
+riguarda il colpo letale, usa solo varianti actor nel catalogo fornito e può
+cedere il posto a un riconoscimento con priorità maggiore. La conferma della
+kill rimane obbligatoria per entrambi. Nuovo controllo del messaggio in
+ERReferenceWeaponProbe dopo la verifica dei danni per zona.
+
+
+Durante la regressione storica, i due segmenti laterali del Depot risultavano
+occupati dalle valigie Recon aggiunte successivamente al percorso. La scelta
+del punto di appoggio ora riserva anche120cm rispetto ai segmenti della pattuglia,
+quando si sovrappongono in altezza. Rimangono validi i controlli di terreno,
+copertura e distanza dai PlayerStart; collisioni/modelli e mappa non modificati.
+
+## Danni anatomici e HP delle coperture — 21 ottobre 2026
+
+La richiesta successiva abilita le zone su tutte le sei armi da fuoco e supera
+il limite al solo pompa. Riferimento: XLSX CS2 fornito dall'utente, aggiornamento
+18 marzo2026, conservato completo nel submodule privato armi; estratto numerico
+con hash/celle in `docs/references/cs2-weapon-ballistics-2026-03-18.json`.
+Il nuovo foglio conferma danno base, ArmorRatio e RangeModifier precedenti.
+Testa: Desert Eagle3.9; MP9/XM1014/AK47/SCAR20/AWP4. Le formule Analysis
+indicano addome1.25, torace/braccia1 e gambe.75. Distanza:
+RangeModifier^(cm/1270). Frazioni mantenute nel gameplay; l'arrotondamento del
+foglio è di presentazione. Gambe e testa senza elmetto bypassano armatura.
+Coltello/esplosivi conservano le proprie regole, senza righe nel foglio.
+
+Il server interroga i physics body esistenti sia per la mira dalla camera sia
+per i raggi dalla volata e dopo i blocchi. La rosata radiale rimane riservata ai
+colpi multipallino: l'anatomia non altera la direzione già campionata per un
+proiettile singolo. Il colpo letale alla testa alimenta lo stesso riconoscimento
+Headshot, soggetto alle priorità del catalogo.
+
+Ogni cella attraversata assorbe i propri HP residui dal budget unico del
+proiettile. 100 contro60HP lascia40; contro una cella ridotta a15HP lascia85.
+A zero il colpo si ferma anche se rompe la cella; una cella sopravvissuta protegge
+gli strati successivi. Celle vuote non costano danno; quelle indistruttibili
+bloccano. Il budget continua fra pannelli e stanze, separatamente per pallino.
+Sostituiti costi ingresso/cm e moltiplicatori strutturali dei soli proiettili;
+HP/rinforzi, esplosioni, supporto, collisioni e replica delle celle restano nel
+percorso comune. Il personaggio riceve una sola volta distanza, zona e armatura.
+
+## Accuratezza delle armi dal foglio CS2 — 21 ottobre 2026
+
+La richiesta successiva allinea anche dispersione e inaccuratezza delle sei armi
+da fuoco all'XLSX. Dettagli/formule e adattamenti espliciti in WEAPON_ACCURACY.md.
+Due profili numerici HipAccuracy/ScopedAccuracy mantengono i valori originali
+e le celle di provenienza, comprese le alternative ottiche e i tempi iniziali/
+finali di recupero. L'angolo del server/HUD è atan(somma/1000) in gradi, mentre
+Analysis riporta l'angolo completo. Campionamento separato di dispersione arma
+e inaccuratezza giocatore, anche per ciascun pallino del pompa; superata la
+precedente rosata radiale3.2gradi per le armi attuali.
+
+Movimento da velocità fisica in cm/s rispetto al MaxPlayerSpeed del profilo
+(2.54cm per Source unit), posture dalla capsula, prone uguale all'accovacciato.
+Scale con la formula2xLadder del foglio; salto con coefficienti iniziale/apice
+e velocità verticale, atterraggio misurato sul server per tutto l'inventario.
+Recupero error*0.1^(tempo/RecoveryTime), impulso Fire per ogni colpo autorizzato,
+tempi progressivi AK e cadenze esatte .225/1.455 per deagle/AWP. Rimossi sul
+percorso worksheet i precedenti cap/ritardi/bonus custom di sprint, raffica e
+postura. I cambi di postura conservano l'errore già recuperato e cambiano solo
+la pendenza da quel momento. Client proprietario sincronizzato con snapshot
+server; HUD e proiettili leggono lo stesso modello. Mirini con minimo nonzero,
+senza usare il vecchio azzeramento balistico al termine del focus grafico.
+
+Nuovo flag opt-in nei sei data asset; fixture legacy e utility senza riga
+corrispondente restano compatibili. Migrazione numerica via Unreal con
+setup_weapon_accuracy.py, senza reimportare arte. Danno per zona/armatura,
+coperture a HP e messaggi rimangono verificati nel percorso condiviso.
+
+### Rinculo da Excel — 21 ottobre 2026
+
+Le sei armi da fuoco usano intensità e variazioni di intensità/angolo del foglio,
+con Alt per entrambi i livelli ottici e AWP25±2 sotto mirino contro78±15 da
+fianco. Rimosso per queste armi il vecchio sobbalzo uniforme .35/.65 e il bonus
+custom .2 dell'ottica accovacciata. Pattern ripetibili o casuali secondo Simple;
+semi, integrazione e ritorno sono adattamenti dichiarati del progetto, perché
+non presenti nel foglio (docs/WEAPON_RECOIL.md).
+
+Rinculo reale accumulato sul server per personaggio, una volta per colpo/cartucce
+multiple comprese, dopo il campionamento del colpo stesso e prima dell'unscope
+AWP. GetViewRotation condivide lo stesso scostamento tra occhi autorevoli, camera
+e rig FPS; ControlRotation rimane l'input compensabile dal mouse. Replica solo
+al proprietario con timestamp server; il cambio arma non annulla il residuo.
+Nessun impulso su colpi rifiutati; morte/respawn non disturbano la killcam.
+Migrazione limitata ai sei DA via setup_weapon_recoil.py, senza reimportare arte.

@@ -108,6 +108,9 @@ private:
     TArray<double> PendingHumanSlots;
     UPROPERTY() TArray<TObjectPtr<class AERBotController>> TestBots;
     FTimerHandle MatchTimer;
+    TArray<int32> BotWeaponBag;
+    FRandomStream BotWeaponRandom;
+    void SelectBotSpawnWeapon(class AERBotController* Bot, class AERCharacter* Character);
     void FillBots();
     void RemoveBot();
     void PrunePendingSlots();

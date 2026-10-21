@@ -11,7 +11,7 @@ bool ERShotTrace::Pellet(UWorld* World,FHitResult& Hit,const FVector& Start,cons
     for(TActorIterator<AERCharacter> It(World);It;++It)
     {
         if(!Query.GetIgnoredSourceObjects().Contains(It->GetUniqueID()) && !It->Health->bDead) Targets.Add(*It);
-        // Movement capsules are broad locomotion volumes, not shotgun anatomy.
+        // Movement capsules are broad locomotion volumes, not bullet anatomy.
         WorldQuery.AddIgnoredActor(*It);
     }
     bool Found=World->LineTraceSingleByChannel(Hit,Start,End,ECC_GameTraceChannel1,WorldQuery);

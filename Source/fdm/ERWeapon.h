@@ -3,6 +3,8 @@
 #include "Engine/DataAsset.h"
 #include "GameFramework/Actor.h"
 #include "ERBlockCombat.h"
+#include "ERWeaponAccuracy.h"
+#include "ERWeaponRecoil.h"
 #include "ERWeapon.generated.h"
 
 UENUM(BlueprintType)
@@ -39,6 +41,7 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite) bool bAutomatic = true;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) int32 Pellets = 1;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Ballistics") bool bUseBodyHitZones = false;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Ballistics", meta=(ClampMin="0")) float HeadshotMultiplier = 4.f;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Ballistics") float PelletSpreadDegrees = 3.2f;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) EERPayload Payload = EERPayload::Bullet;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) float ExplosionRadius = 300;
@@ -68,6 +71,15 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite) int32 MagazineSize = 30;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) int32 InitialReserve = 90;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) float ReloadDuration = 1.5f;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Accuracy|Worksheet") bool bUseWorksheetAccuracy = false;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Accuracy|Worksheet") FERWeaponAccuracyMode HipAccuracy;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Accuracy|Worksheet") FERWeaponAccuracyMode ScopedAccuracy;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Recoil|Worksheet") bool bUseWorksheetRecoil = false;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Recoil|Worksheet") FERWeaponRecoilMode HipRecoil;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Recoil|Worksheet") FERWeaponRecoilMode ScopedRecoil;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Recoil|Worksheet") bool bRandomRecoilPattern = false;
+    // Stable project seed, not a CS2 seed (absent from the workbook).
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Recoil|Worksheet") int32 RecoilPatternSeed = 0;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) float ProjectileSpeed = 30000;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) float ProjectileLife = 2;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Hitscan", meta=(ClampMin="1")) float HitscanRange = 60000;
@@ -109,6 +121,23 @@ public:
     void OnGrenadeDetonated(AERProjectile* Projectile);
     UPROPERTY(Replicated, BlueprintReadOnly) float BloomAtLastShot = 0;
     UPROPERTY(Replicated, BlueprintReadOnly) double LastSpreadShotServerTime = -100;
+    UPROPERTY(Replicated, BlueprintReadOnly) float FiringInaccuracyAtLastShot = 0;
+    UPROPERTY(Replicated, BlueprintReadOnly) int32 AccuracyBurstShots = 0;
+    UPROPERTY(Replicated) double AccuracyRecoveryServerTime = -100;
+    UPROPERTY(Replicated) float AccuracyRecoveryTime = 1;
+    UPROPERTY(Replicated) double AccuracyLandingServerTime = -100;
+    UPROPERTY(Replicated) float AccuracyLandingSpeed = 0;
+    UPROPERTY(Replicated) float AccuracyLandingImpulse = 0;
+    UPROPERTY(Replicated) float AccuracyLandingRecoveryTime = 1;
+    const FERWeaponAccuracyMode& GetAccuracyMode() const;
+    const FERWeaponRecoilMode& GetRecoilMode() const;
+    FVector2D LastRecoilImpulse = FVector2D::ZeroVector;
+    int32 RecoilShotIndex = 0;
+    float GetAccuracyLowBlend() const;
+    float GetFiringInaccuracy() const;
+    float GetWorksheetInaccuracy() const;
+    void NotifyAccuracyLanding(float DownSpeedCm);
+    void UpdateAccuracyRecovery();
     UPROPERTY(Replicated, BlueprintReadOnly) uint8 ScopeLevel = 0;
     UPROPERTY(Replicated) double ScopeChangedServerTime = -100;
     UFUNCTION(Server, Reliable) void ServerCycleScope();
@@ -145,7 +174,10 @@ private:
     FTimerHandle FireTimer, ReloadTimer;
     double NextAllowedShotTime = 0;
     bool bWantsFire = false;
+    bool bNewAccuracyBurst = true;
     FRandomStream ShotRandom;
+    FRandomStream RecoilRandom;
+    double LastRecoilShotTime = -100;
     bool CanFight() const;
     void TryFire();
     void FinishReload();

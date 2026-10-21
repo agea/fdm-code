@@ -450,6 +450,7 @@ void AERCharacter::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
     Cast<UERMovement>(GetCharacterMovement())->ApplyPosturePresentation();
+    if(HasAuthority())for(auto Item:Inventory)if(Item)Item->UpdateAccuracyRecovery();
     UpdateWeaponPresentation();
     DamageViewKick = FMath::VInterpTo(DamageViewKick, FVector::ZeroVector, DeltaTime, 18.f);
     DeathViewDrop = FMath::FInterpTo(DeathViewDrop, Health->bDead ? -55.f : 0.f, DeltaTime, 5.f);
@@ -636,6 +637,29 @@ void AERCharacter::UpdateProtectionPresentation()
         }
     }
 }
+FRotator AERCharacter::GetRecoilRotation() const
+{
+    if (!GetWorld() || !Health || Health->bDead) return FRotator::ZeroRotator;
+    const auto* GS=GetWorld()->GetGameState<AERGameState>();
+    const double Now=GS?GS->GetServerWorldTimeSeconds():GetWorld()->GetTimeSeconds();
+    return ERWeaponRecoil::Rotation(ERWeaponRecoil::At(RecoilState,Now));
+}
+FRotator AERCharacter::GetViewRotation() const
+{
+    // Camera component, attached FPS rig and authoritative eyes use this once.
+    // ControlRotation remains the player's input, so mouse compensation is natural.
+    const FRotator Recoil=GetRecoilRotation();
+    FRotator View=(Super::GetViewRotation()+Recoil).GetNormalized();
+    if(!Recoil.IsNearlyZero())View.Pitch=FMath::Clamp(View.Pitch,-89.f,89.f);
+    return View;
+}
+void AERCharacter::AddWeaponRecoil(const FVector2D& Impulse)
+{
+    if (!HasAuthority()) return;
+    RecoilState=ERWeaponRecoil::At(RecoilState,GetWorld()->GetTimeSeconds());
+    RecoilState.Velocity+=Impulse;
+    ForceNetUpdate();
+}
 void AERCharacter::CalcCamera(float DeltaTime, FMinimalViewInfo& OutResult)
 {
     Super::CalcCamera(DeltaTime, OutResult);
@@ -734,7 +758,7 @@ float AERCharacter::TakeDamage(float Damage, const FDamageEvent& Event, AControl
             if(Gun->Data->bUseBodyHitZones)
             {
                 const auto Zone=ERWeaponBallistics::ZoneForBone(Point.HitInfo.BoneName);
-                Damage*=ERWeaponBallistics::ZoneMultiplier(Zone);
+                Damage*=ERWeaponBallistics::ZoneMultiplier(Zone, Gun->Data->HeadshotMultiplier);
                 if(Zone==ERWeaponBallistics::EHitZone::Legs ||
                     (Zone==ERWeaponBallistics::EHitZone::Head && !Health->bHelmet)) Ratio=2.f;
             }
@@ -776,7 +800,9 @@ float AERCharacter::FallDamage(float DownSpeed,float Gravity)
 }
 void AERCharacter::Landed(const FHitResult& Hit)
 {
-    const float Damage=FallDamage(Cast<UERMovement>(GetCharacterMovement())->LandingSpeed(),FMath::Abs(GetCharacterMovement()->GetGravityZ()));
+    const float DownSpeed=Cast<UERMovement>(GetCharacterMovement())->LandingSpeed();
+    const float Damage=FallDamage(DownSpeed,FMath::Abs(GetCharacterMovement()->GetGravityZ()));
+    if(HasAuthority())for(auto Item:Inventory)if(Item)Item->NotifyAccuracyLanding(DownSpeed);
     Super::Landed(Hit);
     if(HasAuthority() && Damage>0)
     {
@@ -1014,7 +1040,7 @@ void AERCharacter::MulticastShot_Implementation(FVector_NetQuantize Start, FVect
             FirstPersonBody->SetPlayRate(Data && Data->WeaponFireAnimation ? FMath::Max(1.f,Animation->GetPlayLength()/FMath::Max(.01f,Data->ShotInterval)) : 1.f);
             if (auto* Instance = FirstPersonBody->GetSingleNodeInstance()) Instance->SetPosition(0.f, false);
         }
-        if (bGunshot)
+        if (bGunshot && !(Data && Data->bUseWorksheetRecoil))
         {
             const float Recoil=Weapon?Weapon->GetScopeRecoilMultiplier():1.f;
             CameraKick = FMath::Min(CameraKick + .35f*Recoil, .65f*Recoil);
@@ -1052,6 +1078,7 @@ void AERCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps); DOREPLIFETIME(AERCharacter, Weapon);
     DOREPLIFETIME(AERCharacter, Inventory);
+    DOREPLIFETIME_CONDITION(AERCharacter, RecoilState, COND_OwnerOnly);
     DOREPLIFETIME_CONDITION(AERCharacter, DeathFocus, COND_OwnerOnly);
     DOREPLIFETIME_CONDITION(AERCharacter, DeathFocusPosition, COND_OwnerOnly);
     DOREPLIFETIME_CONDITION(AERCharacter, bHasDeathFocus, COND_OwnerOnly);

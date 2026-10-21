@@ -70,6 +70,7 @@ void AERWeapon::BeginPlay()
     {
         MagazineAmmo = Data->MagazineSize; ReserveAmmo = Data->InitialReserve;
         ShotRandom.Initialize(FMath::Rand());
+        RecoilRandom.Initialize(FMath::Rand());
         // Initial map spawns can precede world BeginPlay. Apply supplies here,
         // after weapon defaults, so both initial travel and respawns agree.
         const auto* Character = Cast<AERCharacter>(GetOwner());
@@ -86,12 +87,73 @@ void AERWeapon::BeginPlay()
 float AERWeapon::GetBloomDegrees() const
 {
     if (!Data || !GetWorld()) return 0;
+    if (Data->bUseWorksheetAccuracy) return ERWeaponAccuracy::Degrees(GetFiringInaccuracy());
     const auto* State = GetWorld()->GetGameState<AERGameState>();
     const double Now = State ? State->GetServerWorldTimeSeconds() : GetWorld()->GetTimeSeconds();
     const bool Low=HasOpticalScope() && ScopeLevel && IsPrecisionCrouched();
     const float Delay=Low?FMath::Min(.025f,Data->BloomRecoveryDelay):Data->BloomRecoveryDelay;
     const float RecoveringTime = FMath::Max(0.f, float(Now - LastSpreadShotServerTime) - Delay);
     return FMath::Clamp(BloomAtLastShot - RecoveringTime * Data->BloomRecoveryDegreesPerSecond*(Low?4.f:1.f), 0.f, Data->MaxBloomDegrees);
+}
+const FERWeaponAccuracyMode& AERWeapon::GetAccuracyMode() const
+{ return HasOpticalScope() && ScopeLevel ? Data->ScopedAccuracy : Data->HipAccuracy; }
+const FERWeaponRecoilMode& AERWeapon::GetRecoilMode() const
+{ return HasOpticalScope() && ScopeLevel ? Data->ScopedRecoil : Data->HipRecoil; }
+float AERWeapon::GetAccuracyLowBlend() const
+{
+    const auto* C=Cast<AERCharacter>(GetOwner());
+    const auto* M=C?Cast<UERMovement>(C->GetCharacterMovement()):nullptr;
+    return M ? FMath::Clamp((92.5f-M->Locomotion.HalfHeight)/30.f,0.f,1.f) : 0.f;
+}
+float AERWeapon::GetFiringInaccuracy() const
+{
+    if(!Data || !Data->bUseWorksheetAccuracy || !GetWorld())return 0;
+    const auto* GS=GetWorld()->GetGameState<AERGameState>();
+    const double Now=GS?GS->GetServerWorldTimeSeconds():GetWorld()->GetTimeSeconds();
+    return ERWeaponAccuracy::Recover(FiringInaccuracyAtLastShot,Now-AccuracyRecoveryServerTime,AccuracyRecoveryTime);
+}
+float AERWeapon::GetWorksheetInaccuracy() const
+{
+    const auto* C=Cast<AERCharacter>(GetOwner());
+    if(!Data || !C)return 0;
+    const auto* M=CastChecked<UERMovement>(C->GetCharacterMovement());
+    const auto& P=GetAccuracyMode();
+    float Amount=ERWeaponAccuracy::Base(P,GetAccuracyLowBlend(),C->GetVelocity().Size2D(),M->IsOnLadder(),
+        M->IsFalling(),C->GetVelocity().Z,M->JumpZVelocity)+GetFiringInaccuracy();
+    if(!M->IsFalling() && AccuracyLandingSpeed>0)
+    {
+        const auto* GS=GetWorld()->GetGameState<AERGameState>();
+        const double Now=GS?GS->GetServerWorldTimeSeconds():GetWorld()->GetTimeSeconds();
+        Amount+=ERWeaponAccuracy::Recover(AccuracyLandingImpulse,Now-AccuracyLandingServerTime,AccuracyLandingRecoveryTime);
+    }
+    return Amount;
+}
+void AERWeapon::NotifyAccuracyLanding(float DownSpeedCm)
+{
+    if(!HasAuthority() || !Data || !Data->bUseWorksheetAccuracy)return;
+    AccuracyLandingSpeed=FMath::Max(0.f,DownSpeedCm)/2.54f;
+    AccuracyLandingImpulse=GetAccuracyMode().Jump+GetAccuracyMode().Land*AccuracyLandingSpeed;
+    AccuracyLandingRecoveryTime=ERWeaponAccuracy::Recovery(GetAccuracyMode(),GetAccuracyLowBlend(),0);
+    AccuracyLandingServerTime=GetWorld()->GetTimeSeconds();ForceNetUpdate();
+}
+void AERWeapon::UpdateAccuracyRecovery()
+{
+    if(!HasAuthority() || !Data || !Data->bUseWorksheetAccuracy)return;
+    const double Now=GetWorld()->GetTimeSeconds();
+    const float Time=ERWeaponAccuracy::Recovery(GetAccuracyMode(),GetAccuracyLowBlend(),AccuracyBurstShots);
+    const float LandingTime=ERWeaponAccuracy::Recovery(GetAccuracyMode(),GetAccuracyLowBlend(),0);
+    if(!FMath::IsNearlyEqual(Time,AccuracyRecoveryTime,.00001f))
+    {
+        // Change slope at the current value; never re-evaluate an old interval
+        // using a new stance's coefficient (which can resurrect recovered error).
+        FiringInaccuracyAtLastShot=GetFiringInaccuracy();
+        AccuracyRecoveryServerTime=Now;AccuracyRecoveryTime=Time;
+    }
+    if(!FMath::IsNearlyEqual(LandingTime,AccuracyLandingRecoveryTime,.00001f))
+    {
+        AccuracyLandingImpulse=ERWeaponAccuracy::Recover(AccuracyLandingImpulse,Now-AccuracyLandingServerTime,AccuracyLandingRecoveryTime);
+        AccuracyLandingServerTime=Now;AccuracyLandingRecoveryTime=LandingTime;
+    }
 }
 void AERWeapon::ClearScope()
 {
@@ -171,6 +233,8 @@ float AERWeapon::GetSpreadDegrees() const
 {
     const auto* Character = Cast<AERCharacter>(GetOwner());
     if (!Data || !Character) return 0;
+    if(Data->bUseWorksheetAccuracy)
+        return ERWeaponAccuracy::Degrees(GetAccuracyMode().Spread+GetWorksheetInaccuracy());
     const float Speed = Character->GetVelocity().Size2D();
     const float SpeedFraction = FMath::Clamp(Speed / (1000.f / 3.6f), 0.f, 1.f);
     // Extra physical speed beyond the normal run widens every weapon's cone.
@@ -217,6 +281,7 @@ void AERWeapon::StartFire()
         if(GetWorld()->GetTimeSeconds()<NextAllowedShotTime) return;
         bWantsFire=true;ArmGrenade();return;
     }
+    bNewAccuracyBurst=true;
     bWantsFire = true; TryFire();
 }
 void AERWeapon::StopFire()
@@ -299,7 +364,9 @@ void AERWeapon::TryFire()
     FCollisionQueryParams Params(SCENE_QUERY_STAT(ERRifle), false, Character); Params.AddIgnoredActor(this);
     FHitResult ViewHit;
     const FVector Far = Eye + Aim.Vector() * FMath::Max(1.f, Data->HitscanRange);
-    const bool bViewHit = GetWorld()->LineTraceSingleByChannel(ViewHit, Eye, Far, ECC_GameTraceChannel1, Params);
+    const bool bViewHit = Data->Payload == EERPayload::Bullet && Data->bUseBodyHitZones ?
+        ERShotTrace::Pellet(GetWorld(), ViewHit, Eye, Far, Params) :
+        GetWorld()->LineTraceSingleByChannel(ViewHit, Eye, Far, ECC_GameTraceChannel1, Params);
     const FVector Target = bViewHit ? ViewHit.ImpactPoint : Far;
     FVector IntendedMuzzle = Eye + Aim.RotateVector(FVector(45, 12, -12));
     if(Data->Payload==EERPayload::LaunchedHE && Character->GetIronAimBlend()>0)
@@ -317,7 +384,10 @@ void AERWeapon::TryFire()
     }
     LastShotAimDirection = (Target - IntendedMuzzle).GetSafeNormal();
     LastShotSpreadDegrees = GetSpreadDegrees();
-    LastShotDirection = ShotRandom.VRandCone(LastShotAimDirection, FMath::DegreesToRadians(LastShotSpreadDegrees));
+    const float ShotInaccuracy=Data->bUseWorksheetAccuracy ? GetWorksheetInaccuracy() : 0.f;
+    LastShotDirection = Data->bUseWorksheetAccuracy ?
+        ERWeaponAccuracy::Sample(LastShotAimDirection,GetAccuracyMode().Spread,ShotInaccuracy,ShotRandom) :
+        ShotRandom.VRandCone(LastShotAimDirection, FMath::DegreesToRadians(LastShotSpreadDegrees));
     FHitResult MuzzleHit;
     const bool bBlocked = GetWorld()->SweepSingleByChannel(MuzzleHit, Eye, IntendedMuzzle, FQuat::Identity, ECC_GameTraceChannel1, FCollisionShape::MakeSphere(3), Params);
     if (Data->Payload != EERPayload::Melee) --MagazineAmmo;
@@ -325,8 +395,27 @@ void AERWeapon::TryFire()
     // Only an authorized shot changes burst buildup. Owners recover it against the server clock.
     const float MovingBurst=HasOpticalScope() && ScopeLevel && !IsPrecisionCrouched() ?
         1.f+FMath::Clamp(Character->GetVelocity().Size2D()/277.78f,0.f,1.f)*2.f : 1.f;
-    BloomAtLastShot = FMath::Min(GetBloomDegrees() + Data->BloomPerShotDegrees*GetScopeRecoilMultiplier()*MovingBurst, Data->MaxBloomDegrees);
+    if(Data->bUseWorksheetAccuracy)
+    {
+        const float Remaining=GetFiringInaccuracy();
+        AccuracyBurstShots=bNewAccuracyBurst || Remaining<.0001f ? 1 : FMath::Min(AccuracyBurstShots+1,1000);
+        bNewAccuracyBurst=false;
+        FiringInaccuracyAtLastShot=Remaining+GetAccuracyMode().Fire;
+        AccuracyRecoveryTime=ERWeaponAccuracy::Recovery(GetAccuracyMode(),GetAccuracyLowBlend(),AccuracyBurstShots);
+        AccuracyRecoveryServerTime=Now;
+    }
+    else BloomAtLastShot = FMath::Min(GetBloomDegrees() + Data->BloomPerShotDegrees*GetScopeRecoilMultiplier()*MovingBurst, Data->MaxBloomDegrees);
     LastSpreadShotServerTime = Now;
+    if (Data->bUseWorksheetRecoil && Data->Payload==EERPayload::Bullet)
+    {
+        if (Now-LastRecoilShotTime>ERWeaponRecoil::PatternResetSeconds) RecoilShotIndex=0;
+        LastRecoilImpulse=ERWeaponRecoil::Sample(GetRecoilMode(),Data->bRandomRecoilPattern,
+            Data->RecoilPatternSeed,RecoilShotIndex++,RecoilRandom);
+        LastRecoilShotTime=Now;
+        // After sampling this bullet, before clearing an AWP's optical mode.
+        // One impulse per shell, not per pellet or cosmetic multicast.
+        Character->AddWeaponRecoil(LastRecoilImpulse);
+    }
     ForceNetUpdate();
     if (ScopeLevel && Data->bUnscopeAfterShot) ClearScope();
     ++AuthorizedShotCount;
@@ -358,7 +447,8 @@ void AERWeapon::TryFire()
         const bool PelletBlocked=bBlocked && !ContactPawn;
         for (int32 Pellet = 0; Pellet < PelletCount; ++Pellet)
         {
-            const FVector Direction = Data->bUseBodyHitZones ?
+            const FVector Direction = Data->bUseWorksheetAccuracy ? (Pellet==0 ? LastShotDirection :
+                ERWeaponAccuracy::Sample(LastShotAimDirection,GetAccuracyMode().Spread,ShotInaccuracy,ShotRandom)) : Data->bUseBodyHitZones && PelletCount > 1 ?
                 ERWeaponBallistics::PelletDirection(LastShotDirection,Pellet,PelletCount,Data->PelletSpreadDegrees,ShotRandom) :
                 (Pellet == 0 ? LastShotDirection : ShotRandom.VRandCone(LastShotAimDirection, FMath::DegreesToRadians(LastShotSpreadDegrees)));
             FHitResult Hit = MuzzleHit;
@@ -467,6 +557,14 @@ void AERWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetim
     DOREPLIFETIME_CONDITION(AERWeapon, MagazineAmmo, COND_OwnerOnly); DOREPLIFETIME_CONDITION(AERWeapon, ReserveAmmo, COND_OwnerOnly); DOREPLIFETIME(AERWeapon, bReloading);
     DOREPLIFETIME_CONDITION(AERWeapon, BloomAtLastShot, COND_OwnerOnly);
     DOREPLIFETIME_CONDITION(AERWeapon, LastSpreadShotServerTime, COND_OwnerOnly);
+    DOREPLIFETIME_CONDITION(AERWeapon, FiringInaccuracyAtLastShot, COND_OwnerOnly);
+    DOREPLIFETIME_CONDITION(AERWeapon, AccuracyBurstShots, COND_OwnerOnly);
+    DOREPLIFETIME_CONDITION(AERWeapon, AccuracyRecoveryServerTime, COND_OwnerOnly);
+    DOREPLIFETIME_CONDITION(AERWeapon, AccuracyRecoveryTime, COND_OwnerOnly);
+    DOREPLIFETIME_CONDITION(AERWeapon, AccuracyLandingServerTime, COND_OwnerOnly);
+    DOREPLIFETIME_CONDITION(AERWeapon, AccuracyLandingSpeed, COND_OwnerOnly);
+    DOREPLIFETIME_CONDITION(AERWeapon, AccuracyLandingImpulse, COND_OwnerOnly);
+    DOREPLIFETIME_CONDITION(AERWeapon, AccuracyLandingRecoveryTime, COND_OwnerOnly);
     DOREPLIFETIME(AERWeapon, Data);
     DOREPLIFETIME(AERWeapon, ScopeLevel);
     DOREPLIFETIME_CONDITION(AERWeapon, ScopeChangedServerTime, COND_OwnerOnly);

@@ -31,6 +31,7 @@ bool FERWeaponBallisticsTest::RunTest(const FString&)
     for(int32 I=0;I<6;++I)Total+=ERWeaponBallistics::AbsorbArmor(20,1.6f,Armor);
     TestTrue(TEXT("Six armored chest pellets total 96 and spend 12 AP"),FMath::IsNearlyEqual(Total,96.f) && FMath::IsNearlyEqual(Armor,88.f));
     TestEqual(TEXT("Head pellet base"),20*ERWeaponBallistics::ZoneMultiplier(ERWeaponBallistics::EHitZone::Head),80.f);
+    TestTrue(TEXT("Workbook Desert Eagle head multiplier is 3.9"),FMath::IsNearlyEqual(53*ERWeaponBallistics::ZoneMultiplier(ERWeaponBallistics::EHitZone::Head,3.9f),206.7f,.001f));
     TestEqual(TEXT("Stomach pellet base"),20*ERWeaponBallistics::ZoneMultiplier(ERWeaponBallistics::EHitZone::Stomach),25.f);
     TestEqual(TEXT("Leg pellet base"),20*ERWeaponBallistics::ZoneMultiplier(ERWeaponBallistics::EHitZone::Legs),15.f);
     TestTrue(TEXT("XM 12.7m retains 70 percent"),FMath::IsNearlyEqual(ERWeaponBallistics::AtRange(20,.7f,1270),14.f));

@@ -7,12 +7,12 @@ USTRUCT(BlueprintType)
 struct FERBlockShotSettings
 {
     GENERATED_BODY()
-    // Gameplay energy units, deliberately independent of real joules.
+    // Legacy serialized tuning, retained for asset compatibility. Bullet penetration
+    // now consumes current cover HP directly from weapon Damage.
     UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="0")) float Energy = 100;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="1", ClampMax="16")) int32 MaxPenetrations = 8;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin=".01", ClampMax="1")) float MinImpactCosine = .15f;
-    // Structural damage at the first cell, independent of character damage and
-    // hit zones. Until overridden it starts from the weapon's base Damage.
+    // Legacy structural override, no longer used by HP-budget bullet traversal.
     UPROPERTY(EditAnywhere, BlueprintReadWrite) bool bOverrideStructuralDamage = false;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="0", EditCondition="bOverrideStructuralDamage")) float StructuralDamage = 36;
     float GetStructuralDamage(float WeaponDamage) const { return bOverrideStructuralDamage ? StructuralDamage : WeaponDamage; }
@@ -48,7 +48,7 @@ struct FERBlockShotResult
     double TotalMs=0;
     FVector End = FVector::ZeroVector;
     FHitResult TerminalHit;
-    float RemainingEnergy = 0;
+    float RemainingDamage = 0;
     float TerminalDamage = 0;
     int32 BlockHits = 0, Penetrations = 0, ExtraTraces = 0;
     bool bLimited = false;

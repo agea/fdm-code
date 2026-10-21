@@ -89,10 +89,9 @@ public:
     bool ApplyHitDamage(const FHitResult& Hit, float Amount);
     FERBlockBatchResult ApplyCellBatch(const TMap<FERCellId, float>& Damage);
     struct FERCellShotStep { bool bStop=true, bLimited=false; int32 Cells=0, Runs=0; FVector Exit=FVector::ZeroVector; };
-    // Voxel DDA through the hit panel: entry cost once per material run, energy per cm,
-    // each crossed cell damaged with the residual energy at its entry.
-    FERCellShotStep ShootCells(const FHitResult& Hit, const FVector& Cursor, const FVector& Ray, double Range, float Structural,
-        const FERBlockShotSettings& Settings, float& Energy, int32 RunsLeft);
+    // Each crossed cell absorbs its current HP from the shared bullet damage budget.
+    FERCellShotStep ShootCells(const FHitResult& Hit, const FVector& Cursor, const FVector& Ray, double Range,
+        float& RemainingDamage, int32 RunsLeft);
     // Pre-event snapshot only: never mutates. Query must ignore every cell chunk component.
     void CollectCellExplosion(const FVector& Origin, const FERBlockExplosionProfile& Profile, const FCollisionQueryParams& Query,
         TMap<FERCellId, float>& Out, FERBlockBatchResult& Result) const;

@@ -1,0 +1,948 @@
+{
+  "source_filename": "CS2 Weapon Spreadsheet (Last Weapon Update_ March 18, 2026).xlsx",
+  "sha256": "77389fd80fe6ffc55b62345c20dfaa1e99d774e631973fe4e8f848e31fdb7fde",
+  "license": "Public Domain (License!B4)",
+  "range_interval_cm": 1270,
+  "weapons": {
+    "Pistol": {
+      "row": "deagle",
+      "source_range": "Raw Values!B2:E2",
+      "damage": 53.0,
+      "armor_ratio": 1.864,
+      "range_modifier": 0.85,
+      "headshot_multiplier": 3.9,
+      "stomach_multiplier": 1.25,
+      "chest_arms_multiplier": 1.0,
+      "legs_multiplier": 0.75,
+      "range_samples": [
+        {
+          "cell": "E2",
+          "distance_cm": 254,
+          "damage": 51.30499561
+        },
+        {
+          "cell": "I2",
+          "distance_cm": 1270,
+          "damage": 45.05
+        },
+        {
+          "cell": "N2",
+          "distance_cm": 2540,
+          "damage": 38.2925
+        },
+        {
+          "cell": "W2",
+          "distance_cm": 7620,
+          "damage": 19.98892433
+        }
+      ],
+      "recoil": {
+        "hip": {
+          "angle_variance": 60.0,
+          "magnitude": 48.2,
+          "magnitude_variance": 18.0
+        },
+        "scoped": {
+          "angle_variance": 60.0,
+          "magnitude": 48.2,
+          "magnitude_variance": 18.0
+        },
+        "source_cells": {
+          "angle_variance": "Raw Values!AI2",
+          "magnitude": "Raw Values!AJ2",
+          "magnitude_variance": "Raw Values!AK2"
+        },
+        "alt_source_cells": {},
+        "pattern": "Random",
+        "pattern_cell": "Simple!AH2",
+        "project_pattern_seed": 1239935085
+      },
+      "accuracy": {
+        "hip": {
+          "spread": 2.0,
+          "crouch": 2.18,
+          "stand": 4.2,
+          "fire": 72.23,
+          "move": 48.1,
+          "jump": 40.549999,
+          "jump_initial": 548.820007,
+          "jump_apex": 331.549988,
+          "land": 0.043,
+          "ladder": 152.0,
+          "recovery_crouch": 0.449927,
+          "recovery_crouch_final": 0.449927,
+          "recovery_stand": 0.8112,
+          "recovery_stand_final": 0.8112,
+          "max_speed": 230.0
+        },
+        "scoped": {
+          "spread": 2.0,
+          "crouch": 2.18,
+          "stand": 4.2,
+          "fire": 72.23,
+          "move": 48.1,
+          "jump": 40.549999,
+          "jump_initial": 548.820007,
+          "jump_apex": 331.549988,
+          "land": 0.043,
+          "ladder": 152.0,
+          "recovery_crouch": 0.449927,
+          "recovery_crouch_final": 0.449927,
+          "recovery_stand": 0.8112,
+          "recovery_stand_final": 0.8112,
+          "max_speed": 230.0
+        },
+        "source_cells": {
+          "spread": "Raw Values!U2",
+          "crouch": "Raw Values!V2",
+          "stand": "Raw Values!W2",
+          "fire": "Raw Values!X2",
+          "move": "Raw Values!Y2",
+          "jump": "Raw Values!Z2",
+          "jump_initial": "Raw Values!AA2",
+          "jump_apex": "Raw Values!AB2",
+          "land": "Raw Values!AC2",
+          "ladder": "Raw Values!AD2",
+          "recovery_crouch": "Raw Values!AE2",
+          "recovery_crouch_final": "Raw Values!AF2",
+          "recovery_stand": "Raw Values!AG2",
+          "recovery_stand_final": "Raw Values!AH2",
+          "max_speed": "Raw Values!I2"
+        },
+        "alt_source_cells": {},
+        "cycle_time": 0.225,
+        "simple_checks": {
+          "standing": 6.2,
+          "crouching": 4.18,
+          "running": 54.3,
+          "ladder": 306.0,
+          "jump_apex": 378.299987,
+          "landing_333ms": 27.00381354
+        },
+        "burst_checks": {
+          "standing": [
+            0.0,
+            38.13737094,
+            58.27386633,
+            68.90591664,
+            74.51962904,
+            77.48366382,
+            79.04867135
+          ],
+          "crouching": [
+            0.0,
+            22.83686532,
+            30.05716737,
+            32.3400009,
+            33.06176141,
+            33.28995949,
+            33.36210859
+          ]
+        },
+        "tapping_checks": [
+          0.0,
+          15.16036737,
+          18.34237953,
+          19.01025263,
+          19.15043263,
+          19.17985503
+        ],
+        "tap_interval": 0.55,
+        "standing_full_angle_degrees": 0.7104585627,
+        "standing_full_angle_mode": "hip"
+      }
+    },
+    "SMG": {
+      "row": "mp9",
+      "source_range": "Raw Values!B24:E24",
+      "damage": 26.0,
+      "armor_ratio": 1.2,
+      "range_modifier": 0.87,
+      "headshot_multiplier": 4.0,
+      "stomach_multiplier": 1.25,
+      "chest_arms_multiplier": 1.0,
+      "legs_multiplier": 0.75,
+      "range_samples": [
+        {
+          "cell": "E24",
+          "distance_cm": 254,
+          "damage": 25.28582911
+        },
+        {
+          "cell": "I24",
+          "distance_cm": 1270,
+          "damage": 22.62
+        },
+        {
+          "cell": "N24",
+          "distance_cm": 2540,
+          "damage": 19.6794
+        },
+        {
+          "cell": "W24",
+          "distance_cm": 7620,
+          "damage": 11.27428123
+        }
+      ],
+      "recoil": {
+        "hip": {
+          "angle_variance": 70.0,
+          "magnitude": 21.0,
+          "magnitude_variance": 1.0
+        },
+        "scoped": {
+          "angle_variance": 70.0,
+          "magnitude": 21.0,
+          "magnitude_variance": 1.0
+        },
+        "source_cells": {
+          "angle_variance": "Raw Values!AI24",
+          "magnitude": "Raw Values!AJ24",
+          "magnitude_variance": "Raw Values!AK24"
+        },
+        "alt_source_cells": {},
+        "pattern": "Set Pattern",
+        "pattern_cell": "Simple!AH27",
+        "project_pattern_seed": 1333031071
+      },
+      "accuracy": {
+        "hip": {
+          "spread": 0.6,
+          "crouch": 8.0,
+          "stand": 9.0,
+          "fire": 3.7,
+          "move": 29.04,
+          "jump": 50.0,
+          "jump_initial": 37.279999,
+          "jump_apex": 0.0,
+          "land": 0.056,
+          "ladder": 148.9125,
+          "recovery_crouch": 0.184207,
+          "recovery_crouch_final": 0.184207,
+          "recovery_stand": 0.25789,
+          "recovery_stand_final": 0.25789,
+          "max_speed": 240.0
+        },
+        "scoped": {
+          "spread": 0.6,
+          "crouch": 8.0,
+          "stand": 9.0,
+          "fire": 3.7,
+          "move": 29.04,
+          "jump": 50.0,
+          "jump_initial": 37.279999,
+          "jump_apex": 0.0,
+          "land": 0.056,
+          "ladder": 148.9125,
+          "recovery_crouch": 0.184207,
+          "recovery_crouch_final": 0.184207,
+          "recovery_stand": 0.25789,
+          "recovery_stand_final": 0.25789,
+          "max_speed": 240.0
+        },
+        "source_cells": {
+          "spread": "Raw Values!U24",
+          "crouch": "Raw Values!V24",
+          "stand": "Raw Values!W24",
+          "fire": "Raw Values!X24",
+          "move": "Raw Values!Y24",
+          "jump": "Raw Values!Z24",
+          "jump_initial": "Raw Values!AA24",
+          "jump_apex": "Raw Values!AB24",
+          "land": "Raw Values!AC24",
+          "ladder": "Raw Values!AD24",
+          "recovery_crouch": "Raw Values!AE24",
+          "recovery_crouch_final": "Raw Values!AF24",
+          "recovery_stand": "Raw Values!AG24",
+          "recovery_stand_final": "Raw Values!AH24",
+          "max_speed": "Raw Values!I24"
+        },
+        "alt_source_cells": {},
+        "cycle_time": 0.07,
+        "simple_checks": {
+          "standing": 9.6,
+          "crouching": 8.6,
+          "running": 38.64,
+          "ladder": 298.425,
+          "jump_apex": 59.6,
+          "landing_333ms": 13.02180932
+        },
+        "burst_checks": {
+          "standing": [
+            0.0,
+            1.980469539,
+            3.040539701,
+            3.607955015,
+            3.911670893,
+            4.074238472,
+            4.161254726,
+            4.207831223,
+            4.232761854,
+            4.246106274
+          ],
+          "crouching": [
+            0.0,
+            1.542390884,
+            2.185355651,
+            2.453383487,
+            2.565114215,
+            2.611690554,
+            2.631106478,
+            2.639200247,
+            2.642574235,
+            2.643980724
+          ]
+        },
+        "tapping_checks": [
+          0.0,
+          0.8109721552,
+          0.9887223813,
+          1.027681972,
+          1.036221199,
+          1.038092841
+        ],
+        "tap_interval": 0.17,
+        "standing_full_angle_degrees": 1.100045174,
+        "standing_full_angle_mode": "hip"
+      }
+    },
+    "Shotgun": {
+      "row": "xm1014",
+      "source_range": "Raw Values!B17:E17",
+      "damage": 20.0,
+      "armor_ratio": 1.6,
+      "range_modifier": 0.7,
+      "headshot_multiplier": 4.0,
+      "stomach_multiplier": 1.25,
+      "chest_arms_multiplier": 1.0,
+      "legs_multiplier": 0.75,
+      "range_samples": [
+        {
+          "cell": "E17",
+          "distance_cm": 254,
+          "damage": 18.6229983
+        },
+        {
+          "cell": "I17",
+          "distance_cm": 1270,
+          "damage": 14.0
+        },
+        {
+          "cell": "N17",
+          "distance_cm": 2540,
+          "damage": 9.8
+        },
+        {
+          "cell": "W17",
+          "distance_cm": 7620,
+          "damage": 2.35298
+        }
+      ],
+      "recoil": {
+        "hip": {
+          "angle_variance": 20.0,
+          "magnitude": 80.0,
+          "magnitude_variance": 20.0
+        },
+        "scoped": {
+          "angle_variance": 20.0,
+          "magnitude": 80.0,
+          "magnitude_variance": 20.0
+        },
+        "source_cells": {
+          "angle_variance": "Raw Values!AI17",
+          "magnitude": "Raw Values!AJ17",
+          "magnitude_variance": "Raw Values!AK17"
+        },
+        "alt_source_cells": {},
+        "pattern": "Set Pattern",
+        "pattern_cell": "Simple!AH20",
+        "project_pattern_seed": 1006900384
+      },
+      "accuracy": {
+        "hip": {
+          "spread": 38.0,
+          "crouch": 5.25,
+          "stand": 7.0,
+          "fire": 8.83,
+          "move": 36.03,
+          "jump": 130.830002,
+          "jump_initial": 100.379997,
+          "jump_apex": 0.0,
+          "land": 0.232,
+          "ladder": 77.21,
+          "recovery_crouch": 0.361835,
+          "recovery_crouch_final": 0.361835,
+          "recovery_stand": 0.506569,
+          "recovery_stand_final": 0.506569,
+          "max_speed": 215.0
+        },
+        "scoped": {
+          "spread": 38.0,
+          "crouch": 5.25,
+          "stand": 7.0,
+          "fire": 8.83,
+          "move": 36.03,
+          "jump": 130.830002,
+          "jump_initial": 100.379997,
+          "jump_apex": 0.0,
+          "land": 0.232,
+          "ladder": 77.21,
+          "recovery_crouch": 0.361835,
+          "recovery_crouch_final": 0.361835,
+          "recovery_stand": 0.506569,
+          "recovery_stand_final": 0.506569,
+          "max_speed": 215.0
+        },
+        "source_cells": {
+          "spread": "Raw Values!U17",
+          "crouch": "Raw Values!V17",
+          "stand": "Raw Values!W17",
+          "fire": "Raw Values!X17",
+          "move": "Raw Values!Y17",
+          "jump": "Raw Values!Z17",
+          "jump_initial": "Raw Values!AA17",
+          "jump_apex": "Raw Values!AB17",
+          "land": "Raw Values!AC17",
+          "ladder": "Raw Values!AD17",
+          "recovery_crouch": "Raw Values!AE17",
+          "recovery_crouch_final": "Raw Values!AF17",
+          "recovery_stand": "Raw Values!AG17",
+          "recovery_stand_final": "Raw Values!AH17",
+          "max_speed": "Raw Values!I17"
+        },
+        "alt_source_cells": {},
+        "cycle_time": 0.35,
+        "simple_checks": {
+          "standing": 45.0,
+          "crouching": 43.25,
+          "running": 81.03,
+          "ladder": 192.42,
+          "jump_apex": 175.830002,
+          "landing_333ms": 89.21843959
+        },
+        "burst_checks": {
+          "standing": [
+            0.0,
+            1.799028508,
+            2.165563454,
+            2.240241463,
+            2.255456397,
+            2.258556295,
+            2.25918787
+          ],
+          "crouching": [
+            0.0,
+            0.9520702227,
+            1.05472455,
+            1.065792968,
+            1.066986389,
+            1.067115066,
+            1.067128941
+          ]
+        },
+        "tapping_checks": [
+          0.0,
+          0.7248115378,
+          0.7843077739,
+          0.7891915291,
+          0.7895924127,
+          0.7896253193
+        ],
+        "tap_interval": 0.55,
+        "standing_full_angle_degrees": 5.153143661,
+        "standing_full_angle_mode": "hip"
+      }
+    },
+    "Assault": {
+      "row": "ak47",
+      "source_range": "Raw Values!B29:E29",
+      "damage": 36.0,
+      "armor_ratio": 1.55,
+      "range_modifier": 0.98,
+      "headshot_multiplier": 4.0,
+      "stomach_multiplier": 1.25,
+      "chest_arms_multiplier": 1.0,
+      "legs_multiplier": 0.75,
+      "range_samples": [
+        {
+          "cell": "E29",
+          "distance_cm": 254,
+          "damage": 35.85483398
+        },
+        {
+          "cell": "I29",
+          "distance_cm": 1270,
+          "damage": 35.28
+        },
+        {
+          "cell": "N29",
+          "distance_cm": 2540,
+          "damage": 34.5744
+        },
+        {
+          "cell": "W29",
+          "distance_cm": 7620,
+          "damage": 31.89032571
+        }
+      ],
+      "recoil": {
+        "hip": {
+          "angle_variance": 70.0,
+          "magnitude": 30.0,
+          "magnitude_variance": 0.0
+        },
+        "scoped": {
+          "angle_variance": 70.0,
+          "magnitude": 30.0,
+          "magnitude_variance": 0.0
+        },
+        "source_cells": {
+          "angle_variance": "Raw Values!AI29",
+          "magnitude": "Raw Values!AJ29",
+          "magnitude_variance": "Raw Values!AK29"
+        },
+        "alt_source_cells": {},
+        "pattern": "Set Pattern",
+        "pattern_cell": "Simple!AH32",
+        "project_pattern_seed": 1707818307
+      },
+      "accuracy": {
+        "hip": {
+          "spread": 0.6,
+          "crouch": 4.81,
+          "stand": 6.41,
+          "fire": 7.8,
+          "move": 175.06,
+          "jump": 140.759995,
+          "jump_initial": 100.940002,
+          "jump_apex": 0.0,
+          "land": 0.242,
+          "ladder": 140.0,
+          "recovery_crouch": 0.305257,
+          "recovery_crouch_final": 0.419728,
+          "recovery_stand": 0.368,
+          "recovery_stand_final": 0.506,
+          "max_speed": 215.0
+        },
+        "scoped": {
+          "spread": 0.6,
+          "crouch": 4.81,
+          "stand": 6.41,
+          "fire": 7.8,
+          "move": 175.06,
+          "jump": 140.759995,
+          "jump_initial": 100.940002,
+          "jump_apex": 0.0,
+          "land": 0.242,
+          "ladder": 140.0,
+          "recovery_crouch": 0.305257,
+          "recovery_crouch_final": 0.419728,
+          "recovery_stand": 0.368,
+          "recovery_stand_final": 0.506,
+          "max_speed": 215.0
+        },
+        "source_cells": {
+          "spread": "Raw Values!U29",
+          "crouch": "Raw Values!V29",
+          "stand": "Raw Values!W29",
+          "fire": "Raw Values!X29",
+          "move": "Raw Values!Y29",
+          "jump": "Raw Values!Z29",
+          "jump_initial": "Raw Values!AA29",
+          "jump_apex": "Raw Values!AB29",
+          "land": "Raw Values!AC29",
+          "ladder": "Raw Values!AD29",
+          "recovery_crouch": "Raw Values!AE29",
+          "recovery_crouch_final": "Raw Values!AF29",
+          "recovery_stand": "Raw Values!AG29",
+          "recovery_stand_final": "Raw Values!AH29",
+          "max_speed": "Raw Values!I29"
+        },
+        "alt_source_cells": {},
+        "cycle_time": 0.1,
+        "simple_checks": {
+          "standing": 7.01,
+          "crouching": 5.41,
+          "running": 182.07,
+          "ladder": 280.6,
+          "jump_apex": 147.769995,
+          "landing_333ms": 33.62985925
+        },
+        "burst_checks": {
+          "standing": [
+            0.0,
+            4.172107329,
+            6.403707273,
+            8.14433857,
+            9.665296993,
+            11.08019788,
+            11.9778283,
+            12.54729601,
+            12.90857329,
+            13.137772
+          ],
+          "crouching": [
+            0.0,
+            3.668612044,
+            5.394088239,
+            6.74816456,
+            7.956714607,
+            9.103662231,
+            9.766327261,
+            10.14919125,
+            10.37039627,
+            10.49820057
+          ]
+        },
+        "tapping_checks": [
+          0.0,
+          1.632100044,
+          1.973606526,
+          2.04506457,
+          2.060016708,
+          2.063145347
+        ],
+        "tap_interval": 0.25,
+        "standing_full_angle_degrees": 0.8032736713,
+        "standing_full_angle_mode": "hip"
+      }
+    },
+    "Carbine": {
+      "row": "scar20",
+      "source_range": "Raw Values!B44:E44",
+      "damage": 80.0,
+      "armor_ratio": 1.65,
+      "range_modifier": 0.98,
+      "headshot_multiplier": 4.0,
+      "stomach_multiplier": 1.25,
+      "chest_arms_multiplier": 1.0,
+      "legs_multiplier": 0.75,
+      "range_samples": [
+        {
+          "cell": "E44",
+          "distance_cm": 254,
+          "damage": 79.67740884
+        },
+        {
+          "cell": "I44",
+          "distance_cm": 1270,
+          "damage": 78.4
+        },
+        {
+          "cell": "N44",
+          "distance_cm": 2540,
+          "damage": 76.832
+        },
+        {
+          "cell": "W44",
+          "distance_cm": 7620,
+          "damage": 70.86739047
+        }
+      ],
+      "recoil": {
+        "hip": {
+          "angle_variance": 30.0,
+          "magnitude": 31.0,
+          "magnitude_variance": 4.0
+        },
+        "scoped": {
+          "angle_variance": 30.0,
+          "magnitude": 31.0,
+          "magnitude_variance": 4.0
+        },
+        "source_cells": {
+          "angle_variance": "Raw Values!AI44",
+          "magnitude": "Raw Values!AJ44",
+          "magnitude_variance": "Raw Values!AK44"
+        },
+        "alt_source_cells": {
+          "angle_variance": "Raw Values!AT44",
+          "magnitude": "Raw Values!AU44",
+          "magnitude_variance": "Raw Values!AV44"
+        },
+        "pattern": "Set Pattern",
+        "pattern_cell": "Simple!AH53",
+        "project_pattern_seed": 2107677652
+      },
+      "accuracy": {
+        "hip": {
+          "spread": 0.3,
+          "crouch": 19.35,
+          "stand": 25.8,
+          "fire": 18.61,
+          "move": 150.48,
+          "jump": 153.770004,
+          "jump_initial": 107.690002,
+          "jump_apex": 0.0,
+          "land": 0.262,
+          "ladder": 116.39,
+          "recovery_crouch": 0.388808,
+          "recovery_crouch_final": 0.388808,
+          "recovery_stand": 0.544331,
+          "recovery_stand_final": 0.544331,
+          "max_speed": 215.0
+        },
+        "scoped": {
+          "spread": 0.3,
+          "crouch": 1.5,
+          "stand": 2.0,
+          "fire": 18.61,
+          "move": 150.48,
+          "jump": 153.770004,
+          "jump_initial": 107.690002,
+          "jump_apex": 0.0,
+          "land": 0.262,
+          "ladder": 116.39,
+          "recovery_crouch": 0.388808,
+          "recovery_crouch_final": 0.388808,
+          "recovery_stand": 0.544331,
+          "recovery_stand_final": 0.544331,
+          "max_speed": 120.0
+        },
+        "source_cells": {
+          "spread": "Raw Values!U44",
+          "crouch": "Raw Values!V44",
+          "stand": "Raw Values!W44",
+          "fire": "Raw Values!X44",
+          "move": "Raw Values!Y44",
+          "jump": "Raw Values!Z44",
+          "jump_initial": "Raw Values!AA44",
+          "jump_apex": "Raw Values!AB44",
+          "land": "Raw Values!AC44",
+          "ladder": "Raw Values!AD44",
+          "recovery_crouch": "Raw Values!AE44",
+          "recovery_crouch_final": "Raw Values!AF44",
+          "recovery_stand": "Raw Values!AG44",
+          "recovery_stand_final": "Raw Values!AH44",
+          "max_speed": "Raw Values!I44"
+        },
+        "alt_source_cells": {
+          "spread": "Raw Values!AL44",
+          "crouch": "Raw Values!AM44",
+          "stand": "Raw Values!AN44",
+          "fire": "Raw Values!AO44",
+          "move": "Raw Values!AP44",
+          "jump": "Raw Values!AQ44",
+          "land": "Raw Values!AR44",
+          "ladder": "Raw Values!AS44",
+          "max_speed": "Raw Values!AW44"
+        },
+        "cycle_time": 0.25,
+        "simple_checks": {
+          "standing": 26.1,
+          "crouching": 19.65,
+          "running": 176.58,
+          "ladder": 233.08,
+          "jump_apex": 179.870004,
+          "landing_333ms": 83.03747237
+        },
+        "burst_checks": {
+          "standing": [
+            0.0,
+            6.463488804,
+            8.708340363,
+            9.488005753,
+            9.758793422,
+            9.852841411,
+            9.885505469,
+            9.89685011,
+            9.900790248,
+            9.902158708
+          ],
+          "crouching": [
+            0.0,
+            4.234045183,
+            5.197351932,
+            5.416518203,
+            5.466381711,
+            5.477726384,
+            5.480307461,
+            5.480894694,
+            5.481028298,
+            5.481058695
+          ]
+        },
+        "tapping_checks": [
+          0.0,
+          1.816903051,
+          1.99428815,
+          2.01160634,
+          2.013297123,
+          2.013462195
+        ],
+        "tap_interval": 0.55,
+        "standing_full_angle_degrees": 0.263560121,
+        "standing_full_angle_mode": "scoped"
+      }
+    },
+    "Sniper": {
+      "row": "awp",
+      "source_range": "Raw Values!B42:E42",
+      "damage": 115.0,
+      "armor_ratio": 1.95,
+      "range_modifier": 0.99,
+      "headshot_multiplier": 4.0,
+      "stomach_multiplier": 1.25,
+      "chest_arms_multiplier": 1.0,
+      "legs_multiplier": 0.75,
+      "range_samples": [
+        {
+          "cell": "E42",
+          "distance_cm": 254,
+          "damage": 114.7690744
+        },
+        {
+          "cell": "I42",
+          "distance_cm": 1270,
+          "damage": 113.85
+        },
+        {
+          "cell": "N42",
+          "distance_cm": 2540,
+          "damage": 112.7115
+        },
+        {
+          "cell": "W42",
+          "distance_cm": 7620,
+          "damage": 108.2702172
+        }
+      ],
+      "recoil": {
+        "hip": {
+          "angle_variance": 20.0,
+          "magnitude": 78.0,
+          "magnitude_variance": 15.0
+        },
+        "scoped": {
+          "angle_variance": 20.0,
+          "magnitude": 25.0,
+          "magnitude_variance": 2.0
+        },
+        "source_cells": {
+          "angle_variance": "Raw Values!AI42",
+          "magnitude": "Raw Values!AJ42",
+          "magnitude_variance": "Raw Values!AK42"
+        },
+        "alt_source_cells": {
+          "angle_variance": "Raw Values!AT42",
+          "magnitude": "Raw Values!AU42",
+          "magnitude_variance": "Raw Values!AV42"
+        },
+        "pattern": "Random",
+        "pattern_cell": "Simple!AH49",
+        "project_pattern_seed": 103802376
+      },
+      "accuracy": {
+        "hip": {
+          "spread": 0.2,
+          "crouch": 60.6,
+          "stand": 80.8,
+          "fire": 53.85,
+          "move": 176.48,
+          "jump": 133.830002,
+          "jump_initial": 172.860001,
+          "jump_apex": 0.0,
+          "land": 0.307,
+          "ladder": 136.5,
+          "recovery_crouch": 0.24671,
+          "recovery_crouch_final": 0.24671,
+          "recovery_stand": 0.34539,
+          "recovery_stand_final": 0.34539,
+          "max_speed": 200.0
+        },
+        "scoped": {
+          "spread": 0.2,
+          "crouch": 1.5,
+          "stand": 2.0,
+          "fire": 53.85,
+          "move": 176.48,
+          "jump": 133.830002,
+          "jump_initial": 172.860001,
+          "jump_apex": 0.0,
+          "land": 0.1,
+          "ladder": 136.5,
+          "recovery_crouch": 0.24671,
+          "recovery_crouch_final": 0.24671,
+          "recovery_stand": 0.34539,
+          "recovery_stand_final": 0.34539,
+          "max_speed": 100.0
+        },
+        "source_cells": {
+          "spread": "Raw Values!U42",
+          "crouch": "Raw Values!V42",
+          "stand": "Raw Values!W42",
+          "fire": "Raw Values!X42",
+          "move": "Raw Values!Y42",
+          "jump": "Raw Values!Z42",
+          "jump_initial": "Raw Values!AA42",
+          "jump_apex": "Raw Values!AB42",
+          "land": "Raw Values!AC42",
+          "ladder": "Raw Values!AD42",
+          "recovery_crouch": "Raw Values!AE42",
+          "recovery_crouch_final": "Raw Values!AF42",
+          "recovery_stand": "Raw Values!AG42",
+          "recovery_stand_final": "Raw Values!AH42",
+          "max_speed": "Raw Values!I42"
+        },
+        "alt_source_cells": {
+          "spread": "Raw Values!AL42",
+          "crouch": "Raw Values!AM42",
+          "stand": "Raw Values!AN42",
+          "fire": "Raw Values!AO42",
+          "move": "Raw Values!AP42",
+          "jump": "Raw Values!AQ42",
+          "land": "Raw Values!AR42",
+          "ladder": "Raw Values!AS42",
+          "max_speed": "Raw Values!AW42"
+        },
+        "cycle_time": 1.455,
+        "simple_checks": {
+          "standing": 81.0,
+          "crouching": 60.8,
+          "running": 257.48,
+          "ladder": 273.2,
+          "jump_apex": 214.830002,
+          "landing_333ms": 105.6050958
+        },
+        "burst_checks": {
+          "standing": [
+            0.0,
+            0.003300323455,
+            0.003300525723,
+            0.003300525735,
+            0.003300525735,
+            0.003300525735,
+            0.003300525735,
+            0.003300525735,
+            0.003300525735,
+            0.003300525735
+          ],
+          "crouching": [
+            0.0,
+            6.816683437e-05,
+            6.816692066e-05,
+            6.816692066e-05,
+            6.816692066e-05,
+            6.816692066e-05,
+            6.816692066e-05,
+            6.816692066e-05,
+            6.816692066e-05,
+            6.816692066e-05
+          ]
+        },
+        "tapping_checks": [
+          0.0,
+          0.003300323455,
+          0.003300525723,
+          0.003300525735,
+          0.003300525735,
+          0.003300525735
+        ],
+        "tap_interval": 1.455,
+        "standing_full_angle_degrees": 0.2521010231,
+        "standing_full_angle_mode": "scoped"
+      }
+    }
+  }
+}

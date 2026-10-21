@@ -43,6 +43,7 @@ profiles=[
 ]
 for profile in profiles:profile['name']=weapon_names[profile['key']]
 rows={}
+ballistics=json.loads((project/'docs/references/cs2-weapon-ballistics-2026-03-18.json').read_text())['weapons']
 with (project/'docs/references/weapon-stats-2069175273.csv').open(newline='') as stream:
     for row in csv.reader(stream):
         try: rows[row[0]]=dict(armor_ratio=float(row[1]),damage=float(row[2]),range_modifier=float(row[3]),shot_interval=float(row[4]))
@@ -217,7 +218,7 @@ for profile in sorted(profiles,key=lambda item:item['key']!='Assault'):
         view_offset=legacy.get_editor_property('view_offset'),sound_pitch=legacy.get_editor_property('sound_pitch'),
         automatic=profile.get('auto',False),magazine_size=profile['ammo'],initial_reserve=profile['reserve'],
         reload_duration=profile.get('reload',1.5),standing_spread_degrees=.25 if key=='Shotgun' else profile['spread'],
-        use_body_hit_zones=key=='Shotgun',pellet_spread_degrees=3.2,
+        use_body_hit_zones=key in ballistics,pellet_spread_degrees=3.2,
         pellets=profile.get('pellets',1),payload=getattr(ue.ERPayload,profile.get('payload','BULLET')),
         zoom_fov=profile.get('zoom',75 if profile.get('one') else 60),
         damage=profile.get('damage',0),shot_interval=profile.get('interval',.1),armor_ratio=1.6 if profile.get('payload') in ('HE','LAUNCHED_HE') else 2,
@@ -225,6 +226,23 @@ for profile in sorted(profiles,key=lambda item:item['key']!='Assault'):
         projectile_speed=profile.get('speed',30000),projectile_life=8,bloom_per_shot_degrees=0 if profile.get('one') else .12)
     if key=='SMG':settings['view_offset']+=ue.Vector(6,0,0)
     if profile.get('row'):settings.update(rows[profile['row']])
+    if key in ballistics:
+        settings.update({prop:ballistics[key][prop] for prop in ('damage','armor_ratio','range_modifier','headshot_multiplier')})
+        accuracy=ballistics[key]['accuracy']
+        settings['use_worksheet_accuracy']=True
+        settings['shot_interval']=accuracy['cycle_time']
+        for name in ('hip','scoped'):
+            mode=ue.ERWeaponAccuracyMode()
+            for prop,value in accuracy[name].items():mode.set_editor_property(prop,value)
+            settings[name+'_accuracy']=mode
+        recoil=ballistics[key]['recoil']
+        settings['use_worksheet_recoil']=True
+        settings['random_recoil_pattern']=recoil['pattern']=='Random'
+        settings['recoil_pattern_seed']=recoil['project_pattern_seed']
+        for name in ('hip','scoped'):
+            mode=ue.ERWeaponRecoilMode()
+            for prop,value in recoil[name].items():mode.set_editor_property(prop,value)
+            settings[name+'_recoil']=mode
     settings.update(runpy.run_path(str(project/'scripts/scope_profiles.py'))['SCOPE_PROFILES'].get(key,{}))
     if 'iron_sight_offset' in settings:settings['iron_sight_offset']=ue.Vector(*settings['iron_sight_offset'])
     if profile.get('payload') in ('HE','SMOKE','STUN'):settings['launch_range_multiplier']=1.2

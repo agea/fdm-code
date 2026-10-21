@@ -275,8 +275,8 @@ bool FERCentralBuildingEvolutionTest::RunTest(const FString& Parameters)
     TestTrue(TEXT("reinforced container initially blocks a standing crossing"),ERIndustrialTest::ContainerBlocked(*World,Container,Q));
     if(World->LineTraceSingleByChannel(Hit,A,B,ECC_GameTraceChannel1,Q) && Map->ResolveCell(Hit,Id))
     {
-        const float Before=Map->GetCellWorld().GetHealth(Id);float Energy=100;
-        const auto Shot=Map->ShootCells(Hit,A,(B-A).GetSafeNormal(),500,36,FERBlockShotSettings(),Energy,8);
+        const float Before=Map->GetCellWorld().GetHealth(Id);float RemainingDamage=36;
+        const auto Shot=Map->ShootCells(Hit,A,(B-A).GetSafeNormal(),500,RemainingDamage,8);
         TestTrue(TEXT("reinforced steel stops rifle penetration"),Shot.bStop);
         TestTrue(TEXT("rifle damages steel without erasing it"),Map->GetCellWorld().IsAlive(Id) && Map->GetCellWorld().GetHealth(Id)<Before);
         TestTrue(TEXT("container is substantially tougher than the sheet default"),Before>=800);

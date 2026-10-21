@@ -1,5 +1,47 @@
 # Respawn & Rage Unreal development
 
+Worksheet recoil (21 October, subsequent request): six Bullet firearms now use
+bUseWorksheetRecoil, HipRecoil/ScopedRecoil, exact magnitude and both variances
+from the same XLSX. See docs/WEAPON_RECOIL.md for the explicit project response
+and pattern adaptation; the sheet supplies neither spray seeds nor decay curves.
+This supersedes the earlier identical cosmetic .35/.65 kick and .2 crouched
+scope recoil bonus for these six guns. Keep recoil server-authoritative: shared
+character state, owner-only snapshots, synchronized clock, GetViewRotation for
+both camera/FPS rig and authoritative eyes. Never change ControlRotation or
+apply the kick twice. Each authorized shell adds one impulse after its own ray
+is sampled, using the scoped mode before AWP unscopes. Holstering retains the
+shared residual; rejected shots add nothing. Damage flinch stays cosmetic.
+Migrate only six data assets through Unreal with setup_weapon_recoil.py.
+
+Worksheet accuracy (21 October, latest request): all six current Bullet guns use
+bUseWorksheetAccuracy and HipAccuracy/ScopedAccuracy from the preserved CS2 XLSX.
+See docs/WEAPON_ACCURACY.md and the numeric extraction. This supersedes the old
+custom rosette, zero settled scope cone, .65 prone bonus, flat sprint +1.5deg,
+linear/capped bloom and 4x crouch recovery for these six guns. Raw offsets are
+scaled tangent units: half-angle = degrees(atan(sum/1000)); the sheet's Analysis
+angles are FULL angles. Keep spread and inaccuracy as independent sampled offsets.
+Use source Fire impulses, 90%-recovery times, AK initial/final interpolation,
+Alt scoped fields and source cycle times. Actual cm/s converts to Source units
+at2.54cm/unit; stance interpolation follows the physical capsule. Prone reuses
+crouch because no prone row exists. Landing is authority measured, owner state
+replicated, and recovery stays continuous when posture changes. Legacy/utility
+without worksheet rows keeps its previous behavior. Migrate only six data assets
+with setup_weapon_accuracy.py; never rerun the art import for numeric tuning.
+
+Weapon ballistics (21 October, latest request): all six current Bullet firearms
+use skeletal hit zones and the owner-supplied CS2 workbook dated March18,2026.
+Full original: weapons SourceAssets/References; exact values/cells/hash:
+docs/references/cs2-weapon-ballistics-2026-03-18.json. Head: deagle3.9, others4;
+stomach1.25, chest/arms1, legs.75. Keep RangeModifier^(distance_cm/1270), armor
+and helmet/leg rules. This supersedes the earlier shotgun-only opt-in. Single
+bullets keep their sampled direction without a shotgun rosette. Knife/blasts
+have no worksheet entries and retain their existing paths. Cover now subtracts
+each crossed cell's CURRENT HP from a shared bullet damage budget (100-60=40),
+stopping at zero or surviving/indestructible cover. This supersedes entry/cm
+costs and structural bullet multipliers. Preserve HP, reinforcement and blasts.
+Residual damage receives distance, hit zone and armor once. Save only owned
+firearm data through Unreal with setup_weapon_hit_zones.py.
+
 Unused map textures (20 October, subsequent request): remove the four inactive
 Sketchfab library finishes and three unreferenced legacy floor/ceiling sets,
 including their active sources and menu credits. This supersedes earlier source

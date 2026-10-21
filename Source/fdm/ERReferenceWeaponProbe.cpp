@@ -12,6 +12,7 @@
 #include "Camera/CameraComponent.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "PhysicsEngine/BodyInstance.h"
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "EngineUtils.h"
@@ -120,6 +121,9 @@ void AERReferenceWeaponProbe::Tick(float DeltaTime)
         for(int32 I=0;I<10;++I)
         {
             auto* Data=H->Inventory[I]->Data.Get();
+            UE_LOG(LogTemp,Display,TEXT("ER_REFERENCE_DAMAGE_ZONES slot=%d anatomical=%d"),I,Data && Data->bUseBodyHitZones);
+            Check(Data && Data->bUseBodyHitZones == (I >= 1 && I <= 6),FString::Printf(TEXT("body_zones_all_six_firearms_%d"),I));
+            if(I>=1 && I<=6)Check(FMath::IsNearlyEqual(Data->HeadshotMultiplier,I==1?3.9f:4.f),FString::Printf(TEXT("workbook_head_multiplier_%d"),I));
             Check(Data && Data->Mesh && Data->IdleAnimation,FString::Printf(TEXT("model_and_fitted_skin_pose_%d"),I));
             if(I>=1 && I<=7)Check(Data && Data->WeaponReloadAnimation && Data->ReloadAnimation,FString::Printf(TEXT("authored_weapon_and_retargeted_reload_%d"),I));
         }
@@ -249,19 +253,54 @@ void AERReferenceWeaponProbe::Tick(float DeltaTime)
             if(It->GetOwner()==H->Weapon && It->Payload==EERPayload::LaunchedHE)
                 Physical|=FMath::IsNearlyEqual(It->Movement->Velocity.Size(),1750.f,.1f) && It->ThrownMesh!=nullptr;
         Check(Physical && H->Weapon->MagazineAmmo==5,TEXT("launcher_uses_model_projectile_and_reduced_launch_speed"));}
-        H->ServerSelectWeapon(4);Host->SetControlRotation(FRotator::ZeroRotator);
+        H->ServerSelectWeapon(4);
+        Host->SetControlRotation((C->GetMesh()->GetSocketLocation(TEXT("spine_03"))-H->Camera->GetComponentLocation()).Rotation());
         C->Health->ProtectionEndServerTime=0;C->Health->Health=100;C->Health->Armor=100;
         H->Health->ProtectionEndServerTime=0;
         // A close torso shot: compare the actual hit position with the source formula.
         H->Weapon->StartFire();H->Weapon->StopFire();
-        {float Armor=100;const float Raw=ERWeaponBallistics::AtRange(36,.98f,FVector::Distance(H->Weapon->LastShotTraceStart,H->Weapon->LastShotTraceEnd));
-         const float Expected=ERWeaponBallistics::AbsorbArmor(Raw,1.55f,Armor);
+        {float Armor=100;const auto& Hit=H->Weapon->LastShotPelletHits[0];
+         Check(Hit.GetActor()==C && !Hit.BoneName.IsNone(),TEXT("real_ak_uses_anatomical_hit_instead_of_capsule"));
+         const auto Zone=ERWeaponBallistics::ZoneForBone(Hit.BoneName);
+         const float Raw=ERWeaponBallistics::AtRange(36*ERWeaponBallistics::ZoneMultiplier(Zone),.98f,FVector::Distance(H->Weapon->LastShotTraceStart,H->Weapon->LastShotTraceEnd));
+         const float Expected=ERWeaponBallistics::AbsorbArmor(Raw,Zone==ERWeaponBallistics::EHitZone::Legs?2.f:1.55f,Armor);
+         Check((H->Weapon->LastShotTraceEnd-H->Weapon->LastShotTraceStart).GetSafeNormal().Equals(H->Weapon->LastShotDirection,.001f),TEXT("single_bullet_keeps_server_sampled_direction_without_shotgun_pattern"));
          Check(FMath::IsNearlyEqual(C->Health->Health,100-Expected,.05f) && FMath::IsNearlyEqual(C->Health->Armor,Armor,.05f),TEXT("real_ak_hit_uses_source_range_and_armor"));}
         Advance(22,.7f);break;
     case 22:
         Check(!C->Health->bDead,TEXT("armor_does_not_instantly_kill_target"));
+        {
+            // Actual server point-damage path for every firearm, at one worksheet range interval.
+            const FName Bones[]={TEXT("head"),TEXT("spine_01"),TEXT("spine_03"),TEXT("upperarm_l"),TEXT("calf_r")};
+            const float Modifiers[]={.85f,.87f,.7f,.98f,.98f,.99f};
+            const float Ratios[]={1.864f,1.2f,1.6f,1.55f,1.65f,1.95f};
+            for(int32 Slot=1;Slot<=6;++Slot)
+            {
+                auto* Gun=H->Inventory[Slot].Get();
+                Check(FMath::IsNearlyEqual(Gun->Data->RangeModifier,Modifiers[Slot-1]) &&
+                    FMath::IsNearlyEqual(Gun->Data->ArmorRatio,Ratios[Slot-1]),FString::Printf(TEXT("workbook_range_armor_%d"),Slot));
+                const FVector Impact=C->GetActorLocation();Gun->LastShotTraceStart=Impact-FVector(1270,0,0);
+                for(int32 I=0;I<5;++I)for(int32 Kit=0;Kit<2;++Kit)
+                {
+                    C->Health->ProtectionEndServerTime=0;C->Health->Health=100;C->Health->Armor=Kit?100:0;C->Health->bHelmet=true;
+                    FHitResult Hit(C,C->GetMesh(),Impact,FVector::UpVector);Hit.BoneName=Bones[I];
+                    const float Factor=I==0?(Slot==1?3.9f:4.f):I==1?1.25f:I==4?.75f:1.f;
+                    const float Raw=20*Factor*Modifiers[Slot-1];float Armor=Kit?100.f:0.f;
+                    const float Expected=ERWeaponBallistics::AbsorbArmor(Raw,I==4?2.f:Ratios[Slot-1],Armor);
+                    UGameplayStatics::ApplyPointDamage(C,20,FVector::ForwardVector,Hit,Host,Gun,UDamageType::StaticClass());
+                    Check(FMath::IsNearlyEqual(C->Health->Health,100-Expected,.01f) && FMath::IsNearlyEqual(C->Health->Armor,Armor,.01f),
+                        FString::Printf(TEXT("firearm_%d_zone_%s_armor_%d_at_12m7"),Slot,*Bones[I].ToString(),Kit));
+                }
+                C->Health->Health=100;C->Health->Armor=100;C->Health->bHelmet=false;
+                FHitResult Head(C,C->GetMesh(),Impact,FVector::UpVector);Head.BoneName=TEXT("head");
+                UGameplayStatics::ApplyPointDamage(C,20,FVector::ForwardVector,Head,Host,Gun,UDamageType::StaticClass());
+                Check(FMath::IsNearlyEqual(C->Health->Health,100-20*(Slot==1?3.9f:4.f)*Modifiers[Slot-1],.01f) && C->Health->Armor==100,
+                    FString::Printf(TEXT("firearm_%d_head_without_helmet_bypasses_armor"),Slot));
+            }
+            C->Health->bHelmet=true;
+        }
         H->TeleportTo(FVector(-400,0,5000),FRotator::ZeroRotator);
-        C->TeleportTo(FVector(-270,0,5000),FRotator(0,180,0));
+        C->TeleportTo(FVector(-320,0,5000),FRotator(0,180,0));
         H->GetCharacterMovement()->DisableMovement();C->GetCharacterMovement()->DisableMovement();
         H->ServerSelectWeapon(3);H->Weapon->MagazineAmmo=7;
         H->Health->ProtectionEndServerTime=C->Health->ProtectionEndServerTime=0;
@@ -323,6 +362,48 @@ void AERReferenceWeaponProbe::Tick(float DeltaTime)
             for(int32 I=0;I<3;++I)UGameplayStatics::ApplyPointDamage(C,20,FVector::ForwardVector,Chest,Host,Gun,UDamageType::StaticClass());
             Check(C->Health->bDead,TEXT("xm1014_six_unarmored_chest_pellets_kill"));
         }
+        Advance(24,5.f); break;
+    case 24:
+        GetWorld()->GetAuthGameMode<AERGameMode>()->RequestRespawn(Client);
+        Check(Client->GetPawn() && !CastChecked<AERCharacter>(Client->GetPawn())->Health->bDead,TEXT("headshot_notification_fresh_target"));
+        H->TeleportTo(FVector(-400,0,5000),FRotator::ZeroRotator);
+        H->GetCharacterMovement()->DisableMovement();
+        if(auto* Target=Cast<AERCharacter>(Client->GetPawn()))
+        {
+            Target->TeleportTo(FVector(-100,0,5000),FRotator(0,180,0));
+            Target->GetCharacterMovement()->DisableMovement();
+        }
+        Advance(25,.5f); break;
+    case 25:
+        {
+            C->Health->ProtectionEndServerTime=0; C->Health->Health=100; C->Health->Armor=100; C->Health->bHelmet=true;
+            H->ServerSelectWeapon(4);
+            auto* Gun=H->Weapon.Get();
+            // Teleport notifications can restore falling. This is a stationary
+            // headshot fixture, not a random shot with AK's 14-degree air cone.
+            H->GetCharacterMovement()->DisableMovement();
+            Check(FMath::IsNearlyEqual(Gun->GetSpreadDegrees(),ERWeaponAccuracy::Degrees(7.01f),.001f),
+                TEXT("headshot_fixture_uses_production_stationary_accuracy"));
+            // Aim at the collision body's centre, not the animation joint at
+            // its lower edge. Keep the production cone and real trace intact.
+            const auto* HeadBody=C->GetMesh()->GetBodyInstance(TEXT("head"));
+            Check(HeadBody!=nullptr,TEXT("headshot_fixture_has_physical_head_body"));
+            const FVector HeadCentre=HeadBody?HeadBody->GetCOMPosition():C->GetMesh()->GetSocketLocation(TEXT("head"));
+            Host->SetControlRotation((HeadCentre-H->Camera->GetComponentLocation()).Rotation()-H->GetRecoilRotation());
+            Gun->StartFire();Gun->StopFire();
+            UE_LOG(LogTemp,Display,TEXT("ER_HEADSHOT_TRACE target=%s impact=%s bone=%s cone=%.4f recoil=%s"),
+                *HeadCentre.ToString(),*Gun->LastShotTraceEnd.ToString(),
+                Gun->LastShotPelletHits.IsEmpty()?TEXT("none"):*Gun->LastShotPelletHits[0].BoneName.ToString(),
+                Gun->LastShotSpreadDegrees,*H->GetRecoilRotation().ToString());
+            Check(Gun->LastShotPelletHits.Num()==1 && Gun->LastShotPelletHits[0].GetActor()==C &&
+                !Gun->LastShotPelletHits[0].BoneName.IsNone() &&
+                ERWeaponBallistics::ZoneForBone(Gun->LastShotPelletHits[0].BoneName)==ERWeaponBallistics::EHitZone::Head,
+                TEXT("real_ak_headshot_trace_hits_head_body"));
+            Check(C->Health->bDead && Host->GameplayToast.Event==TEXT("headshot") && !Host->GameplayToast.Body.IsEmpty(),
+                TEXT("confirmed_lethal_headshot_delivers_private_catalog_message"));
+        }
+        Advance(26,.7f); break;
+    case 26:
         UE_LOG(LogTemp,Display,TEXT("ER_REFERENCE_COMPLETE result=%s"),Failed?TEXT("FAIL"):TEXT("PASS"));
         FPlatformMisc::RequestExitWithStatus(false,Failed?1:0);Advance(99,1000);break;
     }
@@ -393,58 +474,55 @@ void AERReferenceWeaponProbe::TickScopes()
         auto* H=CastChecked<AERCharacter>(Host->GetPawn());auto* C=CastChecked<AERCharacter>(Client->GetPawn());
         H->TeleportTo(FVector(-1300,-1500,95),FRotator::ZeroRotator);C->TeleportTo(FVector(-850,-1500,95),FRotator(0,45,0));
         Host->SetControlRotation(FRotator(65,0,0));Client->SetControlRotation(FRotator(0,45,0));
+        H->GetCharacterMovement()->SetMovementMode(MOVE_Walking);H->GetCharacterMovement()->Velocity=FVector::ZeroVector;
+        for(auto Item:H->Inventory)if(Item){Item->AccuracyLandingSpeed=0;Item->FiringInaccuracyAtLastShot=0;}
         H->ServerSelectWeapon(4);const float Hip=H->Weapon->GetSpreadDegrees();H->Weapon->ServerCycleScope();
         Check(H->Weapon->ScopeLevel==1 && FMath::IsNearlyEqual(Hip,H->Weapon->GetSpreadDegrees()),TEXT("assault_ads_does_not_improve_accuracy"));
         H->Weapon->ServerCycleScope();Check(H->Weapon->ScopeLevel==0,TEXT("assault_two_click_toggle"));
         H->ServerSelectWeapon(6);H->Weapon->ServerCycleScope();
-        Check(H->Weapon->GetScopeSettle()>.95f && H->Weapon->GetSpreadDegrees()>5.f,TEXT("marksman_initial_server_settle_penalty"));
+        Check(FMath::IsNearlyEqual(H->Weapon->GetSpreadDegrees(),ERWeaponAccuracy::Degrees(2.2f),.001f),TEXT("marksman_scope_uses_workbook_nonzero_minimum"));
         H->Weapon->StartFire();H->Weapon->StopFire();
-        Check(H->Weapon->LastShotSpreadDegrees>5.f && H->Weapon->ScopeLevel==0,TEXT("early_quickscope_uses_real_server_spread_and_exits"));
-        // Exercise the shared authoritative focus formula with controlled movement/posture.
+        Check(FMath::IsNearlyEqual(H->Weapon->LastShotSpreadDegrees,ERWeaponAccuracy::Degrees(2.2f),.001f) && H->Weapon->ScopeLevel==0,
+            TEXT("marksman_real_scoped_ray_uses_workbook_and_exits"));
         auto* M=CastChecked<UERMovement>(H->GetCharacterMovement());
-        M->SetMovementMode(MOVE_Walking);M->Velocity=FVector(139,0,0);M->bWantsToCrouch=false;
-        auto* Bolt=H->Weapon.Get();Bolt->ServerCycleScope();Bolt->ScopeChangedServerTime=Now-10;
-        Bolt->UpdateScopeMotion();
-        Check(Bolt->GetScopeSettle()==1.f && Bolt->GetSpreadDegrees()>5.f,TEXT("standing_marksman_walk_never_finishes_focus"));
-        M->Velocity=FVector::ZeroVector;
-        Check(Bolt->GetScopeSettle()>.8f,TEXT("standing_stop_requires_real_focus_recovery"));
-        M->bWantsToCrouch=true;M->Velocity=FVector(90,0,0);
-        Check(Bolt->GetScopeSettle()==0.f && Bolt->GetSpreadDegrees()>.2f && Bolt->GetSpreadDegrees()<.6f,TEXT("crouch_walking_marksman_has_moderate_real_spread"));
-        Bolt->ScopeChangedServerTime=Now-.03;
-        Check(Bolt->GetScopeSettle()==0.f,TEXT("crouch_scope_focus_finishes_within_thirty_ms"));
-        H->ServerSelectWeapon(5);auto* Auto=H->Weapon.Get();Auto->ServerCycleScope();Auto->ScopeChangedServerTime=Now-10;
-        M->bWantsToCrouch=false;M->Velocity=FVector::ZeroVector;
-        Auto->BloomAtLastShot=1.5f;Auto->LastSpreadShotServerTime=Now-.1;
-        const float StandingBurst=Auto->GetBloomDegrees();
-        M->bWantsToCrouch=true;
-        Check(Auto->GetBloomDegrees()<StandingBurst && Auto->GetScopeRecoilMultiplier()<=.2f,TEXT("crouch_sniper_recovers_spray_and_reduces_vertical_recoil"));
-        M->bWantsToCrouch=false;M->Velocity=FVector(139,0,0);Auto->UpdateScopeMotion();
-        Check(Auto->GetScopeBlur()>.7f && Auto->GetSpreadDegrees()>3.f,TEXT("walking_auto_sniper_has_large_real_spread_and_blur"));
-        Auto->BloomAtLastShot=0;Auto->LastSpreadShotServerTime=Now-10;
-        M->Velocity=FVector::ZeroVector;M->bWantsToCrouch=false;Auto->ClearScope();
+        M->SetMovementMode(MOVE_Walking);
         const auto SavedPosture=M->Locomotion;
         for(int32 Slot : {5,6})
         {
             H->ServerSelectWeapon(Slot);auto* Optical=H->Weapon.Get();
-            Optical->ClearScope();Optical->BloomAtLastShot=0;Optical->LastSpreadShotServerTime=Now-10;
+            Optical->ClearScope();Optical->FiringInaccuracyAtLastShot=0;Optical->AccuracyLandingSpeed=0;
+            Optical->LastSpreadShotServerTime=Now-10;
             M->Locomotion.HalfHeight=92.5f;M->Locomotion.ProneBlend=0;M->bWantsToCrouch=false;M->Velocity=FVector::ZeroVector;
-            const float HipSpread=Slot==5?5.f:8.f;
-            Check(FMath::IsNearlyEqual(Optical->GetSpreadDegrees(),HipSpread,.001f),FString::Printf(TEXT("optical_%d_saved_wider_hip_cone"),Slot));
-            M->Locomotion.HalfHeight=62.5f;M->bWantsToCrouch=true;M->Velocity=FVector(100,0,0);
-            Check(Optical->GetSpreadDegrees()>HipSpread,FString::Printf(TEXT("optical_%d_crouch_hip_motion_adds_spread"),Slot));
-            Optical->ServerCycleScope();Optical->ScopeChangedServerTime=Now-10;
+            const float HipRaw=Slot==5?26.1f:81.f;
+            Check(FMath::IsNearlyEqual(Optical->GetSpreadDegrees(),ERWeaponAccuracy::Degrees(HipRaw),.001f),
+                FString::Printf(TEXT("optical_%d_workbook_hip_standing"),Slot));
+            M->Locomotion.HalfHeight=62.5f;M->bWantsToCrouch=true;
+            const float HipLow=Slot==5?19.65f:60.8f;
+            Check(FMath::IsNearlyEqual(Optical->GetSpreadDegrees(),ERWeaponAccuracy::Degrees(HipLow),.001f),
+                FString::Printf(TEXT("optical_%d_workbook_hip_crouching"),Slot));
+            Optical->ServerCycleScope();
+            const float ScopeLow=Slot==5?1.8f:1.7f;
+            const float MoveRaw=Slot==5?150.48f:176.48f;
+            const float MaxSpeed=(Slot==5?120.f:100.f)*2.54f;
+            M->Velocity=FVector(100,0,0);
             const float CrouchMotion=Optical->GetSpreadDegrees();
-            Check(CrouchMotion>.2f && CrouchMotion<.6f,FString::Printf(TEXT("optical_%d_scoped_crouch_motion_is_moderate"),Slot));
+            Check(FMath::IsNearlyEqual(CrouchMotion,ERWeaponAccuracy::Degrees(ScopeLow+MoveRaw*100/MaxSpeed),.001f),
+                FString::Printf(TEXT("optical_%d_workbook_scoped_crouch_motion"),Slot));
             M->Locomotion.HalfHeight=34;M->Locomotion.ProneBlend=1;M->Velocity=FVector(55,0,0);
             const float CrawlMotion=Optical->GetSpreadDegrees();
-            Check(CrawlMotion>.08f && CrawlMotion<CrouchMotion,FString::Printf(TEXT("optical_%d_scoped_crawl_has_smaller_nonzero_cone"),Slot));
+            Check(FMath::IsNearlyEqual(CrawlMotion,ERWeaponAccuracy::Degrees(ScopeLow+MoveRaw*55/MaxSpeed),.001f),
+                FString::Printf(TEXT("optical_%d_crawl_uses_crouch_profile_and_actual_speed"),Slot));
             M->Velocity=FVector::ZeroVector;
-            Check(Optical->GetSpreadDegrees()<.001f,FString::Printf(TEXT("optical_%d_stationary_prone_scope_stays_precise"),Slot));
+            Check(FMath::IsNearlyEqual(Optical->GetSpreadDegrees(),ERWeaponAccuracy::Degrees(ScopeLow),.001f),
+                FString::Printf(TEXT("optical_%d_stationary_prone_keeps_workbook_minimum"),Slot));
             M->Locomotion.HalfHeight=62.5f;M->Locomotion.ProneBlend=0;
-            Check(Optical->GetSpreadDegrees()<.001f,FString::Printf(TEXT("optical_%d_stationary_crouch_scope_stays_precise"),Slot));
+            Check(FMath::IsNearlyEqual(Optical->GetSpreadDegrees(),ERWeaponAccuracy::Degrees(ScopeLow),.001f),
+                FString::Printf(TEXT("optical_%d_stationary_crouch_keeps_workbook_minimum"),Slot));
             Optical->ClearScope();M->Locomotion.HalfHeight=34;M->Locomotion.ProneBlend=1;M->Velocity=FVector(55,0,0);
-            Check(Optical->GetSpreadDegrees()>HipSpread,FString::Printf(TEXT("optical_%d_crawl_hip_motion_adds_spread"),Slot));
-            UE_LOG(LogTemp,Display,TEXT("ER_SCOPE_ACCURACY slot=%d hip=%.3f crouch=%.3f crawl=%.3f"),Slot,HipSpread,CrouchMotion,CrawlMotion);
+            const float HipMax=(Slot==5?215.f:200.f)*2.54f;
+            Check(FMath::IsNearlyEqual(Optical->GetSpreadDegrees(),ERWeaponAccuracy::Degrees(HipLow+MoveRaw*55/HipMax),.001f),
+                FString::Printf(TEXT("optical_%d_workbook_crawl_without_scope"),Slot));
+            UE_LOG(LogTemp,Display,TEXT("ER_SCOPE_ACCURACY slot=%d hip=%.3f crouch=%.3f crawl=%.3f"),Slot,ERWeaponAccuracy::Degrees(HipRaw),CrouchMotion,CrawlMotion);
         }
         M->Locomotion=SavedPosture;M->Velocity=FVector::ZeroVector;M->bWantsToCrouch=false;
         C->Health->ProtectionEndServerTime=Now+120;
@@ -456,9 +534,11 @@ void AERReferenceWeaponProbe::TickScopes()
     auto* C=CastChecked<AERCharacter>(Client->GetPawn());auto* W=C->Weapon.Get();
     const uint8 Expected[]={0,1,0,0,1,2,0,0,1,2,0,1,0,0,1,1,0,0,0,0,1,1,0,0,0,0};
     Check(W->ScopeLevel==Expected[Phase-100],FString::Printf(TEXT("scope_server_level_%d"),Phase));
-    if(Phase==103 || Phase==107)Check(FMath::IsNearlyEqual(W->GetSpreadDegrees(),Phase==103?5.f:8.f,.001f),TEXT("optical_owner_has_updated_hip_spread"));
+    const float AccuracyResidual=W->GetFiringInaccuracy()+(W->AccuracyLandingSpeed>0 ?
+        ERWeaponAccuracy::Recover(W->AccuracyLandingImpulse,Now-W->AccuracyLandingServerTime,W->AccuracyLandingRecoveryTime):0.f);
+    if(Phase==103 || Phase==107)Check(FMath::IsNearlyEqual(W->GetSpreadDegrees(),ERWeaponAccuracy::Degrees((Phase==103?26.1f:81.f)+AccuracyResidual),.001f),TEXT("optical_owner_has_updated_hip_spread"));
     if(Phase==104 || Phase==108)
-        Check(W->GetSpreadDegrees()<.001f && W->GetScopeFOV()==40.f,TEXT("settled_stationary_scope_is_straight_fov40"));
+        Check(FMath::IsNearlyEqual(W->GetSpreadDegrees(),ERWeaponAccuracy::Degrees((Phase==104?2.3f:2.2f)+AccuracyResidual),.001f) && W->GetScopeFOV()==40.f,TEXT("settled_stationary_scope_has_workbook_minimum_fov40"));
     if(Phase==105 || Phase==109)Check(W->GetScopeFOV()==10.f,TEXT("second_zoom_fov10"));
     if(Phase==112)Check(W->AuthorizedShotCount>0 && W->ScopeLevel==0,TEXT("marksman_shot_exits_scope"));
     if(Phase==115)Check(W->AuthorizedShotCount>0 && W->ScopeLevel==1,TEXT("sniper_shot_keeps_scope"));

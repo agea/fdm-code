@@ -15,6 +15,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 group = parser.add_mutually_exclusive_group()
 group.add_argument('--shot-feedback', action='store_true', help='Check authorized shot feedback on host and remote client')
 group.add_argument('--accuracy', action='store_true', help='Check real spread, burst recovery and owner replication')
+group.add_argument('--recoil', action='store_true', help='Check worksheet recoil, real aim and owner camera replication')
 parser.add_argument('--render-size', type=int, nargs=2, default=[1280, 720], metavar=('WIDTH', 'HEIGHT'), help='Metal viewport dimensions')
 parser.add_argument('--render', action='store_true', help='Capture kill HUD and death camera using Metal')
 parser.add_argument('--skins', action='store_true', help='Validate non-default cosmetics, RPC selection and corpse identity')
@@ -32,9 +33,9 @@ if args.render: common[-1] += ',DisableAllScreenMessages'
 common += ['-windowed', '-ResX=' + str(args.render_size[0]), '-ResY=' + str(args.render_size[1]), '-ERMessagesGallery'] if args.render else ['-nullrhi']
 if args.shot_feedback:
     common.append('-ERShotAudit')
-port = '17783' if args.accuracy else '17777'
-label = 'accuracy' if args.accuracy else 'network'
-probe = '-ERAccuracyProbe' if args.accuracy else '-ERNetworkProbe'
+port = '17784' if args.recoil else '17783' if args.accuracy else '17777'
+label = 'recoil' if args.recoil else 'accuracy' if args.accuracy else 'network'
+probe = '-ERRecoilProbe' if args.recoil else '-ERAccuracyProbe' if args.accuracy else '-ERNetworkProbe'
 if args.skins: common.append('-ERSkinProbe')
 if args.phase_belica: common.append('-ERPhaseBelicaProbe')
 processes = []
@@ -44,7 +45,7 @@ try:
     handles.append(host_log)
     # Preserve the original 36-damage/no-armor fixture for its exact HP checks;
     # the current catalog is covered separately by test-reference-weapons.py.
-    baseline = '' if args.accuracy else '?ERLegacyArsenal=1'
+    baseline = '' if args.accuracy or args.recoil else '?ERLegacyArsenal=1'
     host = subprocess.Popen(common + ["/Game/EclipseRecoil/Maps/L_Depot?listen?Name=Host" + baseline + ("?AlphaSkin=8?OmegaSkin=7" if args.phase_belica else "?AlphaSkin=3?OmegaSkin=2" if args.skins else ""), '-port=' + port, probe], stdout=host_log, stderr=subprocess.STDOUT)
     processes.append(host)
     deadline = time.monotonic() + 45
@@ -67,9 +68,18 @@ try:
     if host.poll() is None:
         raise RuntimeError("Network probe timed out")
     output = (logs / (label + '-host.log')).read_text(errors="replace")
-    markers = [line for line in output.splitlines() if "ER_TEST_" in line or "ER_NETWORK_PROBE_COMPLETE" in line or 'ER_ACCURACY_' in line]
+    markers = [line for line in output.splitlines() if "ER_TEST_" in line or "ER_NETWORK_PROBE_COMPLETE" in line or 'ER_ACCURACY_' in line or 'ER_RECOIL_' in line]
     print("\n".join(markers))
     success = "ER_NETWORK_PROBE_COMPLETE result=PASS" in output and "ER_TEST_FAIL" not in output
+    if args.recoil:
+        remote = (logs / 'recoil-client.log').read_text(errors='replace')
+        success = 'ER_RECOIL_COMPLETE result=PASS' in output and 'ER_RECOIL_FAIL' not in output
+        for marker in ['owner_camera_and_input', 'owner_recovery']:
+            passed = 'ER_RECOIL_CLIENT_PASS ' + marker in remote and 'ER_RECOIL_CLIENT_FAIL' not in remote
+            print('ER_RECOIL_' + ('PASS' if passed else 'FAIL'), marker)
+            success = success and passed
+        print('Logs:', logs)
+        sys.exit(0 if success else 1)
     if args.accuracy:
         remote = (logs / (label + '-client.log')).read_text(errors='replace')
         expected = ['owner_base_data', 'owner_ammo_bloom_replicated', 'owner_clock_recovers_bloom']

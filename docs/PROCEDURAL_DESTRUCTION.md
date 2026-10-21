@@ -1,5 +1,15 @@
 # Respawn & Rage — procedural destruction laboratory
 
+Current bullet rule (21 October): each crossed 5cm cell subtracts its **current
+HP** from a single damage budget. 100 through60HP leaves40; a surviving cell or
+zero budget stops the ray. Empty cells cost nothing; indestructible cover blocks.
+The budget continues across panels and rooms. This replaces the historical
+entry/per-cm energy costs and structural bullet multipliers documented below.
+Material HP/reinforcement and the blast/exposure rules are preserved. Residual
+character hits receive worksheet distance attenuation, anatomical multiplier and
+armor once. Historical energy/structural properties remain serialized only for
+asset compatibility; maximum traversal limits still apply.
+
 Respawn & Rage is a tactical multiplayer FPS. This procedural laboratory adds
 a logical block world with penetration and radial destruction to the existing UE 5.8.3 project and FPS controls.
 The imported design is [PROCEDURAL_DESTRUCTION_SPEC.md](PROCEDURAL_DESTRUCTION_SPEC.md).

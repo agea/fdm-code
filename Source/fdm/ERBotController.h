@@ -24,7 +24,7 @@ public:
     bool bMovementOnly = false;
     float MovementPhaseOffset=0;
     bool bTrainingTarget = false;
-    int32 TrainingWeaponSlot = INDEX_NONE;
+    int32 SpawnWeaponSlot = INDEX_NONE;
     UPROPERTY() TObjectPtr<class AERTeamPlayerStart> TrainingStart;
     bool bAwaitingRespawn = false;
     double RespawnAllowedAt = 0;

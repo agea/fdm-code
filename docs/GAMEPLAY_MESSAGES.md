@@ -39,6 +39,12 @@ profile below. It uses server-confirmed positive damage/deaths, actual anatomica
 hit bones, server shot origin/range, ammo after the authorized shot, melee/grenade
 payloads, victim reload/cook state captured before cancellation, match scores and
 the official result. No hit-location award is guessed from capsule hits.
+All six current Bullet firearm profiles enable skeletal hit zones (21 October
+CS2 workbook update). A Headshot recognition requires the lethal bullet/pellet
+to hit the head/neck and competes with higher-priority awards. The reference LAN
+probe verifies a real AK headshot against full armor/helmet and its notification.
+The supplied headshot target array is empty, so that bonus is killer-only;
+both participants still receive the mandatory ordinary kill confirmation.
 
 Independent shuffle bags per player/event/audience draw without replacement and
 avoid repeating at a bag boundary. Missing placeholders filter variants; a label
