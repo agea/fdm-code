@@ -1,5 +1,35 @@
 # Respawn & Rage Unreal development
 
+HUD visual refinement (21 October, subsequent request): shrink minimap radius
+by15% to97.92 reference units (13.6% height at16:9), raise its top inset from90
+to64 reference units (8.889% height), retaining its percentage right anchor.
+Use darker shared sRGB vitals/icon colors: health154/84/84, armor86/132/100,
+stamina82/130/154, with darker empty tracks. Keep all proportional scaling.
+
+HUD viewport proportions (21 October, latest request): supersedes the fixed-pixel
+minimap cap and clamped HUD scales below. Use ERHUDLayout for all gameplay HUD
+and FPS dimensions: reference1280x720 coordinates are fractions of current
+viewport width/height; horizontal and vertical edge offsets scale independently.
+Use min(width/1280,height/720) without min/max pixel caps for isotropic text,
+circles, bars, markers, strokes and shadows. Measure text before corner anchoring;
+recompute from the live viewport on resize/fullscreen changes, independent of
+3D dynamic resolution and the1080p scene cap. Preserve the real FOV/spread
+projection and40m recon world radius/look-ahead. Run scripts/test-hud.py and
+--render; inspect the seven live resized HUD/scoreboard capture pairs.
+
+Vitals/minimap revision (21 October, latest request): supersedes the earlier
+HP/AP text and labeled stamina layout. Three equal proportional Canvas bars,
+top to bottom health red, armor green, stamina light blue, with left-hand
+medical cross/shield/running-person silhouettes and no vitals text or numbers.
+Use darker pastel red/green/light blue for both bars and icons; the runner
+supersedes the initial lightning icon.
+Stamina stays blue while sprinting. Keep the shared viewport-scaled40 inset
+and posture prompt above the group; use the existing replicated values.
+Code-drawn icons require no texture assets. The heading-up minimap retains its
+40m radius, but centers26m ahead along local yaw: owner at65% radius below
+disc center with35% lower margin. Translate terrain/fog/contacts together;
+preserve server visibility, world fog, capture and clipping behavior.
+
 Bullet aim punch and damage HUD (21 October, latest request): supersedes ALL
 older cosmetic-only damage-flinch rules below and in DEVELOPMENT.md. Positive,
 nonlethal server-accepted Bullet point damage adds pitch/yaw to the pawn's

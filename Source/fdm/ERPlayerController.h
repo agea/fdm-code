@@ -239,10 +239,14 @@ public:
         float Scale = 1.3f, bool Centered = false);
 private:
     void DrawDamageFeedback(const class AERCharacter* Character);
+    void DrawVitals(const class AERCharacter* Character);
+    void TickHUDLayoutGallery();
+    int32 HUDGalleryStep = 0;
+    double HUDGalleryNextAt = 6;
     FVector2D DrawHUDTextAnchored(const FString& Value, FVector2D Position, FLinearColor Color,
         float Scale, FVector2D Anchor);
     UPROPERTY(Transient) TObjectPtr<class UFont> HUDTypeface;
     TWeakObjectPtr<class AERWeapon> ReticleWeapon;
-    float ReticleRadius = 0;
+    float ReticleRadius = 0; // Fraction of viewport width, so resizing has no pixel lag.
     double NextReticleAuditAt = 0;
 };

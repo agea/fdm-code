@@ -1,5 +1,6 @@
 #include "ERPlayerController.h"
 #include "ERCharacter.h"
+#include "ERHUDLayout.h"
 #include "Engine/Canvas.h"
 #include "CanvasItem.h"
 #include "Engine/Texture.h"
@@ -9,7 +10,7 @@ void AERHUD::DrawDamageFeedback(const AERCharacter* Character)
     if(!Character || Character->Health->bDead || PlayerOwner->GetViewTarget()!=Character)return;
     const auto& Events=Character->GetDamageVisuals();
     if(Events.IsEmpty())return;
-    const float W=Canvas->SizeX,H=Canvas->SizeY,Scale=H/720.f;
+    const float W=Canvas->SizeX,H=Canvas->SizeY,Scale=FERHUDLayout(FVector2D(W,H)).Scale;
     const FVector2D Center(W*.5f,H*.5f);
     const double Now=GetWorld()->GetTimeSeconds();
     TArray<FCanvasUVTri> Triangles;
@@ -49,7 +50,7 @@ void AERHUD::DrawDamageFeedback(const AERCharacter* Character)
         if(Alpha<=0 || Source.IsNearlyZero())continue; // Falls have no compass bearing.
         const float Angle=FMath::Atan2(FVector::DotProduct(Source,Right),FVector::DotProduct(Source,Forward))-PI*.5f;
         // Front above, right to the right, rear below; rotates with current view.
-        const float Radius=H*.17f;
+        const float Radius=720.f*.17f*Scale;
         for(int32 Band=0;Band<2;++Band)
         {
             const float R=Radius+Band*7.f*Scale,Width=(Band?1.5f:4.f)*Scale;

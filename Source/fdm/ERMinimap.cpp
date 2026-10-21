@@ -1,4 +1,5 @@
 #include "ERRecon.h"
+#include "ERHUDLayout.h"
 #include "ERPlayerController.h"
 #include "ERBlockRoom.h"
 #include "EngineUtils.h"
@@ -17,10 +18,14 @@ void AERReconDirector::DrawMinimap(AERHUD* HUD, AERPlayerController* PC)
     const auto* PS = PC->GetPlayerState<AERPlayerState>();
     if (!PS || Data.Team != PS->Team || Data.Team == EERTeam::None || Data.Epoch != Frame.Epoch) return;
     UCanvas* Canvas = HUD->Canvas;
-    const float Radius=FMath::Clamp(Canvas->SizeY*.16f,82.f,145.f);
-    const FVector2D Center(Canvas->SizeX-Radius-30,Radius+90);
+    const FERHUDLayout Layout(FVector2D(Canvas->SizeX,Canvas->SizeY));
+    const float Scale=Layout.Scale, Radius=Layout.MinimapRadius();
+    const FVector2D Center=Layout.MinimapCenter();
     constexpr float ViewSpan=8000.f; // Fixed 80m diameter, independent of map extent.
-    const FVector ViewCenter=PC->GetPawn() ? PC->GetPawn()->GetActorLocation() : Frame.Center;
+    // Look ahead in the same yaw basis used by terrain, fog and contacts.
+    // The owner sits 65% of the radius below center, leaving 35% to the rim.
+    const float ViewYaw=PC->GetControlRotation().Yaw;
+    const FVector ViewCenter=PC->GetPawn() ? PC->GetPawn()->GetActorLocation()+FRotator(0,ViewYaw,0).Vector()*(ViewSpan*.5f*.65f) : Frame.Center;
     const FVector Offset=(ViewCenter-Frame.Center)/Frame.Span;
     const FVector2D MapOrigin(Offset.Y,-Offset.X);
     const float MapScale=Frame.Span/ViewSpan;
@@ -29,13 +34,13 @@ void AERReconDirector::DrawMinimap(AERHUD* HUD, AERPlayerController* PC)
     constexpr int32 DiscSegments=128;
     const auto Color = ERRecon::TeamColor(Data.Team);
     // Use the same local heading as the owner's marker, every rendered frame.
-    const float ViewYaw=PC->GetControlRotation().Yaw;
     float Sin, Cos; FMath::SinCos(&Sin,&Cos,FMath::DegreesToRadians(ViewYaw));
     // Fog and the cached bird image retain their shared world-space grid.
     // Rotate every displayed position around the disc using the same basis.
     auto Orient = [&](const FVector2D& P) { return FVector2D(Cos*P.X+Sin*P.Y,-Sin*P.X+Cos*P.Y); };
     auto Circle = [&](FVector2D At,float R,FLinearColor Ink,float Feather=1.f)
     {
+        Feather*=Scale;
         TArray<FCanvasUVTri> Tris;
         auto Add = [&](FVector2D A,FLinearColor CA,FVector2D B,FLinearColor CB,FVector2D C,FLinearColor CC)
         {
@@ -56,8 +61,8 @@ void AERReconDirector::DrawMinimap(AERHUD* HUD, AERPlayerController* PC)
         FCanvasTriangleItem Item(Tris,GWhiteTexture); Item.BlendMode=SE_BLEND_Translucent; Canvas->DrawItem(Item);
     };
     // A feathered circular shadow, followed by an antialiased dark frame.
-    Circle(Center+FVector2D(0,4),Radius+17,FLinearColor(0,0,0,.5),16);
-    Circle(Center,Radius+5,FLinearColor(.005,.009,.014,.96),1.5);
+    Circle(Center+FVector2D(0,4)*Scale,Radius+17*Scale,FLinearColor(0,0,0,.5),16);
+    Circle(Center,Radius+5*Scale,FLinearColor(.005,.009,.014,.96),1.5);
     Circle(Center,Radius,FLinearColor(.015,.021,.028,1),1.25);
     const bool HasImage = CapturedEpoch == Frame.Epoch && BirdView && BirdView->GetResource();
     const FTexture* Texture=HasImage ? BirdView->GetResource() : GWhiteTexture;
@@ -96,7 +101,7 @@ void AERReconDirector::DrawMinimap(AERHUD* HUD, AERPlayerController* PC)
             Tri.V0_UV=ToUV(Polygon[0]); Tri.V1_UV=ToUV(Polygon[I]); Tri.V2_UV=ToUV(Polygon[I+1]);
             const float Shade=HasImage ? .85f : .22f;
             const auto EdgeInk = [&](const FVector2D& P)
-            { return FLinearColor(Shade,Shade,Shade,FMath::Clamp((1.f-P.Size())*Radius/1.25f,0.f,1.f)); };
+            { return FLinearColor(Shade,Shade,Shade,FMath::Clamp((1.f-P.Size())*Radius/(1.25f*Scale),0.f,1.f)); };
             Tri.V0_Color=EdgeInk(Polygon[0]); Tri.V1_Color=EdgeInk(Polygon[I]); Tri.V2_Color=EdgeInk(Polygon[I+1]);
             Tiles.Add(Tri);
         }
@@ -121,32 +126,32 @@ void AERReconDirector::DrawMinimap(AERHUD* HUD, AERPlayerController* PC)
         if (Distance>Radius) continue;
         // Keep a known contact near the rim legible instead of discarding it
         // merely because its outlined marker would overlap the circular edge.
-        if (Distance>Radius-9) P=Center+(P-Center)*((Radius-9)/Distance);
+        if (Distance>Radius-9*Scale) P=Center+(P-Center)*((Radius-9*Scale)/Distance);
         const auto Ink=ERRecon::TeamColor(Contact.Team);
         if (Contact.Drone)
         {
-            for (const FVector2D D : {FVector2D(1,1),FVector2D(1,-1)}) HUD->DrawLine(P.X-D.X*4,P.Y-D.Y*4,P.X+D.X*4,P.Y+D.Y*4,Ink,1.7);
+            for (const FVector2D D : {FVector2D(1,1),FVector2D(1,-1)}) HUD->DrawLine(P.X-D.X*4*Scale,P.Y-D.Y*4*Scale,P.X+D.X*4*Scale,P.Y+D.Y*4*Scale,Ink,1.7f*Scale);
             continue;
         }
         const bool Enemy=Contact.Team!=Data.Team;
         if (Enemy)
         {
             ++LastDrawnEnemies;
-            Circle(P,8,FLinearColor(.95,.95,.95,1)); Circle(P,6.7,FLinearColor::Black);
+            Circle(P,8*Scale,FLinearColor(.95,.95,.95,1)); Circle(P,6.7f*Scale,FLinearColor::Black);
             TArray<FCanvasUVTri> Diamond;
             for (int32 I=0;I<2;++I)
             {
                 FCanvasUVTri Tri;
-                Tri.V0_Pos=P+FVector2D(0,I?-5.2:5.2); Tri.V1_Pos=P+FVector2D(I?5.2:-5.2,0); Tri.V2_Pos=P+FVector2D(I?-5.2:5.2,0);
+                Tri.V0_Pos=P+FVector2D(0,I?-5.2:5.2)*Scale; Tri.V1_Pos=P+FVector2D(I?5.2:-5.2,0)*Scale; Tri.V2_Pos=P+FVector2D(I?-5.2:5.2,0)*Scale;
                 Tri.V0_UV=Tri.V1_UV=Tri.V2_UV=FVector2D::ZeroVector; Tri.V0_Color=Tri.V1_Color=Tri.V2_Color=Ink;
                 Diamond.Add(Tri);
             }
             FCanvasTriangleItem Item(Diamond,GWhiteTexture); Item.BlendMode=SE_BLEND_Translucent; Canvas->DrawItem(Item);
         }
-        else { Circle(P,Contact.Self?7:5.5,FLinearColor::Black); Circle(P,Contact.Self?5.2:4.2,Ink); }
+        else { Circle(P,(Contact.Self?7:5.5)*Scale,FLinearColor::Black); Circle(P,(Contact.Self?5.2:4.2)*Scale,Ink); }
         const float Angle=FMath::DegreesToRadians(Yaw);
         const FVector2D Forward=Orient(FVector2D(FMath::Sin(Angle),-FMath::Cos(Angle)));
-        HUD->DrawLine(P.X,P.Y,P.X+Forward.X*10,P.Y+Forward.Y*10,Contact.Self?FLinearColor::White:Ink,1.5);
+        HUD->DrawLine(P.X,P.Y,P.X+Forward.X*10*Scale,P.Y+Forward.Y*10*Scale,Contact.Self?FLinearColor::White:Ink,1.5f*Scale);
     }
     if (LastHUDSample!=Data.SampleTime && FParse::Param(FCommandLine::Get(),TEXT("ERReconAudit")))
     {
@@ -160,7 +165,7 @@ void AERReconDirector::DrawMinimap(AERHUD* HUD, AERPlayerController* PC)
         const FVector2D DA(FMath::Cos(A),FMath::Sin(A)), DB(FMath::Cos(B),FMath::Sin(B));
         for (int32 Band=0; Band<2; ++Band)
         {
-            const float Inner=Radius-1.5f+Band*1.5f, Outer=Inner+1.5f;
+            const float Inner=Radius+(-1.5f+Band*1.5f)*Scale, Outer=Inner+1.5f*Scale;
             const auto CI=Color.CopyWithNewOpacity(Band ? .75f : 0.f), CO=Color.CopyWithNewOpacity(Band ? 0.f : .75f);
             FCanvasUVTri T;
             T.V0_Pos=Center+DA*Inner; T.V1_Pos=Center+DA*Outer; T.V2_Pos=Center+DB*Outer;
@@ -169,14 +174,12 @@ void AERReconDirector::DrawMinimap(AERHUD* HUD, AERPlayerController* PC)
         }
     }
     FCanvasTriangleItem RimItem(Rim,GWhiteTexture); RimItem.BlendMode=SE_BLEND_Translucent; Canvas->DrawItem(RimItem);
-    const FVector2D North=Center+Orient(FVector2D(0,-1))*(Radius+18);
-    const float TextScale=FMath::Clamp(Canvas->SizeY/720.f,.75f,2.f);
-    // The disc is capped in pixels, so its labels must follow its size too.
-    const float LabelScale=Radius/115.2f;
-    HUD->DrawHUDText(TEXT("N"),North.X,North.Y-14*LabelScale,FLinearColor::White,.85f*LabelScale/TextScale,true);
+    const FVector2D North=Center+Orient(FVector2D(0,-1))*(Radius+18*Scale);
+    HUD->DrawHUDTextAnchored(TEXT("N"),North,FLinearColor::White,.85f,FVector2D(.5f,.5f));
     FString Status=FString::Printf(TEXT("RECON  %d / 5"),Data.Remaining);
     if (Data.Airborne) Status+=TEXT("  •  LIVE");
     else if (Data.NextLaunch>0) Status+=FString::Printf(TEXT("  •  %ds"),FMath::Max(0,FMath::CeilToInt(Data.NextLaunch-Now)));
     else Status+=TEXT("  •  OFFLINE");
-    HUD->DrawHUDText(Status,Center.X,Center.Y+Radius+30+20*LabelScale,Color,.9f*LabelScale/TextScale,true);
+    // Keep longer OFFLINE/countdown labels inside the same right screen inset.
+    HUD->DrawHUDTextAnchored(Status,FVector2D(Layout.Position(1250,0).X,Center.Y+Radius+50*Scale),Color,.9f,FVector2D(1,0));
 }

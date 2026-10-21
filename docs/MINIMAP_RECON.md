@@ -1,11 +1,23 @@
 # Minimap and reconnaissance drones
 
+21 October2026 viewport sizing: ERHUDLayout replaces the82–145px radius clamp.
+The disc, contacts, strokes, feathers and labels share the uniform viewport
+scale min(width/1280,height/720), with no pixel cap. Latest visual refinement:
+15% smaller disc and raised top inset. At16:9 the radius is13.6%
+of height; right/top offsets are2.34375% of width/8.889% of height. Recompute
+on every draw, preserving circular geometry,40m world radius and26m look-ahead.
+The status label aligns to the disc's right screen inset so longer OFFLINE or
+countdown text remains inside the viewport after the size reduction.
+
+
 The circular minimap sits at the top right, below the FPS readout. It follows
 the local player's heading: forward is always up, for either team. Terrain,
 fog, contacts, heading ticks and the north reference rotate together every
 rendered frame using the controller's yaw. The owner's direction tick stays
-up. The view follows the owner's current position and shows a fixed 40m radius
-(80m diameter), clipping larger maps instead of shrinking them. Small maps can
+up. The view center follows a point 26m ahead of the owner's current position
+along the local controller yaw. The owner sits 65% of the radius below the disc
+center, with 35% of the radius left to the lower rim, showing more terrain ahead.
+The view shows a fixed 40m radius (80m diameter), clipping larger maps instead of shrinking them. Small maps can
 fit within that range. Terrain UVs and the shared fog mask retain their original
 world coordinates while the view moves and rotates. This works for generated and
 authored maps, without waiting for a server sight update when turning.

@@ -1,5 +1,18 @@
 # Inventario asset — primo prototipo locale
 
+21 ottobre2026 — ritocco HUD successivo: minimappa15% più piccola e rialzata;
+barre/icone e tracce vuote più scure, soltanto costanti di layout/colore in codice.
+Nessun asset aggiunto o modificato.
+
+21 ottobre2026 — HUD proporzionale: solo layout/geometria Canvas e scala Slate
+in codice, con acquisizioni locali di verifica in Saved/Testing/HUD.
+Nessun asset binario, font, texture o sorgente esterna aggiunto/modificato.
+
+21 ottobre2026 — icone vitali proprie: croce salute, scudo armatura e uomo in corsa
+per la stamina disegnati su Canvas in `Source/fdm/ERVitalsHUD.cpp`, insieme alle tre
+barre rosso/verde/azzurro. Nessuna texture, font di simboli, sorgente esterna o
+asset binario aggiunto; minimappa modificata soltanto nella proiezione HUD.
+
 21 ottobre2026 — audio passi/spari/fumogena: 28 take reali distinti per le sei
 armi Bullet (4/6/4/6/4/4), 41 campioni passi (8 ciascuno hard/wood/metal/grass/
 gravel, uno light hard), 13 SoundCue e relativi DataAsset; impostazioni di

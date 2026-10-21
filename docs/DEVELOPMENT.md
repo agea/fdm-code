@@ -1,5 +1,51 @@
 # Respawn & Rage — sviluppo Unreal
 
+## Ritocco visivo HUD — 21 ottobre 2026
+
+Su richiesta successiva minimappa15% più piccola (raggio13,6% dell'altezza
+in16:9) e più in alto: margine superiore da12,5% a8,889% dell'altezza.
+Margine destro e scala proporzionale invariati. Barre e icone ulteriormente
+scurite: salute sRGB154/84/84, armatura86/132/100, stamina82/130/154;
+anche le tracce vuote sono più scure per mantenere leggibili i riempimenti.
+La scritta RECON usa lo stesso margine destro del disco per contenere anche
+i messaggi OFFLINE/countdown più lunghi.
+
+## HUD proporzionale al viewport — 21 ottobre 2026
+
+Rimossi il raggio minimappa limitato a82–145 pixel e i limiti di scala HUD.
+`ERHUDLayout` trasforma le coordinate di riferimento1280×720 in percentuali
+sui due assi del viewport corrente. I margini inferiori40 diventano3,125%
+della larghezza e5,556% dell'altezza; ogni elemento resta ancorato al proprio
+lato/angolo. La minimappa conserva margine destro2,344% e superiore12,5%.
+Testi, barre, icone, contatti, bordi, ombre e indicatore FPS condividono una
+scala uniforme min(larghezza/1280, altezza/720), senza deformare cerchi o simboli.
+A16:9 il raggio minimappa è16% dell'altezza, anche a1080p/4K; sugli altri
+formati si adatta all'asse limitante. Punteggi, timer, messaggi e tabellone
+usano posizioni percentuali. L'FPS Slate usa la geometria locale con DPI già
+applicato; il testo Canvas mantiene la misura DPI corretta prima dell'ancoraggio.
+Il reticolo conserva la proiezione della dispersione reale/FOV e memorizza il
+raggio come frazione della larghezza per non trascinare i pixel della precedente
+risoluzione. Nessuna modifica a regole di gioco, visibilità server, scala40m,
+offset26m, asset o risoluzione dinamica3D. Verifica con `scripts/test-hud.py`
+e `--render`, che ridimensiona lo stesso viewport e acquisisce HUD/tabellone
+su sette dimensioni/formati, inclusi360p,4K,ultrawide,4:3 e verticale.
+
+## Barre vitali e minimappa in avanti — 21 ottobre 2026
+
+HUD in basso a sinistra unificato in tre barre proporzionali da180×8 unità
+Canvas, nell'ordine dall'alto salute rossa, armatura verde e stamina azzurra.
+A sinistra croce, scudo e uomo stilizzato in corsa disegnati con geometria Canvas propria;
+colori pastello più scuri condivisi da barre e simboli (rosso190/112/112,
+verde116/163/128, azzurro112/164/190 in sRGB), su successiva richiesta dell'utente.
+nessun testo/numero per i tre valori e nessun cambio colore durante lo sprint.
+Icone, barre, spazi e margine40 scalano insieme al viewport; l'indicazione
+prone resta sopra il gruppo. Valori salute/armatura replicati e frazione stamina
+esistenti, senza nuove regole di gioco o asset salvati.
+La minimappa mantiene raggio40m e orientamento forward-up: centro della vista
+26m davanti al pawn lungo lo yaw locale, marker owner al65% del raggio sotto
+il centro, con35% di margine al bordo. Terreno, fog e contatti condividono
+la stessa traslazione prima della rotazione e del clipping circolare.
+
 ## Aim punch e feedback rosso del danno — 21 ottobre 2026
 
 Implementata la specifica `RESPAWN_AND_RAGE_AIM_PUNCH.md` sul rinculo da fuoco

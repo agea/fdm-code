@@ -1,5 +1,41 @@
 # Verifiche locali — 21 ottobre 2026
 
+## 21 ottobre 2026 — colori pastello e icona corsa
+
+Su richiesta successiva, barre e simboli usano rosso, verde e azzurro più scuri
+e desaturati, con palette sRGB condivisa. Il fulmine stamina è sostituito da
+una figura inclinata in corsa, con testa circolare e braccia/gambe piegate.
+Build Editor Mac Development arm64 riuscita; galleria locale Metal1280×720
+terminata con exit0 e `ER_RECON_GALLERY_COMPLETE`. Ispezionata la cattura
+`Saved/Testing/Vitals/pastel-runner.png`: tinte attenuate coerenti fra barre
+e icone, figura della corsa leggibile e layout preservato. Log:
+`Saved/Testing/vitals-pastel-build.log` e `vitals-pastel-render.log`.
+Modifica solo visiva; nessun asset binario o regola di movimento modificati.
+
+## 21 ottobre 2026 — tre barre vitali e minimappa decentrata
+
+Build Editor Mac Development arm64 UE5.8.3 riuscita. Le tre barre Canvas
+condividono dimensioni, sfondo e scala; salute rossa con croce, armatura verde
+con scudo e stamina azzurra con fulmine, senza etichette o valori numerici.
+Nessun asset binario modificato. `git diff --check` passato.
+
+PASS `test-movement.py --posture-only --render` (exit0): input reali remoti
+W/E, doppioW, crouch/prone, consumo10s/recupero20s, ripartenza parziale e replica
+owner. Quattro catture Metal1280×720 aggiornate in `Saved/Testing/Stamina/`.
+Ispezionata `Phase45.png`: barre nell'ordine richiesto, salute/armatura piene,
+stamina parziale azzurra, icone leggibili e nessun testo vitale. Marker owner
+sotto il centro della minimappa, con margine dal bordo; terreno allineato.
+Log riepilogativo: `Saved/Testing/vitals-movement-render.log`.
+
+PASS `test-recon.py --render` (exit0), host Metal e tre client locali:
+marker nemico effettivamente disegnato, sight/fog condivisi, smoke, late join,
+scadenza contatti e ciclo droni. Ispezionata `Recon02_Minimap.png` con yaw180°:
+owner ancora in basso con tick verso l'alto, alleato e terreno coerenti,
+clipping sul cerchio e riferimentoN ruotato in basso. La cattura stamina
+verifica invece yaw0°. Ricevuta `Saved/Testing/recon-metal-report.json`;
+log riepilogativo `Saved/Testing/vitals-recon-render.log`.
+Verifica locale tramite modulo Editor; nessun nuovo cook/package eseguito.
+
 ## 21 ottobre 2026 — aim punch reale e feedback rosso del danno
 
 Implementata la specifica dell'utente in [AIM_PUNCH.md](AIM_PUNCH.md). Il rinculo
@@ -5136,3 +5172,64 @@ session destruction and exited without the earlier shutdown crash. The final
 build succeeded, `git diff --check` passed, and a second credential-content scan
 confirmed mode0600, Git ignore/untracked status and no secret in Git-eligible
 files. EOS_Shutdown returned EOS_Success. No live test server was left running.
+
+
+## 21 October 2026 — proportional viewport HUD
+
+- Editor arm64 Development build: **PASS** (`scripts/build-editor.command`).
+  Shared ERHUDLayout applies independent percentage edge coordinates and an
+  uncapped uniform scale to Canvas HUD and Slate FPS. Existing unrelated UE
+  deprecation warnings remain in the build log.
+- `python3 scripts/test-hud.py`: **PASS**, native
+  EclipseRecoil.Player.HUDViewportLayout, process exit0. Checks proportional
+  sizing at0.5/1/1.5/2/3/4x and fit/insets for4:3,ultrawide,portrait.
+  The editor logs the same14 pre-test `Condition failed` lines already present
+  in earlier recon/audio/aim-punch automation logs; the requested test succeeds.
+- `python3 scripts/test-hud.py --render`: **PASS**, process exit0,14 fresh
+  Metal screenshots from seven real sizes of the same live viewport:
+  640×360,1280×720,1920×1080,3840×2160,2560×1080,1024×768,720×1280.
+  Each size includes normal HUD and scoreboard. All pairs inspected via
+  Saved/Testing/HUD/review.png, with individual full-size inspections too.
+  Disc radii57.6/115.2/172.8/345.6px at360p/720p/1080p/4K;
+  bottom insets20/40/60/120px at16:9. Circles stay round and corner elements
+  stay inside the viewport in all tested aspect ratios. The4K viewport retains
+  its1920×1080 scene cap while HUD uses3840×2160, confirming independence from
+  3D resolution. The first render run correctly failed because the native window
+  capped larger requests at the monitor's1920×1080; the runner now starts with
+  -ForceRes and a4K offscreen window to exercise actual requested dimensions.
+- `python3 scripts/test-network.py --accuracy`: **PASS**, process exit0,
+  server spread/recovery/rejected-shot checks and three owner replication checks.
+  The reticle retains its real FOV/cone projection after normalized radius storage.
+
+Logs: /private/tmp/rr-hud-build.log, /private/tmp/rr-hud-accuracy.log,
+Saved/Testing/HUD/automation.log and render.log. Captures and visual review:
+Saved/Testing/HUD/. No saved assets, package, upload or publication.
+
+Final recon regression: `python3 scripts/test-recon.py` **PASS**, process exit0,
+actual listen host/enemy/ally/late client. Verified server contact visibility,
+smoke occlusion/dispersal, late-join fog, authorized drone hits,30-second
+replacement, five-loss stock exhaustion and round-reset cleanup. Log:
+/private/tmp/rr-hud-recon.log; peer logs/report in Saved/Testing/recon-*.
+Final `git diff --check`: **PASS**.
+
+
+## 21 October 2026 — smaller, raised minimap and darker vitals
+
+Minimap radius reduced15% (97.92 reference units), top inset90→64 units,
+preserving percentage placement and isotropic scaling. Status text uses the
+same right screen inset as the disc to keep longer messages inside the viewport.
+Bars and matching icons now use sRGB health154/84/84, armor86/132/100,
+stamina82/130/154, with darker empty tracks. No gameplay or asset changes.
+
+- Editor arm64 Development build: **PASS**, final exit0; log
+  /private/tmp/rr-hud-refinement-build.log.
+- `python3 scripts/test-hud.py`: **PASS**, native HUDViewportLayout, exit0.
+- `python3 scripts/test-hud.py --render`: **PASS**, final exit0,14 fresh HUD/
+  scoreboard captures on640×360,1280×720,1920×1080,3840×2160,2560×1080,
+  1024×768 and720×1280. Radius48.96/97.92/146.88/293.76px for16:9 sizes.
+  Visual inspection includes small and720p images and the updated contact sheet
+  Saved/Testing/HUD/review.png. No clipping with the raised minimap; colors stay
+  distinguishable and the independent width/height edge proportions remain intact.
+- `git diff --check`: **PASS**. No network retest required for these visual
+  constants/text alignment; previous successful recon/accuracy results remain
+  recorded above. No packaging, upload or publication.
