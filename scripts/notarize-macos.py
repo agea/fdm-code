@@ -13,6 +13,7 @@ import plistlib
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 
@@ -20,6 +21,7 @@ import time
 MACHO = {bytes.fromhex(x) for x in (
     'feedface', 'cefaedfe', 'feedfacf', 'cffaedfe',
     'cafebabe', 'bebafeca', 'cafebabf', 'bfbafeca')}
+XCODE_AUTH_FAILURE = r'No Accounts|Xcode-Token|invalid credentials'
 
 
 def run(*args, **kwargs):
@@ -94,6 +96,16 @@ def copy_app(source, destination):
     shutil.copytree(source, destination, symlinks=True, copy_function=module.copy_file)
 
 
+def xcode_failure(stage, diagnostic, archive):
+    if re.search(XCODE_AUTH_FAILURE, diagnostic, re.I):
+        message = ('Xcode authentication failed. Open Xcode > Settings > Accounts and sign in again '
+                   'to refresh the Apple Developer account, then retry with release-macos.py --resume '
+                   'and the existing release directory; no rebuild is needed.')
+    else:
+        message = 'Xcode ' + stage + ' failed.'
+    return RuntimeError(message + '\nArchive retained at ' + str(archive) + '\n' + diagnostic[-3000:])
+
+
 def notarize_with_xcode(app, identity, scratch, receipt, timeout):
     """Use Xcode's existing account through its supported archive distribution CLI."""
     info = plistlib.loads((app / 'Contents/Info.plist').read_bytes())
@@ -121,8 +133,14 @@ def notarize_with_xcode(app, identity, scratch, receipt, timeout):
         'signingStyle': 'manual', 'signingCertificate': identity, 'teamID': team[1],
         'stripSwiftSymbols': False, 'manageAppVersionAndBuildNumber': False}))
     receipt['submission'] = {'method': 'xcode', 'archive': str(archive), 'status': 'uploading'}
-    run('xcodebuild', '-exportArchive', '-archivePath', archive, '-exportOptionsPlist', options,
-        '-allowProvisioningUpdates')
+    result = run('xcodebuild', '-exportArchive', '-archivePath', archive, '-exportOptionsPlist', options,
+                 '-allowProvisioningUpdates', capture_output=True, text=True, check=False)
+    if result.stdout:
+        print(result.stdout, end='', flush=True)
+    if result.stderr:
+        print(result.stderr, end='', file=sys.stderr, flush=True)
+    if result.returncode:
+        raise xcode_failure('archive upload', (result.stdout or '') + (result.stderr or ''), archive)
     receipt['submission']['status'] = 'processing'
     exported = scratch / 'notarized-export'
     deadline = time.monotonic() + timeout
@@ -134,10 +152,10 @@ def notarize_with_xcode(app, identity, scratch, receipt, timeout):
         if result.returncode == 0:
             break
         diagnostic = (result.stdout or '') + (result.stderr or '')
-        if re.search(r'No Accounts|Xcode-Token|rejected|invalid credentials', diagnostic, re.I):
-            raise RuntimeError('Xcode notarization failed: ' + diagnostic[-3000:])
+        if re.search(XCODE_AUTH_FAILURE + '|rejected', diagnostic, re.I):
+            raise xcode_failure('notarization', diagnostic, archive)
         if not re.search(r'not yet|in progress|processing|not been notarized|not notarized', diagnostic, re.I):
-            raise RuntimeError('Xcode notarized export failed: ' + diagnostic[-3000:])
+            raise xcode_failure('notarized export', diagnostic, archive)
         if time.monotonic() >= deadline:
             raise RuntimeError('Xcode did not export an accepted notarized app within the timeout. '
                                'Archive retained at ' + str(archive) + '\n' + diagnostic[-3000:])
@@ -195,7 +213,11 @@ def main():
     except RuntimeError as error:
         parser.error(str(error))
     if args.check:
-        print('Signing identity ready' if args.sign_only else 'Signing identity and notarization credentials ready')
+        if not args.sign_only and args.method == 'xcode':
+            print('Signing identity and Xcode account configuration ready; '
+                  'Xcode authentication is checked only during upload.')
+        else:
+            print('Signing identity ready' if args.sign_only else 'Signing identity and notarization credentials ready')
         return
     # Keep dist clean: the itch uploader accepts only the packaged app there.
     receipt_path = app.parent.parent / (app.stem + '-notarization.json')
@@ -241,9 +263,10 @@ def main():
             run('codesign', '--verify', '--deep', '--strict', '--verbose=2', app)
             run('spctl', '--assess', '--type', 'execute', '--verbose=2', app)
             receipt['status'] = 'accepted-and-gatekeeper-verified'
-    except BaseException:
+    except BaseException as error:
         receipt['failed_at'] = receipt['status']
         receipt['status'] = 'failed'
+        receipt['error'] = str(error)
         raise
     finally:
         receipt_path.write_text(json.dumps(receipt, indent=2) + '\n')

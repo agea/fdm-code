@@ -4451,3 +4451,110 @@ Nessuna nuova prova grafica per questa modifica del solo contenitore Slate.
 - Le catture includono anche l'overlay prestazioni: FPS/dimensioni piccoli
   e senza pannello di sfondo, coerenti con le modifiche precedenti.
 - `git diff --check`: superato. Nessun asset o stato di gioco modificato.
+
+
+### Recupero notarizzazione Mac — 20 ottobre 2026
+
+- La release `release-20261020-211424-c4061bf9` ha completato il package
+  universal (x86_64/arm64), versione `26.10.20.85cfceab`, e la verifica della
+  firma Developer ID. Il primo invio Xcode è fallito con `No Accounts` e
+  `missing Xcode-Token`; non era un errore del compilatore Unreal.
+- Il preflight ora distingue la configurazione dell'account Xcode dalla sua
+  autenticazione, verificabile durante l'upload. Gli errori di autenticazione
+  durante upload/export indicano come rinnovare l'accesso e usare `--resume`;
+  il receipt di notarizzazione conserva anche la diagnostica dell'errore.
+- Suite offline Mac: **28 test PASS** con Python 3.14.6. Casi aggiunti:
+  account configurato senza promessa di autenticazione, token mancante durante
+  upload/export senza polling o verifiche successive, errore upload generico,
+  errore persistito nel receipt e recupero con `--resume --no-upload` senza
+  ricompilazione. Le fixture non inviano dati ad Apple o itch.io.
+- Recupero reale **PASS** con `release-macos.py --resume` sulla stessa directory
+  e `--no-upload`: Xcode ha autenticato e completato l'invio, esportato l'app
+  notarizzata, preservato la versione e superato firma strict, stapling/validate
+  e Gatekeeper (`accepted`, `source=Notarized Developer ID`). Receipt finale
+  `builds/macos/release-20261020-211424-c4061bf9/release.json`: `ready`.
+  Nessuna ricompilazione o pubblicazione itch.io in questo tentativo.
+- `git diff --check`: **PASS**.
+
+### Prestazioni e crash della build itch — 21 ottobre 2026
+
+- Esaminati i due report macOS delle08:07 e08:19: stesso stack
+  `UAnimSequence::EvaluateCurveData_Lockless`, esecuzione nativa arm64.
+  Riprodotto nell'app scaricata26.10.20.85cfceab con Depot e3 bot per team:
+  exit **-11**, assertion `!bForceUseRawData || CanEvaluateRawAnimationData()`
+  in `AnimSequence.cpp:3249`. Log `Saved/Testing/packaged-pistol-crash.log`.
+  La causa è `SetDisableRetargeting` nel percorso della pistola: la build
+  cooked non contiene i dati raw richiesti da quel flag di debug.
+- Confermati gruppi salvati Epic3 nell'app distribuita, contro
+  AA2/GI0/riflessioni0/ombre1 nel vecchio launcher. Prima misura Metal offscreen
+  sulla stessa CentralBuilding seed42, viewport5120x2880: tratti stabili
+  circa48–49FPS a768x432 con Epic,63–67FPS a1267x713 con il profilo del launcher.
+  Non è una misura isolata finale: compilazione concorrente e hitch successivi
+  sono presenti nei log `packaged-{epic,play-profile}.log`.
+- Modulo Editor aggiornato: **Succeeded**,37.14s;
+  `Saved/Testing/cooked-fix-editor-build.log`.
+- Migrazione Unreal di51 animazioni e due sole modalità di traslazione
+  (`pelvis`, `upperarm_r`): confronto di ogni frame **PASS**, massimo scarto
+  delle posizioni locali0.00001921cm. Backup ZIP privato verificato prima
+  delle modifiche; prima verifica compressa su20 skin **PASS**, scarto massimo
+  delle mani0.01321cm. Log `bake-cooked-first-person.log`.
+- Test nativi `FallDamage`, `ResolutionHysteresis`, `ReferenceBallistics`:
+  **3/3 Success** in `cooked-fix-automation.log`. I messaggi `Condition failed`
+  precedenti all'avvio della coda provengono dai self-test del motore.
+- `test-reference-weapons.py`: **PASS**, due processi reali, tutti e10 gli
+  slot osservati sul peer remoto, ricarica/colpi/armatura verificati.
+  `Saved/Testing/cooked-fix-reference-test.log`.
+- L'audit storico degli asset non è globalmente verde: confronto con i package
+  originali ripristinati in una fixture isolata conferma scarti preesistenti
+  nelle ricariche SMG/Carbine/Sniper/Launcher e attese obsolete su ArmorRatio
+  HE/Launcher. Il confronto delle pose effettive prima/dopo resta distinto
+  dalle attese source/raw di quell'audit. Log `cooked-fix-{weapon-assets,original-runtime-audit}.log`.
+- Compressione precisa delle tre clip della pistola con il profilo privato
+  `BC_ER_PistolPrecise`: quaternion completo, massimo errore delle posizioni
+  delle mani0.00002418cm sulle20 skin; osso di orientamento della canna entro
+  0.001gradi. Il massimo0.004802gradi nell'intero campione comprende le dita,
+  non altera il controllo stretto della canna. Stessa verifica **PASS** nella
+  copia isolata effettivamente cotta; `cooked-fix-snapshot-verification.log`.
+- Regressione Metal finale **PASS**, due peer con renderer reale: dieci slot,
+  sette ricariche e cattura aggiuntiva Pistol_Alpha; shader e tutti i controlli
+  gameplay/impugnatura **PASS**. Screenshot della pistola ispezionato.
+  Il tentativo intermedio con peer nullo non produceva le catture richieste;
+  la prova finale usa Metal su entrambi. Log `reference-weapons-render-{host,client}.log`.
+- Package universal locale26.10.21.85cfceab: compilazione Editor833.52s,
+  gioco1014.67s, cook/stage/archive **BUILD SUCCESSFUL**,117.29s.
+  `lipo`: x86_64/arm64. Smoke del pacchetto **PASS**, giocatore esplicitamente
+  con pistola (`Primary=1`) e sei bot,20s, nessuna assertion, exit0. La prima
+  versione del test non garantiva la pistola fra i loadout casuali dei bot;
+  ripetuta sullo stesso pacchetto scegliendola esplicitamente per il giocatore.
+  Receipt in `builds/macos/fix-runtime-20261021/{receipt.json,runtime-smoke/null.json}`.
+- Prova Metal/LAN anche con due istanze del pacchetto: probe gameplay completo
+  **PASS**, tutti i10 slot remoti e inquadratura/canna della pistola corretti.
+  Le catture Slate non sono prodotte dal Mac packaged in RenderOffscreen;
+  non conteggiate come riuscite in questa prova. Log `reference-weapons-packaged-render-{host,client}.log`.
+- Confronto finale isolato, compilatore fermo e una sola app alla volta:
+  CentralBuilding seed42, Metal offscreen,45s per app, ultimi20 campioni a1Hz.
+  Viewport effettivo identico2880x2160 (macOS ha limitato la richiesta5120x2880).
+  App itch originale: mediana **47FPS**,46..48, scena576x432.
+  App corretta: mediana **65FPS**,59..66, scena1190x892. Entrambe exit0.
+  Ricevuta e log in `builds/macos/fix-runtime-20261021/performance/`.
+  Il dato riguarda questa scena e questa macchina; non certifica altri seed,
+  combattimenti o l'esecuzione Intel. Nessun upload itch in questa correzione.
+
+### Pubblicazione Mac e pulizia locale — 21 ottobre 2026
+
+- Versione universal `26.10.21.85cfceab` firmata Developer ID Application
+  Dr Wolf srl (`8V893A78SP`), notarizzata da Apple e verificata con firma
+  strict, ticket stapled e Gatekeeper: `accepted`, `Notarized Developer ID`.
+- Invio Apple `6000ddd9-2869-40e8-9b12-9422cf07b837`: upload completato;
+  un timeout HTTP -1001 nella lettura dello stato è stato recuperato con
+  `-exportNotarizedApp` sullo stesso archivio, senza nuovo invio o build.
+  Hash dei dati cooked e versione preservati nell'esportazione.
+- Smoke Metal dell'app notarizzata: **PASS**, pistola e sei bot,20s,
+  nessun fatal, exit0, mediana64FPS nella scena di prova Depot.
+- Upload itch `mac-universal` completato: nuova build **2175732**, upload
+  **19859089**. All'ultimo controllo il server stava ancora elaborando la
+  nuova build; la verifica della copia scaricata è stata lasciata all'utente
+  su sua richiesta, interrompendo attesa/download automatici.
+- Su richiesta rimossi tutti e quattro i run locali in `builds/macos`,
+  inclusi snapshot, intermedi, archivi Xcode, app finali e log di quei run.
+  Cartella vuota; recuperati circa **39.14GiB fisici** (cloni APFS).

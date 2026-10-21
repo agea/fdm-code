@@ -1,5 +1,15 @@
 # Inventario asset — primo prototipo locale
 
+21 ottobre2026 — animazioni FPS compatibili con il cooked: il rig indipendente
+`Characters/FirstPerson/SKEL_ER_FirstPerson` conserva le traslazioni authored di
+pelvis/upperarm_r. Migrati attraverso Unreal51 clip esistenti nei repository
+privati characters/weapons, senza nuovi modelli, texture o sorgenti esterne.
+Confrontate tutte le pose precedenti e il playback compresso della pistola sulle
+20 skin. Backup originale verificato in
+`../_backups/fps-cooked-translations-20261021-083123.zip`.
+Il profilo proprio `FirstPerson/BC_ER_PistolPrecise` conserva tutti i componenti
+del quaternion nelle tre clip della pistola, senza introdurre sorgenti esterne.
+
 20 ottobre2026 — [Palette Sketchfab RR](SKETCHFAB_TEXTURES.md): dieci pacchetti
 originali conservati nel repository privato mappe, dodici materiali PBR importati
 in `Art/Industrial/SketchfabTextures`. Attivi due cementi, quattro murature, legno,

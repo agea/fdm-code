@@ -15,6 +15,22 @@ pavimento/controsoffitto senza referencer esterni, con sorgenti e crediti relati
 Pipeline e manifest aggiornati per evitare reimportazioni; backup privato verificato
 fuori dal progetto. Le palette attive e il catalogo condiviso sono preservati.
 
+## Correzioni build distribuita — 21 ottobre 2026
+
+L'app scaricata avviava i gruppi grafici Epic3, mentre `play.command` imponeva
+AA2/GI0/riflessioni0/ombre1. Il profilo ora viene applicato da GameInstance in
+entrambi gli eseguibili; il launcher non conserva impostazioni grafiche proprie.
+Il regolatore di risoluzione60FPS e il cap secondario1080p restano invariati.
+
+Il crash compilato della pistola derivava dal flag di debug
+`SetDisableRetargeting`, che richiede curve raw assenti nel cooked. Rimosso
+dal runtime, conservando le pose con una migrazione Unreal delle sole
+traslazioni pelvis/upperarm_r sul rig FPS indipendente. Le altre animazioni
+mantengono le loro pose effettive precedenti. Backup privato e confronto di
+51 animazioni/20 skin in `scripts/bake_cooked_first_person.py`.
+Il packaging Development verifica ora una partita cooked con sei bot e pistola,
+oltre ai precedenti controlli di architettura/branding/versione.
+
 ## Ambito concordato
 
 Richiesta del 12 ottobre 2026: partire dal progetto Unreal locale,

@@ -107,6 +107,25 @@ class MacReleaseTests(unittest.TestCase):
         self.assertTrue(any(c[0] == 'spctl' for c in calls))
         self.assertFalse(any('push' in c for c in calls))
 
+    def test_resume_after_notarization_failure_verifies_without_rebuilding_or_uploading(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self.fixture(root)
+            module.save(root / 'release.json', {'status': 'failed', 'failed_at': 'notarizing',
+                                               'error': 'previous Xcode authentication failure'})
+            calls = []
+            args = self.args(root, resume=root, no_upload=True)
+            with patch.object(module, 'preflight', side_effect=lambda a: setattr(a, 'notarization_method', 'xcode')), \
+                    patch.object(module, 'disk_space'), patch.object(module, 'run', side_effect=self.runner(calls)):
+                module.release(args)
+            receipt = json.loads((root / 'release.json').read_text())
+            self.assertEqual(receipt['status'], 'ready')
+            self.assertNotIn('error', receipt)
+            self.assertNotIn('failed_at', receipt)
+            self.assertTrue(any(any(p.endswith('/notarize-macos.py') for p in c) for c in calls))
+            self.assertTrue(any(c[0] == 'spctl' for c in calls))
+            self.assertFalse(any('push' in c or any(p.endswith('/package-macos.py') for p in c) for c in calls))
+
     def test_upload_retry_never_rebuilds_or_resigns_and_records_failure(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

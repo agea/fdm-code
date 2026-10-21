@@ -42,6 +42,8 @@ public:
     static bool SetMercenaryAnimationSkeleton(class UAnimSequence* Animation, class USkeletalMesh* TargetMesh);
     UFUNCTION(BlueprintCallable, Category="First person|Editor")
     static bool PrepareFirstPersonSkeleton(class USkeleton* Skeleton, class USkeletalMesh* PreviewMesh);
+    UFUNCTION(BlueprintCallable, Category="First person|Editor")
+    static bool ConfigureFirstPersonTranslationTracks(class USkeleton* Skeleton, const TArray<FName>& Bones);
     UFUNCTION(BlueprintCallable, Category="Respawn & Rage|Editor")
     static bool PrepareTeamSkeleton(class USkeleton* Skeleton, class USkeletalMesh* PreviewMesh);
     UFUNCTION(BlueprintCallable, Category="Assets|Editor")

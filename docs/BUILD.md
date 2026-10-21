@@ -36,7 +36,9 @@ profile first, then uses the Apple Developer account already configured in
 **Xcode Settings → Accounts**. This uses Xcode's supported Developer ID archive
 upload and notarized export commands; it never extracts Xcode tokens/passwords.
 An account listed in Xcode can still need its login refreshed if Apple rejects
-authentication at upload time.
+authentication at upload time. The Xcode preflight checks account configuration;
+only the upload validates its authentication. A notarytool profile also supports
+an authenticated, read-only preflight through `notarytool history`.
 
 To use notarytool explicitly, configure its credentials once in interactive
 prompts, keeping passwords out of the repository and command history:
@@ -167,6 +169,36 @@ It creates an isolated project snapshot and follows the private Content mounts.
 Compilation and cooking take place in that copy, preserving the live checkout.
 Only the runtime background and icon are included from Branding; source artwork
 under Branding/Originals is not shipped.
+
+Development packages also boot a real cooked Depot session with six bots,
+including the pistol, before the package is accepted. This checks the native
+rendering profile and animation evaluation; starting the main menu alone misses
+these failures. The log and receipt are saved under `runtime-smoke/` in the build
+directory. To repeat it, run:
+
+```sh
+python3 scripts/test-packaged-runtime.py --executable /path/to/RespawnAndRage.app/Contents/MacOS/RespawnAndRage
+# Optional real Metal rendering and FPS samples:
+python3 scripts/test-packaged-runtime.py --executable /path/to/RespawnAndRage.app/Contents/MacOS/RespawnAndRage --render
+```
+
+The game applies AA2/GI0/reflections0/shadows1 in native startup for both local
+and packaged execution. `play.command` no longer supplies a separate quality
+profile. The existing 60 FPS resolution governor and 1080p scene cap remain.
+
+FPS clips must use compressed playback with normal retargeting. Do not call
+`FBoneContainer::SetDisableRetargeting` in gameplay: UE 5.8.3 treats it as a raw
+data debugging mode and cooked animations assert during curve evaluation.
+`scripts/bake_cooked_first_person.py`, run through Unreal Python, migrates the
+owned pelvis/right-shoulder translation tracks once, backs up the original
+packages privately, and preserves the effective poses of the other weapons.
+It verifies every animation frame and compressed pistol playback on all twenty
+skins. Subsequent runs verify the migration; `-ERFPSCookVerify` requires its
+saved marker. Never regenerate the original raw-data workaround.
+New Mac packages run this migration/verifier in the isolated snapshot after
+compiling the Editor, before cooking. The pistol's three clips use the owned
+`BC_ER_PistolPrecise` settings with full quaternion storage, preserving its
+strict barrel alignment without requiring editor-only raw data.
 
 Paths are relative to the repository's parent, independent of the current
 shell directory:
@@ -359,6 +391,17 @@ its stapled ticket and Gatekeeper assessment before uploading it. A local
 Developer ID signature alone does not satisfy the distribution requirement.
 If xcodebuild reports `No Accounts` / missing `Xcode-Token`, refresh the account
 through Xcode's UI; never extract its private authentication material.
+The game build and Developer ID signature can already be valid at this point.
+Keep the release directory printed by the command, sign in again in **Xcode
+Settings → Accounts**, then retry without rebuilding:
+
+```sh
+python3 scripts/release-macos.py --resume '/absolute/path/to/release-TIMESTAMP-ID'
+```
+
+This retries signing/notarization and uploads only after ticket and Gatekeeper
+verification. The failed notarization receipt records the error and retained
+archive path; existing failed archives are preserved when retrying.
 
 ## Linux snapshot with Marketplace dependencies
 

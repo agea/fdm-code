@@ -850,10 +850,9 @@ void AERCharacter::UpdateWeaponPresentation()
         // cosmetic children. Visibility below follows the equipped weapon.
         AppliedWeaponData=nullptr;return;
     }
-    // The fitted pistol animates its hidden shoulder to place the forearm.
-    // Skeleton translation retargeting would discard that authored movement.
-    if (auto* Instance=FirstPersonBody->GetSingleNodeInstance())
-        Instance->GetRequiredBones().SetDisableRetargeting(Data->bFirstPersonPalmGrip);
+    // Authored FPS translations are baked into the owned Animation-mode rig.
+    // SetDisableRetargeting is an editor debugging flag: it forces raw curve
+    // sampling and asserts in cooked games, where raw animation data is absent.
     if (Data == AppliedWeaponData)
     {
         if (!Weapon->bReloading)

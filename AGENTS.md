@@ -1095,3 +1095,15 @@ Menu version footer (20 October): keep Teko16 and shadow, disable AutoWrapText
 for the single-line version, and anchor it bottom-right inside a title-safe
 SSafeZone with32 padding. The footer must remain hit-test invisible and inside
 the viewport after fullscreen/resolution changes on every menu page.
+
+Cooked runtime correction (21 October): the game's AA2/GI0/reflections0/shadows1
+profile lives in GameInstance startup for local and packaged execution; do not
+restore launcher-only quality overrides. Preserve the 60 FPS governor/1080p cap.
+Never use FBoneContainer::SetDisableRetargeting in gameplay: UE 5.8.3 forces raw
+curve sampling and crashes in cooked games. The owned FPS skeleton now uses
+Animation translation on pelvis/upperarm_r. bake_cooked_first_person.py migrated
+51 clips through Unreal, preserving other weapons' effective poses and the raw
+pistol fit; its private verified ZIP precedes the migration. Preserve the saved
+ERCompressedFirstPersonPoseVersion marker and normal compressed evaluation.
+Development Mac packaging must boot the actual cooked Depot with pistol-equipped
+bots via test-packaged-runtime.py; a main-menu-only smoke test misses this crash.

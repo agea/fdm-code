@@ -277,7 +277,11 @@ def preflight(args):
                 args.identity, args.keychain_profile, args.notarization_method)
             print('Signing identity: ' + args.identity)
             print('Notarization method: ' + args.notarization_method)
-        test('Developer ID private key and notarization credentials (notarytool/Xcode)', signing)
+            if args.notarization_method == 'xcode':
+                print('Xcode account is configured; authentication is checked only during upload. '
+                      'If Xcode reports No Accounts / missing Xcode-Token, sign in again in '
+                      'Xcode > Settings > Accounts, then use --resume with the release directory.')
+        test('Developer ID private key and notarization configuration (notarytool/Xcode)', signing)
     if not args.no_upload:
         test('Butler login and itch.io access', lambda: check_butler(args))
     if failures:

@@ -10,6 +10,7 @@ import plistlib
 import shutil
 import signal
 import subprocess
+import sys
 import time
 import importlib.util
 
@@ -119,6 +120,9 @@ else:
         subprocess.check_output(['git', '-C', str(project), 'rev-parse', 'HEAD'], text=True).strip() + '\n')
     (snapshot / 'scripts').mkdir(exist_ok=True)
     shutil.copy2(project / 'scripts/stamp-build-version.py', snapshot / 'scripts/stamp-build-version.py')
+# Older resumable snapshots may predate the cooked-animation verifier.
+if not (snapshot / 'scripts/bake_cooked_first_person.py').is_file():
+    shutil.copy2(project / 'scripts/bake_cooked_first_person.py', snapshot / 'scripts/bake_cooked_first_person.py')
 uproject = snapshot / 'RespawnAndRage.uproject'
 archive = run_dir / 'dist'
 logs = run_dir / 'build.log'
@@ -127,6 +131,9 @@ host = 'arm64' if platform.machine() == 'arm64' else 'x64'
 commands = [
     [str(engine / 'Engine/Build/BatchFiles/Mac/Build.sh'), 'RespawnAndRageEditor', 'Mac',
      'Development', f'-Project={uproject}', f'-architecture={host}', '-NoHotReloadFromIDE'],
+    [str(engine / 'Engine/Binaries/Mac/UnrealEditor.app/Contents/MacOS/UnrealEditor'), str(uproject),
+     '-run=pythonscript', f'-script={snapshot / "scripts/bake_cooked_first_person.py"}',
+     '-nullrhi', '-unattended', '-nosound', '-NoSplash'],
     [str(engine / 'Engine/Build/BatchFiles/RunUAT.sh'), 'BuildCookRun', f'-project={uproject}',
      '-target=RespawnAndRage', '-platform=Mac', f'-clientconfig={a.configuration}',
      f'-clientarchitecture={arches}', '-nop4', '-unattended', '-utf8output', '-installed',
@@ -230,6 +237,12 @@ try:
             if required not in actual.split():
                 raise RuntimeError(f'Packaged binary missing {required}: {actual}')
         receipt['verified_binary_architectures'] = actual
+        if a.configuration == 'Development':
+            # Menu startup misses animation failures that only appear after
+            # spawning pistol-equipped players/bots in a cooked executable.
+            subprocess.run([sys.executable, str(Path(__file__).with_name('test-packaged-runtime.py')),
+                            '--executable', str(binary), '--output', str(run_dir / 'runtime-smoke')], check=True)
+            receipt['packaged_runtime_smoke'] = str(run_dir / 'runtime-smoke/null.json')
     receipt['status'] = 'packaged'
     receipt['game_version'] = (snapshot / 'Build/GameVersion.txt').read_text().strip()
 except BaseException:

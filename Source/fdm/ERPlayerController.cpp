@@ -30,6 +30,7 @@
 #include "Sound/SoundBase.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/GameUserSettings.h"
+#include "Scalability.h"
 #include "GenericPlatform/GenericApplication.h"
 #include "UnrealClient.h"
 #include "DynamicResolutionState.h"
@@ -71,6 +72,15 @@ void ERSetMacGameIcon(const FString& IconPath);
 void UERGameInstance::Init()
 {
     Super::Init();
+    // Apply the game's rendering profile in every executable. Previously these
+    // groups only lived in play.command, leaving packaged games at Epic quality.
+    auto Quality = Scalability::GetQualityLevels();
+    Quality.AntiAliasingQuality = 2;
+    Quality.GlobalIlluminationQuality = 0;
+    Quality.ReflectionQuality = 0;
+    Quality.ShadowQuality = 1;
+    Scalability::SetQualityLevels(Quality);
+    UE_LOG(LogTemp, Display, TEXT("ER_RENDER_PROFILE aa=2 gi=0 reflections=0 shadows=1"));
     if (!FFileHelper::LoadFileToString(BuildVersion, *(FPaths::ProjectDir() / TEXT("Build/GameVersion.txt"))))
         BuildVersion = TEXT("unversioned");
     BuildVersion.TrimStartAndEndInline();

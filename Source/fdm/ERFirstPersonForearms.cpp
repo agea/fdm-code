@@ -127,6 +127,22 @@ bool AERCharacter::PrepareFirstPersonSkeleton(USkeleton* Skeleton, USkeletalMesh
 #endif
 }
 
+bool AERCharacter::ConfigureFirstPersonTranslationTracks(USkeleton* Skeleton, const TArray<FName>& Bones)
+{
+#if WITH_EDITOR
+    if (!Skeleton || Skeleton->GetPathName() != TEXT("/Game/EclipseRecoil/Characters/FirstPerson/SKEL_ER_FirstPerson.SKEL_ER_FirstPerson")) return false;
+    for (FName Bone : Bones)
+        if (Skeleton->GetReferenceSkeleton().FindBoneIndex(Bone) == INDEX_NONE) return false;
+    Skeleton->Modify();
+    for (FName Bone : Bones)
+        Skeleton->SetBoneTranslationRetargetingMode(Skeleton->GetReferenceSkeleton().FindBoneIndex(Bone), EBoneTranslationRetargetingMode::Animation);
+    Skeleton->MarkPackageDirty();
+    return true;
+#else
+    return false;
+#endif
+}
+
 bool AERCharacter::ReplaceOwnedAssetReferences(UObject* Asset, const TArray<UObject*>& Sources, const TArray<UObject*>& Replacements)
 {
 #if WITH_EDITOR

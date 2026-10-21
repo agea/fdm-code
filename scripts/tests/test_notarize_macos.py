@@ -63,6 +63,7 @@ class NotarizationGate(unittest.TestCase):
     def test_rejected_submission_never_reports_ready_or_staples(self):
         calls, receipt, clean = self.exercise('Invalid')
         self.assertEqual(receipt['status'], 'failed')
+        self.assertIn('Apple did not accept', receipt['error'])
         self.assertFalse(any(c[:2] == ('xcrun', 'stapler') or c[0] == 'spctl' for c in calls))
         self.assertTrue(clean)
 
@@ -117,6 +118,19 @@ class NotarizationGate(unittest.TestCase):
                           subprocess.CompletedProcess([], 0, stdout='{"IDE.Prod": []}')]):
             self.assertFalse(module.xcode_account_available())
 
+    def test_xcode_check_reports_configuration_without_claiming_authentication(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            app = Path(temporary) / 'Game.app'
+            (app / 'Contents').mkdir(parents=True)
+            (app / 'Contents/Info.plist').write_bytes(b'fixture')
+            argv = ['notarize-macos.py', str(app), '--identity', IDENTITY, '--method', 'xcode', '--check']
+            with patch.object(sys, 'argv', argv), patch.object(module, 'resolve_credentials'), \
+                    patch('builtins.print') as output, patch.object(module, 'run') as run:
+                module.main()
+            run.assert_not_called()
+            self.assertIn('authentication is checked only during upload', output.call_args.args[0])
+            self.assertFalse((app.parent / 'Game-notarization.json').exists())
+
 
 class XcodeNotarizationGate(unittest.TestCase):
     def exercise(self, failure=None, pending=False):
@@ -148,8 +162,14 @@ class XcodeNotarizationGate(unittest.TestCase):
                     self.assertNotIn('password', str(options).lower())
                     if failure == 'upload':
                         raise subprocess.CalledProcessError(1, command)
+                    if failure in ('auth-upload', 'upload-exit'):
+                        diagnostic = ('Invalid credentials in keychain, missing Xcode-Token; error: exportArchive No Accounts'
+                                      if failure == 'auth-upload' else 'Network unavailable')
+                        return subprocess.CompletedProcess(command, 70, stdout='', stderr=diagnostic)
                 if '-exportNotarizedApp' in command:
                     exports.append(command)
+                    if failure == 'auth-export':
+                        return subprocess.CompletedProcess(command, 70, stdout='', stderr='No Accounts: missing Xcode-Token')
                     if pending and len(exports) == 1:
                         return subprocess.CompletedProcess(command, 1, stdout='Archive has not yet been notarized', stderr='')
                     final = Path(command[command.index('-exportPath') + 1]) / app.name
@@ -166,9 +186,19 @@ class XcodeNotarizationGate(unittest.TestCase):
                     patch.object(module.time, 'sleep') as sleep:
                 identity = 'Developer ID Application: Fixture (ABCDEFGHIJ)'
                 if failure:
-                    with self.assertRaises((RuntimeError, subprocess.CalledProcessError)):
+                    with self.assertRaises((RuntimeError, subprocess.CalledProcessError)) as caught:
                         module.notarize_with_xcode(app, identity, scratch, receipt, 60)
                     self.assertEqual((app / 'Contents/MacOS/Game').read_text(), 'original')
+                    if failure.startswith('auth-'):
+                        self.assertIn('Xcode > Settings > Accounts', str(caught.exception))
+                        self.assertIn('--resume', str(caught.exception))
+                        self.assertTrue(Path(receipt['submission']['archive']).is_dir())
+                        sleep.assert_not_called()
+                        self.assertFalse(any(c[0] in ('codesign', 'spctl') or c[:2] == ['xcrun', 'stapler'] for c in calls))
+                    if failure == 'upload-exit':
+                        self.assertIn('Network unavailable', str(caught.exception))
+                        self.assertNotIn('sign in again', str(caught.exception))
+                        self.assertFalse(exports)
                 else:
                     module.notarize_with_xcode(app, identity, scratch, receipt, 60)
                     self.assertEqual((app / 'Contents/MacOS/Game').read_text(), 'notarized export')
@@ -189,6 +219,14 @@ class XcodeNotarizationGate(unittest.TestCase):
     def test_xcode_failures_preserve_the_original_app(self):
         for failure in ('upload', 'ticket', 'version'):
             self.exercise(failure=failure)
+
+    def test_missing_xcode_token_reports_recovery_and_never_polls_or_validates(self):
+        for failure in ('auth-upload', 'auth-export'):
+            with self.subTest(failure=failure):
+                self.exercise(failure=failure)
+
+    def test_nonzero_upload_exit_stops_before_export(self):
+        self.exercise(failure='upload-exit')
 
 
 if __name__ == '__main__':
