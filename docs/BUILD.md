@@ -140,6 +140,11 @@ including Intel execution for a universal release.
 - Full Xcode selected as the active developer directory, with its license and
   first-launch setup completed. Xcode 27.1 was used for the first package.
 - Python **3.10 or newer** and Git.
+- EOS guest play requires the generated project plugin. Build/open and isolated
+  packaging helpers prepare it automatically from the installed UE sources;
+  before a manual IDE/UBT build run `python3 scripts/prepare-eos-guest.py --engine
+  "/path/to/UE_5.8"`. Keep `Plugins/OnlineSubsystemEOS` ignored: it contains
+  locally copied Epic source. See `EOS_ONLINE.md`.
 - Access to the three private asset repositories and Git LFS. Prepare and check
   the asset mounts before packaging:
 

@@ -30,3 +30,6 @@ __pycache__/
 
 # Per-build EOS client credentials. Never commit the populated file.
 /Config/EOS.local.ini
+
+# Generated from the locally licensed UE installation; never publish Epic source.
+/Plugins/OnlineSubsystemEOS/

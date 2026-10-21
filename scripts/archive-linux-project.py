@@ -8,6 +8,7 @@ from contextlib import contextmanager
 import gzip
 import hashlib
 import io
+import importlib.util
 import json
 from pathlib import Path
 import subprocess
@@ -68,6 +69,10 @@ def main():
     print(json.dumps({'marketplace_plugins': manifest}), file=sys.stderr if streaming else sys.stdout, flush=True)
     if args.check:
         return
+    guest_spec = importlib.util.spec_from_file_location('eos_guest', Path(__file__).with_name('prepare-eos-guest.py'))
+    guest_module = importlib.util.module_from_spec(guest_spec)
+    guest_spec.loader.exec_module(guest_module)
+    guest_module.prepare(project, args.engine)
     if output:
         output.parent.mkdir(parents=True, exist_ok=True)
     commit = subprocess.check_output(['git', '-C', str(project), 'rev-parse', 'HEAD'], text=True).strip()

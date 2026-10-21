@@ -1,5 +1,24 @@
 # Respawn & Rage Unreal development
 
+Account-free Internet multiplayer (22 October, latest request): supersedes the
+EAS/account-login requirement in the historical EOS section below. Online play
+uses Connect Device ID, with bUseEAS=false, no browser/launcher login and the
+existing untrusted client configuration. Never delete/reset a Device ID for a
+test. scripts/prepare-eos-guest.py generates an ignored project override of the
+locally licensed UE5.8.3 OnlineSubsystemEOS plugin, with version/source-hash
+guards; only scripts/eos-guest project extension snippets belong in public Git.
+Keep the installed engine untouched and never commit the generated plugin.
+Build/open and isolated desktop/archive helpers prepare it automatically.
+Supply the in-game nickname/UserLoginInfo and null Device ID token, create or
+reuse the device credential, and refresh through Device ID instead of NULL's
+external token path. Keep the standard OSS user mappings for Sessions/P2P.
+Run test-online-service.py: two real launches, no Epic Account ID, same hashed
+Product User ID, guest refresh, public session search/nickname, lobby/travel,
+cancel/rehost and clean exit0. Its development-only refresh hook invokes the
+actual expiration handler, without claiming a naturally elapsed token lifetime.
+The user's current validation scope remains this Mac; distinct-device remote
+JoinSession and two-network NAT/relay are still unverified. Preserve LAN/offline.
+
 HUD visual refinement (21 October, subsequent request): shrink minimap radius
 by15% to97.92 reference units (13.6% height at16:9), raise its top inset from90
 to64 reference units (8.889% height), retaining its percentage right anchor.

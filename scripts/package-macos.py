@@ -120,6 +120,8 @@ else:
         subprocess.check_output(['git', '-C', str(project), 'rev-parse', 'HEAD'], text=True).strip() + '\n')
     (snapshot / 'scripts').mkdir(exist_ok=True)
     shutil.copy2(project / 'scripts/stamp-build-version.py', snapshot / 'scripts/stamp-build-version.py')
+subprocess.run([sys.executable, str(project / 'scripts/prepare-eos-guest.py'),
+                '--project', str(snapshot), '--engine', str(engine)], check=True)
 # Older resumable snapshots may predate the cooked-animation verifier.
 if not (snapshot / 'scripts/bake_cooked_first_person.py').is_file():
     shutil.copy2(project / 'scripts/bake_cooked_first_person.py', snapshot / 'scripts/bake_cooked_first_person.py')

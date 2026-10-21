@@ -1,5 +1,22 @@
 # Respawn & Rage — sviluppo Unreal
 
+## Multiplayer Internet senza account — 22 ottobre 2026
+
+Il percorso Internet ora usa EOS Connect Device ID: ingresso automatico senza
+account Epic, browser o login al launcher. L'identità è conservata da EOS per
+il dispositivo/profilo del sistema operativo e riutilizzata ai successivi avvii;
+LAN e offline mantengono il percorso locale. La lista server usa il nickname
+di gioco pubblicato nella sessione, senza richiedere un profilo Epic.
+
+L'estensione minima del plugin OSS viene generata da `prepare-eos-guest.py`
+nella cartella ignorata `Plugins/OnlineSubsystemEOS`, usando solo l'installazione
+UE5.8.3 autorizzata e controllando gli hash dei sorgenti. Nessun file del motore
+installato viene modificato e i sorgenti Epic copiati non entrano nel repository
+pubblico. Gli script di build/apertura e preparazione desktop la generano.
+Creazione/riuso Device ID, UserLoginInfo e rinnovo Connect completano il supporto
+mancante nel plugin standard. Rimangono Sessions pubbliche e trasporto P2P.
+Dettagli e limiti del collaudo in `EOS_ONLINE.md` e `TEST_RESULTS.md`.
+
 ## Ritocco visivo HUD — 21 ottobre 2026
 
 Su richiesta successiva minimappa15% più piccola (raggio13,6% dell'altezza

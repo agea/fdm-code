@@ -1,6 +1,6 @@
 # Internet multiplayer with Epic Online Services
 
-21 October 2026. The game now has an EOS Internet path alongside the existing
+22 October 2026. The game now has an EOS Internet path alongside the existing
 LAN path. The one-Mac service probe covers authentication, session discovery and P2P
 listen/travel/lifecycle. An actual two-computer Internet match is still outside
 the verified scope; the user requested testing on this Mac for now. See
@@ -12,8 +12,11 @@ TEST_RESULTS.md.
   human capacity and optional test bots → **Start Server & Enter Lobby**.
 - **Play Online** → **Connection: Internet (Epic Online Services)** →
   **Search Servers** → select a compatible public server.
-- Sign in with an Epic Games account when the browser opens. The game delegates
-  authentication and token refresh to Epic's OSS; it does not collect passwords.
+- Internet play signs in automatically with EOS Connect Device ID. No Epic
+  account, launcher login, browser consent or password is required. EOS stores
+  the guest credential locally for the operating-system user and reuses it on
+  subsequent launches. This identity is specific to the device/OS profile;
+  moving it to another computer is outside this implementation.
 - Teams, cosmetics, equipment, map voting, strict-majority READY and authoritative
   gameplay use the existing lobby/gameplay code. The host must keep the game open.
 - Choose **LAN** in either screen for the existing local UDP discovery/IP path.
@@ -39,10 +42,9 @@ by the engine's compatibility list; the host explicitly registers/unregisters
 players with the EOS session. Client local-player IDs use the authenticated EOS
 identity during Internet travel. The portal's Clients page lists the existing
 Peer2Peer policy with Sessions,
-and Epic Account Services lists the application as **Published**, permissions
-**Configured**, and the existing RespawnAndRage client selected under linked
-clients. These read-only checks establish the portal setup, not a successful
-SDK login or match. No portal permissions were changed.
+P2P and the existing deployment. Earlier EAS portal checks are historical: the
+guest path sets bUseEAS=false and uses Connect only. No portal permissions
+were changed for this extension.
 
 When the file exists **during compilation**, `fdm.Build.cs` stages it as a
 NonUFS runtime dependency. Existing isolated desktop build helpers copy Config.
@@ -51,6 +53,31 @@ The distributed client necessarily contains its untrusted client credential;
 Git exclusion protects the public source history, not the installed game.
 Builds without the file explain that Internet play is not configured and keep
 LAN functional. No new package or upload is included in this change.
+
+## UE plugin extension
+
+UE 5.8.3's stock OSS EOS accepts DeviceIdAccessToken as a credential type but
+does not create the local Device ID or supply the required desktop
+UserLoginInfo. Its Connect-only automatic refresh also asks the platform OSS
+for an external token, which is unsuitable for Device ID.
+
+`scripts/prepare-eos-guest.py` generates a project override under the ignored
+`Plugins/OnlineSubsystemEOS/` from the **locally licensed UE 5.8.3 installation**.
+It checks the exact engine version and SHA-256 of both patched engine files,
+adds only the project extension snippets from `scripts/eos-guest`, and leaves
+the installed engine untouched. Epic's copied sources and build outputs must
+never be added to the public repository. Preparation is repeatable and preserves
+unchanged file timestamps and compiled outputs. Build/editor entry points and
+isolated Mac/Windows/Linux build preparation invoke it automatically. For
+manual UBT/IDE builds, run it first (use `--engine` or `UE_ROOT`).
+
+The extension creates or reuses the Device ID, provides the sanitized in-game
+nickname, uses a null external token, and lets OSS perform normal Connect
+login/CreateUser and maintain its user mappings for Sessions/P2P. Auth expiration
+repeats Device ID Connect login without consulting NULL or EAS. It never deletes
+the Device ID. A development-only probe entry point exercises that same handler.
+The game requires the generated module definition at compilation, preventing a
+silent fallback to the incomplete stock login path.
 
 ## Network behavior
 
@@ -80,7 +107,7 @@ cancellation destroy their session rather than travelling to it.
 ```sh
 ./scripts/build-editor.command
 python3 scripts/test-online-unconfigured.py # use an isolated unconfigured checkout
-python3 scripts/test-online-service.py      # real EOS; browser login may be needed
+python3 scripts/test-online-service.py      # real EOS; no account/browser; two launches
 python3 scripts/test-lobby.py
 python3 scripts/test-network.py
 python3 scripts/test-lobby.py --gallery
@@ -91,23 +118,27 @@ search, checks cancellation, then opens a real IP listen server with EOS plugins
 enabled. The LAN lobby probe uses a host/two remotes and checks READY, voting and
 loadout travel. Neither test certifies EOS service access or NAT traversal.
 
-The service probe uses one Epic account to create a real public session, find
-it through EOS, resolve its P2P endpoint, register the listen host, leave/destroy,
-cancel an in-flight create, rehost and READY-travel to Depot. It requires both
-PASS markers, confirmed session cleanup from the actual Exit Game path while
-hosting, and process exit code0. A release-order failure found during the
-first run is addressed by releasing the owned EOS instance in GameInstance
-subsystem teardown, while EOSShared is still loaded; it does not suppress crash
-checking. The probe declares its dependency on EROnline so its interface refs
-are released before the owned EOS instance.
+The service probe runs the real EOS lifecycle twice with the same OS user.
+It checks that the identity has a Product User ID and **no Epic Account ID**,
+creates a public session, finds its own advertised session, resolves its P2P
+endpoint, registers the host, leaves/destroys, cancels an in-flight create,
+rehosts and READY-travels to Depot. It also invokes the same refresh handler
+used by EOS auth expiration and requires a successful real Connect response.
+This tests refresh directly; it does not wait for natural token expiration.
+The second process must reuse the Device ID and the same hashed Product User ID.
+No Device ID is deleted or reset, and existing Epic persistent auth is untouched.
 
-Next, verify host/search/join with distinct Epic accounts and two computers on
-different Internet connections. Check account
-portal consent, player counts/full admission, cancellation/retry, lobby travel,
-late join, host loss, recon/destruction replication and leave/rehost. Until this
-passes, do not call the Internet feature ready for distribution. EAS applications
-in development may restrict access to authorized accounts; inspect app status
-and permitted testers in the portal before distributing a build.
+Both launches require PASS, cleanup from Exit Game while hosting and process
+exit0. The probe releases interface refs before the owned EOS instance, which
+is destroyed while EOSShared is still loaded. A previous real SDK shutdown
+crash is covered by this process-exit requirement.
+
+The current test scope remains this Mac. Verify host/search/join with distinct
+Device IDs on two computers on different Internet connections before claiming
+cross-network multiplayer validation. Check player counts/full admission,
+cancellation/retry, lobby travel, late join, host loss, recon/destruction
+replication and leave/rehost. Two processes under the same OS profile reuse one
+Device ID and are not a substitute for distinct remote players.
 
 References: [Epic OSS EOS guide](https://dev.epicgames.com/documentation/en-us/unreal-engine/online-subsystem-eos-plugin-in-unreal-engine)
 and the installed UE 5.8.3 `OnlineSubsystemEOS`/`SocketSubsystemEOS` source.

@@ -219,7 +219,7 @@ void AERPlayerController::ShowMenu(bool bShow)
             Choice(Panel, TEXT("Connection"), {TEXT("Internet (Epic Online Services)"), TEXT("LAN")},
                 [GI]() { return GI->bInternetMenu ? 0 : 1; },
                 [GI, Online](int32 I) { Online->Cancel(); GI->CancelLANSearch(); GI->bInternetMenu = I == 0; });
-            Add(Panel, Text(TEXT("Internet: sign in to Epic Games. LAN: same local network. Test bots are additional."), 21));
+            Add(Panel, Text(TEXT("Internet: no account required. LAN: same local network. Test bots are additional."), 21));
             Add(Panel, SNew(STextBlock).Font(MenuFont(23)).AutoWrapText(true)
                 .Visibility_Lambda([Online]() { return Online->Status.IsEmpty() ? EVisibility::Collapsed : EVisibility::Visible; })
                 .Text_Lambda([Online]() { return FText::FromString(Online->Status); }));
@@ -232,7 +232,7 @@ void AERPlayerController::ShowMenu(bool bShow)
                 [GI, Online](int32 I) { Online->Cancel(); GI->CancelLANSearch(); GI->bInternetMenu = I == 0; });
             Add(Panel, SNew(STextBlock).Font(MenuFont(28)).AutoWrapText(true).Text_Lambda([GI, Online]()
             { return FText::FromString(GI->bInternetMenu ? Online->Status : GI->IsSearchingLAN() ? FString::Printf(TEXT("Searching LAN... %ds"), GI->LANSecondsLeft()) : GI->LastError); }));
-            Add(Panel, Text(TEXT("Internet: sign in to Epic Games and choose a server. LAN: we connect automatically to an available local server."), 21));
+            Add(Panel, Text(TEXT("Internet: no account required; choose a server. LAN: we connect automatically to an available local server."), 21));
             auto Servers = SNew(SVerticalBox);
             for (int32 I = 0; I < 100; ++I)
                 Add(Servers, SNew(SButton).ContentPadding(8)
@@ -243,7 +243,10 @@ void AERPlayerController::ShowMenu(bool bShow)
                     {
                         if (!Online->Results.IsValidIndex(I)) return FText::GetEmpty();
                         const auto& Session = Online->Results[I].Session;
-                        return FText::FromString(FString::Printf(TEXT("Join %s · %d / %d players"), *Session.OwningUserName,
+                        FString HostName;
+                        Session.SessionSettings.Get(FName(TEXT("RR_HOST")), HostName);
+                        HostName = AERGameMode::SanitizeName(HostName);
+                        return FText::FromString(FString::Printf(TEXT("Join %s · %d / %d players"), *HostName,
                             Session.SessionSettings.NumPublicConnections - Session.NumOpenPublicConnections, Session.SessionSettings.NumPublicConnections));
                     })]);
             Add(Panel, SNew(SBox).MaxDesiredHeight(240)[SNew(SScrollBox) + SScrollBox::Slot()[Servers]]);

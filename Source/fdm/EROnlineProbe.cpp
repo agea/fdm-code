@@ -5,6 +5,9 @@
 #include "ERNetDriverEOS.h"
 #include "OnlineSubsystem.h"
 #include "OnlineSubsystemUtils.h"
+#include "OnlineSubsystemEOSTypesPublic.h"
+#include "RRGuestEOS.h"
+#include "Misc/SecureHash.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 #include "Engine/World.h"
@@ -31,8 +34,10 @@ void UEROnlineProbe::FindComplete(bool Success)
     for (const auto& Result : Query->SearchResults)
     {
         if (Result.GetSessionIdStr() != SessionId) continue;
-        FString Address, Version;
+        FString Address, Version, HostName;
         Result.Session.SessionSettings.Get(FName(TEXT("RR_VERSION")), Version);
+        Result.Session.SessionSettings.Get(FName(TEXT("RR_HOST")), HostName);
+        Check(HostName == TEXT("EOSProbe"), TEXT("guest_nickname_advertised_without_epic_profile"));
         Check(Sessions->GetResolvedConnectString(Result, NAME_GamePort, Address) && Address.StartsWith(TEXT("[EOS:")), TEXT("service_search_resolves_p2p_endpoint"));
         Check(Version == CastChecked<UERGameInstance>(GetGameInstance())->BuildVersion, TEXT("service_search_preserves_game_version"));
         bFound = true;
@@ -78,7 +83,19 @@ bool UEROnlineProbe::Tick(float Delta)
         Check(Driver && !Driver->bIsPassthrough, TEXT("real_eos_p2p_listen_driver"));
         Check(GS->bOnline && GS->ServerMaxPlayers == 2, TEXT("online_lobby_and_capacity"));
         auto* EOS = Online::GetSubsystem(World, FName(TEXT("EOS")));
-        Check(EOS && EOS->GetIdentityInterface()->GetLoginStatus(0) == ELoginStatus::LoggedIn, TEXT("epic_account_and_connect_logged_in"));
+        Check(EOS && EOS->GetIdentityInterface()->GetLoginStatus(0) == ELoginStatus::LoggedIn, TEXT("guest_connect_logged_in"));
+        const auto GuestId = EOS ? EOS->GetIdentityInterface()->GetUniquePlayerId(0) : nullptr;
+        if (GuestId.IsValid() && GuestId->GetType() == FName(TEXT("EOS")))
+        {
+            const auto& Id = static_cast<const IUniqueNetIdEOS&>(*GuestId);
+            Check(!Id.GetEpicAccountId() && Id.GetProductUserId(), TEXT("product_user_without_epic_account"));
+            // Compare persistence across launches without recording the actual ID.
+            const FTCHARToUTF8 IdUtf8(*GuestId->ToString());
+            FSHAHash Hash;
+            FSHA1::HashBuffer(IdUtf8.Get(), IdUtf8.Length(), Hash.Hash);
+            UE_LOG(LogTemp, Display, TEXT("ER_EOS_PROBE_IDENTITY fingerprint=%s"), *Hash.ToString());
+        }
+        else Check(false, TEXT("guest_identity_valid"));
         Sessions = EOS ? EOS->GetSessionInterface() : nullptr;
         auto* Session = Sessions.IsValid() ? Sessions->GetNamedSession(NAME_GameSession) : nullptr;
         Check(Session && Session->SessionSettings.NumPublicConnections == 2, TEXT("real_service_session_exists"));
@@ -91,7 +108,11 @@ bool UEROnlineProbe::Tick(float Delta)
             PC->ServerLobbyVote(1);
             PC->ServerLobbyReady(true);
         }
-        else { Phase = 2; Deadline = Now + 90; SearchAgainAt = Now; }
+        else
+        {
+            Check(RRRequestGuestRefreshForTesting(EOS), TEXT("guest_refresh_requested_through_expiration_handler"));
+            Phase = 2; Deadline = Now + 90; SearchAgainAt = Now;
+        }
     }
     else if (Phase == 2)
     {

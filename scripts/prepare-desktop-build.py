@@ -43,6 +43,10 @@ def prepare(project, engine, destination):
     for descriptor in marketplace:
         target = destination / 'Plugins' / descriptor.stem
         shutil.copytree(descriptor.parent, target, ignore=ignore)
+    guest_spec = importlib.util.spec_from_file_location('eos_guest', Path(__file__).with_name('prepare-eos-guest.py'))
+    guest_module = importlib.util.module_from_spec(guest_spec)
+    guest_spec.loader.exec_module(guest_module)
+    guest_module.prepare(destination, engine)
     # Project-local and Marketplace plugins both compile for each target.
     for descriptor in (destination / 'Plugins').rglob('*.uplugin'):
         data = json.loads(descriptor.read_text(encoding='utf-8-sig'))

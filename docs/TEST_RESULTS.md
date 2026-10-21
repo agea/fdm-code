@@ -1,4 +1,43 @@
-# Verifiche locali — 21 ottobre 2026
+# Verifiche locali — 22 ottobre 2026
+
+
+## 22 ottobre 2026 — EOS senza account Epic
+
+Build Editor Mac Development arm64 UE5.8.3 riuscita con l'override locale del
+plugin OnlineSubsystemEOS. Il motore installato resta invariato; la copia
+privata generata è ignorata da Git. Verificati generazione isolata/idempotenza
+(sorgente generato identico e timestamp preservato) e assenza di credenziali
+nella generazione. Compilazione sintattica Python degli script modificati e
+`git diff --check` passati. Config/EOS.local.ini resta ignorato e mode0600.
+
+PASS `test-online-service.py`, due avvii reali consecutivi senza intervento
+umano (`-unattended`): EOS Connect autenticato con Product User ID e nessun
+Epic Account ID, identità persistente fra lascia/annulla/riospita e fra processi,
+Device ID riutilizzato al secondo avvio. Il primo collaudo ha esercitato anche
+la creazione iniziale; la ripetizione sulla versione finale riusa correttamente
+la credenziale esistente senza cancellarla. Rinnovo Connect realmente riuscito
+tramite lo stesso handler invocato alla scadenza (richiamato esplicitamente dal
+probe di sviluppo, senza aspettare un'ora). Nessun browser o login Epic.
+
+Verificati sessione pubblica, ricerca EOS con coerenza eventuale, nome host preso
+dal nickname di gioco senza profilo Epic, endpoint P2P risolto, registrazione
+dell'host e driver EOS reale senza passthrough. Passati distruzione, annullamento
+durante creazione senza viaggio, riapertura, READY e viaggio a Depot mantenendo
+P2P, ritorno al menu e Exit Game con sessione attiva. Entrambi i processi sono
+usciti con codice0, `ER_EOS_PROBE_COMPLETE result=PASS`,
+`ER_ONLINE_QUIT cleaned=1` e `ER_ONLINE_SHUTDOWN instance_released`.
+Log: `Saved/Testing/OnlineService/probe.log` e `probe-relaunch.log`;
+riepilogo `/private/tmp/rr-eos-guest-test.log`, build
+`/private/tmp/rr-eos-guest-build.log`.
+
+PASS regressione `test-lobby.py`: tre processi locali, discovery UDP e trasporto
+IP, votazione/READY, viaggio e conservazione di team, skin, arma e scorte.
+Log riepilogativo `/private/tmp/rr-eos-guest-lan.log`.
+
+Collaudo limitato a questo Mac come richiesto: non verificati JoinSession fra
+due identità/dispositivi distinti, partita fra due PC o NAT/relay fra reti diverse.
+Gli helper di preparazione Mac/Windows/Linux ora generano l'estensione; nessun
+nuovo pacchetto, build Windows/Linux o caricamento esterno eseguito in questa fase.
 
 ## 21 ottobre 2026 — colori pastello e icona corsa
 

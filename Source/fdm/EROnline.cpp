@@ -10,6 +10,10 @@
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/Paths.h"
 
+#if !RR_EOS_DEVICE_ID
+#error Prepare the project EOS plugin with scripts/prepare-eos-guest.py before building.
+#endif
+
 namespace
 {
 const FName VersionKey(TEXT("RR_VERSION"));
@@ -45,13 +49,13 @@ bool UEROnline::Configure()
     auto* Settings = GetMutableDefault<UEOSSettings>();
     Settings->DefaultArtifactName = Artifact.ArtifactName;
     Settings->Artifacts = {Artifact};
-    Settings->bPreferPersistentAuth = true;
-    Settings->bUseEAS = true;
+    Settings->bPreferPersistentAuth = false;
+    Settings->bUseEAS = false;
     Settings->bUseEOSConnect = true;
     Settings->bUseEOSRTC = false;
     Settings->bEnableOverlay = false;
     Settings->bEnableSocialOverlay = false;
-    Settings->AuthScopeFlags = {TEXT("BasicProfile")};
+    Settings->AuthScopeFlags.Empty();
     EOSInstanceIdentifier = FName(TEXT("EOS"));
 #if UE_EDITOR
     if (auto* Utils = Online::GetUtils()) EOSInstanceIdentifier = Utils->GetOnlineIdentifier(GetWorld(), EOSInstanceIdentifier);
@@ -79,21 +83,22 @@ void UEROnline::Begin(bool Hosting)
     { Status = TEXT("Leaving the previous session. Please retry shortly."); Destroy(); return; }
     if (Identity->GetLoginStatus(0) == ELoginStatus::LoggedIn) { Continue(); return; }
     Operation = EOperation::Login;
-    Status = TEXT("Sign in to Epic Games in your browser to play online...");
+    Status = TEXT("Connecting to online services...");
     LoginHandle = Identity->AddOnLoginCompleteDelegate_Handle(0, FOnLoginCompleteDelegate::CreateUObject(this, &UEROnline::LoginComplete));
-    // AutoLogin supports launcher/dev-auth command lines and Epic's persistent
-    // login, falling back to Account Portal. No password/token is stored here.
-    if (!Identity->AutoLogin(0) && Operation == EOperation::Login)
-    { Identity->ClearOnLoginCompleteDelegate_Handle(0, LoginHandle); Fail(TEXT("Epic sign-in could not start. Please retry.")); }
+    // Device credentials stay in EOS's OS-local secure storage. This path never
+    // calls EAS/Account Portal or uses a launcher's Epic credentials.
+    const FOnlineAccountCredentials Guest(TEXT("connect:DeviceIdAccessToken"), AERGameMode::SanitizeName(GI->LocalName), FString());
+    if (!Identity->Login(0, Guest) && Operation == EOperation::Login)
+    { Identity->ClearOnLoginCompleteDelegate_Handle(0, LoginHandle); Fail(TEXT("Online access could not start. Please retry.")); }
 }
 void UEROnline::LoginComplete(int32 User, bool Success, const FUniqueNetId& Id, const FString& Error)
 {
     Identity->ClearOnLoginCompleteDelegate_Handle(User, LoginHandle);
     Operation = EOperation::None;
     if (bCancelled) { Status = TEXT("Cancelled."); return; }
-    if (!Success) { Fail(TEXT("Epic sign-in failed or was cancelled. Check that your account can access this EOS application, then retry.")); return; }
+    if (!Success) { Fail(TEXT("Online access failed. Check your connection and retry.")); return; }
     if (auto* Player = GetGameInstance()->GetFirstGamePlayer()) Player->SetCachedUniqueNetId(Identity->GetUniquePlayerId(0));
-    UE_LOG(LogTemp, Display, TEXT("ER_ONLINE_LOGIN success"));
+    UE_LOG(LogTemp, Display, TEXT("ER_ONLINE_LOGIN success mode=device_id"));
     Continue();
 }
 void UEROnline::Continue()
@@ -112,6 +117,7 @@ void UEROnline::Continue()
         Settings.NumPublicConnections = GI->MaxPlayers;
         Settings.NumPrivateConnections = 0;
         Settings.Set(GameKey, FString(TEXT("RespawnAndRage")), EOnlineDataAdvertisementType::ViaOnlineService);
+        Settings.Set(FName(TEXT("RR_HOST")), AERGameMode::SanitizeName(GI->LocalName), EOnlineDataAdvertisementType::ViaOnlineService);
         Settings.Set(VersionKey, GI->BuildVersion, EOnlineDataAdvertisementType::ViaOnlineService);
         Settings.Set(SETTING_MAPNAME, FString(TEXT("Lobby")), EOnlineDataAdvertisementType::ViaOnlineService);
         Operation = EOperation::Create;
