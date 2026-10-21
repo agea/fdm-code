@@ -12,6 +12,12 @@ ROOT_FILES = {'fdm.uproject', 'RespawnAndRage.uproject', 'README.md', 'AGENTS.md
 EXTENSIONS = {'Source': {'.cpp', '.h', '.cs', '.mm'}, 'Config': {'.ini'},
               'scripts': {'.py', '.command', '.sh', '.ps1'}, 'docs': {'.md', '.txt', '.json', '.csv'}}
 SUBMODULES = {'Assets/characters', 'Assets/weapons', 'Assets/maps'}
+# Owner-supplied runtime copy and its documentation; keep all other Config
+# JSON/Markdown paths forbidden and apply the usual text/LFS/mode checks.
+PUBLIC_GAMEPLAY_TEXT = {
+    'Config/GameplayMessages/respawn-and-rage-gameplay-messages.en-US.json',
+    'Config/GameplayMessages/README.md',
+}
 # Exact text paths approved alongside the menu font and credits. Do not allow
 # the whole Branding tree: licensed game assets still belong in submodules.
 PUBLIC_BRANDING_TEXT = {
@@ -90,7 +96,7 @@ def verify(root):
                     failures.append(revision[:8] + ': unapproved branding content ' + name)
                 count += 1
                 continue
-            allowed = (name in ROOT_FILES or name in PUBLIC_BRANDING_TEXT or
+            allowed = (name in ROOT_FILES or name in PUBLIC_BRANDING_TEXT or name in PUBLIC_GAMEPLAY_TEXT or
                        (path.parts[0] in EXTENSIONS and path.suffix in EXTENSIONS[path.parts[0]]))
             if kind != 'blob' or mode not in ('100644', '100755') or not allowed:
                 failures.append(revision[:8] + ': forbidden path/mode ' + name)

@@ -34,6 +34,54 @@ class PublicTreeTests(unittest.TestCase):
             self.git(root, 'commit', '-m', 'Asset link only')
             self.assertEqual(module.verify(root)[0], 2)
 
+    def test_exact_gameplay_catalog_and_readme_are_allowed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.fixture(root)
+            for name in module.PUBLIC_GAMEPLAY_TEXT:
+                target = root / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes((module.ROOT / name).read_bytes())
+            self.git(root, 'add', '.')
+            self.git(root, 'commit', '-m', 'Gameplay message copy')
+            self.assertEqual(module.verify(root)[0], 2)
+
+    def test_gameplay_copy_still_rejects_binary_lfs_and_symlinks(self):
+        for name in module.PUBLIC_GAMEPLAY_TEXT:
+            for kind, content, error in (
+                    ('binary', b'private\0asset', 'binary/LFS'),
+                    ('lfs', b'version https://git-lfs.github.com/spec/v1\n', 'binary/LFS'),
+                    ('symlink', None, 'forbidden path/mode')):
+                with self.subTest(name=name, kind=kind), tempfile.TemporaryDirectory() as directory:
+                    root = Path(directory)
+                    self.fixture(root)
+                    target = root / name
+                    target.parent.mkdir(parents=True)
+                    if kind == 'symlink':
+                        target.symlink_to('../../README.md')
+                    else:
+                        target.write_bytes(content)
+                    self.git(root, 'add', '.')
+                    self.git(root, 'commit', '-m', 'Invalid gameplay copy')
+                    with self.assertRaisesRegex(RuntimeError, error):
+                        module.verify(root)
+
+    def test_gameplay_exception_does_not_allow_other_config_paths(self):
+        for name in ('Config/GameplayMessages/extra.json',
+                     'Config/Other/respawn-and-rage-gameplay-messages.en-US.json',
+                     'Config/GameplayMessages/extra.md',
+                     'Config/GameplayMessages/private.uasset'):
+            with self.subTest(name=name), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                self.fixture(root)
+                target = root / name
+                target.parent.mkdir(parents=True)
+                target.write_text('Unapproved content\n')
+                self.git(root, 'add', '.')
+                self.git(root, 'commit', '-m', 'Unapproved config path')
+                with self.assertRaisesRegex(RuntimeError, 'forbidden path/mode'):
+                    module.verify(root)
+
     def test_powershell_source_allowed_but_binary_in_script_rejected(self):
         for content, allowed in ((b'Write-Host "Windows build"\n', True), (b'binary\0payload', False)):
             with self.subTest(allowed=allowed), tempfile.TemporaryDirectory() as directory:

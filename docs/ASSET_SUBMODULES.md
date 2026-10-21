@@ -86,6 +86,12 @@ The public tree uses an explicit text allowlist (including Objective-C++ `.mm`) 
 binary blobs, LFS pointers and unexpected paths. Content and SourceAssets are
 ignored, including their mounted directory links. Only the three Assets
 gitlinks are committed in the parent repository for licensed game assets.
+The gameplay message catalog and its README are approved as text at the exact
+paths `Config/GameplayMessages/respawn-and-rage-gameplay-messages.en-US.json`
+and `Config/GameplayMessages/README.md`. This exception retains the ordinary
+binary/LFS and file-mode checks; other JSON/Markdown paths under `Config` remain
+forbidden. The pre-push hook uses this same history verifier.
+
 The user-supplied game branding is an explicit exception: approved original and
 derived images/icons under exact `Branding`, `Build` and `Content/Splash` paths
 are checked against pinned SHA-256 hashes in the verifier. The three approved

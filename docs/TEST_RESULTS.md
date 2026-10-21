@@ -4698,3 +4698,20 @@ Logs: `/tmp/rr-killcam-build.log`, `/tmp/rr-killcam-render.txt`,
 The wide capture includes the local menu overlay beside the figure; framing
 was also inspected without it in the1280x720 capture. No cooked build,
 publication or binary asset changes were performed for this refinement.
+
+
+## Gameplay message pre-push allowlist — 21 October 2026
+
+The original public-history check rejected only the owner-supplied message JSON
+and its README in commit a1898cce. Added those two exact Config paths to the
+text allowlist, preserving binary/LFS/symlink and all other path restrictions.
+
+- `python3 -m unittest discover -s scripts/tests -p test_public_tree.py`:
+  **PASS**,14 tests, including the real catalog/README and negative cases for
+  binary/LFS/symlink replacements and unapproved neighbouring Config paths.
+- `python3 scripts/verify-public-tree.py`: **PASS**,47 commits /14221 approved
+  entries; private assets remain gitlinks only. Output retained in
+  `/tmp/rr-public-tree-messages.log`.
+- Python compilation and `git diff --check`: **PASS**.
+
+No history rewriting, commit or push performed by this fix.
