@@ -4632,3 +4632,69 @@ Nessun cook, packaging, pubblicazione o modifica di asset binari.
 Log: `Saved/Testing/sprint-e-build.log`, `sprint-e-movement.log`,
 `movement-host.log`, `movement-client.log`; primo tentativo conservato in
 `sprint-e-movement-initial.log`. Nessun asset binario o packaging modificato.
+
+
+## Gameplay notifications and killer camera — 21 October 2026
+
+- UE5.8.3 Mac Development Editor target: final compile **PASS**. New Json module
+  dependency and explicit NonUFS catalog entry appear in the build receipt.
+- Owner-supplied catalog retained byte for byte: **72 events / 720 variants**,
+  SHA-256 `b1582b77ee393805601ac62aaf4f06f43cd299405bdc625d458adf3ae14ab004`.
+  Native dispatch connects40 events; the32 deferred events remain intact.
+- `python3 scripts/test-gameplay-messages.py`: **PASS**,
+  `EclipseRecoil.Messages.CatalogAndDelivery`. Checks complete event count,
+  shuffle uniqueness/boundary, missing context, independent audience variants,
+  bonus priorities, mandatory confirmations, final-kill preservation, actual
+  lead changes through ties, and projectile-controller retention after destroying
+  the originating pawn. The transient unit world explicitly invokes the normal
+  PostInitializeComponents hook; actual owner RPC delivery is tested below.
+- `python3 scripts/test-network.py --render`: **PASS**, actual listen server and
+  remote client rendered on Metal at1280x720. Both private kill confirmations,
+  remote teamkill confirmation, actual killer reference/aim and normal camera
+  after respawn passed. Existing damage, scores, corpse, protection, reload,
+  ammo, manual respawn and round-result/restart checks also passed.
+  Captures inspected: `Saved/Testing/Messages-KillHUD.png` and
+  `Saved/Testing/Messages-DeathCamera.png`. New text is peripheral, readable and
+  clear of the reticle; the raised camera keeps the corpse out of its lens.
+- `python3 scripts/test-grenades.py --combat`: **PASS**, gameplay probe and all
+  remote held/release/material checks. No changes to damage/fuse/cover tuning.
+
+The first graphical death-camera capture exposed the corpse blocking the lens;
+corrected with a raised/rear position and a12cm static-only sphere sweep. Probe
+readiness now waits for Metal startup and for death properties/confirmation to
+arrive on their separate actor channels; respawn validation runs on the new pawn,
+not on an earlier phase notification. Final executed checks above pass.
+
+This verifies local Editor gameplay, not packaged platforms or performance.
+Not every phrase or every supported recognition was independently triggered in
+the graphical probe; unsupported correlations/modes remain deferred as listed
+in `GAMEPLAY_MESSAGES.md`. No packaging, publication or asset-binary edits.
+
+- `python3 scripts/test-network.py --accuracy`: **PASS**, actual listen/client
+  server spread/burst/ammo rejection and owner data/ammo-bloom/server-clock
+  recovery checks. Log: `Saved/Testing/accuracy-{host,client}.log`.
+
+
+## Close killer-camera framing — 21 October 2026
+
+- Mac UE5.8.3 Development Editor: **PASS**. Smooth local approach plus90→60deg
+  zoom, capsule-centred framing, per-step12cm static sweeps and lower respawn HUD.
+- Actual Metal1280x720 camera check: **PASS**, projected capsule coverage0.65,
+  FOV60.0deg, camera distance440.0cm. Capture inspected: head and feet visible,
+  killer centred, respawn text below the figure.
+- Final `python3 scripts/test-network.py --render --render-size 1920 810`:
+  **PASS**, complete host/client regression. The close-view check reports0.65
+  coverage,60.0deg and585.8cm, with full figure visible in the wide capture.
+  Private notifications, teamkill confirmation, respawn reset and the existing
+  damage/ammo/protection/corpse/scoring/round checks also passed.
+- The initial full graphical run's camera checks passed but its friendly burst
+  raced the autonomous pawn's test teleport. The probe now waits700ms for that
+  correction before firing; the final complete run passes. Production combat
+  and teleport rules are unchanged.
+- `git diff --check` and Python compilation of the updated test runner: **PASS**.
+
+Logs: `/tmp/rr-killcam-build.log`, `/tmp/rr-killcam-render.txt`,
+`/tmp/rr-killcam-wide.txt`, `Saved/Testing/network-{host,client}.log`.
+The wide capture includes the local menu overlay beside the figure; framing
+was also inspected without it in the1280x720 capture. No cooked build,
+publication or binary asset changes were performed for this refinement.

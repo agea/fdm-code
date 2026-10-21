@@ -227,7 +227,7 @@ bool UERHealthComponent::IsProtected() const
     const auto* State = GetWorld()->GetGameState<AERGameState>();
     return State && State->GetServerWorldTimeSeconds() < ProtectionEndServerTime;
 }
-float UERHealthComponent::ReceiveDamage(float Amount, AController* Killer, float ArmorRatio)
+float UERHealthComponent::ReceiveDamage(float Amount, AController* Killer, float ArmorRatio, const FERMessageDamage& Facts)
 {
     auto* Character = Cast<AERCharacter>(GetOwner());
     auto* Mode = GetWorld()->GetAuthGameMode<AERGameMode>();
@@ -236,6 +236,7 @@ float UERHealthComponent::ReceiveDamage(float Amount, AController* Killer, float
     const float Before = Health;
     Health = FMath::Clamp(Health - Amount, 0.f, 100.f);
     UE_LOG(LogTemp, Display, TEXT("ER_DAMAGE target=%s hp=%.0f"), *Character->GetName(), Health);
+    GetWorld()->GetSubsystem<UERGameplayMessages>()->Damage(Character, Killer, Facts, Health <= 0);
     if (Health <= 0)
     {
         bDead = true;
@@ -638,6 +639,7 @@ void AERCharacter::UpdateProtectionPresentation()
 void AERCharacter::CalcCamera(float DeltaTime, FMinimalViewInfo& OutResult)
 {
     Super::CalcCamera(DeltaTime, OutResult);
+    if (!Health->bDead) { bDeathCameraInitialized = false; DeathCameraFOV = 90.f; }
     // The viewmodel now occupies a shallow depth range; retain nearby fingers.
     OutResult.PerspectiveNearClipPlane = 1.f;
     if (!Health->bDead && Weapon && !IsWeaponStowed())
@@ -653,7 +655,52 @@ void AERCharacter::CalcCamera(float DeltaTime, FMinimalViewInfo& OutResult)
         OutResult.Rotation.Pitch -= LocalKick.X * .45f;
         OutResult.Rotation.Roll += LocalKick.Y * .9f;
     }
-    if (IsLocallyControlled() && Health->bDead) OutResult.Location.Z += DeathViewDrop;
+    if (IsLocallyControlled() && Health->bDead)
+    {
+        OutResult.Location.Z += DeathViewDrop;
+        OutResult.FOV = 90.f;
+        if (bHasDeathFocus)
+        {
+            const bool KillerPresent = IsValid(DeathFocus);
+            const FVector Focus = KillerPresent ? DeathFocus->GetActorLocation() :
+                bDeathCameraInitialized ? DeathCameraLastFocus : DeathFocusPosition;
+            DeathCameraLastFocus = Focus;
+            FCollisionQueryParams Query(SCENE_QUERY_STAT(ERDeathCamera),false,this);
+            const auto SafePosition = [&](const FVector& From, const FVector& To)
+            {
+                FHitResult Hit;
+                const bool Blocked = GetWorld()->SweepSingleByObjectType(Hit,From,To,FQuat::Identity,
+                    FCollisionObjectQueryParams(ECC_WorldStatic),FCollisionShape::MakeSphere(12.f),Query);
+                return Blocked ? (Hit.bStartPenetrating ? From : Hit.Location + Hit.Normal*3.f) : To;
+            };
+            if (!bDeathCameraInitialized)
+            {
+                DeathCameraAway = (GetActorLocation()-Focus).GetSafeNormal2D();
+                if (DeathCameraAway.IsNearlyZero()) DeathCameraAway = -GetActorForwardVector();
+                const FVector Pivot = GetActorLocation() + FVector(0,0,100);
+                DeathCameraLocation = SafePosition(Pivot,Pivot+DeathCameraAway*200.f+FVector(0,0,60));
+                DeathCameraFOV = 90.f;
+                bDeathCameraInitialized = true;
+            }
+            // Fit the killer's full capsule into about 65% of the vertical frame.
+            // Read the viewport aspect so ultrawide windows keep head and feet visible.
+            int32 Width = 0, Height = 0;
+            if (const auto* PC = Cast<APlayerController>(Controller)) PC->GetViewportSize(Width,Height);
+            const float Aspect = Width > 0 && Height > 0 ? float(Width)/Height : 16.f/9.f;
+            OutResult.bConstrainAspectRatio = false;
+            OutResult.AspectRatioAxisConstraint = AspectRatio_MaintainXFOV;
+            const float HalfHeight = KillerPresent ? DeathFocus->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() : 92.5f;
+            const float Distance = FMath::Max(260.f,HalfHeight*Aspect/(.65f*FMath::Tan(FMath::DegreesToRadians(30.f))));
+            const FVector Desired = Focus + DeathCameraAway*Distance + FVector(0,0,25);
+            const float Blend = 1.f-FMath::Exp(-6.f*FMath::Clamp(DeltaTime,0.f,.1f));
+            // Sweep every part of the approach; the camera never jumps through cover.
+            DeathCameraLocation = SafePosition(DeathCameraLocation,FMath::Lerp(DeathCameraLocation,Desired,Blend));
+            DeathCameraFOV = FMath::Lerp(DeathCameraFOV,60.f,Blend);
+            OutResult.Location = DeathCameraLocation;
+            OutResult.FOV = DeathCameraFOV;
+            OutResult.Rotation = (Focus - OutResult.Location).Rotation();
+        }
+    }
 }
 void AERCharacter::EndPlay(const EEndPlayReason::Type Reason)
 {
@@ -667,6 +714,7 @@ void AERCharacter::EndPlay(const EEndPlayReason::Type Reason)
 float AERCharacter::TakeDamage(float Damage, const FDamageEvent& Event, AController* Killer, AActor* Causer)
 {
     const float Before = Health->Health;
+    FERMessageDamage Facts;
     FVector Direction = Killer && Killer->GetPawn() ? GetActorLocation() - Killer->GetPawn()->GetActorLocation() : FVector::ForwardVector;
     if (Event.IsOfType(FPointDamageEvent::ClassID)) Direction = static_cast<const FPointDamageEvent&>(Event).ShotDirection;
     LastHitDirection = Direction.GetSafeNormal();
@@ -674,9 +722,15 @@ float AERCharacter::TakeDamage(float Damage, const FDamageEvent& Event, AControl
     if (const auto* Gun = Cast<AERWeapon>(Causer); Gun && Gun->Data)
     {
         Ratio = Gun->Data->ArmorRatio;
+        Facts.HasSourceLife = true;
+        Facts.SourceLife = Cast<APawn>(Gun->GetOwner());
+        Facts.Melee = Gun->Data->Payload == EERPayload::Melee;
+        Facts.LastBullet = Gun->Data->Payload == EERPayload::Bullet && Gun->MagazineAmmo == 0;
         if (Gun->Data->Payload == EERPayload::Bullet && Event.IsOfType(FPointDamageEvent::ClassID))
         {
             const auto& Point = static_cast<const FPointDamageEvent&>(Event);
+            Facts.DistanceMeters = FVector::Distance(Gun->LastShotTraceStart, Point.HitInfo.ImpactPoint) / 100.f;
+            Facts.Headshot = !Point.HitInfo.BoneName.IsNone() && ERWeaponBallistics::ZoneForBone(Point.HitInfo.BoneName) == ERWeaponBallistics::EHitZone::Head;
             if(Gun->Data->bUseBodyHitZones)
             {
                 const auto Zone=ERWeaponBallistics::ZoneForBone(Point.HitInfo.BoneName);
@@ -691,7 +745,15 @@ float AERCharacter::TakeDamage(float Damage, const FDamageEvent& Event, AControl
     else if (const auto* Projectile = Cast<AERProjectile>(Causer); Projectile &&
         (Projectile->Payload == EERPayload::HE || Projectile->Payload == EERPayload::LaunchedHE))
             Ratio = ERWeaponBallistics::GrenadeArmorRatio(Projectile->BlastArmorRatio);
-    Health->ReceiveDamage(Damage, Killer, Ratio);
+    if (const auto* Projectile = Cast<AERProjectile>(Causer))
+    {
+        Facts.HasSourceLife = true;
+        Facts.SourceLife = Projectile->GetInstigator();
+        Facts.Explosion = Projectile->HasDetonated() && (Projectile->Payload == EERPayload::HE ||
+            Projectile->Payload == EERPayload::LaunchedHE || Projectile->Payload == EERPayload::Rocket);
+        Facts.Grenade = Facts.Explosion && (Projectile->Payload == EERPayload::HE || Projectile->Payload == EERPayload::LaunchedHE);
+    }
+    Health->ReceiveDamage(Damage, Killer, Ratio, Facts);
     if (Before > Health->Health) ClientDamageFeedback(Before - Health->Health, LastHitDirection);
     return Before - Health->Health;
 }
@@ -718,7 +780,8 @@ void AERCharacter::Landed(const FHitResult& Hit)
     Super::Landed(Hit);
     if(HasAuthority() && Damage>0)
     {
-        const float Applied=Health->ReceiveDamage(Damage,nullptr,2.f);
+        FERMessageDamage Facts; Facts.Fall = true;
+        const float Applied=Health->ReceiveDamage(Damage,nullptr,2.f,Facts);
         if(Applied>0)ClientDamageFeedback(Applied,FVector(0,0,-1));
         UE_LOG(LogTemp,Display,TEXT("ER_FALL_DAMAGE amount=%.2f applied=%.2f hp=%.2f"),Damage,Applied,Health->Health);
     }
@@ -989,4 +1052,7 @@ void AERCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps); DOREPLIFETIME(AERCharacter, Weapon);
     DOREPLIFETIME(AERCharacter, Inventory);
+    DOREPLIFETIME_CONDITION(AERCharacter, DeathFocus, COND_OwnerOnly);
+    DOREPLIFETIME_CONDITION(AERCharacter, DeathFocusPosition, COND_OwnerOnly);
+    DOREPLIFETIME_CONDITION(AERCharacter, bHasDeathFocus, COND_OwnerOnly);
 }

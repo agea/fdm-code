@@ -512,6 +512,13 @@ bool AERProjectile::UsesFuse(EERPayload Kind)
 {
     return Kind == EERPayload::HE || Kind == EERPayload::Smoke || Kind == EERPayload::Stun || Kind == EERPayload::LaunchedHE;
 }
+void AERProjectile::PostInitializeComponents()
+{
+    Super::PostInitializeComponents();
+    // A delayed projectile outlives the pawn that fired it. Keep the controller
+    // so kills still credit and notify both players after that pawn respawns.
+    if (HasAuthority()) DamageController = GetInstigatorController();
+}
 void AERProjectile::BeginPlay()
 {
     Super::BeginPlay();
@@ -644,14 +651,14 @@ void AERProjectile::Hit(UPrimitiveComponent* Component, AActor* Other, UPrimitiv
         {
             ContactDamagedPlayers.Add(Other);
             UGameplayStatics::ApplyPointDamage(Other,Damage*.25f,Movement->Velocity.GetSafeNormal(),Result,
-                GetInstigatorController(),this,UDamageType::StaticClass());
+                GetDamageController(),this,UDamageType::StaticClass());
         }
         return; // Contact never consumes or restarts the fuse.
     }
     if (Payload == EERPayload::Rocket) { Detonate(); return; }
     const FVector ShotDirection = Movement->Velocity.GetSafeNormal();
     bImpacted = true; Movement->StopMovementImmediately(); Collision->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-    UGameplayStatics::ApplyPointDamage(Other, Damage, ShotDirection, Result, GetInstigatorController(), this, UDamageType::StaticClass());
+    UGameplayStatics::ApplyPointDamage(Other, Damage, ShotDirection, Result, GetDamageController(), this, UDamageType::StaticClass());
     if (Other && !Other->IsA<APawn>())
         MulticastImpact(Result.ImpactPoint, Result.ImpactNormal, FMath::FRandRange(0.f, 360.f));
     SetLifeSpan(0.1f);
@@ -730,7 +737,7 @@ void AERProjectile::Detonate()
             const float AreaDamage=Fragmentation?ERWeaponBallistics::GrenadeDamage(Damage,Distance,ExplosionInnerRadius,ExplosionRadius):
                 Damage*FMath::Clamp(1.f-Distance/ExplosionRadius,.15f,1.f);
             UGameplayStatics::ApplyPointDamage(Target, AreaDamage*Exposure, Direction, AreaHit,
-                GetInstigatorController(), this, UDamageType::StaticClass());
+                GetDamageController(), this, UDamageType::StaticClass());
         }
         else if (Payload == EERPayload::Stun)
             if (auto* PC = Cast<AERPlayerController>(Target->Controller))

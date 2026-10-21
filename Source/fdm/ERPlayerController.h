@@ -2,6 +2,7 @@
 #include "CoreMinimal.h"
 #include "Containers/Ticker.h"
 #include "ERServerSettings.h"
+#include "ERGameplayMessages.h"
 #include "GameFramework/PlayerController.h"
 #include "Engine/GameInstance.h"
 #include "GameFramework/HUD.h"
@@ -104,6 +105,10 @@ public:
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Arsenal") bool bReferenceArsenalMenu = false;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Team appearance") TSubclassOf<class AERCharacter> SkinCatalog;
 
+    UFUNCTION(Client, Reliable) void ClientGameplayMessage(const FString& Event, const FString& Title, const FString& Body,
+        int32 Priority, float Duration, bool Confirmation);
+    TArray<FERGameplayToast> KillConfirmations;
+    FERGameplayToast GameplayToast;
     float FlashOpacity = 0;
     bool bShowScoreboard = false;
     bool bMenuOpen = false;

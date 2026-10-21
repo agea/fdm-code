@@ -107,6 +107,7 @@ void AERGameMode::RemoveBot()
     if (IsValid(Bot))
     {
         UE_LOG(LogTemp,Display,TEXT("ER_BOT_REMOVED name=%s"),*Bot->GetPlayerState<AERPlayerState>()->GetPlayerName());
+        GetWorld()->GetSubsystem<UERGameplayMessages>()->Forget(Bot->GetPlayerState<AERPlayerState>());
         if (APawn* Pawn = Bot->GetPawn()) { Bot->UnPossess(); Pawn->Destroy(); }
         if (Bot->TrainingStart) Bot->TrainingStart->Destroy();
         Bot->Destroy();
@@ -233,6 +234,7 @@ void AERGameMode::PreLogin(const FString& Options, const FString& Address, const
 void AERGameMode::Logout(AController* Player)
 {
     if (auto* Character = Cast<AERCharacter>(Player->GetPawn())) if (Character->Weapon) Character->Weapon->Cancel();
+    GetWorld()->GetSubsystem<UERGameplayMessages>()->Forget(Player->GetPlayerState<AERPlayerState>());
     Super::Logout(Player);
     UE_LOG(LogTemp,Display,TEXT("ER_PLAYER_LEFT players=%d"),GetNumPlayers());
 }
@@ -331,6 +333,7 @@ void AERGameMode::HandleMatchHasStarted()
     State->Winner = EERTeam::None;
     State->MatchEndServerTime = State->GetServerWorldTimeSeconds() + MatchDuration;
     for (APlayerState* Item : State->PlayerArray) if (auto* PS = Cast<AERPlayerState>(Item)) PS->Kills = PS->Deaths = PS->TeamKills = 0;
+    GetWorld()->GetSubsystem<UERGameplayMessages>()->MatchStarted();
     UE_LOG(LogTemp, Display, TEXT("ER_MATCH_STARTED players=%d duration=%.1f"), GetNumPlayers(), MatchDuration);
 }
 void AERGameMode::CheckMatch()
@@ -340,6 +343,7 @@ void AERGameMode::CheckMatch()
     auto* State = GetGameState<AERGameState>();
     if (!State) return;
     FillBots();
+    GetWorld()->GetSubsystem<UERGameplayMessages>()->CheckTime();
     if (GetMatchState() == MatchState::WaitingToStart && ReadyToStartMatch()) StartMatch();
     if (IsMatchInProgress() && (State->AlphaScore >= ScoreLimit || State->OmegaScore >= ScoreLimit || State->GetServerWorldTimeSeconds() >= State->MatchEndServerTime)) FinishRound();
     if (GetMatchState() == MatchState::WaitingPostMatch && State->GetServerWorldTimeSeconds() >= State->RestartServerTime) ResetRound();
@@ -356,6 +360,7 @@ void AERGameMode::FinishRound()
     State->Winner = State->AlphaScore == State->OmegaScore ? EERTeam::None : (State->AlphaScore > State->OmegaScore ? EERTeam::Alpha : EERTeam::Omega);
     State->RestartServerTime = State->GetServerWorldTimeSeconds() + 10;
     EndMatch();
+    GetWorld()->GetSubsystem<UERGameplayMessages>()->MatchFinished();
     for (TActorIterator<AERWeapon> It(GetWorld()); It; ++It) It->Cancel();
     for (TActorIterator<AERProjectile> It(GetWorld()); It; ++It) It->Destroy();
 }
@@ -397,6 +402,8 @@ void AERGameMode::ResetRound()
 }
 void AERGameMode::RecordDeath(AERCharacter* Victim, AController* Killer)
 {
+    const auto* Scores = GetGameState<AERGameState>();
+    const int32 OldAlpha = Scores->AlphaScore, OldOmega = Scores->OmegaScore;
     auto* VictimPS = Victim->GetPlayerState<AERPlayerState>();
     auto* KillerPS = Killer ? Killer->GetPlayerState<AERPlayerState>() : nullptr;
     if (VictimPS) ++VictimPS->Deaths;
@@ -415,6 +422,7 @@ void AERGameMode::RecordDeath(AERCharacter* Victim, AController* Killer)
         Bot->bAwaitingRespawn = true;
         Bot->RespawnAllowedAt = GetWorld()->GetTimeSeconds()+3;
     }
+    GetWorld()->GetSubsystem<UERGameplayMessages>()->ScoresChanged(OldAlpha, OldOmega);
     CheckMatch();
 }
 void AERGameMode::RequestRespawn(AController* Controller)

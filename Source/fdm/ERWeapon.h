@@ -159,6 +159,8 @@ class FDM_API AERProjectile : public AActor
     GENERATED_BODY()
 public:
     AERProjectile();
+    virtual void PostInitializeComponents() override;
+    AController* GetDamageController() const { return DamageController.Get(); }
     UPROPERTY(VisibleAnywhere) TObjectPtr<class USphereComponent> Collision;
     UPROPERTY(VisibleAnywhere) TObjectPtr<class USphereComponent> ShotTarget;
     UPROPERTY(VisibleAnywhere) TObjectPtr<class UProjectileMovementComponent> Movement;
@@ -197,6 +199,7 @@ public:
     UFUNCTION(NetMulticast, Unreliable) void MulticastImpact(FVector_NetQuantize Position, FVector_NetQuantizeNormal Normal, float Roll);
     UFUNCTION(NetMulticast, Reliable) void MulticastDetonate(FVector_NetQuantize Position, EERPayload Kind);
 private:
+    TWeakObjectPtr<AController> DamageController;
     bool bImpacted = false;
     bool bChainPending = false;
     TSet<TWeakObjectPtr<AActor>> ContactDamagedPlayers;

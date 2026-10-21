@@ -1,4 +1,8 @@
 #include "ERNetworkProbe.h"
+#include "Camera/CameraTypes.h"
+#include "Components/CapsuleComponent.h"
+#include "Engine/GameViewportClient.h"
+#include "Misc/Paths.h"
 #include "ERCharacter.h"
 #include "ERCorpse.h"
 #include "EngineUtils.h"
@@ -63,6 +67,9 @@ void AERNetworkProbe::ClientStep()
     auto* PC = Cast<AERPlayerController>(UGameplayStatics::GetPlayerController(GetWorld(),0));
     if (!PC || !PC->IsLocalController() || !PC->GetPawn() || ClientPhase == Phase) return;
     auto* Pawn = Cast<AERCharacter>(PC->GetPawn()); if (!Pawn || !Pawn->Weapon) return;
+    // Probe phase and pawn properties travel on different actor channels.
+    if (Phase == 5 && (!Pawn->Health->bDead || !Pawn->bHasDeathFocus || PC->KillConfirmations.IsEmpty())) return;
+    if (Phase == 7 && Pawn->Health->bDead) return;
     ClientPhase = Phase;
     UE_LOG(LogTemp, Display, TEXT("ER_CLIENT_PHASE %d hp=%.0f ammo=%d"),Phase,Pawn->Health->Health,Pawn->Weapon->MagazineAmmo);
     switch (Phase)
@@ -87,10 +94,51 @@ void AERNetworkProbe::ClientStep()
             break;
         }
         case 5:
+        {
+            FMinimalViewInfo View;
+            Pawn->CalcCamera(.016f, View);
+            const FVector Focus = Pawn->DeathFocus ? Pawn->DeathFocus->GetActorLocation() : FVector::ZeroVector;
+            const bool Camera = Pawn->bHasDeathFocus && Pawn->DeathFocus &&
+                FVector::DotProduct(View.Rotation.Vector(), (Focus - View.Location).GetSafeNormal()) > .999f;
+            FTimerHandle Capture;
+            const TWeakObjectPtr<AERCharacter> DeadPawn = Pawn;
+            GetWorldTimerManager().SetTimer(Capture, [DeadPawn]()
+            {
+                auto* Dead = DeadPawn.Get();
+                if (!Dead || !Dead->DeathFocus) return;
+                FMinimalViewInfo Framed;
+                Dead->CalcCamera(0.f,Framed);
+                const FVector Center = Dead->DeathFocus->GetActorLocation();
+                const float HalfHeight = Dead->DeathFocus->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
+                const FRotationMatrix Axes(Framed.Rotation);
+                const FVector Forward = Axes.GetUnitAxis(EAxis::X), Up = Axes.GetUnitAxis(EAxis::Z);
+                int32 Width = 0, Height = 0;
+                if (const auto* Controller = Cast<APlayerController>(Dead->Controller)) Controller->GetViewportSize(Width,Height);
+                const float Aspect = Width > 0 && Height > 0 ? float(Width)/Height : 16.f/9.f;
+                const float TanVertical = FMath::Tan(FMath::DegreesToRadians(Framed.FOV*.5f))/Aspect;
+                const auto ProjectY = [&](float Z)
+                {
+                    const FVector Offset = Center+FVector(0,0,Z)-Framed.Location;
+                    return FVector::DotProduct(Offset,Up)/(FMath::Max(1.f,float(FVector::DotProduct(Offset,Forward)))*TanVertical);
+                };
+                const float Top = ProjectY(HalfHeight), Bottom = ProjectY(-HalfHeight);
+                const float Coverage = (Top-Bottom)*.5f;
+                const bool Figure = Top < .95f && Bottom > -.95f && Coverage > .5f && Coverage < .85f && Framed.FOV < 65.f;
+                UE_LOG(LogTemp,Display,TEXT("ER_MESSAGE_CLIENT_%s killer_full_figure coverage=%.2f fov=%.1f distance=%.1f"),
+                    Figure ? TEXT("PASS") : TEXT("FAIL"),Coverage,Framed.FOV,FVector::Distance(Center,Framed.Location));
+                if (FParse::Param(FCommandLine::Get(),TEXT("ERMessagesGallery")))
+                    FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir()/TEXT("Testing/Messages-DeathCamera.png"),true,false);
+            },1.2f,false);
+            const bool Message = !PC->KillConfirmations.IsEmpty() && PC->KillConfirmations.Last().Title.Contains(TEXT("KILLED BY")) &&
+                !PC->KillConfirmations.Last().Body.IsEmpty();
+            UE_LOG(LogTemp, Display, TEXT("ER_MESSAGE_CLIENT_%s mandatory_death_and_killer_camera"), Camera && Message ? TEXT("PASS") : TEXT("FAIL"));
+        }
             if (FParse::Param(FCommandLine::Get(),TEXT("ERSkinProbe"))) PC->ServerSetSkins(1,FParse::Param(FCommandLine::Get(),TEXT("ERPhaseBelicaProbe")) ? 7 : 2);
             PC->ServerRequestRespawn(); break;
         case 6: PC->ServerRequestRespawn(); break;
-        case 7: PC->SetControlRotation(FRotator(0,180,0)); Pawn->ServerStartFire(); Pawn->ServerStopFire(); break;
+        case 7:
+            UE_LOG(LogTemp, Display, TEXT("ER_MESSAGE_CLIENT_%s respawn_clears_killer_camera"), !Pawn->Health->bDead && !Pawn->bHasDeathFocus ? TEXT("PASS") : TEXT("FAIL"));
+            PC->SetControlRotation(FRotator(0,180,0)); Pawn->ServerStartFire(); Pawn->ServerStopFire(); break;
         case 8: case 9: Pawn->ServerReload(); break;
         case 10: for(int32 I=0;I<8;++I) { Pawn->ServerStartFire(); Pawn->ServerStopFire(); } break;
         case 11: Pawn->ServerStartFire(); break;
@@ -113,6 +161,12 @@ void AERNetworkProbe::Tick(float DeltaTime)
             if (PC->IsLocalController()) Host = PC; else Client = PC;
         }
         if (!Host || !Client || !Host->GetPawn() || !Client->GetPawn() || !Mode->IsMatchInProgress()) return;
+        if (FParse::Param(FCommandLine::Get(),TEXT("ERMessagesGallery")))
+        {
+            // Let both Metal windows finish startup before movement corrections and timed shots.
+            if (Deadline == 0) Deadline = GetWorld()->GetTimeSeconds() + 10;
+            if (GetWorld()->GetTimeSeconds() < Deadline) return;
+        }
         PlacePlayers();
         CastChecked<AERCharacter>(Host->GetPawn())->Health->ProtectionEndServerTime = GetWorld()->GetTimeSeconds()+4;
         CastChecked<AERCharacter>(Client->GetPawn())->Health->ProtectionEndServerTime = GetWorld()->GetTimeSeconds()+4;
@@ -145,7 +199,10 @@ void AERNetworkProbe::Tick(float DeltaTime)
               Check(!Bullet, TEXT("hitscan_no_physical_bullet_actors")); }
             Advance(3,.5f); break;
         case 3: Check(C->Health->Health==64,TEXT("T04_host_first_hitscan_64")); HostShot(); Advance(4,.5f); break;
-        case 4: Check(C->Health->Health==28,TEXT("T04_host_second_hitscan_28")); HostShot(); Advance(5,3.4f); break;
+        case 4: Check(C->Health->Health==28,TEXT("T04_host_second_hitscan_28")); HostShot();
+            if (FParse::Param(FCommandLine::Get(),TEXT("ERMessagesGallery")))
+                FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir()/TEXT("Testing/Messages-KillHUD.png"),true,false);
+            Advance(5,3.4f); break;
         case 5:
             if (FParse::Param(FCommandLine::Get(),TEXT("ERSkinProbe")))
                 Check(Client->GetPlayerState<AERPlayerState>()->OmegaSkin == NextSkin && Client->GetPlayerState<AERPlayerState>()->ActiveSkin == ClientSkin,TEXT("Skin_pending_until_respawn"));
@@ -153,6 +210,10 @@ void AERNetworkProbe::Tick(float DeltaTime)
             Check(FirstCorpse.IsValid() && FirstCorpse->Body->IsSimulatingPhysics(), TEXT("Death_corpse_ragdoll_created"));
             Check(FirstCorpse.IsValid() && FirstCorpse->GetTeamAppearance().Matches(FirstCorpse->Body, true), TEXT("Team_omega_corpse_matches_live_character"));
             Check(FirstCorpse.IsValid() && FirstCorpse->HasValidRagdollPose(), TEXT("Death_omega_limbs_and_hidden_accessories_during_physics"));
+            Check(GetWorld()->GetSubsystem<UERGameplayMessages>()->CatalogSize() == 72, TEXT("Messages_complete_catalog_loaded"));
+            Check(!Host->KillConfirmations.IsEmpty() && Host->KillConfirmations.Last().Title.Contains(TEXT("KILLED ·")) &&
+                !Host->KillConfirmations.Last().Body.IsEmpty(), TEXT("Messages_killer_always_receives_confirmation"));
+            Check(C->bHasDeathFocus && C->DeathFocus == H, TEXT("Messages_death_focus_is_actual_killer"));
             Check(C->Health->bDead && C->Health->Health==0 && Host->GetPlayerState<AERPlayerState>()->Kills==1,TEXT("T04_death_score_T12_no_auto_respawn"));
             Check(Client->bAwaitingRespawn && Client->GetPlayerState<AERPlayerState>()->Deaths==1,TEXT("T12_early_request_rejected"));
             Advance(6,1.f); break;
@@ -208,10 +269,14 @@ void AERNetworkProbe::Tick(float DeltaTime)
                 Check(C->ShotFeedbackCount == ClientFeedbackBefore + 31, TEXT("Shot_empty_clip_no_feedback"));
             Check(C->Health->Health==100,TEXT("T05_central_wall_blocks_hitscan"));
             Client->GetPlayerState<AERPlayerState>()->Team=Host->GetPlayerState<AERPlayerState>()->Team;
-            PlacePlayers(); H->ServerStartFire(); Advance(14,.7f); break;
+            PlacePlayers(); Advance(130,.7f); break;
+        case 130:
+            // Let the autonomous client's correction settle before the friendly burst.
+            H->ServerStartFire(); Advance(14,.7f); break;
         case 14:
             H->ServerStopFire();
             Check(C->Health->bDead && Host->GetPlayerState<AERPlayerState>()->Kills==1 && Host->GetPlayerState<AERPlayerState>()->TeamKills==1 && GS->AlphaScore+GS->OmegaScore==1,TEXT("T11_friendly_fire_no_enemy_score"));
+            Check(!Host->KillConfirmations.IsEmpty() && Host->KillConfirmations.Last().Title.Contains(TEXT("TEAMKILL ·")), TEXT("Messages_teamkill_always_confirmed"));
             Client->GetPlayerState<AERPlayerState>()->Team=Host->GetPlayerState<AERPlayerState>()->Team==EERTeam::Alpha ? EERTeam::Omega : EERTeam::Alpha;
             GS->AlphaScore=GS->OmegaScore=0;
             GS->MatchEndServerTime=GetWorld()->GetTimeSeconds()+.1f; Advance(15,.6f); break;

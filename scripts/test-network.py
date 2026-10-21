@@ -15,6 +15,8 @@ parser = argparse.ArgumentParser(description=__doc__)
 group = parser.add_mutually_exclusive_group()
 group.add_argument('--shot-feedback', action='store_true', help='Check authorized shot feedback on host and remote client')
 group.add_argument('--accuracy', action='store_true', help='Check real spread, burst recovery and owner replication')
+parser.add_argument('--render-size', type=int, nargs=2, default=[1280, 720], metavar=('WIDTH', 'HEIGHT'), help='Metal viewport dimensions')
+parser.add_argument('--render', action='store_true', help='Capture kill HUD and death camera using Metal')
 parser.add_argument('--skins', action='store_true', help='Validate non-default cosmetics, RPC selection and corpse identity')
 parser.add_argument('--phase-belica', action='store_true', help='Exercise Belica/Phase selection, death and respawn over LAN')
 args = parser.parse_args()
@@ -25,7 +27,9 @@ engine = Path(os.environ.get("UE_ROOT", "/Users/Shared/Epic Games/UE_5.8"))
 editor = engine / "Engine/Binaries/Mac/UnrealEditor.app/Contents/MacOS/UnrealEditor"
 logs = project / "Saved/Testing"
 logs.mkdir(parents=True, exist_ok=True)
-common = [str(editor), str(project / "RespawnAndRage.uproject"), "-game", "-nullrhi", "-nosound", "-unattended", "-NoSplash", "-Multiprocess", "-stdout", "-FullStdOutLogOutput", "-ExecCmds=t.MaxFPS 60"]
+common = [str(editor), str(project / "RespawnAndRage.uproject"), "-game", "-nosound", "-unattended", "-NoSplash", "-Multiprocess", "-stdout", "-FullStdOutLogOutput", "-ExecCmds=t.MaxFPS 60"]
+if args.render: common[-1] += ',DisableAllScreenMessages'
+common += ['-windowed', '-ResX=' + str(args.render_size[0]), '-ResY=' + str(args.render_size[1]), '-ERMessagesGallery'] if args.render else ['-nullrhi']
 if args.shot_feedback:
     common.append('-ERShotAudit')
 port = '17783' if args.accuracy else '17777'
@@ -86,6 +90,12 @@ try:
     remote = (logs / ('accuracy-client.log' if args.accuracy else 'network-client.log')).read_text(errors='replace')
     if not args.accuracy:
         for label, passed in [
+            ('messages_owner_death_and_killer_camera', 'ER_MESSAGE_CLIENT_PASS mandatory_death_and_killer_camera' in remote and 'ER_MESSAGE_CLIENT_FAIL' not in remote),
+            ('messages_killer_full_figure', 'ER_MESSAGE_CLIENT_PASS killer_full_figure' in remote),
+            ('messages_respawn_camera_reset', 'ER_MESSAGE_CLIENT_PASS respawn_clears_killer_camera' in remote),
+            ('messages_remote_teamkill_always_received', any('confirmation=1 title=TEAMKILLED BY' in line for line in remote.splitlines())),
+            ('messages_private_kill_recipients', 'confirmation=1 title=KILLED BY' not in output and 'confirmation=1 title=KILLED ·' not in remote),
+            ('messages_no_unresolved_placeholders', not any('ER_MESSAGE recipient=' in line and ('{' in line or '}' in line) for line in (output + remote).splitlines())),
             ('damage_owner_audio_and_direction', any('ER_DAMAGE_FEEDBACK' in line and 'sound=1' in line and 'direction=' in line for line in remote.splitlines())),
             ('corpse_replicated_and_settled', 'ER_CORPSE_CREATED' in remote and 'physics=1' in remote and 'ER_CORPSE_SETTLED' in remote),
             ('team_mesh_animation_sections_replicated', 'ER_TEAM_CLIENT_PASS phase=2' in remote and 'ER_TEAM_CLIENT_FAIL' not in remote),

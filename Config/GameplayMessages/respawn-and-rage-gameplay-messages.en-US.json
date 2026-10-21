@@ -1,0 +1,5358 @@
+{
+  "schema_version": "1.0.0",
+  "catalog_id": "respawn_and_rage_gameplay_messages",
+  "game": "Respawn & Rage",
+  "locale": "en-US",
+  "created_on": "2026-10-20",
+  "title": "Gameplay Banter Catalog",
+  "description": "English alternatives for private notifications to the player performing an action and, when useful, the player affected by it. Stable English IDs support integration and future localization.",
+  "scope": "Complete copy catalog with suggested activation rules. It does not claim which mechanics are already implemented in the project. Connect this JSON to the game's event system; it is not an Unreal DataTable ready to import without adaptation.",
+  "stats": {
+    "events": 72,
+    "variants": 720,
+    "actor_variants": 610,
+    "target_variants": 110,
+    "events_with_target_messages": 19,
+    "enabled_by_default": 43,
+    "optional_or_quiet_by_default": 29,
+    "longest_template_characters": 61
+  },
+  "editorial_guidelines": [
+    "Friendly FPS banter: joke about the play, the mistake, or the situation, not the person's worth.",
+    "Use more sarcasm for friendly fire and self-inflicted mishaps; keep repeated-death messages lighter and encouraging.",
+    "Do not imply rewards for friendly fire or invent penalties. These are messages, not changes to scoring or match rules.",
+    "No discriminatory insults, personal-attribute references, cheating accusations, or invented explanations involving lag or bugs.",
+    "Keep HUD lines short and easy to understand at a glance. Prefer common English words and concrete jokes about the action; avoid obscure idioms and abstract business metaphors. The separate title clearly identifies the event.",
+    "Keep titles and messages private to their recipient, including normal personal summary screens. Do not automatically post them in public chat."
+  ],
+  "format_guide": {
+    "event_lookup": "Look up events by id. Do not use an event's array position as its identifier.",
+    "roles": "actor is the event's stated protagonist: the killer, the player making a mistake, or, for death/respawn/results, the player experiencing that situation. target is the explicitly defined second recipient, never inferred from player order.",
+    "message_arrays": "messages.actor and messages.target are independent lists of alternatives. Matching indices do NOT form pairs.",
+    "empty_arrays": "An empty array means no notification for that recipient. Do not copy text from the other array or automatically activate kill as a fallback.",
+    "variant_ids": "Message IDs are stable: event_id.audience.NN. After a version has shipped, do not reuse a deleted message's ID for different copy.",
+    "display": "title is the event label; the selected variant is the short message. Priority, duration, and cooldown are adjustable suggestions.",
+    "not_implemented": "trigger describes a condition to connect to actual game events. No expression in this JSON is executable code."
+  },
+  "activation": {
+    "rule": "An event is eligible only if enabled_by_default is true or it has been explicitly enabled, ALL capabilities in requires are available in the current mode, and its trigger is satisfied.",
+    "default_profile": "A restrained profile for deathmatch and team deathmatch. Even enabled events require real telemetry: never infer a noscope, wallbang, or reflected hit from an impression.",
+    "quiet_defaults": [
+      "kill",
+      "respawn",
+      "death_streak_3",
+      "death_streak_5"
+    ],
+    "quiet_defaults_reason": "These messages are included, but showing them on every kill, death, or respawn can overwhelm the HUD. Enable them for a more talkative profile.",
+    "requires_glossary": {
+      "aim_state_tracking": "Aim state at the moment the shot is fired.",
+      "aim_timing_tracking": "Time elapsed since entering aim.",
+      "alive_team_tracking": "Reliable living-player counts for each team.",
+      "ally_save_tracking": "A threatened ally who is alive, critically low on health, and has a known attacker.",
+      "assist_tracking": "Assists credited by the mode's attribution system.",
+      "attacker_airborne_at_fire_tracking": "Whether the attacker is airborne when firing.",
+      "breach_tracking": "A useful breach opening, distinct from individual blocks being removed.",
+      "clutch_tracking": "Last ally against multiple enemies, correlated with the eventual win.",
+      "confirmed_duel_result": "Official duel result and both participants' identities.",
+      "deaths_without_kill_tracking": "Consecutive deaths without killing an enemy during the active life.",
+      "delayed_damage_attribution": "Delayed damage attributable to its original source player.",
+      "destructible_cover": "Destructible cover.",
+      "destructible_environment_damage": "Lethal damage from debris or destructible elements, if supported.",
+      "draw_result": "Match rules allow a final draw.",
+      "duel_mode": "A mode or situation explicitly defined as a duel.",
+      "elimination_round_mode": "Elimination rounds without immediate respawns.",
+      "enemy_kill_tracking": "Confirmed, deduplicated enemy eliminations with killer and victim identities.",
+      "environment_damage_attribution": "The player responsible for damage caused by the environment.",
+      "environmental_hazards": "Lethal environmental hazards.",
+      "explosion_attribution": "Explosion damage attributed to the responsible player.",
+      "explosion_identity_tracking": "Aggregation of victims from the same explosion.",
+      "explosives": "Explosives other than grenades.",
+      "fall_damage": "Falls that can cause lethal damage.",
+      "free_for_all": "Free-for-all mode.",
+      "friendly_fire_damage": "Friendly fire is actually enabled and its damage can be attributed.",
+      "friendly_fire_reflection": "A mode that actually reflects friendly damage onto its source player.",
+      "grenade_ready_state": "Grenade preparation state before the throw.",
+      "grenades": "Grenades are available in the mode.",
+      "health_at_kill_tracking": "The attacker's health and alive state when the kill is confirmed.",
+      "hit_location_tracking": "Hit location of the lethal shot.",
+      "kill_distance_tracking": "Attacker-to-victim distance for the lethal hit, in meters.",
+      "killstreak_tracking": "Kills within one life and a snapshot of the victim's streak.",
+      "last_killer_tracking": "Last valid enemy killer and a consumable revenge opportunity.",
+      "life_identity_tracking": "Identity of the life that originated the projectile or damage.",
+      "magazine_ammo_at_fire_tracking": "Rounds in the magazine immediately before firing.",
+      "match_first_kill_tracking": "First valid enemy elimination of the match.",
+      "match_lifecycle": "Start of active play and the official final result.",
+      "melee_damage": "Melee damage and kill attribution.",
+      "multikill_tracking": "Rapid kill chains within the same life.",
+      "mutual_kill_correlation": "Correlation between two reciprocal eliminations.",
+      "mvp_award": "An MVP award officially granted by the mode.",
+      "no_respawn_during_round": "No respawns during the current round.",
+      "opponent_pair_tracking": "Counters and domination state for each pair of opponents.",
+      "overtime": "Overtime actually supported by the rules.",
+      "projectile_identity_tracking": "A shared projectile identity linking all victims of the same projectile.",
+      "projectile_penetration_tracking": "Confirmed penetration through surfaces.",
+      "projectile_ricochet_tracking": "Confirmed projectile ricochets.",
+      "reload_state": "The victim's reload state at the time of death.",
+      "respawn": "The player returns after a death.",
+      "round_mode": "A match divided into rounds.",
+      "round_roster_tracking": "Initial roster and enemies actually eliminated during the round.",
+      "round_team_death_tracking": "Team deaths during the round.",
+      "scoped_weapons": "Weapons with a usable scope.",
+      "score_lead_tracking": "Sole first place and actual overtakes for the player or team.",
+      "self_damage": "Self-inflicted damage and deaths attributed to the player themselves.",
+      "spawn_protection": "Respawn protection and hits it actually blocks.",
+      "target_airborne_at_impact_tracking": "Whether the victim is airborne at impact.",
+      "teamkill_counter": "Number of teammates killed by the player in the match.",
+      "teams": "Team mode with a known ally/enemy relationship.",
+      "timed_match": "A match with a timer and time warnings.",
+      "trade_tracking": "Correlation between a teammate's death and retaliation against their killer."
+    }
+  },
+  "tuning": {
+    "status": "Suggested starting values to playtest.",
+    "multikill_max_gap_seconds": 4.0,
+    "killstreak_milestones": [
+      5,
+      10,
+      15,
+      20,
+      25
+    ],
+    "domination_pair_kills": 4,
+    "shutdown_min_victim_streak": 5,
+    "longshot_min_meters": 40,
+    "quickscope_max_seconds": 0.35,
+    "low_health_max_hp": 10,
+    "mutual_kill_max_gap_seconds": 0.35,
+    "trade_max_gap_seconds": 5,
+    "ally_save_threat_max_age_seconds": 2,
+    "ally_save_max_health_hp": 20,
+    "comeback_min_deaths_without_enemy_kill": 3,
+    "death_streak_milestones": [
+      3,
+      5
+    ],
+    "teamkill_repeat_min_count": 2,
+    "clutch_min_enemies_when_left_alone": 2,
+    "ace_min_initial_enemies": 3,
+    "match_time_warning_seconds": [
+      60,
+      30
+    ],
+    "literal_number_warning": "The double/triple/quad/penta, killstreak, domination, and death_streak messages name exact quantities. If you change those thresholds, update the labels, triggers, and related messages too. Other tuning values are proposed parameters, not verified project settings."
+  },
+  "selection_policy": {
+    "algorithm": "shuffle_bag",
+    "scope": [
+      "player_id",
+      "event_id",
+      "audience",
+      "locale"
+    ],
+    "weights": "All alternatives have equal weight.",
+    "procedure": [
+      "Filter for alternatives that can be rendered with the available context.",
+      "Shuffle variant IDs with a random number generator and keep a separate bag for each player, event, and audience.",
+      "Draw without replacement only when a notification is actually displayed.",
+      "When the bag is empty, reshuffle. With at least two alternatives, ensure the next bag's first message differs from the last message shown.",
+      "If a variant is temporarily unusable because a placeholder is missing, keep it available for a future valid context.",
+      "Do not use the same index for actor and target. Their arrays may have different lengths and must be sampled independently."
+    ],
+    "missing_context": "If a placeholder is unavailable, choose a variant from the same array that does not need it. If none can be used, omit the joke and keep only the informative label. Never display unresolved braces.",
+    "length": {
+      "template_max_characters": 90,
+      "player_name_max_graphemes": 20,
+      "rendered_text_target_max_characters": 110,
+      "overflow": "Shorten names with an ellipsis first. Allow at most two lines in the layout. Check width using the actual font, not just the character count."
+    },
+    "rendering": "Insert placeholders as plain text without interpreting markup in player names. For {team}, use the actual team name, such as Alpha or Omega."
+  },
+  "presentation_policy": {
+    "main_message_limit": 1,
+    "scope": "At most one main toast for the same occurrence and recipient. Related kill, death, and assist contexts must share a correlation.",
+    "priority_rule": "Among eligible candidates for the recipient, the higher display.priority wins. Break ties by event id in lexicographic order for a stable result.",
+    "cooldown_scope": [
+      "player_id",
+      "event_id",
+      "audience"
+    ],
+    "cooldown_rule": "An event suppressed by cooldown must not be replaced by a more generic variant of the same occurrence. The attacker's cooldown must not silence a notification due to another victim.",
+    "presentation_only": "Suppressing copy does not undo statistics, milestones, revenge consumption, or domination-state changes.",
+    "simultaneous_kills": "Aggregate victims of the same projectile or explosion first. Show the selected recognition with the final count, without a burst of double/triple/quad notifications for one blast.",
+    "successive_multikills": "For kills separated in time, update the same chain's toast to the level reached rather than stacking copies. A higher-priority event may replace it.",
+    "friendly_fire": "Do not generate headshot, multikill, killstreak, revenge, or other enemy-kill awards for the same allied death. Keep a useful friendly-fire label even when the joke is on cooldown.",
+    "mixed_explosions": "If one action hits allies and enemies, show the attacker the friendly-fire warning first. Valid enemy kills retain their credit. Each victim evaluates only their own relationship with the attacker.",
+    "target_silence": "An event with an empty messages.target array does not authorize a substitute target message. Only other distinct, genuinely applicable events may notify that player, such as death_while_reloading.",
+    "status_banners": "Phase and timer warnings retain essential information. Omit the joke if it would occupy space needed for a more important notification. Do not build long queues of stale jokes.",
+    "results": "The final result takes precedence over leftover toasts. MVP uses a separate award_panel so it can appear alongside the result on the final screen without overlap.",
+    "headshot_example": {
+      "candidates": [
+        "headshot",
+        "double_kill",
+        "revenge"
+      ],
+      "selected_for_actor": "revenge",
+      "reason": "With the proposed priorities, 88 takes precedence over 76 and 60.",
+      "target": "Only the revenge target variants, if that event is valid and not on cooldown."
+    }
+  },
+  "event_accounting": [
+    "Use server-confirmed events and stable identifiers. Deduplicate replicated kills before updating counters or notifications. Preserve the victim's pre-death streak snapshot before resetting it.",
+    "Multikill means rapid eliminations: with the proposed settings, at most 4 seconds between consecutive kills. Killstreak means kills within one life, with no time limit. Keep the counters separate.",
+    "Every death ends the life and resets the rapid chain and current streak. Match start and new rounds reset life counters. Suicides and teamkills do not add enemy eliminations; a teamkill does not become an award.",
+    "Projectiles retain the identity of the life that created them. A posthumous kill belongs to the old life even after a respawn. It may count toward match totals, but must not reopen closed chains or streaks, add to the new life's counters, or consume the new life's revenge or comeback opportunity.",
+    "Track deaths without kills across the player's sequence: killing an enemy during the active life resets the counter; a posthumous kill does not. Match start and team changes reset the sequence. The notifications at 3 and 5 deaths are optional and private.",
+    "Revenge: remember the last valid enemy killer, keep the opportunity after unrelated kills, and consume it on the first valid kill against that enemy. Every new death replaces the reference; a death without a valid enemy killer clears it.",
+    "Domination: A killing B increments A→B and resets B→A. After four unanswered kills, A dominates B; announce only the transition. A reverse kill breaks domination. Interactions with third parties do not reset the pair. A new match, team change, or permanent departure invalidates the relevant states.",
+    "Milestones and recognition consumption still occur when another notification wins priority. Do not postpone an already-consumed revenge event until a later kill. Advance the shuffle bag only for messages actually displayed.",
+    "Multi-victim aggregates use kill_count or unnamed wording. Never arbitrarily select one victim as target. Single-player references always use the specific event's context.",
+    "Scoring, penalties, assists, and MVP rules remain defined by gameplay. This catalog adds copy and suggested conditions, not rewards, damage, kicks, or sanctions."
+  ],
+  "placeholders": {
+    "actor": {
+      "type": "string",
+      "meaning": "Display name of the protagonist specified in roles.actor.",
+      "example": "DrWolf"
+    },
+    "target": {
+      "type": "string",
+      "meaning": "Name of the individual target for this action. For teammate_saved, this is the rescued ally.",
+      "example": "PixelPanic"
+    },
+    "kill_count": {
+      "type": "integer",
+      "meaning": "Chain total for multikill; enemies killed by the same grenade for grenade_multikill; victims of the same projectile for collateral. Never allies.",
+      "example": 6
+    },
+    "streak_count": {
+      "type": "integer",
+      "meaning": "For shutdown, the victim's streak immediately before death. Do not use the attacker's streak.",
+      "example": 8
+    },
+    "distance_m": {
+      "type": "integer",
+      "meaning": "Distance of the lethal hit, rounded to whole meters for display.",
+      "example": 47
+    },
+    "health": {
+      "type": "integer",
+      "meaning": "The attacker's positive remaining HP when the kill is confirmed. Round fractional HP up so a living player is not shown as having 0 HP.",
+      "example": 3
+    },
+    "team": {
+      "type": "string",
+      "meaning": "Team name of the player receiving the result.",
+      "example": "Alpha"
+    },
+    "seconds": {
+      "type": "integer",
+      "meaning": "Seconds remaining when the warning threshold is crossed.",
+      "example": 30
+    }
+  },
+  "categories": [
+    {
+      "id": "combat",
+      "label": "Special shots and kill types",
+      "event_count": 18,
+      "actor_variants": 148,
+      "target_variants": 38
+    },
+    {
+      "id": "chains",
+      "label": "First blood, multikills, and killstreaks",
+      "event_count": 11,
+      "actor_variants": 88,
+      "target_variants": 0
+    },
+    {
+      "id": "rivalry",
+      "label": "Revenge, domination, rivalries, and special feats",
+      "event_count": 9,
+      "actor_variants": 84,
+      "target_variants": 30
+    },
+    {
+      "id": "friendly_fire",
+      "label": "Friendly fire and mistakes against your own team",
+      "event_count": 6,
+      "actor_variants": 58,
+      "target_variants": 32
+    },
+    {
+      "id": "misadventures",
+      "label": "Accidents, unfortunate deaths, and spawn protection",
+      "event_count": 10,
+      "actor_variants": 82,
+      "target_variants": 0
+    },
+    {
+      "id": "support",
+      "label": "Assists, saves, trades, and cover breaches",
+      "event_count": 4,
+      "actor_variants": 32,
+      "target_variants": 10
+    },
+    {
+      "id": "match_flow",
+      "label": "Match start, respawns, lead changes, and match phases",
+      "event_count": 8,
+      "actor_variants": 66,
+      "target_variants": 0
+    },
+    {
+      "id": "match_result",
+      "label": "Victory, defeat, draws, and awards",
+      "event_count": 6,
+      "actor_variants": 52,
+      "target_variants": 0
+    }
+  ],
+  "events": [
+    {
+      "id": "kill",
+      "category": "combat",
+      "label": "Kill",
+      "enabled_by_default": false,
+      "trigger": "A valid enemy kill; generic fallback used when no more specific event is selected.",
+      "requires": [
+        "enemy_kill_tracking"
+      ],
+      "roles": {
+        "actor": "Player credited with the kill.",
+        "target": "Player who was killed."
+      },
+      "placeholders": [
+        "target"
+      ],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 10,
+        "cooldown_seconds": 8,
+        "duration_seconds": 3,
+        "title": "Kill"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "kill.actor.01",
+            "text": "One less problem. For a few seconds."
+          },
+          {
+            "id": "kill.actor.02",
+            "text": "You sent them on a short break."
+          },
+          {
+            "id": "kill.actor.03",
+            "text": "Keeping the respawn department busy."
+          },
+          {
+            "id": "kill.actor.04",
+            "text": "Discussion over."
+          },
+          {
+            "id": "kill.actor.05",
+            "text": "You've earned a reload."
+          },
+          {
+            "id": "kill.actor.06",
+            "text": "Problem solved. Until they respawn."
+          },
+          {
+            "id": "kill.actor.07",
+            "text": "Point to you. Apologies to {target}."
+          },
+          {
+            "id": "kill.actor.08",
+            "text": "Less talking. More shooting."
+          }
+        ],
+        "target": [
+          {
+            "id": "kill.target.01",
+            "text": "Your plan had a small hole in it."
+          },
+          {
+            "id": "kill.target.02",
+            "text": "Quick break. The chaos will wait."
+          },
+          {
+            "id": "kill.target.03",
+            "text": "That plan needs a few changes."
+          },
+          {
+            "id": "kill.target.04",
+            "text": "You just tested the respawn system."
+          },
+          {
+            "id": "kill.target.05",
+            "text": "Well, that chat ended quickly."
+          },
+          {
+            "id": "kill.target.06",
+            "text": "Next attempt. Same confidence."
+          }
+        ]
+      }
+    },
+    {
+      "id": "headshot",
+      "category": "combat",
+      "label": "Headshot",
+      "enabled_by_default": true,
+      "trigger": "The game classifies the lethal hit on an enemy as a headshot. No headshot-specific notification is sent to the victim.",
+      "requires": [
+        "enemy_kill_tracking",
+        "hit_location_tracking"
+      ],
+      "roles": {
+        "actor": "Player credited with the kill.",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 60,
+        "cooldown_seconds": 3,
+        "duration_seconds": 3,
+        "title": "Headshot"
+      },
+      "notes": "Actor only. Do not turn the actor message into a notification for the victim.",
+      "messages": {
+        "actor": [
+          {
+            "id": "headshot.actor.01",
+            "text": "One less thing on their mind."
+          },
+          {
+            "id": "headshot.actor.02",
+            "text": "Straight to the point."
+          },
+          {
+            "id": "headshot.actor.03",
+            "text": "Head found. Problem solved."
+          },
+          {
+            "id": "headshot.actor.04",
+            "text": "Good aim. Bad day for their head."
+          },
+          {
+            "id": "headshot.actor.05",
+            "text": "Accuracy ruins friendships."
+          },
+          {
+            "id": "headshot.actor.06",
+            "text": "Your aim went straight to their head."
+          },
+          {
+            "id": "headshot.actor.07",
+            "text": "Message received. Forehead first."
+          },
+          {
+            "id": "headshot.actor.08",
+            "text": "One click. Several thoughts canceled."
+          },
+          {
+            "id": "headshot.actor.09",
+            "text": "You found the off switch."
+          },
+          {
+            "id": "headshot.actor.10",
+            "text": "Their next thought can wait."
+          },
+          {
+            "id": "headshot.actor.11",
+            "text": "Delivered straight to the head."
+          },
+          {
+            "id": "headshot.actor.12",
+            "text": "No time for a last thought."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "longshot",
+      "category": "combat",
+      "label": "Longshot",
+      "enabled_by_default": true,
+      "trigger": "An enemy kill where the distance of the lethal hit is at least tuning.longshot_min_meters.",
+      "requires": [
+        "enemy_kill_tracking",
+        "kill_distance_tracking"
+      ],
+      "roles": {
+        "actor": "Player credited with the kill.",
+        "target": null
+      },
+      "placeholders": [
+        "distance_m"
+      ],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 58,
+        "cooldown_seconds": 5,
+        "duration_seconds": 3,
+        "title": "Longshot"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "longshot.actor.01",
+            "text": "Greetings from {distance_m} meters."
+          },
+          {
+            "id": "longshot.actor.02",
+            "text": "A very long hello."
+          },
+          {
+            "id": "longshot.actor.03",
+            "text": "One bullet. A very long trip."
+          },
+          {
+            "id": "longshot.actor.04",
+            "text": "Making friends from a distance."
+          },
+          {
+            "id": "longshot.actor.05",
+            "text": "Distance can't save this friendship."
+          },
+          {
+            "id": "longshot.actor.06",
+            "text": "Far away. Still in trouble."
+          },
+          {
+            "id": "longshot.actor.07",
+            "text": "Long range. Short conversation."
+          },
+          {
+            "id": "longshot.actor.08",
+            "text": "Long-distance relationship status: over."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "noscope",
+      "category": "combat",
+      "label": "No-Scope",
+      "enabled_by_default": false,
+      "trigger": "A kill with a scoped weapon while the player is not aiming through its scope; do not award this for every weapon fired from the hip.",
+      "requires": [
+        "aim_state_tracking",
+        "enemy_kill_tracking",
+        "scoped_weapons"
+      ],
+      "roles": {
+        "actor": "Player credited with the kill.",
+        "target": "Player who was killed."
+      },
+      "placeholders": [
+        "actor"
+      ],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 66,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "No-Scope"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "noscope.actor.01",
+            "text": "The scope was optional."
+          },
+          {
+            "id": "noscope.actor.02",
+            "text": "No zoom. Somehow, good aim."
+          },
+          {
+            "id": "noscope.actor.03",
+            "text": "You saved on zoom."
+          },
+          {
+            "id": "noscope.actor.04",
+            "text": "Your scope can take the day off."
+          },
+          {
+            "id": "noscope.actor.05",
+            "text": "Who needs a scope, anyway?"
+          },
+          {
+            "id": "noscope.actor.06",
+            "text": "The scope was just decoration."
+          },
+          {
+            "id": "noscope.actor.07",
+            "text": "No scope. No problem."
+          },
+          {
+            "id": "noscope.actor.08",
+            "text": "Let's call that skill."
+          }
+        ],
+        "target": [
+          {
+            "id": "noscope.target.01",
+            "text": "{actor} skipped the zoom. You skipped survival."
+          },
+          {
+            "id": "noscope.target.02",
+            "text": "Their scope did nothing. They still hit you."
+          },
+          {
+            "id": "noscope.target.03",
+            "text": "They didn't need the scope. Sorry."
+          },
+          {
+            "id": "noscope.target.04",
+            "text": "Even their scope is surprised."
+          }
+        ]
+      }
+    },
+    {
+      "id": "quickscope",
+      "category": "combat",
+      "label": "Quickscope",
+      "enabled_by_default": false,
+      "trigger": "An enemy kill with a scoped weapon while aiming through its scope, with the shot fired within tuning.quickscope_max_seconds of the latest transition into aiming; both timestamps must be tracked.",
+      "requires": [
+        "aim_timing_tracking",
+        "enemy_kill_tracking",
+        "scoped_weapons"
+      ],
+      "roles": {
+        "actor": "Player credited with the kill.",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 65,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Quickscope"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "quickscope.actor.01",
+            "text": "Zoom. Problem. Solution."
+          },
+          {
+            "id": "quickscope.actor.02",
+            "text": "Zoom in. Shoot. Done."
+          },
+          {
+            "id": "quickscope.actor.03",
+            "text": "One glance was enough."
+          },
+          {
+            "id": "quickscope.actor.04",
+            "text": "A very quick look. A very good shot."
+          },
+          {
+            "id": "quickscope.actor.05",
+            "text": "Aimed for a moment. Just to be nice."
+          },
+          {
+            "id": "quickscope.actor.06",
+            "text": "Just enough time to say hello."
+          },
+          {
+            "id": "quickscope.actor.07",
+            "text": "You aimed. They barely had time to blink."
+          },
+          {
+            "id": "quickscope.actor.08",
+            "text": "A very brief close-up."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "wallbang",
+      "category": "combat",
+      "label": "Wallbang",
+      "enabled_by_default": true,
+      "trigger": "The lethal projectile first passes through a surface with recorded penetration; a wall destroyed by an earlier shot does not qualify.",
+      "requires": [
+        "enemy_kill_tracking",
+        "projectile_penetration_tracking"
+      ],
+      "roles": {
+        "actor": "Player credited with the kill.",
+        "target": "Player who was killed."
+      },
+      "placeholders": [
+        "actor"
+      ],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 64,
+        "cooldown_seconds": 4,
+        "duration_seconds": 3,
+        "title": "Wallbang"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "wallbang.actor.01",
+            "text": "The wall wasn't on their side."
+          },
+          {
+            "id": "wallbang.actor.02",
+            "text": "Hiding behind walls? Nice try."
+          },
+          {
+            "id": "wallbang.actor.03",
+            "text": "You knocked a little too firmly."
+          },
+          {
+            "id": "wallbang.actor.04",
+            "text": "Cover review: one star."
+          },
+          {
+            "id": "wallbang.actor.05",
+            "text": "Message delivered through the wall."
+          },
+          {
+            "id": "wallbang.actor.06",
+            "text": "The wall needed to be thicker."
+          },
+          {
+            "id": "wallbang.actor.07",
+            "text": "Just a wall. Not much help."
+          },
+          {
+            "id": "wallbang.actor.08",
+            "text": "Your bullet went through without asking."
+          }
+        ],
+        "target": [
+          {
+            "id": "wallbang.target.01",
+            "text": "The wall had other priorities."
+          },
+          {
+            "id": "wallbang.target.02",
+            "text": "Next time, pick a thicker wall."
+          },
+          {
+            "id": "wallbang.target.03",
+            "text": "You trusted that wall a little too much."
+          },
+          {
+            "id": "wallbang.target.04",
+            "text": "The wall let {actor}'s bullet in."
+          },
+          {
+            "id": "wallbang.target.05",
+            "text": "That wall looked safer from your side."
+          },
+          {
+            "id": "wallbang.target.06",
+            "text": "Your cover just expired."
+          }
+        ]
+      }
+    },
+    {
+      "id": "collateral",
+      "category": "combat",
+      "label": "Collateral",
+      "enabled_by_default": false,
+      "trigger": "One server-identified projectile kills at least two distinct enemies; emit one notification per projectile using its final kill count.",
+      "requires": [
+        "enemy_kill_tracking",
+        "projectile_identity_tracking",
+        "projectile_penetration_tracking"
+      ],
+      "roles": {
+        "actor": "Player credited with the kill.",
+        "target": null
+      },
+      "placeholders": [
+        "kill_count"
+      ],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 83,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Collateral"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "collateral.actor.01",
+            "text": "One bullet. More than one bad day."
+          },
+          {
+            "id": "collateral.actor.02",
+            "text": "Nice straight line. Terrible idea."
+          },
+          {
+            "id": "collateral.actor.03",
+            "text": "More kills. Same bullet."
+          },
+          {
+            "id": "collateral.actor.04",
+            "text": "They lined up. You took the shot."
+          },
+          {
+            "id": "collateral.actor.05",
+            "text": "One shot. {kill_count} enemies down."
+          },
+          {
+            "id": "collateral.actor.06",
+            "text": "Queue cleared."
+          },
+          {
+            "id": "collateral.actor.07",
+            "text": "That bullet refused to stop at one."
+          },
+          {
+            "id": "collateral.actor.08",
+            "text": "Your bullet kept going. So did the score."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "melee_kill",
+      "category": "combat",
+      "label": "Melee Kill",
+      "enabled_by_default": true,
+      "trigger": "A valid kill caused by a melee attack credited to the player.",
+      "requires": [
+        "enemy_kill_tracking",
+        "melee_damage"
+      ],
+      "roles": {
+        "actor": "Player credited with the kill.",
+        "target": "Player who was killed."
+      },
+      "placeholders": [
+        "actor"
+      ],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 62,
+        "cooldown_seconds": 3,
+        "duration_seconds": 3,
+        "title": "Melee Kill"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "melee_kill.actor.01",
+            "text": "Customer service. In person."
+          },
+          {
+            "id": "melee_kill.actor.02",
+            "text": "Close enough to skip the shooting."
+          },
+          {
+            "id": "melee_kill.actor.03",
+            "text": "You saved a few bullets there."
+          },
+          {
+            "id": "melee_kill.actor.04",
+            "text": "Too close for a polite hello."
+          },
+          {
+            "id": "melee_kill.actor.05",
+            "text": "A very direct approach."
+          },
+          {
+            "id": "melee_kill.actor.06",
+            "text": "No shipping fees."
+          },
+          {
+            "id": "melee_kill.actor.07",
+            "text": "You preferred to discuss it face to face."
+          },
+          {
+            "id": "melee_kill.actor.08",
+            "text": "You got close. A little too close."
+          }
+        ],
+        "target": [
+          {
+            "id": "melee_kill.target.01",
+            "text": "Personal space was just a suggestion."
+          },
+          {
+            "id": "melee_kill.target.02",
+            "text": "{actor} wanted to tell you in person."
+          },
+          {
+            "id": "melee_kill.target.03",
+            "text": "You let them get a little too close."
+          },
+          {
+            "id": "melee_kill.target.04",
+            "text": "That meeting was a little too close."
+          },
+          {
+            "id": "melee_kill.target.05",
+            "text": "That wasn't a handshake."
+          },
+          {
+            "id": "melee_kill.target.06",
+            "text": "One more step back might have helped."
+          }
+        ]
+      }
+    },
+    {
+      "id": "grenade_kill",
+      "category": "combat",
+      "label": "Grenade Kill",
+      "enabled_by_default": true,
+      "trigger": "An enemy is killed by a grenade credited to the player; exclude mines and barrels if they have separate events.",
+      "requires": [
+        "enemy_kill_tracking",
+        "explosion_attribution",
+        "grenades"
+      ],
+      "roles": {
+        "actor": "Player credited with the kill.",
+        "target": "Player who was killed."
+      },
+      "placeholders": [
+        "actor"
+      ],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 61,
+        "cooldown_seconds": 3,
+        "duration_seconds": 3,
+        "title": "Grenade Kill"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "grenade_kill.actor.01",
+            "text": "Package delivered."
+          },
+          {
+            "id": "grenade_kill.actor.02",
+            "text": "No refunds on this gift."
+          },
+          {
+            "id": "grenade_kill.actor.03",
+            "text": "That got everyone's attention."
+          },
+          {
+            "id": "grenade_kill.actor.04",
+            "text": "The conversation blew up."
+          },
+          {
+            "id": "grenade_kill.actor.05",
+            "text": "A greeting with a blast radius."
+          },
+          {
+            "id": "grenade_kill.actor.06",
+            "text": "You made some room."
+          },
+          {
+            "id": "grenade_kill.actor.07",
+            "text": "Fast delivery. Loud arrival."
+          },
+          {
+            "id": "grenade_kill.actor.08",
+            "text": "So much for peace and quiet."
+          }
+        ],
+        "target": [
+          {
+            "id": "grenade_kill.target.01",
+            "text": "You weren't supposed to open that."
+          },
+          {
+            "id": "grenade_kill.target.02",
+            "text": "That wasn't a free sample."
+          },
+          {
+            "id": "grenade_kill.target.03",
+            "text": "{actor} sent you a little something."
+          },
+          {
+            "id": "grenade_kill.target.04",
+            "text": "You were a bit too close to the boom."
+          },
+          {
+            "id": "grenade_kill.target.05",
+            "text": "That delivery needed a warning."
+          },
+          {
+            "id": "grenade_kill.target.06",
+            "text": "The surprise was louder than expected."
+          }
+        ]
+      }
+    },
+    {
+      "id": "grenade_multikill",
+      "category": "combat",
+      "label": "Grenade Multikill",
+      "enabled_by_default": true,
+      "trigger": "One server-identified grenade kills at least two distinct enemies; notify once using the final number of victims of that same explosion.",
+      "requires": [
+        "enemy_kill_tracking",
+        "explosion_identity_tracking",
+        "grenades"
+      ],
+      "roles": {
+        "actor": "Player credited with the kill.",
+        "target": null
+      },
+      "placeholders": [
+        "kill_count"
+      ],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 83,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Grenade Multikill"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "grenade_multikill.actor.01",
+            "text": "Group invitation delivered."
+          },
+          {
+            "id": "grenade_multikill.actor.02",
+            "text": "One grenade. {kill_count} enemies on a break."
+          },
+          {
+            "id": "grenade_multikill.actor.03",
+            "text": "Group meeting over."
+          },
+          {
+            "id": "grenade_multikill.actor.04",
+            "text": "The group photo will have to wait."
+          },
+          {
+            "id": "grenade_multikill.actor.05",
+            "text": "You brought enough boom to share."
+          },
+          {
+            "id": "grenade_multikill.actor.06",
+            "text": "You made several enemies very quiet."
+          },
+          {
+            "id": "grenade_multikill.actor.07",
+            "text": "Nice of them to stand so close."
+          },
+          {
+            "id": "grenade_multikill.actor.08",
+            "text": "You fixed the crowd problem."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "ricochet_kill",
+      "category": "combat",
+      "label": "Ricochet Kill",
+      "enabled_by_default": false,
+      "trigger": "The lethal projectile has at least one real, recorded ricochet before impact; enable only if the ballistics system supports ricochets.",
+      "requires": [
+        "enemy_kill_tracking",
+        "projectile_ricochet_tracking"
+      ],
+      "roles": {
+        "actor": "Player credited with the kill.",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 67,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Ricochet Kill"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "ricochet_kill.actor.01",
+            "text": "Your bullet took a little trip."
+          },
+          {
+            "id": "ricochet_kill.actor.02",
+            "text": "You took the long way to the target."
+          },
+          {
+            "id": "ricochet_kill.actor.03",
+            "text": "That bounce worked out nicely."
+          },
+          {
+            "id": "ricochet_kill.actor.04",
+            "text": "One shot. A bounce for extra style."
+          },
+          {
+            "id": "ricochet_kill.actor.05",
+            "text": "Your bullet changed direction with style."
+          },
+          {
+            "id": "ricochet_kill.actor.06",
+            "text": "Wrong turn. Right outcome."
+          },
+          {
+            "id": "ricochet_kill.actor.07",
+            "text": "Your bullet had to turn first."
+          },
+          {
+            "id": "ricochet_kill.actor.08",
+            "text": "The angle was on your side."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "airborne_kill",
+      "category": "combat",
+      "label": "Airborne Kill",
+      "enabled_by_default": false,
+      "trigger": "Telemetry records the player as airborne when firing the lethal shot; being airborne only when the damage resolves does not qualify.",
+      "requires": [
+        "attacker_airborne_at_fire_tracking",
+        "enemy_kill_tracking"
+      ],
+      "roles": {
+        "actor": "Player credited with the kill.",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 52,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Airborne Kill"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "airborne_kill.actor.01",
+            "text": "The floor was optional."
+          },
+          {
+            "id": "airborne_kill.actor.02",
+            "text": "Good aim. No feet on the ground."
+          },
+          {
+            "id": "airborne_kill.actor.03",
+            "text": "Special airborne delivery."
+          },
+          {
+            "id": "airborne_kill.actor.04",
+            "text": "Taking the high ground. Temporarily."
+          },
+          {
+            "id": "airborne_kill.actor.05",
+            "text": "Feet off the ground. Aim still on point."
+          },
+          {
+            "id": "airborne_kill.actor.06",
+            "text": "In the air. Still right on target."
+          },
+          {
+            "id": "airborne_kill.actor.07",
+            "text": "You didn't need to land first."
+          },
+          {
+            "id": "airborne_kill.actor.08",
+            "text": "You added a little height to that kill."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "airborne_target_kill",
+      "category": "combat",
+      "label": "Enemy Killed in Midair",
+      "enabled_by_default": false,
+      "trigger": "Server telemetry records the enemy as airborne when the lethal hit lands.",
+      "requires": [
+        "enemy_kill_tracking",
+        "target_airborne_at_impact_tracking"
+      ],
+      "roles": {
+        "actor": "Player credited with the kill.",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 51,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Enemy Killed in Midair"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "airborne_target_kill.actor.01",
+            "text": "Early landing."
+          },
+          {
+            "id": "airborne_target_kill.actor.02",
+            "text": "Flight plan canceled."
+          },
+          {
+            "id": "airborne_target_kill.actor.03",
+            "text": "Airspace closed."
+          },
+          {
+            "id": "airborne_target_kill.actor.04",
+            "text": "Their flight ended early."
+          },
+          {
+            "id": "airborne_target_kill.actor.05",
+            "text": "Gravity can handle the rest."
+          },
+          {
+            "id": "airborne_target_kill.actor.06",
+            "text": "They went up. You sent them down."
+          },
+          {
+            "id": "airborne_target_kill.actor.07",
+            "text": "You brought that problem back to earth."
+          },
+          {
+            "id": "airborne_target_kill.actor.08",
+            "text": "Shorter flight than advertised."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "last_bullet_kill",
+      "category": "combat",
+      "label": "Last-Bullet Kill",
+      "enabled_by_default": true,
+      "trigger": "The weapon had exactly one round in its magazine immediately before firing the shot that causes the kill; reserve ammunition does not count.",
+      "requires": [
+        "enemy_kill_tracking",
+        "magazine_ammo_at_fire_tracking"
+      ],
+      "roles": {
+        "actor": "Player credited with the kill.",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 53,
+        "cooldown_seconds": 5,
+        "duration_seconds": 3,
+        "title": "Last-Bullet Kill"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "last_bullet_kill.actor.01",
+            "text": "Your last bullet found a job."
+          },
+          {
+            "id": "last_bullet_kill.actor.02",
+            "text": "Magazine empty. Job done."
+          },
+          {
+            "id": "last_bullet_kill.actor.03",
+            "text": "One bullet left. Good time for good aim."
+          },
+          {
+            "id": "last_bullet_kill.actor.04",
+            "text": "The last round had the right idea."
+          },
+          {
+            "id": "last_bullet_kill.actor.05",
+            "text": "Closing shot."
+          },
+          {
+            "id": "last_bullet_kill.actor.06",
+            "text": "Just in time to reload."
+          },
+          {
+            "id": "last_bullet_kill.actor.07",
+            "text": "That magazine saved a surprise for last."
+          },
+          {
+            "id": "last_bullet_kill.actor.08",
+            "text": "One round left. One round needed."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "low_health_kill",
+      "category": "combat",
+      "label": "Low-Health Kill",
+      "enabled_by_default": true,
+      "trigger": "An enemy kill while the actor is still alive, with HP greater than zero and no higher than tuning.low_health_max_hp.",
+      "requires": [
+        "enemy_kill_tracking",
+        "health_at_kill_tracking"
+      ],
+      "roles": {
+        "actor": "Player credited with the kill.",
+        "target": null
+      },
+      "placeholders": [
+        "health"
+      ],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 54,
+        "cooldown_seconds": 5,
+        "duration_seconds": 3,
+        "title": "Low-Health Kill"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "low_health_kill.actor.01",
+            "text": "{health} HP. Still more than they have."
+          },
+          {
+            "id": "low_health_kill.actor.02",
+            "text": "Low on health. High on confidence."
+          },
+          {
+            "id": "low_health_kill.actor.03",
+            "text": "Won by a heartbeat."
+          },
+          {
+            "id": "low_health_kill.actor.04",
+            "text": "Almost dead. Still dangerous."
+          },
+          {
+            "id": "low_health_kill.actor.05",
+            "text": "Barely alive. Perfectly timed."
+          },
+          {
+            "id": "low_health_kill.actor.06",
+            "text": "Almost no health. Still enough for trouble."
+          },
+          {
+            "id": "low_health_kill.actor.07",
+            "text": "You still have a pulse. They have a respawn."
+          },
+          {
+            "id": "low_health_kill.actor.08",
+            "text": "You weren't done breathing yet."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "posthumous_kill",
+      "category": "combat",
+      "label": "Kill After Death",
+      "enabled_by_default": true,
+      "trigger": "Delayed damage credited to an already-ended life kills an enemy after its author has died; bind the credit to the original life even if the author has already respawned.",
+      "requires": [
+        "delayed_damage_attribution",
+        "enemy_kill_tracking",
+        "life_identity_tracking"
+      ],
+      "roles": {
+        "actor": "Player credited with the kill.",
+        "target": "Player who was killed."
+      },
+      "placeholders": [
+        "actor"
+      ],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 75,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Kill After Death"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "posthumous_kill.actor.01",
+            "text": "Your to-do list survived you."
+          },
+          {
+            "id": "posthumous_kill.actor.02",
+            "text": "Dead first. Still got the kill."
+          },
+          {
+            "id": "posthumous_kill.actor.03",
+            "text": "Your final message arrived."
+          },
+          {
+            "id": "posthumous_kill.actor.04",
+            "text": "A little late. Still a kill."
+          },
+          {
+            "id": "posthumous_kill.actor.05",
+            "text": "You were dead. Your attack wasn't."
+          },
+          {
+            "id": "posthumous_kill.actor.06",
+            "text": "You sent that before you died."
+          },
+          {
+            "id": "posthumous_kill.actor.07",
+            "text": "Didn't need to stay alive for that."
+          },
+          {
+            "id": "posthumous_kill.actor.08",
+            "text": "You weren't quite finished."
+          }
+        ],
+        "target": [
+          {
+            "id": "posthumous_kill.target.01",
+            "text": "They died. Their attack kept going."
+          },
+          {
+            "id": "posthumous_kill.target.02",
+            "text": "{actor} had already hit send."
+          },
+          {
+            "id": "posthumous_kill.target.03",
+            "text": "Their attack got you after they died."
+          },
+          {
+            "id": "posthumous_kill.target.04",
+            "text": "They died first. You followed."
+          },
+          {
+            "id": "posthumous_kill.target.05",
+            "text": "They died before their gift reached you."
+          },
+          {
+            "id": "posthumous_kill.target.06",
+            "text": "The attack arrived late. It still hurt."
+          }
+        ]
+      }
+    },
+    {
+      "id": "mutual_kill",
+      "category": "combat",
+      "label": "Killed Each Other",
+      "enabled_by_default": true,
+      "trigger": "Two enemies kill each other within tuning.mutual_kill_max_gap_seconds. Emit once for each player as actor, with no target: correlate and deduplicate the pair.",
+      "requires": [
+        "enemy_kill_tracking",
+        "mutual_kill_correlation"
+      ],
+      "roles": {
+        "actor": "Each of the two players who kills the other and dies in the same exchange.",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 82,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Killed Each Other"
+      },
+      "notes": "Create two mirrored contexts with one actor each; do not deliver both actor and target messages to the same player.",
+      "messages": {
+        "actor": [
+          {
+            "id": "mutual_kill.actor.01",
+            "text": "You both agreed to respawn."
+          },
+          {
+            "id": "mutual_kill.actor.02",
+            "text": "Neither of you got the last word."
+          },
+          {
+            "id": "mutual_kill.actor.03",
+            "text": "Both dead. That seems fair."
+          },
+          {
+            "id": "mutual_kill.actor.04",
+            "text": "One favor each."
+          },
+          {
+            "id": "mutual_kill.actor.05",
+            "text": "You both won. And lost."
+          },
+          {
+            "id": "mutual_kill.actor.06",
+            "text": "You'll catch up next life."
+          },
+          {
+            "id": "mutual_kill.actor.07",
+            "text": "You both needed that break."
+          },
+          {
+            "id": "mutual_kill.actor.08",
+            "text": "A very even trade."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "destruction_kill",
+      "category": "combat",
+      "label": "Destruction Kill",
+      "enabled_by_default": false,
+      "trigger": "An enemy dies from debris or destructible-environment damage credited to the player; enable only if that damage exists and is tracked, not merely because a wall was removed.",
+      "requires": [
+        "destructible_environment_damage",
+        "enemy_kill_tracking",
+        "environment_damage_attribution"
+      ],
+      "roles": {
+        "actor": "Player credited with the kill.",
+        "target": "Player who was killed."
+      },
+      "placeholders": [
+        "actor"
+      ],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 63,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Destruction Kill"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "destruction_kill.actor.01",
+            "text": "You changed more than the map."
+          },
+          {
+            "id": "destruction_kill.actor.02",
+            "text": "The map helped with that kill."
+          },
+          {
+            "id": "destruction_kill.actor.03",
+            "text": "You made the map fight for you."
+          },
+          {
+            "id": "destruction_kill.actor.04",
+            "text": "One kill. A few repairs needed."
+          },
+          {
+            "id": "destruction_kill.actor.05",
+            "text": "You broke the map. And their plans."
+          },
+          {
+            "id": "destruction_kill.actor.06",
+            "text": "You made things less stable."
+          },
+          {
+            "id": "destruction_kill.actor.07",
+            "text": "The map landed the final hit."
+          },
+          {
+            "id": "destruction_kill.actor.08",
+            "text": "You broke something. It broke them."
+          }
+        ],
+        "target": [
+          {
+            "id": "destruction_kill.target.01",
+            "text": "The map just became your enemy."
+          },
+          {
+            "id": "destruction_kill.target.02",
+            "text": "The map broke. You were too close."
+          },
+          {
+            "id": "destruction_kill.target.03",
+            "text": "{actor} broke things. You were one of them."
+          },
+          {
+            "id": "destruction_kill.target.04",
+            "text": "Repairs needed. Especially you."
+          }
+        ]
+      }
+    },
+    {
+      "id": "first_blood",
+      "category": "chains",
+      "label": "First Blood",
+      "enabled_by_default": true,
+      "trigger": "The first valid enemy elimination of the match; award once, excluding suicides and friendly fire.",
+      "requires": [
+        "enemy_kill_tracking",
+        "match_first_kill_tracking"
+      ],
+      "roles": {
+        "actor": "The player credited with the first valid enemy elimination of the match.",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 69,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "First Blood"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "first_blood.actor.01",
+            "text": "First kill. The complaints start now."
+          },
+          {
+            "id": "first_blood.actor.02",
+            "text": "The match just started. So did the complaints."
+          },
+          {
+            "id": "first_blood.actor.03",
+            "text": "First kill. Somebody had to start."
+          },
+          {
+            "id": "first_blood.actor.04",
+            "text": "Warm-up's officially over."
+          },
+          {
+            "id": "first_blood.actor.05",
+            "text": "You got the trouble started."
+          },
+          {
+            "id": "first_blood.actor.06",
+            "text": "The first complaint is already on its way."
+          },
+          {
+            "id": "first_blood.actor.07",
+            "text": "First kill. Somebody else's bad start."
+          },
+          {
+            "id": "first_blood.actor.08",
+            "text": "First kill. One opponent needs a fresh start."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "double_kill",
+      "category": "chains",
+      "label": "Double Kill",
+      "enabled_by_default": true,
+      "trigger": "The second enemy elimination in the same chain and the same active life; the gap since the previous kill must not exceed tuning.multikill_max_gap_seconds.",
+      "requires": [
+        "enemy_kill_tracking",
+        "multikill_tracking"
+      ],
+      "roles": {
+        "actor": "The player who reaches two eliminations in the same rapid kill chain.",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 76,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Double Kill"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "double_kill.actor.01",
+            "text": "Two kills. One very good start."
+          },
+          {
+            "id": "double_kill.actor.02",
+            "text": "Was one not enough?"
+          },
+          {
+            "id": "double_kill.actor.03",
+            "text": "One kill wasn't enough. You wanted two."
+          },
+          {
+            "id": "double_kill.actor.04",
+            "text": "Two opponents sent back to spawn."
+          },
+          {
+            "id": "double_kill.actor.05",
+            "text": "One less problem. Make that two."
+          },
+          {
+            "id": "double_kill.actor.06",
+            "text": "One kill, then another. Why stop?"
+          },
+          {
+            "id": "double_kill.actor.07",
+            "text": "Double kill. They weren't ready for the second."
+          },
+          {
+            "id": "double_kill.actor.08",
+            "text": "Two kills. Twice the complaining."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "triple_kill",
+      "category": "chains",
+      "label": "Triple Kill",
+      "enabled_by_default": true,
+      "trigger": "The third enemy elimination in the same chain and the same active life; every gap between consecutive kills must not exceed tuning.multikill_max_gap_seconds.",
+      "requires": [
+        "enemy_kill_tracking",
+        "multikill_tracking"
+      ],
+      "roles": {
+        "actor": "The player who reaches three eliminations in the same rapid kill chain.",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 77,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Triple Kill"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "triple_kill.actor.01",
+            "text": "Three kills. Not their best few seconds."
+          },
+          {
+            "id": "triple_kill.actor.02",
+            "text": "This is officially a group problem."
+          },
+          {
+            "id": "triple_kill.actor.03",
+            "text": "Three kills. Plenty of people to annoy."
+          },
+          {
+            "id": "triple_kill.actor.04",
+            "text": "Three kills. Did you even blink?"
+          },
+          {
+            "id": "triple_kill.actor.05",
+            "text": "Three kills. They can compare excuses."
+          },
+          {
+            "id": "triple_kill.actor.06",
+            "text": "Three kills. Yes, we counted."
+          },
+          {
+            "id": "triple_kill.actor.07",
+            "text": "Three problems solved in a few seconds."
+          },
+          {
+            "id": "triple_kill.actor.08",
+            "text": "Three kills. Their luck needs help."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "quad_kill",
+      "category": "chains",
+      "label": "Quad Kill",
+      "enabled_by_default": true,
+      "trigger": "The fourth enemy elimination in the same chain and the same active life; every gap between consecutive kills must not exceed tuning.multikill_max_gap_seconds.",
+      "requires": [
+        "enemy_kill_tracking",
+        "multikill_tracking"
+      ],
+      "roles": {
+        "actor": "The player who reaches four eliminations in the same rapid kill chain.",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 78,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Quad Kill"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "quad_kill.actor.01",
+            "text": "Four kills. You made that look easy."
+          },
+          {
+            "id": "quad_kill.actor.02",
+            "text": "Four kills. Send the next group."
+          },
+          {
+            "id": "quad_kill.actor.03",
+            "text": "Four kills. Sorry about their stats."
+          },
+          {
+            "id": "quad_kill.actor.04",
+            "text": "Four opponents. One group break."
+          },
+          {
+            "id": "quad_kill.actor.05",
+            "text": "Four kills. The other side is getting nervous."
+          },
+          {
+            "id": "quad_kill.actor.06",
+            "text": "Four kills. Hard to call that luck."
+          },
+          {
+            "id": "quad_kill.actor.07",
+            "text": "Four kills. Plenty of room now."
+          },
+          {
+            "id": "quad_kill.actor.08",
+            "text": "Four kills. Good luck making friends now."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "penta_kill",
+      "category": "chains",
+      "label": "Penta Kill",
+      "enabled_by_default": true,
+      "trigger": "The fifth enemy elimination in the same chain and the same active life; every gap between consecutive kills must not exceed tuning.multikill_max_gap_seconds.",
+      "requires": [
+        "enemy_kill_tracking",
+        "multikill_tracking"
+      ],
+      "roles": {
+        "actor": "The player who reaches five eliminations in the same rapid kill chain.",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 79,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Penta Kill"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "penta_kill.actor.01",
+            "text": "Five kills. Need another hand to count?"
+          },
+          {
+            "id": "penta_kill.actor.02",
+            "text": "Five kills. Respawn has a queue."
+          },
+          {
+            "id": "penta_kill.actor.03",
+            "text": "Five. Someone check the scoreboard."
+          },
+          {
+            "id": "penta_kill.actor.04",
+            "text": "Five kills. Their plans just changed."
+          },
+          {
+            "id": "penta_kill.actor.05",
+            "text": "Five kills. Somebody is probably shouting."
+          },
+          {
+            "id": "penta_kill.actor.06",
+            "text": "Five kills. You won't be popular."
+          },
+          {
+            "id": "penta_kill.actor.07",
+            "text": "Five kills. Plenty of explaining to do."
+          },
+          {
+            "id": "penta_kill.actor.08",
+            "text": "Five kills. Go ahead and smile."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "multikill",
+      "category": "chains",
+      "label": "Multikill (6+)",
+      "enabled_by_default": true,
+      "trigger": "The sixth or subsequent enemy elimination in the same chain and the same active life, within tuning.multikill_max_gap_seconds of the previous kill. kill_count is the updated total for the chain.",
+      "requires": [
+        "enemy_kill_tracking",
+        "multikill_tracking"
+      ],
+      "roles": {
+        "actor": "The player who reaches at least six eliminations in the same rapid kill chain.",
+        "target": null
+      },
+      "placeholders": [
+        "kill_count"
+      ],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 80,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Multikill (6+)"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "multikill.actor.01",
+            "text": "{kill_count} kills. That can't all be luck."
+          },
+          {
+            "id": "multikill.actor.02",
+            "text": "{kill_count} kills. They really want you to miss."
+          },
+          {
+            "id": "multikill.actor.03",
+            "text": "{kill_count} kills. Lots of unhappy opponents."
+          },
+          {
+            "id": "multikill.actor.04",
+            "text": "{kill_count} kills. Slow down, we're still counting."
+          },
+          {
+            "id": "multikill.actor.05",
+            "text": "{kill_count} in a row. Anyone still counting?"
+          },
+          {
+            "id": "multikill.actor.06",
+            "text": "{kill_count} kills. Hard for them to stay calm."
+          },
+          {
+            "id": "multikill.actor.07",
+            "text": "{kill_count} kills. They need a new plan."
+          },
+          {
+            "id": "multikill.actor.08",
+            "text": "{kill_count} kills. Do they know how to hide?"
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "killstreak_5",
+      "category": "chains",
+      "label": "5-Kill Streak",
+      "enabled_by_default": true,
+      "trigger": "The fifth valid enemy elimination in the same life; award once when the count reaches exactly five, excluding suicides and friendly fire.",
+      "requires": [
+        "enemy_kill_tracking",
+        "killstreak_tracking"
+      ],
+      "roles": {
+        "actor": "The player who reaches five eliminations without dying.",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 70,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "5-Kill Streak"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "killstreak_5.actor.01",
+            "text": "Five kills. You're just getting started."
+          },
+          {
+            "id": "killstreak_5.actor.02",
+            "text": "The respawn screen misses you."
+          },
+          {
+            "id": "killstreak_5.actor.03",
+            "text": "Five in a row. The plan is somehow working."
+          },
+          {
+            "id": "killstreak_5.actor.04",
+            "text": "Five kills. Still alive. Keep going."
+          },
+          {
+            "id": "killstreak_5.actor.05",
+            "text": "Five kills. No respawn needed yet."
+          },
+          {
+            "id": "killstreak_5.actor.06",
+            "text": "Five kills. You're becoming a problem."
+          },
+          {
+            "id": "killstreak_5.actor.07",
+            "text": "One life. Five pieces of bad news."
+          },
+          {
+            "id": "killstreak_5.actor.08",
+            "text": "Five kills. You almost look professional."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "killstreak_10",
+      "category": "chains",
+      "label": "10-Kill Streak",
+      "enabled_by_default": true,
+      "trigger": "The tenth valid enemy elimination in the same life; award once when the count reaches exactly ten, excluding suicides and friendly fire.",
+      "requires": [
+        "enemy_kill_tracking",
+        "killstreak_tracking"
+      ],
+      "roles": {
+        "actor": "The player who reaches ten eliminations without dying.",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 71,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "10-Kill Streak"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "killstreak_10.actor.01",
+            "text": "Ten. They're definitely talking about you."
+          },
+          {
+            "id": "killstreak_10.actor.02",
+            "text": "Your respawn is officially on vacation."
+          },
+          {
+            "id": "killstreak_10.actor.03",
+            "text": "Ten kills. One life. Good use of time."
+          },
+          {
+            "id": "killstreak_10.actor.04",
+            "text": "Ten kills. Really enjoying being alive, aren't you?"
+          },
+          {
+            "id": "killstreak_10.actor.05",
+            "text": "Ten kills. You've attracted some attention."
+          },
+          {
+            "id": "killstreak_10.actor.06",
+            "text": "Ten kills. This life is lasting nicely."
+          },
+          {
+            "id": "killstreak_10.actor.07",
+            "text": "Ten without dying. Confidence is getting dangerous."
+          },
+          {
+            "id": "killstreak_10.actor.08",
+            "text": "Getting attached to this life, aren't you?"
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "killstreak_15",
+      "category": "chains",
+      "label": "15-Kill Streak",
+      "enabled_by_default": true,
+      "trigger": "The fifteenth valid enemy elimination in the same life; award once when the count reaches exactly fifteen, excluding suicides and friendly fire.",
+      "requires": [
+        "enemy_kill_tracking",
+        "killstreak_tracking"
+      ],
+      "roles": {
+        "actor": "The player who reaches fifteen eliminations without dying.",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 72,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "15-Kill Streak"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "killstreak_15.actor.01",
+            "text": "Fifteen kills. Surely some of that was skill."
+          },
+          {
+            "id": "killstreak_15.actor.02",
+            "text": "Fifteen kills. Still no reason to respawn."
+          },
+          {
+            "id": "killstreak_15.actor.03",
+            "text": "You're becoming a topic in chat."
+          },
+          {
+            "id": "killstreak_15.actor.04",
+            "text": "Fifteen kills. Their patience is running out."
+          },
+          {
+            "id": "killstreak_15.actor.05",
+            "text": "Respawn is starting to forget your name."
+          },
+          {
+            "id": "killstreak_15.actor.06",
+            "text": "Fifteen kills. Even you didn't expect that."
+          },
+          {
+            "id": "killstreak_15.actor.07",
+            "text": "Fifteen in a row. Remember to breathe."
+          },
+          {
+            "id": "killstreak_15.actor.08",
+            "text": "You're doing terrible things to other people's stats."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "killstreak_20",
+      "category": "chains",
+      "label": "20-Kill Streak",
+      "enabled_by_default": true,
+      "trigger": "The twentieth valid enemy elimination in the same life; award once when the count reaches exactly twenty, excluding suicides and friendly fire.",
+      "requires": [
+        "enemy_kill_tracking",
+        "killstreak_tracking"
+      ],
+      "roles": {
+        "actor": "The player who reaches twenty eliminations without dying.",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 73,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "20-Kill Streak"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "killstreak_20.actor.01",
+            "text": "Twenty kills. You can visit spawn later."
+          },
+          {
+            "id": "killstreak_20.actor.02",
+            "text": "One life. Twenty reasons for them to complain."
+          },
+          {
+            "id": "killstreak_20.actor.03",
+            "text": "Twenty kills. You really like this life."
+          },
+          {
+            "id": "killstreak_20.actor.04",
+            "text": "Twenty kills. Even the excuses have stopped."
+          },
+          {
+            "id": "killstreak_20.actor.05",
+            "text": "Twenty kills. How about one more?"
+          },
+          {
+            "id": "killstreak_20.actor.06",
+            "text": "The respawn stopped saving you a seat."
+          },
+          {
+            "id": "killstreak_20.actor.07",
+            "text": "Twenty kills. You're making this look easy."
+          },
+          {
+            "id": "killstreak_20.actor.08",
+            "text": "Twenty kills. The enemy needs a new plan."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "killstreak_25",
+      "category": "chains",
+      "label": "25-Kill Streak",
+      "enabled_by_default": true,
+      "trigger": "The twenty-fifth valid enemy elimination in the same life; award once when the count reaches exactly twenty-five, excluding suicides and friendly fire.",
+      "requires": [
+        "enemy_kill_tracking",
+        "killstreak_tracking"
+      ],
+      "roles": {
+        "actor": "The player who reaches twenty-five eliminations without dying.",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 74,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "25-Kill Streak"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "killstreak_25.actor.01",
+            "text": "Twenty-five. Even the counter looks surprised."
+          },
+          {
+            "id": "killstreak_25.actor.02",
+            "text": "Your friendly match may require new friends."
+          },
+          {
+            "id": "killstreak_25.actor.03",
+            "text": "Twenty-five kills. This life deserves a medal."
+          },
+          {
+            "id": "killstreak_25.actor.04",
+            "text": "Twenty-five reasons for a rematch."
+          },
+          {
+            "id": "killstreak_25.actor.05",
+            "text": "Respawn is wondering if you'll ever visit."
+          },
+          {
+            "id": "killstreak_25.actor.06",
+            "text": "One life. So many complaints."
+          },
+          {
+            "id": "killstreak_25.actor.07",
+            "text": "Twenty-five kills. You can brag a little."
+          },
+          {
+            "id": "killstreak_25.actor.08",
+            "text": "Twenty-five. Someone is going to have to tell this story."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "revenge",
+      "category": "rivalry",
+      "label": "Revenge",
+      "enabled_by_default": true,
+      "trigger": "The player eliminates the opponent responsible for their most recent death. The opportunity remains valid after other eliminations, can be used only once, and is replaced by the next death. Do not show if domination_broken applies.",
+      "requires": [
+        "enemy_kill_tracking",
+        "last_killer_tracking"
+      ],
+      "roles": {
+        "actor": "The player who eliminates their most recent killer.",
+        "target": "The eliminated opponent who caused the actor's most recent death."
+      },
+      "placeholders": [
+        "actor",
+        "target"
+      ],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 88,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Revenge"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "revenge.actor.01",
+            "text": "You got them back. Feel better now?"
+          },
+          {
+            "id": "revenge.actor.02",
+            "text": "You remembered. It shows."
+          },
+          {
+            "id": "revenge.actor.03",
+            "text": "Your memory works better than your forgiveness."
+          },
+          {
+            "id": "revenge.actor.04",
+            "text": "Revenge delivered. Try not to smile."
+          },
+          {
+            "id": "revenge.actor.05",
+            "text": "They got you. Now you got them."
+          },
+          {
+            "id": "revenge.actor.06",
+            "text": "One kill returned. No thank-you needed."
+          },
+          {
+            "id": "revenge.actor.07",
+            "text": "Nothing personal. Mostly."
+          },
+          {
+            "id": "revenge.actor.08",
+            "text": "Your last death needed an answer. There it is."
+          },
+          {
+            "id": "revenge.actor.09",
+            "text": "You owed {target} a trip to respawn."
+          },
+          {
+            "id": "revenge.actor.10",
+            "text": "Revenge feels better when you hit the target."
+          },
+          {
+            "id": "revenge.actor.11",
+            "text": "You killed them back. That feels better."
+          },
+          {
+            "id": "revenge.actor.12",
+            "text": "You don't forget. You fight back."
+          }
+        ],
+        "target": [
+          {
+            "id": "revenge.target.01",
+            "text": "{actor} remembered who killed them."
+          },
+          {
+            "id": "revenge.target.02",
+            "text": "They got their revenge. Your turn again."
+          },
+          {
+            "id": "revenge.target.03",
+            "text": "They remembered your last kill. Clearly."
+          },
+          {
+            "id": "revenge.target.04",
+            "text": "Your last kill just got you killed."
+          },
+          {
+            "id": "revenge.target.05",
+            "text": "Revenge delivered. You can stop waiting for it."
+          },
+          {
+            "id": "revenge.target.06",
+            "text": "That was revenge. They didn't forget."
+          }
+        ]
+      }
+    },
+    {
+      "id": "domination",
+      "category": "rivalry",
+      "label": "Domination",
+      "enabled_by_default": true,
+      "trigger": "The fourth elimination of the same opponent without that opponent eliminating the actor in between. Interactions with other players do not reset the pair counter. Emit only when entering the domination state; reset all such states at the start of the match.",
+      "requires": [
+        "enemy_kill_tracking",
+        "opponent_pair_tracking"
+      ],
+      "roles": {
+        "actor": "The player who enters the domination state against an opponent.",
+        "target": "The opponent who suffers the fourth elimination without returning a kill within the pair."
+      },
+      "placeholders": [
+        "actor",
+        "target"
+      ],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 86,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Domination"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "domination.actor.01",
+            "text": "Same opponent, four kills. They know you now."
+          },
+          {
+            "id": "domination.actor.02",
+            "text": "Four kills. They still haven't got you."
+          },
+          {
+            "id": "domination.actor.03",
+            "text": "Four kills against {target}. Lots of respawn practice."
+          },
+          {
+            "id": "domination.actor.04",
+            "text": "This rivalry is looking rather one-sided."
+          },
+          {
+            "id": "domination.actor.05",
+            "text": "Same opponent. Same problem."
+          },
+          {
+            "id": "domination.actor.06",
+            "text": "Another kill against {target}. They know the routine."
+          },
+          {
+            "id": "domination.actor.07",
+            "text": "You keep sending the same opponent to respawn."
+          },
+          {
+            "id": "domination.actor.08",
+            "text": "Four fights with them. Still no surprise."
+          },
+          {
+            "id": "domination.actor.09",
+            "text": "Same opponent. You're getting good at this."
+          },
+          {
+            "id": "domination.actor.10",
+            "text": "Four kills. They haven't killed you back."
+          },
+          {
+            "id": "domination.actor.11",
+            "text": "They probably hope you miss next time."
+          },
+          {
+            "id": "domination.actor.12",
+            "text": "You keep showing up in their death screen."
+          }
+        ],
+        "target": [
+          {
+            "id": "domination.target.01",
+            "text": "Four times. Maybe try a different route."
+          },
+          {
+            "id": "domination.target.02",
+            "text": "{actor} keeps killing you. Time for a new plan."
+          },
+          {
+            "id": "domination.target.03",
+            "text": "Same enemy again. Try a different approach."
+          },
+          {
+            "id": "domination.target.04",
+            "text": "Next time, make them respawn."
+          },
+          {
+            "id": "domination.target.05",
+            "text": "The next meeting could go differently."
+          },
+          {
+            "id": "domination.target.06",
+            "text": "The same enemy got you again."
+          }
+        ]
+      }
+    },
+    {
+      "id": "domination_broken",
+      "category": "rivalry",
+      "label": "Domination Broken",
+      "enabled_by_default": true,
+      "trigger": "A player eliminates the opponent who was dominating them; remove that domination state and reset the pair streak in that direction. This notification takes priority over revenge for the same elimination.",
+      "requires": [
+        "enemy_kill_tracking",
+        "opponent_pair_tracking"
+      ],
+      "roles": {
+        "actor": "The player who ends the domination they were under by eliminating their dominator.",
+        "target": "The opponent who loses their domination over the actor."
+      },
+      "placeholders": [
+        "actor",
+        "target"
+      ],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 90,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Domination Broken"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "domination_broken.actor.01",
+            "text": "You finally sent them to respawn."
+          },
+          {
+            "id": "domination_broken.actor.02",
+            "text": "Their streak against you ends here."
+          },
+          {
+            "id": "domination_broken.actor.03",
+            "text": "You changed the ending."
+          },
+          {
+            "id": "domination_broken.actor.04",
+            "text": "Their easy kills just got harder."
+          },
+          {
+            "id": "domination_broken.actor.05",
+            "text": "You got a kill against them at last."
+          },
+          {
+            "id": "domination_broken.actor.06",
+            "text": "Tired of dying? You did something about it."
+          },
+          {
+            "id": "domination_broken.actor.07",
+            "text": "They expected another kill. You had other plans."
+          },
+          {
+            "id": "domination_broken.actor.08",
+            "text": "You finally killed {target}. Much better."
+          },
+          {
+            "id": "domination_broken.actor.09",
+            "text": "They kept killing you. Now it's their turn."
+          },
+          {
+            "id": "domination_broken.actor.10",
+            "text": "You weren't going to lose to them forever."
+          },
+          {
+            "id": "domination_broken.actor.11",
+            "text": "Now they know you can kill them too."
+          },
+          {
+            "id": "domination_broken.actor.12",
+            "text": "They were dominating you. Were."
+          }
+        ],
+        "target": [
+          {
+            "id": "domination_broken.target.01",
+            "text": "They finally killed you back. It had to happen."
+          },
+          {
+            "id": "domination_broken.target.02",
+            "text": "Your usual target finally fought back."
+          },
+          {
+            "id": "domination_broken.target.03",
+            "text": "They got you this time. Surprise."
+          },
+          {
+            "id": "domination_broken.target.04",
+            "text": "{actor} finally got you. They won't forget this."
+          },
+          {
+            "id": "domination_broken.target.05",
+            "text": "This time, they sent you to respawn."
+          },
+          {
+            "id": "domination_broken.target.06",
+            "text": "They finally got you. Back to respawn."
+          }
+        ]
+      }
+    },
+    {
+      "id": "shutdown",
+      "category": "rivalry",
+      "label": "Streak Ended",
+      "enabled_by_default": true,
+      "trigger": "A valid elimination of an opponent with at least five eliminations in the life that just ended; streak_count is their streak immediately before death, not the actor's streak.",
+      "requires": [
+        "enemy_kill_tracking",
+        "killstreak_tracking"
+      ],
+      "roles": {
+        "actor": "The player who ends an enemy streak of at least five eliminations.",
+        "target": "The opponent whose streak is ended."
+      },
+      "placeholders": [
+        "actor",
+        "streak_count"
+      ],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 84,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Streak Ended"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "shutdown.actor.01",
+            "text": "You stopped their kill streak."
+          },
+          {
+            "id": "shutdown.actor.02",
+            "text": "Streak ended. Peace restored."
+          },
+          {
+            "id": "shutdown.actor.03",
+            "text": "Someone had to remind them about respawning."
+          },
+          {
+            "id": "shutdown.actor.04",
+            "text": "You ended a {streak_count}-kill streak."
+          },
+          {
+            "id": "shutdown.actor.05",
+            "text": "A long streak. A short trip back to spawn."
+          },
+          {
+            "id": "shutdown.actor.06",
+            "text": "They were having too much fun. You fixed that."
+          },
+          {
+            "id": "shutdown.actor.07",
+            "text": "You found the stop button for their kill streak."
+          },
+          {
+            "id": "shutdown.actor.08",
+            "text": "They were busy winning fights. Now they're respawning."
+          }
+        ],
+        "target": [
+          {
+            "id": "shutdown.target.01",
+            "text": "Streak ends at {streak_count}. That was a good life."
+          },
+          {
+            "id": "shutdown.target.02",
+            "text": "The respawn still remembered you."
+          },
+          {
+            "id": "shutdown.target.03",
+            "text": "That was a long life. Time to respawn."
+          },
+          {
+            "id": "shutdown.target.04",
+            "text": "{actor} ended your streak. Didn't ask first."
+          },
+          {
+            "id": "shutdown.target.05",
+            "text": "Streak over. You can still brag about it."
+          },
+          {
+            "id": "shutdown.target.06",
+            "text": "Even your best streak has to end."
+          }
+        ]
+      }
+    },
+    {
+      "id": "comeback_kill",
+      "category": "rivalry",
+      "label": "Comeback Kill",
+      "enabled_by_default": true,
+      "trigger": "The first valid enemy elimination after at least three consecutive deaths without a valid elimination; consume and reset the deaths-without-kills counter. No additional reward is implied.",
+      "requires": [
+        "deaths_without_kill_tracking",
+        "enemy_kill_tracking"
+      ],
+      "roles": {
+        "actor": "The player who resumes eliminating opponents after several deaths without an elimination.",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 55,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Comeback Kill"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "comeback_kill.actor.01",
+            "text": "There you are. Finally, a kill."
+          },
+          {
+            "id": "comeback_kill.actor.02",
+            "text": "That was a fairly long warm-up."
+          },
+          {
+            "id": "comeback_kill.actor.03",
+            "text": "You remembered which way to aim."
+          },
+          {
+            "id": "comeback_kill.actor.04",
+            "text": "A comeback starts with a little good news."
+          },
+          {
+            "id": "comeback_kill.actor.05",
+            "text": "You've stopped collecting respawns."
+          },
+          {
+            "id": "comeback_kill.actor.06",
+            "text": "The scoreboard is moving the right way again."
+          },
+          {
+            "id": "comeback_kill.actor.07",
+            "text": "The practice deaths are over. Nice kill."
+          },
+          {
+            "id": "comeback_kill.actor.08",
+            "text": "You needed that. So did your confidence."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "duel_win",
+      "category": "rivalry",
+      "label": "Duel Result",
+      "enabled_by_default": false,
+      "trigger": "A confirmed victory in a mode or situation explicitly identified by the game as a one-on-one duel; do not infer a duel from an ordinary elimination. Use only if the mode exists.",
+      "requires": [
+        "confirmed_duel_result",
+        "duel_mode"
+      ],
+      "roles": {
+        "actor": "The winner of the explicitly tracked duel.",
+        "target": "The loser of the same duel."
+      },
+      "placeholders": [
+        "actor"
+      ],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 85,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Duel Result"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "duel_win.actor.01",
+            "text": "One on one. You made it look easy."
+          },
+          {
+            "id": "duel_win.actor.02",
+            "text": "Duel won. That ends the argument."
+          },
+          {
+            "id": "duel_win.actor.03",
+            "text": "You got the last word. A short one."
+          },
+          {
+            "id": "duel_win.actor.04",
+            "text": "One opponent. One winner. You."
+          },
+          {
+            "id": "duel_win.actor.05",
+            "text": "When in doubt, win."
+          },
+          {
+            "id": "duel_win.actor.06",
+            "text": "One fight. You got the ending you wanted."
+          },
+          {
+            "id": "duel_win.actor.07",
+            "text": "Your name goes in the winner's column."
+          },
+          {
+            "id": "duel_win.actor.08",
+            "text": "Duel won. Their excuses can start now."
+          }
+        ],
+        "target": [
+          {
+            "id": "duel_win.target.01",
+            "text": "You can change the ending in the next duel."
+          },
+          {
+            "id": "duel_win.target.02",
+            "text": "{actor} won this one. Your turn next time."
+          },
+          {
+            "id": "duel_win.target.03",
+            "text": "Duel lost. A rematch might help."
+          },
+          {
+            "id": "duel_win.target.04",
+            "text": "That duel deserves another try."
+          },
+          {
+            "id": "duel_win.target.05",
+            "text": "Give them a harder fight next time."
+          },
+          {
+            "id": "duel_win.target.06",
+            "text": "Duel lost. You can still complain."
+          }
+        ]
+      }
+    },
+    {
+      "id": "clutch",
+      "category": "rivalry",
+      "label": "Clutch",
+      "enabled_by_default": false,
+      "trigger": "In a team round mode with no respawns during the round, the last surviving teammate wins the round after facing at least two surviving opponents alone. Emit only after the victory is confirmed.",
+      "requires": [
+        "clutch_tracking",
+        "no_respawn_during_round",
+        "round_mode",
+        "teams"
+      ],
+      "roles": {
+        "actor": "The last survivor who turns the round around and wins it for their team.",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 92,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Clutch"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "clutch.actor.01",
+            "text": "The team owes you at least a thank-you."
+          },
+          {
+            "id": "clutch.actor.02",
+            "text": "You fought alone. You still won."
+          },
+          {
+            "id": "clutch.actor.03",
+            "text": "You won the round. Your team can breathe."
+          },
+          {
+            "id": "clutch.actor.04",
+            "text": "The spectators already had an excuse ready."
+          },
+          {
+            "id": "clutch.actor.05",
+            "text": "You were plan B."
+          },
+          {
+            "id": "clutch.actor.06",
+            "text": "Outnumbered. Still won. Nice work."
+          },
+          {
+            "id": "clutch.actor.07",
+            "text": "Your team thought it was over. You disagreed."
+          },
+          {
+            "id": "clutch.actor.08",
+            "text": "Everyone watched. You handled it."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "ace",
+      "category": "rivalry",
+      "label": "Ace",
+      "enabled_by_default": false,
+      "trigger": "In a team round with no respawns, one player eliminates every member of the enemy roster present at the start of the round, with at least three initial opponents. The roster must remain trackable; cancel the recognition if departures make the set incomplete.",
+      "requires": [
+        "no_respawn_during_round",
+        "round_mode",
+        "round_roster_tracking",
+        "teams"
+      ],
+      "roles": {
+        "actor": "The player who eliminates the entire enemy roster for the round.",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 91,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Ace"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "ace.actor.01",
+            "text": "You did the group project alone."
+          },
+          {
+            "id": "ace.actor.02",
+            "text": "The whole enemy team. Out of action."
+          },
+          {
+            "id": "ace.actor.03",
+            "text": "Every enemy down. You missed nobody."
+          },
+          {
+            "id": "ace.actor.04",
+            "text": "You got every enemy. We checked."
+          },
+          {
+            "id": "ace.actor.05",
+            "text": "All enemy kills were yours. Your teammates can clap."
+          },
+          {
+            "id": "ace.actor.06",
+            "text": "Every enemy kill. All yours."
+          },
+          {
+            "id": "ace.actor.07",
+            "text": "Your team owes you a very big thank-you."
+          },
+          {
+            "id": "ace.actor.08",
+            "text": "You handled every enemy kill. All of them."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "flawless_round",
+      "category": "rivalry",
+      "label": "Round Won, No Deaths",
+      "enabled_by_default": false,
+      "trigger": "A confirmed win in a team round with no respawns, no deaths on the winning team, and initial rosters of at least two players per team. Show individually to the winning team members; this does not mean they took zero damage.",
+      "requires": [
+        "no_respawn_during_round",
+        "round_mode",
+        "round_team_death_tracking",
+        "teams"
+      ],
+      "roles": {
+        "actor": "Each member of the team that won the round without losing any players.",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 80,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Round Won, No Deaths"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "flawless_round.actor.01",
+            "text": "Everyone present. Somehow, even at the end."
+          },
+          {
+            "id": "flawless_round.actor.02",
+            "text": "Round won. Everyone lived to tell the story."
+          },
+          {
+            "id": "flawless_round.actor.03",
+            "text": "Round won. Everyone still alive."
+          },
+          {
+            "id": "flawless_round.actor.04",
+            "text": "A full team, unusually alive."
+          },
+          {
+            "id": "flawless_round.actor.05",
+            "text": "You won without using up any teammates."
+          },
+          {
+            "id": "flawless_round.actor.06",
+            "text": "Same team at the end. Nobody died."
+          },
+          {
+            "id": "flawless_round.actor.07",
+            "text": "No deaths. You almost look like professionals."
+          },
+          {
+            "id": "flawless_round.actor.08",
+            "text": "A surprisingly well-organized round."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "friendly_hit",
+      "category": "friendly_fire",
+      "label": "Friendly Fire",
+      "enabled_by_default": true,
+      "trigger": "The actor deals actual nonlethal damage to a teammate, with teams and friendly fire enabled. Group a burst of shots into a single event.",
+      "requires": [
+        "friendly_fire_damage",
+        "teams"
+      ],
+      "roles": {
+        "actor": "Player who damages the teammate",
+        "target": "Teammate who takes the damage"
+      },
+      "placeholders": [
+        "actor"
+      ],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 95,
+        "cooldown_seconds": 8,
+        "duration_seconds": 3,
+        "title": "Friendly Fire"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "friendly_hit.actor.01",
+            "text": "That's a teammate. The color was a clue."
+          },
+          {
+            "id": "friendly_hit.actor.02",
+            "text": "Friendly fire. Questionable friendship."
+          },
+          {
+            "id": "friendly_hit.actor.03",
+            "text": "Same team. Wrong direction."
+          },
+          {
+            "id": "friendly_hit.actor.04",
+            "text": "Your target is wearing the same uniform."
+          },
+          {
+            "id": "friendly_hit.actor.05",
+            "text": "You found your teammate. Now find an enemy."
+          },
+          {
+            "id": "friendly_hit.actor.06",
+            "text": "Aim: working. Team check: missing."
+          },
+          {
+            "id": "friendly_hit.actor.07",
+            "text": "Check the color before squeezing the trigger."
+          },
+          {
+            "id": "friendly_hit.actor.08",
+            "text": "Support fire shouldn't hit the people you're supporting."
+          }
+        ],
+        "target": [
+          {
+            "id": "friendly_hit.target.01",
+            "text": "{actor} needs a reminder: you're on the same team."
+          },
+          {
+            "id": "friendly_hit.target.02",
+            "text": "Friendly fire received. Friendship under review."
+          },
+          {
+            "id": "friendly_hit.target.03",
+            "text": "{actor} has a strange way of saying hello."
+          },
+          {
+            "id": "friendly_hit.target.04",
+            "text": "The threat is wearing your team's colors."
+          },
+          {
+            "id": "friendly_hit.target.05",
+            "text": "Your teammate found you. With their crosshair, unfortunately."
+          },
+          {
+            "id": "friendly_hit.target.06",
+            "text": "Cover requested. Friendly fire delivered."
+          }
+        ]
+      }
+    },
+    {
+      "id": "teamkill",
+      "category": "friendly_fire",
+      "label": "Teamkill",
+      "enabled_by_default": true,
+      "trigger": "A teammate death is credited to the actor. Exclude self-kills and reflected damage; use this generic event when no more specific variant takes priority.",
+      "requires": [
+        "friendly_fire_damage",
+        "teams"
+      ],
+      "roles": {
+        "actor": "Player who kills the teammate",
+        "target": "Teammate who was killed"
+      },
+      "placeholders": [
+        "actor",
+        "target"
+      ],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 97,
+        "cooldown_seconds": 3,
+        "duration_seconds": 3,
+        "title": "Teamkill"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "teamkill.actor.01",
+            "text": "They were on your team. Were."
+          },
+          {
+            "id": "teamkill.actor.02",
+            "text": "Enemy assisted. Teammate eliminated."
+          },
+          {
+            "id": "teamkill.actor.03",
+            "text": "The enemy appreciates your cooperation."
+          },
+          {
+            "id": "teamkill.actor.04",
+            "text": "That wasn't the cover they asked for."
+          },
+          {
+            "id": "teamkill.actor.05",
+            "text": "Friendly fire. Nothing friendly about that."
+          },
+          {
+            "id": "teamkill.actor.06",
+            "text": "You made the wrong team smaller."
+          },
+          {
+            "id": "teamkill.actor.07",
+            "text": "Teammate down. Please reread the briefing."
+          },
+          {
+            "id": "teamkill.actor.08",
+            "text": "Matching uniforms. Terrible ending."
+          },
+          {
+            "id": "teamkill.actor.09",
+            "text": "Your team needed support. This wasn't it."
+          },
+          {
+            "id": "teamkill.actor.10",
+            "text": "You killed {target}. Same team, remember?"
+          },
+          {
+            "id": "teamkill.actor.11",
+            "text": "Those colors matched for a reason."
+          },
+          {
+            "id": "teamkill.actor.12",
+            "text": "That loss belongs to your team. Wrong choice."
+          },
+          {
+            "id": "teamkill.actor.13",
+            "text": "Check the team before you shoot."
+          },
+          {
+            "id": "teamkill.actor.14",
+            "text": "The plan involved one more teammate."
+          }
+        ],
+        "target": [
+          {
+            "id": "teamkill.target.01",
+            "text": "Killed by {actor}. At least the uniform matched."
+          },
+          {
+            "id": "teamkill.target.02",
+            "text": "The threat was coming from inside the team."
+          },
+          {
+            "id": "teamkill.target.03",
+            "text": "The fire was friendly. The outcome wasn't."
+          },
+          {
+            "id": "teamkill.target.04",
+            "text": "{actor}'s covering fire came with a small problem."
+          },
+          {
+            "id": "teamkill.target.05",
+            "text": "Your teammate misunderstood 'cover me'."
+          },
+          {
+            "id": "teamkill.target.06",
+            "text": "{actor} missed the lesson on team colors."
+          },
+          {
+            "id": "teamkill.target.07",
+            "text": "Your own team just sent you to respawn."
+          },
+          {
+            "id": "teamkill.target.08",
+            "text": "Trust in teammates is currently reloading."
+          }
+        ]
+      }
+    },
+    {
+      "id": "teamkill_repeat",
+      "category": "friendly_fire",
+      "label": "Another Teamkill",
+      "enabled_by_default": true,
+      "trigger": "From the actor's second teamkill in the same match onward. This takes priority over other teamkill variants; apply a short notification cooldown without implying any gameplay penalty.",
+      "requires": [
+        "friendly_fire_damage",
+        "teamkill_counter",
+        "teams"
+      ],
+      "roles": {
+        "actor": "Player who commits another teamkill",
+        "target": "Teammate killed in the latest teamkill"
+      },
+      "placeholders": [
+        "actor"
+      ],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 100,
+        "cooldown_seconds": 4,
+        "duration_seconds": 3,
+        "title": "Another Teamkill"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "teamkill_repeat.actor.01",
+            "text": "Another teammate. Please check the colors."
+          },
+          {
+            "id": "teamkill_repeat.actor.02",
+            "text": "Still the wrong team."
+          },
+          {
+            "id": "teamkill_repeat.actor.03",
+            "text": "The briefing wasn't optional."
+          },
+          {
+            "id": "teamkill_repeat.actor.04",
+            "text": "Those are your teammates. Stop attacking them."
+          },
+          {
+            "id": "teamkill_repeat.actor.05",
+            "text": "You're still helping the enemy. Please stop."
+          },
+          {
+            "id": "teamkill_repeat.actor.06",
+            "text": "Another teammate. Maybe you need a color chart."
+          },
+          {
+            "id": "teamkill_repeat.actor.07",
+            "text": "The uniform didn't change between shots."
+          },
+          {
+            "id": "teamkill_repeat.actor.08",
+            "text": "Check the team before picking your next target."
+          },
+          {
+            "id": "teamkill_repeat.actor.09",
+            "text": "Your attacks keep helping the wrong team."
+          },
+          {
+            "id": "teamkill_repeat.actor.10",
+            "text": "Another teammate dead. Still not the enemy."
+          }
+        ],
+        "target": [
+          {
+            "id": "teamkill_repeat.target.01",
+            "text": "{actor} mixed up the teams again."
+          },
+          {
+            "id": "teamkill_repeat.target.02",
+            "text": "You're not the first teammate they've killed."
+          },
+          {
+            "id": "teamkill_repeat.target.03",
+            "text": "Repeat friendly fire. Trust depleted."
+          },
+          {
+            "id": "teamkill_repeat.target.04",
+            "text": "{actor} is still misreading the color chart."
+          },
+          {
+            "id": "teamkill_repeat.target.05",
+            "text": "Another teamkill. Teamwork needs some work."
+          },
+          {
+            "id": "teamkill_repeat.target.06",
+            "text": "Your teammate still needs help with the team colors."
+          }
+        ]
+      }
+    },
+    {
+      "id": "teamkill_grenade",
+      "category": "friendly_fire",
+      "label": "Grenade Teamkill",
+      "enabled_by_default": true,
+      "trigger": "The actor's grenade kills a teammate. Suppress this notification if the repeated-teamkill variant has already taken priority.",
+      "requires": [
+        "friendly_fire_damage",
+        "grenades",
+        "teams"
+      ],
+      "roles": {
+        "actor": "Player who throws the grenade",
+        "target": "Teammate killed by the grenade"
+      },
+      "placeholders": [
+        "actor"
+      ],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 99,
+        "cooldown_seconds": 3,
+        "duration_seconds": 3,
+        "title": "Grenade Teamkill"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "teamkill_grenade.actor.01",
+            "text": "Grenade sent to the wrong team."
+          },
+          {
+            "id": "teamkill_grenade.actor.02",
+            "text": "Your teammate didn't ask for a grenade."
+          },
+          {
+            "id": "teamkill_grenade.actor.03",
+            "text": "Grenades don't check team colors. You could."
+          },
+          {
+            "id": "teamkill_grenade.actor.04",
+            "text": "Team explosion. Terrible idea."
+          },
+          {
+            "id": "teamkill_grenade.actor.05",
+            "text": "Your blast radius included a teammate."
+          },
+          {
+            "id": "teamkill_grenade.actor.06",
+            "text": "The team didn't ask for fireworks."
+          },
+          {
+            "id": "teamkill_grenade.actor.07",
+            "text": "That grenade was supposed to help your team."
+          },
+          {
+            "id": "teamkill_grenade.actor.08",
+            "text": "Wrong team. Very real explosion."
+          },
+          {
+            "id": "teamkill_grenade.actor.09",
+            "text": "Your grenade. Your teammate. Your mistake."
+          },
+          {
+            "id": "teamkill_grenade.actor.10",
+            "text": "Check for teammates first. Throw second."
+          }
+        ],
+        "target": [
+          {
+            "id": "teamkill_grenade.target.01",
+            "text": "Explosive package from {actor}. No signature required."
+          },
+          {
+            "id": "teamkill_grenade.target.02",
+            "text": "{actor}'s grenade forgot you were on the same team."
+          },
+          {
+            "id": "teamkill_grenade.target.03",
+            "text": "Same team. Same blast radius."
+          },
+          {
+            "id": "teamkill_grenade.target.04",
+            "text": "{actor} sent a grenade instead of help."
+          },
+          {
+            "id": "teamkill_grenade.target.05",
+            "text": "Your teammate sent a gift. It exploded."
+          },
+          {
+            "id": "teamkill_grenade.target.06",
+            "text": "Friendly grenade. Very unfriendly result."
+          }
+        ]
+      }
+    },
+    {
+      "id": "teamkill_melee",
+      "category": "friendly_fire",
+      "label": "Melee Teamkill",
+      "enabled_by_default": true,
+      "trigger": "The actor kills a teammate with a melee attack. Use only when this form of friendly fire is actually enabled.",
+      "requires": [
+        "friendly_fire_damage",
+        "melee_damage",
+        "teams"
+      ],
+      "roles": {
+        "actor": "Player who attacks the teammate in melee",
+        "target": "Teammate killed in melee"
+      },
+      "placeholders": [
+        "actor"
+      ],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 98,
+        "cooldown_seconds": 3,
+        "duration_seconds": 3,
+        "title": "Melee Teamkill"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "teamkill_melee.actor.01",
+            "text": "You were close enough to see the team colors."
+          },
+          {
+            "id": "teamkill_melee.actor.02",
+            "text": "Your teammate wanted a high five. Not this."
+          },
+          {
+            "id": "teamkill_melee.actor.03",
+            "text": "Same team. That was not a friendly hit."
+          },
+          {
+            "id": "teamkill_melee.actor.04",
+            "text": "Close combat. Wrong team."
+          },
+          {
+            "id": "teamkill_melee.actor.05",
+            "text": "Minimum distance. Maximum misunderstanding."
+          },
+          {
+            "id": "teamkill_melee.actor.06",
+            "text": "That handshake needs work."
+          },
+          {
+            "id": "teamkill_melee.actor.07",
+            "text": "The uniform check was literally within reach."
+          },
+          {
+            "id": "teamkill_melee.actor.08",
+            "text": "Teamwork usually involves keeping teammates alive."
+          }
+        ],
+        "target": [
+          {
+            "id": "teamkill_melee.target.01",
+            "text": "{actor} got close. A little too close."
+          },
+          {
+            "id": "teamkill_melee.target.02",
+            "text": "{actor}'s handshake did a little too much damage."
+          },
+          {
+            "id": "teamkill_melee.target.03",
+            "text": "Your teammate was close. Far too close."
+          },
+          {
+            "id": "teamkill_melee.target.04",
+            "text": "At that range, they could at least have recognized you."
+          },
+          {
+            "id": "teamkill_melee.target.05",
+            "text": "Your teammate brought the fight a little too close."
+          },
+          {
+            "id": "teamkill_melee.target.06",
+            "text": "Not the friendly greeting you expected."
+          }
+        ]
+      }
+    },
+    {
+      "id": "friendly_fire_reflected",
+      "category": "friendly_fire",
+      "label": "Friendly Fire Reflected",
+      "enabled_by_default": false,
+      "trigger": "The game actually reflects intended friendly damage back onto the actor. This event is available only when damage reflection is enabled.",
+      "requires": [
+        "friendly_fire_reflection",
+        "teams"
+      ],
+      "roles": {
+        "actor": "Player who receives their own reflected friendly damage",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 96,
+        "cooldown_seconds": 8,
+        "duration_seconds": 3,
+        "title": "Friendly Fire Reflected"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "friendly_fire_reflected.actor.01",
+            "text": "Friendly fire returned to sender."
+          },
+          {
+            "id": "friendly_fire_reflected.actor.02",
+            "text": "You hit a teammate. You took the damage."
+          },
+          {
+            "id": "friendly_fire_reflected.actor.03",
+            "text": "Damage reflected. A very practical lesson."
+          },
+          {
+            "id": "friendly_fire_reflected.actor.04",
+            "text": "Wrong target. Now you feel it."
+          },
+          {
+            "id": "friendly_fire_reflected.actor.05",
+            "text": "That friendly fire came straight back at you."
+          },
+          {
+            "id": "friendly_fire_reflected.actor.06",
+            "text": "You attacked. You got hurt."
+          },
+          {
+            "id": "friendly_fire_reflected.actor.07",
+            "text": "Think first. Taking your own damage hurts."
+          },
+          {
+            "id": "friendly_fire_reflected.actor.08",
+            "text": "You attacked a teammate. The game hit back."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "self_grenade_death",
+      "category": "misadventures",
+      "label": "Killed by Your Own Grenade",
+      "enabled_by_default": true,
+      "trigger": "The actor dies to their own grenade and the game records a self-kill, with no enemy credited for the death.",
+      "requires": [
+        "grenades",
+        "self_damage"
+      ],
+      "roles": {
+        "actor": "Player killed by their own grenade",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 81,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Killed by Your Own Grenade"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "self_grenade_death.actor.01",
+            "text": "Your grenade. Your problem."
+          },
+          {
+            "id": "self_grenade_death.actor.02",
+            "text": "Working grenade. Questionable distance."
+          },
+          {
+            "id": "self_grenade_death.actor.03",
+            "text": "The blast radius has no owner discount."
+          },
+          {
+            "id": "self_grenade_death.actor.04",
+            "text": "You inspected that explosion a little too closely."
+          },
+          {
+            "id": "self_grenade_death.actor.05",
+            "text": "You tested the grenade. It passed. You didn't."
+          },
+          {
+            "id": "self_grenade_death.actor.06",
+            "text": "You became your own target."
+          },
+          {
+            "id": "self_grenade_death.actor.07",
+            "text": "Your own grenade found its owner."
+          },
+          {
+            "id": "self_grenade_death.actor.08",
+            "text": "You skipped the part about taking cover."
+          },
+          {
+            "id": "self_grenade_death.actor.09",
+            "text": "Your grenade did exactly what it promised."
+          },
+          {
+            "id": "self_grenade_death.actor.10",
+            "text": "Next time, leave room to get away."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "self_explosion_death",
+      "category": "misadventures",
+      "label": "Killed by Your Own Explosion",
+      "enabled_by_default": false,
+      "trigger": "The actor dies to a non-grenade explosion attributed to them. Use only when the death is recorded as a self-kill.",
+      "requires": [
+        "explosives",
+        "self_damage"
+      ],
+      "roles": {
+        "actor": "Player killed by their own explosion",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 80,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Killed by Your Own Explosion"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "self_explosion_death.actor.01",
+            "text": "Your explosive. Was the safe distance optional?"
+          },
+          {
+            "id": "self_explosion_death.actor.02",
+            "text": "The test procedure included a step back."
+          },
+          {
+            "id": "self_explosion_death.actor.03",
+            "text": "You were inside your own blast."
+          },
+          {
+            "id": "self_explosion_death.actor.04",
+            "text": "Your explosion hurts its owner too."
+          },
+          {
+            "id": "self_explosion_death.actor.05",
+            "text": "You got a very close look at that explosion."
+          },
+          {
+            "id": "self_explosion_death.actor.06",
+            "text": "Power confirmed. Safety needs work."
+          },
+          {
+            "id": "self_explosion_death.actor.07",
+            "text": "The explosion worked. The plan didn't."
+          },
+          {
+            "id": "self_explosion_death.actor.08",
+            "text": "Next test: watch from farther away."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "fall_death",
+      "category": "misadventures",
+      "label": "Fatal Fall",
+      "enabled_by_default": false,
+      "trigger": "A fall causes the death, with no other player credited for the kill. Do not use when fall damage is disabled.",
+      "requires": [
+        "fall_damage"
+      ],
+      "roles": {
+        "actor": "Player killed by the fall",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 79,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Fatal Fall"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "fall_death.actor.01",
+            "text": "Gravity doesn't need to aim."
+          },
+          {
+            "id": "fall_death.actor.02",
+            "text": "Landing completed. Badly."
+          },
+          {
+            "id": "fall_death.actor.03",
+            "text": "That shortcut led straight to respawn."
+          },
+          {
+            "id": "fall_death.actor.04",
+            "text": "The floor won the duel."
+          },
+          {
+            "id": "fall_death.actor.05",
+            "text": "The jump was free. The landing cost extra."
+          },
+          {
+            "id": "fall_death.actor.06",
+            "text": "Your legs were not built for that landing."
+          },
+          {
+            "id": "fall_death.actor.07",
+            "text": "Nice view. Rough ending."
+          },
+          {
+            "id": "fall_death.actor.08",
+            "text": "The plan was to get down. Not like that."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "environmental_death",
+      "category": "misadventures",
+      "label": "Killed by the Map",
+      "enabled_by_default": false,
+      "trigger": "A map hazard causes the death, with no other player credited. Use as a fallback for causes without a dedicated variant; exclude falls and self-inflicted explosions handled elsewhere.",
+      "requires": [
+        "environmental_hazards"
+      ],
+      "roles": {
+        "actor": "Player killed by the environmental hazard",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 50,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Killed by the Map"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "environmental_death.actor.01",
+            "text": "The map decided to participate."
+          },
+          {
+            "id": "environmental_death.actor.02",
+            "text": "Opponent: environment. Result: respawn."
+          },
+          {
+            "id": "environmental_death.actor.03",
+            "text": "Not everything that kills you carries a gun."
+          },
+          {
+            "id": "environmental_death.actor.04",
+            "text": "This concludes the guided tour."
+          },
+          {
+            "id": "environmental_death.actor.05",
+            "text": "You found the map's less welcoming side."
+          },
+          {
+            "id": "environmental_death.actor.06",
+            "text": "The scenery had other plans."
+          },
+          {
+            "id": "environmental_death.actor.07",
+            "text": "No enemies needed. This map is dangerous enough."
+          },
+          {
+            "id": "environmental_death.actor.08",
+            "text": "Exploring is dangerous. You just proved it."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "death_while_reloading",
+      "category": "misadventures",
+      "label": "Killed While Reloading",
+      "enabled_by_default": true,
+      "trigger": "An enemy kills the player while their reload state is active. This is a private victim notification and does not generate an extra message for the killer.",
+      "requires": [
+        "reload_state"
+      ],
+      "roles": {
+        "actor": "Player killed during their own reload",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 46,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Killed While Reloading"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "death_while_reloading.actor.01",
+            "text": "That reload needed a better location."
+          },
+          {
+            "id": "death_while_reloading.actor.02",
+            "text": "Still reloading. Already dead."
+          },
+          {
+            "id": "death_while_reloading.actor.03",
+            "text": "Nobody agreed to your little time-out."
+          },
+          {
+            "id": "death_while_reloading.actor.04",
+            "text": "Reload interrupted. Respawn instead."
+          },
+          {
+            "id": "death_while_reloading.actor.05",
+            "text": "You needed more ammo. The enemy didn't wait."
+          },
+          {
+            "id": "death_while_reloading.actor.06",
+            "text": "Bad time to reload. The enemy noticed."
+          },
+          {
+            "id": "death_while_reloading.actor.07",
+            "text": "The magazine could wait. The enemy couldn't."
+          },
+          {
+            "id": "death_while_reloading.actor.08",
+            "text": "Next reload: consider some cover."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "death_with_grenade_ready",
+      "category": "misadventures",
+      "label": "Killed with a Grenade Ready",
+      "enabled_by_default": true,
+      "trigger": "An enemy kills the player while they have a grenade prepared for throwing. Check the weapon state; do not assume the grenade drops or explodes after death.",
+      "requires": [
+        "grenade_ready_state",
+        "grenades"
+      ],
+      "roles": {
+        "actor": "Player killed while preparing to throw a grenade",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 47,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Killed with a Grenade Ready"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "death_with_grenade_ready.actor.01",
+            "text": "Explosive plan. You missed the finale."
+          },
+          {
+            "id": "death_with_grenade_ready.actor.02",
+            "text": "Grenade ready. You took a little too long."
+          },
+          {
+            "id": "death_with_grenade_ready.actor.03",
+            "text": "You prepared a grenade. The enemy didn't wait."
+          },
+          {
+            "id": "death_with_grenade_ready.actor.04",
+            "text": "Grenade ready. Opportunity expired."
+          },
+          {
+            "id": "death_with_grenade_ready.actor.05",
+            "text": "Your surprise got interrupted before delivery."
+          },
+          {
+            "id": "death_with_grenade_ready.actor.06",
+            "text": "The enemy didn't wait for the grand finale."
+          },
+          {
+            "id": "death_with_grenade_ready.actor.07",
+            "text": "Perfect preparation. Questionable timing."
+          },
+          {
+            "id": "death_with_grenade_ready.actor.08",
+            "text": "Ready to throw. Too late to try."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "death_streak_3",
+      "category": "misadventures",
+      "label": "Three Deaths Without a Kill",
+      "enabled_by_default": false,
+      "trigger": "The player reaches exactly three consecutive deaths without killing an enemy. Killing an enemy resets the counter; notify only the affected player.",
+      "requires": [
+        "deaths_without_kill_tracking"
+      ],
+      "roles": {
+        "actor": "Player who reaches the death threshold",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 35,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Three Deaths Without a Kill"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "death_streak_3.actor.01",
+            "text": "Spawn knows you by now. Shall we try another route?"
+          },
+          {
+            "id": "death_streak_3.actor.02",
+            "text": "Three warm-up laps. Let's try some cover."
+          },
+          {
+            "id": "death_streak_3.actor.03",
+            "text": "You know the way to respawn. Let's learn another route."
+          },
+          {
+            "id": "death_streak_3.actor.04",
+            "text": "Plan A needs work. Luckily, there's a whole alphabet."
+          },
+          {
+            "id": "death_streak_3.actor.05",
+            "text": "Three attempts. The next angle might be better."
+          },
+          {
+            "id": "death_streak_3.actor.06",
+            "text": "Take a breath. Then try again."
+          },
+          {
+            "id": "death_streak_3.actor.07",
+            "text": "The match isn't over. You can still fight back."
+          },
+          {
+            "id": "death_streak_3.actor.08",
+            "text": "Breathe. Change routes. Rethink the plan."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "death_streak_5",
+      "category": "misadventures",
+      "label": "Five Deaths Without a Kill",
+      "enabled_by_default": false,
+      "trigger": "The player reaches exactly five consecutive deaths without killing an enemy. Keep this private, light, and encouraging; it takes priority over the lower threshold.",
+      "requires": [
+        "deaths_without_kill_tracking"
+      ],
+      "roles": {
+        "actor": "Player who reaches the death threshold",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 36,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Five Deaths Without a Kill"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "death_streak_5.actor.01",
+            "text": "Spawn has no loyalty points. Let's try another route."
+          },
+          {
+            "id": "death_streak_5.actor.02",
+            "text": "Five deaths. A new plan might help."
+          },
+          {
+            "id": "death_streak_5.actor.03",
+            "text": "Five deaths. You have had enough practice."
+          },
+          {
+            "id": "death_streak_5.actor.04",
+            "text": "Legends can start on the next attempt, too."
+          },
+          {
+            "id": "death_streak_5.actor.05",
+            "text": "At least you know where to start again."
+          },
+          {
+            "id": "death_streak_5.actor.06",
+            "text": "Five deaths. Ready to start your comeback?"
+          },
+          {
+            "id": "death_streak_5.actor.07",
+            "text": "Take a breath. The map has other routes."
+          },
+          {
+            "id": "death_streak_5.actor.08",
+            "text": "Five good reasons to try a new tactic."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "spawn_protected_hit",
+      "category": "misadventures",
+      "label": "Spawn Protection Blocked a Hit",
+      "enabled_by_default": false,
+      "trigger": "An enemy hit is actually canceled by the player's spawn protection. The player takes no damage; limit repeat notifications during the same protection period.",
+      "requires": [
+        "spawn_protection"
+      ],
+      "roles": {
+        "actor": "Protected player receiving the canceled hit",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 30,
+        "cooldown_seconds": 15,
+        "duration_seconds": 3,
+        "title": "Spawn Protection Blocked a Hit"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "spawn_protected_hit.actor.01",
+            "text": "Spawn protection says: please try again later."
+          },
+          {
+            "id": "spawn_protected_hit.actor.02",
+            "text": "Someone hit you. Spawn protection said no."
+          },
+          {
+            "id": "spawn_protected_hit.actor.03",
+            "text": "Hit received. Damage declined."
+          },
+          {
+            "id": "spawn_protected_hit.actor.04",
+            "text": "Enemy hit blocked. Nice try."
+          },
+          {
+            "id": "spawn_protected_hit.actor.05",
+            "text": "Spawn protection blocked an unwanted greeting."
+          },
+          {
+            "id": "spawn_protected_hit.actor.06",
+            "text": "Someone's in a hurry. Your protection isn't."
+          },
+          {
+            "id": "spawn_protected_hit.actor.07",
+            "text": "You're still protected. That hit did no damage."
+          },
+          {
+            "id": "spawn_protected_hit.actor.08",
+            "text": "Spawn protection took that hit for you."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "spawn_protected_enemy_hit",
+      "category": "misadventures",
+      "label": "Hit Blocked by Enemy Spawn Protection",
+      "enabled_by_default": false,
+      "trigger": "The enemy target's spawn protection actually cancels the actor's hit. Do not award damage or a kill; apply a notification cooldown.",
+      "requires": [
+        "spawn_protection"
+      ],
+      "roles": {
+        "actor": "Player firing at a spawn-protected enemy",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 31,
+        "cooldown_seconds": 8,
+        "duration_seconds": 3,
+        "title": "Hit Blocked by Enemy Spawn Protection"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "spawn_protected_enemy_hit.actor.01",
+            "text": "Enemy still protected. You fired too soon."
+          },
+          {
+            "id": "spawn_protected_enemy_hit.actor.02",
+            "text": "Good hit. Bad timing. Spawn protection is active."
+          },
+          {
+            "id": "spawn_protected_enemy_hit.actor.03",
+            "text": "Spawn protection refused delivery."
+          },
+          {
+            "id": "spawn_protected_enemy_hit.actor.04",
+            "text": "Protected enemy. Save your ammo for later."
+          },
+          {
+            "id": "spawn_protected_enemy_hit.actor.05",
+            "text": "That enemy is still protected. No damage dealt."
+          },
+          {
+            "id": "spawn_protected_enemy_hit.actor.06",
+            "text": "Damage blocked by protection. A little patience, please."
+          },
+          {
+            "id": "spawn_protected_enemy_hit.actor.07",
+            "text": "Too early. Their spawn protection is still active."
+          },
+          {
+            "id": "spawn_protected_enemy_hit.actor.08",
+            "text": "Spawn protection is not impressed."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "assist",
+      "category": "support",
+      "label": "Assist",
+      "enabled_by_default": true,
+      "trigger": "The player receives a valid assist on an enemy kill under the game's attribution rules.",
+      "requires": [
+        "assist_tracking"
+      ],
+      "roles": {
+        "actor": "Player credited with the assist",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 25,
+        "cooldown_seconds": 6,
+        "duration_seconds": 3,
+        "title": "Assist"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "assist.actor.01",
+            "text": "You helped. Someone else got the kill."
+          },
+          {
+            "id": "assist.actor.02",
+            "text": "Without you, they'd still be standing."
+          },
+          {
+            "id": "assist.actor.03",
+            "text": "Your help. Their kill. Typical."
+          },
+          {
+            "id": "assist.actor.04",
+            "text": "Team effort. Make sure they remember."
+          },
+          {
+            "id": "assist.actor.05",
+            "text": "You helped with the kill. Ask for a thank-you."
+          },
+          {
+            "id": "assist.actor.06",
+            "text": "Teamwork. For once."
+          },
+          {
+            "id": "assist.actor.07",
+            "text": "You did your part. The useful part."
+          },
+          {
+            "id": "assist.actor.08",
+            "text": "That kill wasn't all their work."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "teammate_saved",
+      "category": "support",
+      "label": "Teammate Saved",
+      "enabled_by_default": false,
+      "trigger": "Kill the enemy who damaged an ally within tuning.ally_save_threat_max_age_seconds. The ally must still be alive with HP no greater than tuning.ally_save_max_health_hp. target refers to the rescued ally.",
+      "requires": [
+        "ally_save_tracking",
+        "teams"
+      ],
+      "roles": {
+        "actor": "Player who eliminates the threat",
+        "target": "Rescued ally, not the enemy who was killed"
+      },
+      "placeholders": [
+        "actor"
+      ],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 68,
+        "cooldown_seconds": 5,
+        "duration_seconds": 3,
+        "title": "Teammate Saved"
+      },
+      "notes": "Explicit exception: target is the rescued ally. The eliminated enemy remains in the kill context but is not this event's target.",
+      "messages": {
+        "actor": [
+          {
+            "id": "teammate_saved.actor.01",
+            "text": "Someone owes you a life."
+          },
+          {
+            "id": "teammate_saved.actor.02",
+            "text": "You saved someone. Mark the calendar."
+          },
+          {
+            "id": "teammate_saved.actor.03",
+            "text": "Teammate alive. Enemy dead. Good teamwork."
+          },
+          {
+            "id": "teammate_saved.actor.04",
+            "text": "Apparently teamwork was part of the plan."
+          },
+          {
+            "id": "teammate_saved.actor.05",
+            "text": "Happy ending. Unless you were the enemy."
+          },
+          {
+            "id": "teammate_saved.actor.06",
+            "text": "You just earned a thank-you. Maybe."
+          },
+          {
+            "id": "teammate_saved.actor.07",
+            "text": "You saved them. Almost looked professional."
+          },
+          {
+            "id": "teammate_saved.actor.08",
+            "text": "The team can cancel the funeral."
+          }
+        ],
+        "target": [
+          {
+            "id": "teammate_saved.target.01",
+            "text": "That was close. Thank your teammate."
+          },
+          {
+            "id": "teammate_saved.target.02",
+            "text": "{actor} just saved you a trip to respawn."
+          },
+          {
+            "id": "teammate_saved.target.03",
+            "text": "Your plan B is called {actor}."
+          },
+          {
+            "id": "teammate_saved.target.04",
+            "text": "Still alive. Thank {actor}."
+          },
+          {
+            "id": "teammate_saved.target.05",
+            "text": "A thank-you costs less than a magazine."
+          },
+          {
+            "id": "teammate_saved.target.06",
+            "text": "No respawn. {actor} saved you just in time."
+          }
+        ]
+      }
+    },
+    {
+      "id": "trade_kill",
+      "category": "support",
+      "label": "Trade Kill",
+      "enabled_by_default": false,
+      "trigger": "Eliminate the enemy who just killed a teammate within tuning.trade_max_gap_seconds. Allow only one trade attribution for that teammate's death.",
+      "requires": [
+        "teams",
+        "trade_tracking"
+      ],
+      "roles": {
+        "actor": "Player who answers the enemy kill",
+        "target": "Enemy eliminated in the trade"
+      },
+      "placeholders": [
+        "actor"
+      ],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 68,
+        "cooldown_seconds": 4,
+        "duration_seconds": 3,
+        "title": "Trade Kill"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "trade_kill.actor.01",
+            "text": "One for one. No returns."
+          },
+          {
+            "id": "trade_kill.actor.02",
+            "text": "They got your teammate. You got them."
+          },
+          {
+            "id": "trade_kill.actor.03",
+            "text": "Teammate avenged. That was quick."
+          },
+          {
+            "id": "trade_kill.actor.04",
+            "text": "That kill was for your teammate."
+          },
+          {
+            "id": "trade_kill.actor.05",
+            "text": "Your teammate's revenge came fast."
+          },
+          {
+            "id": "trade_kill.actor.06",
+            "text": "Too late to save them. Just in time for revenge."
+          },
+          {
+            "id": "trade_kill.actor.07",
+            "text": "One each. Nobody's happy."
+          },
+          {
+            "id": "trade_kill.actor.08",
+            "text": "One teammate lost. One enemy down."
+          }
+        ],
+        "target": [
+          {
+            "id": "trade_kill.target.01",
+            "text": "You got one. Their teammate got you."
+          },
+          {
+            "id": "trade_kill.target.02",
+            "text": "You killed the wrong player's teammate."
+          },
+          {
+            "id": "trade_kill.target.03",
+            "text": "That kill came with instant revenge."
+          },
+          {
+            "id": "trade_kill.target.04",
+            "text": "{actor} got revenge for their teammate."
+          }
+        ]
+      }
+    },
+    {
+      "id": "cover_destroyed",
+      "category": "support",
+      "label": "Cover Breached",
+      "enabled_by_default": false,
+      "trigger": "An action opens a useful breach in destructible cover. Emit once per breach, never for each small block removed.",
+      "requires": [
+        "breach_tracking",
+        "destructible_cover"
+      ],
+      "roles": {
+        "actor": "Player who opens the breach",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "combat_toast",
+        "priority": 20,
+        "cooldown_seconds": 12,
+        "duration_seconds": 3,
+        "title": "Cover Breached"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "cover_destroyed.actor.01",
+            "text": "That was cover. Now it's a suggestion."
+          },
+          {
+            "id": "cover_destroyed.actor.02",
+            "text": "New hole. Better view."
+          },
+          {
+            "id": "cover_destroyed.actor.03",
+            "text": "You added a window to the design."
+          },
+          {
+            "id": "cover_destroyed.actor.04",
+            "text": "Wall repair not included."
+          },
+          {
+            "id": "cover_destroyed.actor.05",
+            "text": "Less wall. More ways to get shot."
+          },
+          {
+            "id": "cover_destroyed.actor.06",
+            "text": "More fresh air. Less protection."
+          },
+          {
+            "id": "cover_destroyed.actor.07",
+            "text": "The wall didn't share your enthusiasm."
+          },
+          {
+            "id": "cover_destroyed.actor.08",
+            "text": "Someone else can fix that wall."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "match_start",
+      "category": "match_flow",
+      "label": "Match Start",
+      "enabled_by_default": true,
+      "trigger": "The countdown ends and the match enters active play. Emit once per recipient.",
+      "requires": [
+        "match_lifecycle"
+      ],
+      "roles": {
+        "actor": "Each player starting the match",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "status_banner",
+        "priority": 80,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Match Start"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "match_start.actor.01",
+            "text": "Guns ready. Good ideas still loading."
+          },
+          {
+            "id": "match_start.actor.02",
+            "text": "The plan is simple. So we'll change it."
+          },
+          {
+            "id": "match_start.actor.03",
+            "text": "May the best player win. Or the first to reload."
+          },
+          {
+            "id": "match_start.actor.04",
+            "text": "Serious guns. Questionable decisions."
+          },
+          {
+            "id": "match_start.actor.05",
+            "text": "Here we go. Excuses are already loaded."
+          },
+          {
+            "id": "match_start.actor.06",
+            "text": "There's a plan. Let's see who read it."
+          },
+          {
+            "id": "match_start.actor.07",
+            "text": "Good luck. Especially to the walls."
+          },
+          {
+            "id": "match_start.actor.08",
+            "text": "Final check: the trigger works."
+          },
+          {
+            "id": "match_start.actor.09",
+            "text": "The respawn system believes in you."
+          },
+          {
+            "id": "match_start.actor.10",
+            "text": "Those stats won't ruin themselves."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "round_start",
+      "category": "match_flow",
+      "label": "Round Start",
+      "enabled_by_default": false,
+      "trigger": "A new round after the first begins in a round-based mode. Do not duplicate match_start.",
+      "requires": [
+        "round_mode"
+      ],
+      "roles": {
+        "actor": "Each player starting the round",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "status_banner",
+        "priority": 75,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Round Start"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "round_start.actor.01",
+            "text": "New round. Same questionable plan."
+          },
+          {
+            "id": "round_start.actor.02",
+            "text": "New round. Maybe read the plan this time."
+          },
+          {
+            "id": "round_start.actor.03",
+            "text": "Round ready. Coordination still loading."
+          },
+          {
+            "id": "round_start.actor.04",
+            "text": "Let's not talk about the last round."
+          },
+          {
+            "id": "round_start.actor.05",
+            "text": "Fresh round. Try a fresh plan."
+          },
+          {
+            "id": "round_start.actor.06",
+            "text": "Another round to prove it was bad luck."
+          },
+          {
+            "id": "round_start.actor.07",
+            "text": "Players ready. Still need a plan."
+          },
+          {
+            "id": "round_start.actor.08",
+            "text": "This time it might work."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "respawn",
+      "category": "match_flow",
+      "label": "Respawn",
+      "enabled_by_default": false,
+      "trigger": "The player regains control after dying. Do not use for their first spawn in the match.",
+      "requires": [
+        "respawn"
+      ],
+      "roles": {
+        "actor": "Player who has just respawned",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "status_banner",
+        "priority": 20,
+        "cooldown_seconds": 30,
+        "duration_seconds": 3,
+        "title": "Respawn"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "respawn.actor.01",
+            "text": "There you are. The floor was starting to miss you."
+          },
+          {
+            "id": "respawn.actor.02",
+            "text": "Another chance. We stopped counting."
+          },
+          {
+            "id": "respawn.actor.03",
+            "text": "Welcome back. More bad ideas?"
+          },
+          {
+            "id": "respawn.actor.04",
+            "text": "New life. Same habits? We'll see."
+          },
+          {
+            "id": "respawn.actor.05",
+            "text": "Respawn included. Tactics sold separately."
+          },
+          {
+            "id": "respawn.actor.06",
+            "text": "Another chance to blame the map."
+          },
+          {
+            "id": "respawn.actor.07",
+            "text": "Back again. Maybe use cover."
+          },
+          {
+            "id": "respawn.actor.08",
+            "text": "Try the solid cover this time."
+          },
+          {
+            "id": "respawn.actor.09",
+            "text": "Back in action. Try staying alive."
+          },
+          {
+            "id": "respawn.actor.10",
+            "text": "The game still believes in you."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "team_victory",
+      "category": "match_result",
+      "label": "Team Victory",
+      "enabled_by_default": true,
+      "trigger": "The final result is confirmed: the recipient's team won the match.",
+      "requires": [
+        "match_lifecycle",
+        "teams"
+      ],
+      "roles": {
+        "actor": "Each member of the winning team",
+        "target": null
+      },
+      "placeholders": [
+        "team"
+      ],
+      "display": {
+        "channel": "result_panel",
+        "priority": 100,
+        "cooldown_seconds": 0,
+        "duration_seconds": 5,
+        "title": "Team Victory"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "team_victory.actor.01",
+            "text": "You won. Everyone say it was planned."
+          },
+          {
+            "id": "team_victory.actor.02",
+            "text": "The team worked. Nobody touch anything."
+          },
+          {
+            "id": "team_victory.actor.03",
+            "text": "Victory. Let's call it strategy."
+          },
+          {
+            "id": "team_victory.actor.04",
+            "text": "You won. Even the bad plan worked."
+          },
+          {
+            "id": "team_victory.actor.05",
+            "text": "{team} wins. Somehow."
+          },
+          {
+            "id": "team_victory.actor.06",
+            "text": "You can say it was all calculated."
+          },
+          {
+            "id": "team_victory.actor.07",
+            "text": "Teamwork actually worked. Who knew?"
+          },
+          {
+            "id": "team_victory.actor.08",
+            "text": "Good job, everyone. Argue over the credit later."
+          },
+          {
+            "id": "team_victory.actor.09",
+            "text": "Today you're on the right side of the scoreboard."
+          },
+          {
+            "id": "team_victory.actor.10",
+            "text": "You won. Someone else can clean up."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "team_defeat",
+      "category": "match_result",
+      "label": "Team Defeat",
+      "enabled_by_default": true,
+      "trigger": "The final result is confirmed: the recipient's team lost the match.",
+      "requires": [
+        "match_lifecycle",
+        "teams"
+      ],
+      "roles": {
+        "actor": "Each member of the losing team",
+        "target": null
+      },
+      "placeholders": [
+        "team"
+      ],
+      "display": {
+        "channel": "result_panel",
+        "priority": 100,
+        "cooldown_seconds": 0,
+        "duration_seconds": 5,
+        "title": "Team Defeat"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "team_defeat.actor.01",
+            "text": "Almost a perfect plan. Just missing the win."
+          },
+          {
+            "id": "team_defeat.actor.02",
+            "text": "Next time, let's agree on a plan."
+          },
+          {
+            "id": "team_defeat.actor.03",
+            "text": "We learned a lot. Winning wasn't on the list."
+          },
+          {
+            "id": "team_defeat.actor.04",
+            "text": "Everyone lost together. That's teamwork."
+          },
+          {
+            "id": "team_defeat.actor.05",
+            "text": "{team} loses. Time for a different plan."
+          },
+          {
+            "id": "team_defeat.actor.06",
+            "text": "Clear result. Unclear plan."
+          },
+          {
+            "id": "team_defeat.actor.07",
+            "text": "It looked better on paper."
+          },
+          {
+            "id": "team_defeat.actor.08",
+            "text": "Lost the match. Found a reason for a rematch."
+          },
+          {
+            "id": "team_defeat.actor.09",
+            "text": "Match over. You may start making excuses."
+          },
+          {
+            "id": "team_defeat.actor.10",
+            "text": "Match lost. Still friends, right?"
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "ffa_victory",
+      "category": "match_result",
+      "label": "Free-for-All Victory",
+      "enabled_by_default": true,
+      "trigger": "The final result is confirmed: the recipient is the sole winner of the free-for-all match.",
+      "requires": [
+        "free_for_all",
+        "match_lifecycle"
+      ],
+      "roles": {
+        "actor": "Match winner",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "result_panel",
+        "priority": 100,
+        "cooldown_seconds": 0,
+        "duration_seconds": 5,
+        "title": "Free-for-All Victory"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "ffa_victory.actor.01",
+            "text": "First place. No teammates to share the credit."
+          },
+          {
+            "id": "ffa_victory.actor.02",
+            "text": "You won. Try not to look surprised."
+          },
+          {
+            "id": "ffa_victory.actor.03",
+            "text": "The scoreboard says you're the best. For now."
+          },
+          {
+            "id": "ffa_victory.actor.04",
+            "text": "Today, the excuses are someone else's problem."
+          },
+          {
+            "id": "ffa_victory.actor.05",
+            "text": "Excellent result. Please act normal."
+          },
+          {
+            "id": "ffa_victory.actor.06",
+            "text": "You won. Try not to tell everyone twice."
+          },
+          {
+            "id": "ffa_victory.actor.07",
+            "text": "One winner. Several rematch requests."
+          },
+          {
+            "id": "ffa_victory.actor.08",
+            "text": "You can stop checking the score now."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "ffa_defeat",
+      "category": "match_result",
+      "label": "Free-for-All Defeat",
+      "enabled_by_default": true,
+      "trigger": "The final result is confirmed: the recipient did not win and the free-for-all match did not end in a draw.",
+      "requires": [
+        "free_for_all",
+        "match_lifecycle"
+      ],
+      "roles": {
+        "actor": "Player who finished without winning",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "result_panel",
+        "priority": 100,
+        "cooldown_seconds": 0,
+        "duration_seconds": 5,
+        "title": "Free-for-All Defeat"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "ffa_defeat.actor.01",
+            "text": "No teammates to blame. Awkward."
+          },
+          {
+            "id": "ffa_defeat.actor.02",
+            "text": "First place was taken. Try again."
+          },
+          {
+            "id": "ffa_defeat.actor.03",
+            "text": "A learning experience. A very loud one."
+          },
+          {
+            "id": "ffa_defeat.actor.04",
+            "text": "Lost this match. Time to demand a rematch."
+          },
+          {
+            "id": "ffa_defeat.actor.05",
+            "text": "You let someone else win. How kind."
+          },
+          {
+            "id": "ffa_defeat.actor.06",
+            "text": "The scoreboard isn't cooperating today."
+          },
+          {
+            "id": "ffa_defeat.actor.07",
+            "text": "You can call this one a practice match."
+          },
+          {
+            "id": "ffa_defeat.actor.08",
+            "text": "Let's call that a tour of the map."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "draw",
+      "category": "match_result",
+      "label": "Draw",
+      "enabled_by_default": false,
+      "trigger": "The rules declare a final draw. Do not emit if overtime is about to begin.",
+      "requires": [
+        "draw_result"
+      ],
+      "roles": {
+        "actor": "Every participant in the drawn match",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "result_panel",
+        "priority": 100,
+        "cooldown_seconds": 0,
+        "duration_seconds": 5,
+        "title": "Draw"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "draw.actor.01",
+            "text": "A draw. Nobody gets to say they won."
+          },
+          {
+            "id": "draw.actor.02",
+            "text": "Perfectly tied. Nobody happy."
+          },
+          {
+            "id": "draw.actor.03",
+            "text": "Same score. Different excuses."
+          },
+          {
+            "id": "draw.actor.04",
+            "text": "The scoreboard won't pick a winner."
+          },
+          {
+            "id": "draw.actor.05",
+            "text": "No winner. Arguments guaranteed."
+          },
+          {
+            "id": "draw.actor.06",
+            "text": "All that effort just to agree on a number."
+          },
+          {
+            "id": "draw.actor.07",
+            "text": "Same score. Nobody gets to celebrate."
+          },
+          {
+            "id": "draw.actor.08",
+            "text": "Same score. Time to argue about a rematch."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "mvp",
+      "category": "match_result",
+      "label": "MVP",
+      "enabled_by_default": false,
+      "trigger": "The game officially awards MVP to the recipient using the mode's scoring metric. Never infer the award from kill count alone.",
+      "requires": [
+        "mvp_award"
+      ],
+      "roles": {
+        "actor": "Player receiving the award",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "award_panel",
+        "priority": 90,
+        "cooldown_seconds": 0,
+        "duration_seconds": 5,
+        "title": "MVP"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "mvp.actor.01",
+            "text": "MVP. Bring it up in the next argument."
+          },
+          {
+            "id": "mvp.actor.02",
+            "text": "The scoreboard thinks you're pretty good."
+          },
+          {
+            "id": "mvp.actor.03",
+            "text": "Save a screenshot. You will need proof."
+          },
+          {
+            "id": "mvp.actor.04",
+            "text": "You made that bad plan work."
+          },
+          {
+            "id": "mvp.actor.05",
+            "text": "MVP. Try not to mention it every minute."
+          },
+          {
+            "id": "mvp.actor.06",
+            "text": "Finally, a score worth showing your friends."
+          },
+          {
+            "id": "mvp.actor.07",
+            "text": "Best in the match. At least try to stay calm."
+          },
+          {
+            "id": "mvp.actor.08",
+            "text": "You can finally say: check the scoreboard."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "lead_taken",
+      "category": "match_flow",
+      "label": "Lead Taken",
+      "enabled_by_default": true,
+      "trigger": "The player in free-for-all, or their team, moves from not leading outright to sole first place. Do not emit for the initial zero-zero score.",
+      "requires": [
+        "score_lead_tracking"
+      ],
+      "roles": {
+        "actor": "Player or team member who has just taken the lead",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "status_banner",
+        "priority": 60,
+        "cooldown_seconds": 12,
+        "duration_seconds": 3,
+        "title": "Lead Taken"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "lead_taken.actor.01",
+            "text": "In the lead. Now comes the nervous part."
+          },
+          {
+            "id": "lead_taken.actor.02",
+            "text": "You're winning. Try to keep it that way."
+          },
+          {
+            "id": "lead_taken.actor.03",
+            "text": "Lead acquired. Handle with care."
+          },
+          {
+            "id": "lead_taken.actor.04",
+            "text": "Your turn to worry about losing the lead."
+          },
+          {
+            "id": "lead_taken.actor.05",
+            "text": "You're ahead. You may smile now."
+          },
+          {
+            "id": "lead_taken.actor.06",
+            "text": "You're ahead. Don't celebrate too soon."
+          },
+          {
+            "id": "lead_taken.actor.07",
+            "text": "The scoreboard is temporarily on your side."
+          },
+          {
+            "id": "lead_taken.actor.08",
+            "text": "First place. Save the speech for the end."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "lead_lost",
+      "category": "match_flow",
+      "label": "Lead Lost",
+      "enabled_by_default": true,
+      "trigger": "The player or their team loses sole first place by actually being overtaken. Merely being tied is not enough.",
+      "requires": [
+        "score_lead_tracking"
+      ],
+      "roles": {
+        "actor": "Player or team member who has been overtaken",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "status_banner",
+        "priority": 60,
+        "cooldown_seconds": 12,
+        "duration_seconds": 3,
+        "title": "Lead Lost"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "lead_lost.actor.01",
+            "text": "You had the lead. Now get it back."
+          },
+          {
+            "id": "lead_lost.actor.02",
+            "text": "Someone changed the scoreboard without asking."
+          },
+          {
+            "id": "lead_lost.actor.03",
+            "text": "Someone else took your first place."
+          },
+          {
+            "id": "lead_lost.actor.04",
+            "text": "They passed you. Less talking, more shooting."
+          },
+          {
+            "id": "lead_lost.actor.05",
+            "text": "They're ahead. You can complain after the match."
+          },
+          {
+            "id": "lead_lost.actor.06",
+            "text": "Should've taken that first-place screenshot earlier."
+          },
+          {
+            "id": "lead_lost.actor.07",
+            "text": "The comfortable part of the match is over."
+          },
+          {
+            "id": "lead_lost.actor.08",
+            "text": "There's a lead to recover. It was just here."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "time_warning",
+      "category": "match_flow",
+      "label": "Time Running Out",
+      "enabled_by_default": true,
+      "trigger": "The timer crosses a threshold in tuning.match_time_warning_seconds. Emit once per threshold per match. seconds is the crossed threshold, not a continuously updated value.",
+      "requires": [
+        "timed_match"
+      ],
+      "roles": {
+        "actor": "Every participant in the match",
+        "target": null
+      },
+      "placeholders": [
+        "seconds"
+      ],
+      "display": {
+        "channel": "status_banner",
+        "priority": 90,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Time Running Out"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "time_warning.actor.01",
+            "text": "{seconds}s left. Maybe shorten the plan."
+          },
+          {
+            "id": "time_warning.actor.02",
+            "text": "{seconds}s. Time for plan B."
+          },
+          {
+            "id": "time_warning.actor.03",
+            "text": "{seconds}s left. Just enough time for a bad idea."
+          },
+          {
+            "id": "time_warning.actor.04",
+            "text": "{seconds}s remaining. Excuses take less time."
+          },
+          {
+            "id": "time_warning.actor.05",
+            "text": "Last {seconds}s. The scoreboard wants an answer."
+          },
+          {
+            "id": "time_warning.actor.06",
+            "text": "{seconds}s. Good ideas would be useful right now."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "overtime_start",
+      "category": "match_flow",
+      "label": "Overtime",
+      "enabled_by_default": false,
+      "trigger": "The rules confirm the start of overtime. Emit once per entry into the phase.",
+      "requires": [
+        "overtime"
+      ],
+      "roles": {
+        "actor": "Every participant in overtime",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "status_banner",
+        "priority": 95,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Overtime"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "overtime_start.actor.01",
+            "text": "Overtime. Even the clock doubts this result."
+          },
+          {
+            "id": "overtime_start.actor.02",
+            "text": "Extra time for already questionable decisions."
+          },
+          {
+            "id": "overtime_start.actor.03",
+            "text": "A draw wasn't enough. Keep shooting."
+          },
+          {
+            "id": "overtime_start.actor.04",
+            "text": "This match still had something to say."
+          },
+          {
+            "id": "overtime_start.actor.05",
+            "text": "Your break can wait. The match isn't done."
+          },
+          {
+            "id": "overtime_start.actor.06",
+            "text": "Overtime. Why end this calmly?"
+          },
+          {
+            "id": "overtime_start.actor.07",
+            "text": "The ending needs more bullets."
+          },
+          {
+            "id": "overtime_start.actor.08",
+            "text": "Time ran out. The match didn't."
+          }
+        ],
+        "target": []
+      }
+    },
+    {
+      "id": "last_alive",
+      "category": "match_flow",
+      "label": "Last Player Standing",
+      "enabled_by_default": false,
+      "trigger": "In an elimination mode, the player becomes the only living ally with at least one enemy still alive and no immediate respawns available.",
+      "requires": [
+        "alive_team_tracking",
+        "elimination_round_mode",
+        "teams"
+      ],
+      "roles": {
+        "actor": "Last living player on the team",
+        "target": null
+      },
+      "placeholders": [],
+      "display": {
+        "channel": "status_banner",
+        "priority": 85,
+        "cooldown_seconds": 0,
+        "duration_seconds": 3,
+        "title": "Last Player Standing"
+      },
+      "notes": "",
+      "messages": {
+        "actor": [
+          {
+            "id": "last_alive.actor.01",
+            "text": "Team meeting. Just you this time."
+          },
+          {
+            "id": "last_alive.actor.02",
+            "text": "One player. One plan. Hopefully."
+          },
+          {
+            "id": "last_alive.actor.03",
+            "text": "Your team left you the hard part."
+          },
+          {
+            "id": "last_alive.actor.04",
+            "text": "Now you really can do it your way."
+          },
+          {
+            "id": "last_alive.actor.05",
+            "text": "Whole team's job. One player left."
+          },
+          {
+            "id": "last_alive.actor.06",
+            "text": "Everyone's counting on you. Awkward timing."
+          },
+          {
+            "id": "last_alive.actor.07",
+            "text": "You're plan A. And plan B."
+          },
+          {
+            "id": "last_alive.actor.08",
+            "text": "Stay calm. Easy to say from here."
+          }
+        ],
+        "target": []
+      }
+    }
+  ]
+}

@@ -3,6 +3,7 @@
 #include "GameFramework/Character.h"
 #include "Components/ActorComponent.h"
 #include "ERTeamAppearance.h"
+#include "ERGameplayMessages.h"
 #include "ERCharacter.generated.h"
 
 USTRUCT()
@@ -25,7 +26,7 @@ public:
     UPROPERTY(ReplicatedUsing=OnRep_Dead, BlueprintReadOnly) bool bDead = false;
     UPROPERTY(Replicated, BlueprintReadOnly) double ProtectionEndServerTime = 0;
     bool IsProtected() const;
-    float ReceiveDamage(float Amount, AController* Killer, float ArmorRatio = 2);
+    float ReceiveDamage(float Amount, AController* Killer, float ArmorRatio = 2, const FERMessageDamage& Facts = FERMessageDamage());
     UFUNCTION() void OnRep_Dead();
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 };
@@ -67,6 +68,9 @@ public:
     UFUNCTION(BlueprintCallable, Category="First person|Editor")
     static bool BuildFirstPersonForearms(class USkeletalMesh* Destination, class USkeletalMesh* SkinMesh,
         class USkeletalMesh* FirstPersonRig, const TArray<int32>& ExcludedMaterials, const TArray<FName>& ExcludedBones);
+    UPROPERTY(Replicated) TObjectPtr<AERCharacter> DeathFocus;
+    UPROPERTY(Replicated) FVector DeathFocusPosition = FVector::ZeroVector;
+    UPROPERTY(Replicated) bool bHasDeathFocus = false;
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly) TObjectPtr<UERHealthComponent> Health;
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly) TObjectPtr<class UCapsuleComponent> ProneHitVolume;
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly) TObjectPtr<class UCameraComponent> Camera;
@@ -156,6 +160,11 @@ private:
     FVector LastHitDirection = FVector::ForwardVector;
     FVector DamageViewKick = FVector::ZeroVector;
     float DeathViewDrop = 0;
+    bool bDeathCameraInitialized = false;
+    FVector DeathCameraLocation = FVector::ZeroVector;
+    FVector DeathCameraAway = FVector::BackwardVector;
+    FVector DeathCameraLastFocus = FVector::ZeroVector;
+    float DeathCameraFOV = 90.f;
     bool bFPSPoseAudited = false;
     uint8 AppliedBodyTeam = 0;
     int32 AppliedSkin = INDEX_NONE;

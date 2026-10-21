@@ -2460,3 +2460,27 @@ rilasciando W interrompe lo sprint e permette di richiederlo nuovamente
 avanzando con E ancora premuto. Il menu e un nuovo personaggio azzerano gli
 intenti precedenti. Stamina 10 s, recupero 20 s da vuoto e controlli server
 invariati; nessun nuovo RPC o asset input. Aggiornato il riepilogo dei controlli.
+
+
+## Notifiche gameplay e camera di morte — 21 ottobre 2026
+
+Conservato integralmente il catalogo fornito dall'utente: 72 eventi/720 frasi in
+`Config/GameplayMessages`. Collegati 40 eventi alle condizioni realmente note;
+gli altri restano disponibili e documentati in [GAMEPLAY_MESSAGES.md](GAMEPLAY_MESSAGES.md).
+Ogni uccisione confermata notifica privatamente entrambi i partecipanti, sempre,
+anche per il fuoco amico. Le frasi aggiuntive usano uno spazio separato con
+priorità/cooldown; massimo tre conferme recenti, niente suoni, focus o pause.
+Canvas periferico, font Teko esistente e larghezza misurata. La camera del morto
+punta l'uccisore fino al respawn; nessuna modifica all'input di chi gioca.
+JSON incluso negli input di build già esistenti attraverso Config e staging
+esplicito NonUFS; nessuna nuova distribuzione eseguita per questa richiesta.
+
+
+### Killcam ravvicinata — 21 ottobre 2026
+
+Su richiesta dell'utente, la camera del morto si avvicina progressivamente al
+killer e passa da90 a60 gradi. Il centro del corpo resta inquadrato; distanza
+calcolata per la figura intera (circa65% dell'altezza dello schermo), adattata
+ad aspect ratio e altezza della capsula. Sweep statico12cm lungo ogni tratto
+per fermare l'avvicinamento davanti ai muri. Il testo respawn scende al bordo
+inferiore. Stato e movimento della camera restano locali/cosmetici.

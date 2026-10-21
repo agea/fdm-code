@@ -826,3 +826,18 @@ HUD margins and measured posture/health text anchors are preserved.
 
 E uses native controller key bindings and the existing movement intent.
 No additional Enhanced Input assets, textures or other binary packages.
+
+
+### Gameplay message catalog — 21 October 2026
+
+Complete owner-supplied `respawn-and-rage-gameplay-messages.en-US.json` retained
+byte for byte in `Config/GameplayMessages` (72 events, 720 variants), explicitly
+staged as NonUFS. SHA-256 and event coverage: `GAMEPLAY_MESSAGES.md`.
+Presentation reuses native Canvas/Teko; no binary artwork or saved map/character/
+weapon assets changed. Owner-only death-camera state uses runtime references.
+
+
+### Close killer camera — 21 October 2026
+
+Smooth approach/60-degree framing and lower respawn text use native runtime
+camera/Canvas state only. No new or modified binary assets.

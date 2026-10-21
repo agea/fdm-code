@@ -321,6 +321,28 @@ void AERPlayerController::BeginPlay()
     FrameRateWidget->SetVisibility(EVisibility::HitTestInvisible);
     GetWorld()->GetGameViewport()->AddViewportWidgetContent(FrameRateWidget.ToSharedRef(), 30);
 }
+void AERPlayerController::ClientGameplayMessage_Implementation(const FString& Event, const FString& Title, const FString& Body,
+    int32 Priority, float Duration, bool Confirmation)
+{
+    if (!IsLocalController()) return;
+    const double Now = GetWorld()->GetTimeSeconds();
+    KillConfirmations.RemoveAll([Now](const FERGameplayToast& Item) { return Item.Expires <= Now; });
+    const FERGameplayToast Message{Event, Title, Body, Now + Duration, Priority};
+    if (Confirmation)
+    {
+        if (KillConfirmations.Num() >= 3) KillConfirmations.RemoveAt(0);
+        KillConfirmations.Add(Message);
+    }
+    else if (GameplayToast.Expires <= Now || Priority >= GameplayToast.Priority)
+    {
+        GameplayToast = Message;
+    }
+#if !UE_BUILD_SHIPPING
+    UE_LOG(LogTemp, Display, TEXT("ER_MESSAGE recipient=%s event=%s confirmation=%d title=%s body=%s"),
+        *GetName(), *Event, Confirmation, *Title, *Body);
+#endif
+}
+
 void AERPlayerController::PlayerTick(float DeltaTime)
 {
     Super::PlayerTick(DeltaTime);
@@ -1040,7 +1062,9 @@ void AERHUD::DrawHUD()
     if (PC->bAwaitingRespawn)
     {
         const int32 Seconds = FMath::Max(0, FMath::CeilToInt(PC->RespawnAllowedAt-GS->GetServerWorldTimeSeconds()));
-        DrawHUDText(Seconds > 0 ? FString::Printf(TEXT("Respawn available in %d"),Seconds) : TEXT("Press fire or jump to respawn"),W/2,H/2+60,FLinearColor(1,.6f,.3f),1.6f,true);
+        const bool KillerView = Character && Character->bHasDeathFocus;
+        DrawHUDText(Seconds > 0 ? FString::Printf(TEXT("Respawn available in %d"),Seconds) : TEXT("Press fire or jump to respawn"),
+            W/2,KillerView ? H-100.f*HUDScale : H/2+60,FLinearColor(1,.6f,.3f),KillerView ? 1.2f : 1.6f,true);
     }
     if (PC->bShowScoreboard || GS->GetMatchState() == MatchState::WaitingPostMatch)
     {
@@ -1059,6 +1083,47 @@ void AERHUD::DrawHUD()
             if(Y+36*HUDScale>H-40*HUDScale) break;
             Row(State->Team == EERTeam::Alpha ? TEXT("Alpha") : TEXT("Omega"),State->GetPlayerName().Left(24),FString::FromInt(State->Kills),FString::FromInt(State->Deaths),FString::FromInt(State->TeamKills),Y);
             Y += 36*HUDScale;
+        }
+    }
+    const double Now = GetWorld()->GetTimeSeconds();
+    if (GS->GetMatchState() == MatchState::WaitingPostMatch && PC->GameplayToast.Expires > Now)
+    {
+        DrawHUDText(PC->GameplayToast.Title,W/2,80.f*HUDScale,FLinearColor(1.f,.76f,.38f),.82f,true);
+        DrawHUDText(PC->GameplayToast.Body,W/2,105.f*HUDScale,FLinearColor(.82f,.85f,.9f),.72f,true);
+    }
+    if (!PC->bShowScoreboard)
+    {
+        const bool Results = GS->GetMatchState() == MatchState::WaitingPostMatch;
+        const float X = EdgeMargin;
+        const float Width = Results ? FMath::Max(80.f*HUDScale,W/2-340.f*HUDScale-X-12.f*HUDScale) : FMath::Min(W * .38f, 500.f * HUDScale);
+        float Y = 96.f * HUDScale;
+        const auto Line = [&](FString Value, FLinearColor Color, float Scale, float AtY)
+        {
+            if (Value.IsEmpty()) return;
+            // Measure without drawing: player names remain plain Canvas text.
+            const FSlateFontInfo Font(HUDTypeface,FMath::RoundToInt(24.f*Scale*HUDScale),TEXT("SemiBold"));
+            const float DPI = Canvas->Canvas->GetDPIScale();
+            auto Measure = [&](const FString& Text) { return FSlateApplication::Get().GetRenderer()->GetFontMeasureService()->Measure(Text,Font,DPI).X / DPI; };
+            if (Measure(Value) > Width)
+            {
+                while (Value.Len() > 1 && Measure(Value + TEXT("…")) > Width) Value.LeftChopInline(1);
+                Value += TEXT("…");
+            }
+            DrawHUDText(Value, X, AtY, Color, Scale);
+        };
+        for (int32 I = 0; I < PC->KillConfirmations.Num(); ++I)
+        {
+            const auto& Item = PC->KillConfirmations[I];
+            if (Item.Expires <= Now) continue;
+            Line(Item.Title,FLinearColor(.88f,.9f,.94f),.82f,Y); Y += 24.f * HUDScale;
+            if (I == PC->KillConfirmations.Num()-1 && !Item.Body.IsEmpty())
+            { Line(Item.Body,FLinearColor(.72f,.76f,.82f),.72f,Y); Y += 24.f * HUDScale; }
+        }
+        if (!Results && PC->GameplayToast.Expires > Now)
+        {
+            Y = FMath::Max(Y + 8.f * HUDScale, 198.f * HUDScale);
+            Line(PC->GameplayToast.Title,FLinearColor(1.f,.76f,.38f),.82f,Y);
+            Line(PC->GameplayToast.Body,FLinearColor(.82f,.85f,.9f),.72f,Y + 24.f * HUDScale);
         }
     }
 }
