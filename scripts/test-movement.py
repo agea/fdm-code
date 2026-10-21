@@ -15,6 +15,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 modes = parser.add_mutually_exclusive_group()
 modes.add_argument("--base-only", action="store_true", help="Run run/jump/vault/climb/crouch checks only")
 modes.add_argument("--posture-only", action="store_true", help="Run sprint/posture phases only")
+parser.add_argument("--render", action="store_true", help="Capture the stamina HUD with Metal on the host")
 args = parser.parse_args()
 
 project = Path(__file__).resolve().parents[1]
@@ -28,9 +29,12 @@ if args.base_only: common.append("-ERMovementBaseProbe")
 processes = []
 handles = []
 try:
+    capture_started = time.time()
     host_log = (logs / "movement-host.log").open("w")
     handles.append(host_log)
-    host = subprocess.Popen(common + ["/Game/EclipseRecoil/Maps/L_Depot?listen?Name=Host", "-port=17781", "-ERMovementProbe"], stdout=host_log, stderr=subprocess.STDOUT)
+    host_render = ["-windowed", "-ResX=1280", "-ResY=720", "-ERStaminaGallery"] if args.render else []
+    host_common = [arg for arg in common if arg != "-nullrhi"] if args.render else common
+    host = subprocess.Popen(host_common + host_render + ["/Game/EclipseRecoil/Maps/L_Depot?listen?Name=Host", "-port=17781", "-ERMovementProbe"], stdout=host_log, stderr=subprocess.STDOUT)
     processes.append(host)
     deadline = time.monotonic() + 45
     while time.monotonic() < deadline:
@@ -46,7 +50,7 @@ try:
     handles.append(client_log)
     client = subprocess.Popen(common + ["127.0.0.1:17781?Name=Client"], stdout=client_log, stderr=subprocess.STDOUT)
     processes.append(client)
-    deadline = time.monotonic()+160
+    deadline = time.monotonic()+220
     while time.monotonic()<deadline and host.poll() is None:
         time.sleep(.2)
     if host.poll() is None:
@@ -58,7 +62,18 @@ try:
     print("\n".join(line for line in client_output.splitlines() if "ER_MOVEMENT_CLIENT_" in line))
     success = (args.base_only or all(marker in client_output for marker in (
         "ER_MOVEMENT_CLIENT_PASS owner_and_simulated_proxy_prone",
-        "ER_MOVEMENT_CLIENT_PASS owner_sprint_has_extra_spread"))) and "ER_MOVEMENT_CLIENT_FAIL" not in client_output and "ER_MOVEMENT_COMPLETE PASS" in output and "ER_MOVEMENT_FAIL" not in output
+        "ER_MOVEMENT_CLIENT_PASS owner_sprint_has_extra_spread",
+        "ER_MOVEMENT_CLIENT_PASS owner_stamina_drains",
+        "ER_MOVEMENT_CLIENT_PASS owner_stamina_refills",
+        "ER_MOVEMENT_CLIENT_PASS sprint_E_phase_48",
+        "ER_MOVEMENT_CLIENT_PASS sprint_E_phase_50",
+        "ER_MOVEMENT_CLIENT_PASS sprint_E_phase_52"))) and "ER_MOVEMENT_CLIENT_FAIL" not in client_output and "ER_MOVEMENT_COMPLETE PASS" in output and "ER_MOVEMENT_FAIL" not in output
+    if args.render and not args.base_only:
+        captures = all((logs / "Stamina" / f"Phase{phase}.png").exists() and
+                       (logs / "Stamina" / f"Phase{phase}.png").stat().st_mtime >= capture_started
+                       for phase in range(44, 48))
+        print("ER_MOVEMENT_STAMINA_CAPTURES", "PASS" if captures else "FAIL")
+        success = success and captures
     print("Logs:", logs)
     sys.exit(0 if success else 1)
 finally:

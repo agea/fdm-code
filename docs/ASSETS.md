@@ -813,3 +813,16 @@ The transient, once-per-epoch bird-view target is now mipmapped trilinear RGBA8 
 (about 5.33 MiB including mips, up from 1 MiB; excludes RHI/capture overhead).
 Soft circular frame, shadow and ammo dots are generated Canvas triangles.
 No saved maps, recon art or source assets changed.
+
+
+### Stamina HUD — 21 October 2026
+
+The stamina bar uses native Canvas rectangles and the existing Teko font.
+No new textures, materials, fonts or saved binary assets. Existing bottom-left
+HUD margins and measured posture/health text anchors are preserved.
+
+
+### Hold-E sprint input — 21 October 2026
+
+E uses native controller key bindings and the existing movement intent.
+No additional Enhanced Input assets, textures or other binary packages.

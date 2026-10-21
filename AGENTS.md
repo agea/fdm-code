@@ -1107,3 +1107,22 @@ pistol fit; its private verified ZIP precedes the migration. Preserve the saved
 ERCompressedFirstPersonPoseVersion marker and normal compressed evaluation.
 Development Mac packaging must boot the actual cooked Depot with pistol-equipped
 bots via test-packaged-runtime.py; a main-menu-only smoke test misses this crash.
+
+
+Stamina revision (21 October): supersedes the five-second sprint limit. Double W
+still requests 18km/h, now with ten seconds of stamina and
+twenty seconds to refill from empty whenever not sprinting (normal run included).
+Fresh gestures can spend partially restored stamina; held W never auto-restarts.
+Use the existing replicated locomotion deadlines/server clock and saved moves;
+interruptions retain the whole deficit. HUD uses a proportional Canvas stamina
+bar above HP/AP, with posture stacked above it. No saved art/asset changes.
+Verify test-movement.py (partial restart, owner drain/refill, InputKey/posture),
+--posture-only --render for the actual HUD, and network/accuracy regressions.
+
+
+Sprint key alternative (21 October): holding E while W is down requests the
+same sprint as double W. E may be held before forward movement. Keep the two
+input sources independent, clear both on menus/new gesture pawn, preserve
+saved-move intent and the 10s stamina/20s refill rules. Held E alone must not
+auto-restart after exhaustion. Verify real remote InputKey E/W press/release,
+E-before-W and overlapping double-W release in test-movement.py.

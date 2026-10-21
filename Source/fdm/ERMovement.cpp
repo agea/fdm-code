@@ -201,7 +201,12 @@ double UERMovement::ServerTime() const
 }
 bool UERMovement::IsSprinting() const { return Locomotion.SprintUntil > ServerTime(); }
 float UERMovement::GetSprintRemaining() const { return FMath::Max(0.f, float(Locomotion.SprintUntil - ServerTime())); }
-float UERMovement::GetRecoveryRemaining() const { return FMath::Max(0.f, float(Locomotion.RecoverUntil - ServerTime())); }
+float UERMovement::GetRecoveryRemaining() const { return IsSprinting() ? 0.f : FMath::Max(0.f, float(Locomotion.RecoverUntil - ServerTime())); }
+float UERMovement::GetStaminaFraction() const
+{
+    if (IsSprinting()) return FMath::Clamp(GetSprintRemaining() / float(MaxSprintDuration), 0.f, 1.f);
+    return FMath::Clamp(1.f - GetRecoveryRemaining() / float(MaxSprintDuration * RecoveryRatio), 0.f, 1.f);
+}
 bool UERMovement::IsChangingPosture() const
 {
     const float Target = bProneWanted ? 34.f : (bWantsToCrouch ? 62.5f : 92.5f);
@@ -210,7 +215,6 @@ bool UERMovement::IsChangingPosture() const
 }
 void UERMovement::UpdateSprint()
 {
-    constexpr double MaxSprintDuration = 5.0;
     const double Now = ServerTime();
     const auto* C = Cast<AERCharacter>(CharacterOwner);
     const bool Allowed = C && !C->Health->bDead && IsMovingOnGround() && !IsTraversing() &&
@@ -222,21 +226,22 @@ void UERMovement::UpdateSprint()
             int32(C->GetLocalRole()), Allowed, IsMovingOnGround(), bWalkHeld, bWantsToCrouch, bProneWanted, Locomotion.HalfHeight,
             *Acceleration.ToString(), *C->GetActorForwardVector().ToString(), GetRecoveryRemaining());
 #endif
-    // Only a fresh gesture can start a sprint; holding W through recovery cannot restart it.
-    if (bSprintHeld && !bPreviousSprintHeld && Now >= Locomotion.RecoverUntil) SprintRequestUntil = Now + .25;
+    // Only a fresh gesture can start a sprint, including with partially restored stamina.
+    if (bSprintHeld && !bPreviousSprintHeld && GetStaminaFraction() > .001f) SprintRequestUntil = Now + .25;
     if (!bSprintHeld) SprintRequestUntil = 0;
     // The gesture can arrive one saved move before its forward acceleration.
-    if (bSprintHeld && SprintRequestUntil > Now && Allowed && Now >= Locomotion.RecoverUntil)
+    if (bSprintHeld && SprintRequestUntil > Now && Allowed && GetStaminaFraction() > .001f)
     {
-        Locomotion.SprintUntil = Now + MaxSprintDuration;
-        Locomotion.RecoverUntil = Locomotion.SprintUntil + 2 * MaxSprintDuration;
+        Locomotion.SprintUntil = Now + MaxSprintDuration * GetStaminaFraction();
+        Locomotion.RecoverUntil = Locomotion.SprintUntil + RecoveryRatio * MaxSprintDuration;
         SprintRequestUntil = 0;
     }
     if (IsSprinting() && (!bSprintHeld || !Allowed))
     {
-        const double SprintDuration = FMath::Clamp(Now - (Locomotion.SprintUntil - MaxSprintDuration), 0.0, MaxSprintDuration);
+        // Include stamina already spent before this gesture; interruptions never refill it.
+        const double Spent = MaxSprintDuration - GetSprintRemaining();
         Locomotion.SprintUntil = Now;
-        Locomotion.RecoverUntil = Now + 2 * SprintDuration;
+        Locomotion.RecoverUntil = Now + RecoveryRatio * Spent;
     }
     bPreviousSprintHeld = bSprintHeld;
 }

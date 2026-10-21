@@ -375,6 +375,8 @@ void AERPlayerController::EndPlay(const EEndPlayReason::Type Reason)
 void AERPlayerController::SetupInputComponent()
 {
     Super::SetupInputComponent();
+    InputComponent->BindKey(EKeys::E, IE_Pressed, this, &AERPlayerController::SprintPressed);
+    InputComponent->BindKey(EKeys::E, IE_Released, this, &AERPlayerController::SprintReleased);
     InputComponent->BindKey(EKeys::W, IE_Pressed, this, &AERPlayerController::ForwardPressed);
     InputComponent->BindKey(EKeys::W, IE_Released, this, &AERPlayerController::ForwardReleased);
     InputComponent->BindKey(EKeys::One, IE_Pressed, this, &AERPlayerController::SelectPrimary);
@@ -417,22 +419,56 @@ void AERPlayerController::SetupInputComponent()
         Input->BindAction(MenuAction, ETriggerEvent::Started, this, &AERPlayerController::MenuPressed);
     }
 }
+void AERPlayerController::ResetSprintInput()
+{
+    bSprintKeyHeld = bForwardSprintHeld = bForwardHeld = false;
+    LastForwardTap = -1;
+    UpdateSprintInput();
+}
+void AERPlayerController::PrepareGesturePawn(AERCharacter* Character)
+{
+    if (GesturePawn.Get() == Character) return;
+    GesturePawn = Character;
+    ResetSprintInput();
+    LastCrouchTap = -1;
+}
+void AERPlayerController::UpdateSprintInput()
+{
+    if (auto* C = Cast<AERCharacter>(GetPawn()))
+        Cast<UERMovement>(C->GetCharacterMovement())->bSprintHeld = bForwardSprintHeld || (bSprintKeyHeld && bForwardHeld);
+}
+void AERPlayerController::SprintPressed()
+{
+    auto* C = Cast<AERCharacter>(GetPawn());
+    if (bMenuOpen || !C || C->Health->bDead) return;
+    PrepareGesturePawn(C);
+    bSprintKeyHeld = true;
+    UpdateSprintInput();
+}
+void AERPlayerController::SprintReleased()
+{
+    bSprintKeyHeld = false;
+    UpdateSprintInput();
+}
 void AERPlayerController::ForwardPressed()
 {
     auto* C = Cast<AERCharacter>(GetPawn());
     if (bMenuOpen || !C || C->Health->bDead) return;
-    if (GesturePawn.Get() != C) { GesturePawn = C; LastForwardTap = LastCrouchTap = -1; }
+    PrepareGesturePawn(C);
+    bForwardHeld = true;
     const double Now = GetWorld()->GetTimeSeconds();
     if (LastForwardTap >= 0 && Now - LastForwardTap <= .3)
     {
-        Cast<UERMovement>(C->GetCharacterMovement())->bSprintHeld = true;
+        bForwardSprintHeld = true;
         LastForwardTap = -1;
     }
     else LastForwardTap = Now;
+    UpdateSprintInput();
 }
 void AERPlayerController::ForwardReleased()
 {
-    if (auto* C = Cast<AERCharacter>(GetPawn())) Cast<UERMovement>(C->GetCharacterMovement())->bSprintHeld = false;
+    bForwardHeld = bForwardSprintHeld = false;
+    UpdateSprintInput();
 }
 void AERPlayerController::WalkPressed() { if (!bMenuOpen) if (auto* C = Cast<AERCharacter>(GetPawn())) Cast<UERMovement>(C->GetCharacterMovement())->bWalkHeld = true; }
 void AERPlayerController::WalkReleased() { if (auto* C = Cast<AERCharacter>(GetPawn())) Cast<UERMovement>(C->GetCharacterMovement())->bWalkHeld = false; }
@@ -493,7 +529,7 @@ void AERPlayerController::CrouchPressed()
     if (bMenuOpen || !C || C->Health->bDead) return;
     auto* M = Cast<UERMovement>(C->GetCharacterMovement());
     if (M->IsTraversing() || !M->IsMovingOnGround()) return;
-    if (GesturePawn.Get() != C) { GesturePawn = C; LastForwardTap = LastCrouchTap = -1; }
+    PrepareGesturePawn(C);
     const double Now = GetWorld()->GetTimeSeconds();
     if (M->bProneWanted)
     {
@@ -504,7 +540,8 @@ void AERPlayerController::CrouchPressed()
         M->bProneWanted = true; C->UnCrouch(); LastCrouchTap = -1;
     }
     else { C->Crouch(); LastCrouchTap = Now; }
-    M->bSprintHeld = false;
+    bForwardSprintHeld = false;
+    UpdateSprintInput();
 }
 void AERPlayerController::CrouchReleased() { if (auto* C = Cast<AERCharacter>(GetPawn())) C->UnCrouch(); }
 void AERPlayerController::ReloadPressed() { if (!bMenuOpen) if (auto* PlayerCharacter = Cast<AERCharacter>(GetPawn())) PlayerCharacter->ServerReload(); }
@@ -912,14 +949,19 @@ void AERHUD::DrawHUD()
     if (Character && !Character->Health->bDead)
     {
         const auto* Movement = Cast<UERMovement>(Character->GetCharacterMovement());
-        const float Sprint = Movement->GetSprintRemaining(), Recovery = Movement->GetRecoveryRemaining();
         const FVector2D HealthSize=DrawHUDTextAnchored(FString::Printf(TEXT("HP  %.0f   AP  %.0f"),Character->Health->Health,Character->Health->Armor),
             FVector2D(EdgeMargin,H-EdgeMargin),FLinearColor(.4f,1,.7f),1.35f,FVector2D(0,1));
         const float SprintBottom=H-EdgeMargin-HealthSize.Y-6.f*HUDScale;
-        const FVector2D SprintSize=DrawHUDTextAnchored(Sprint > 0 ? FString::Printf(TEXT("SPRINT %.1f s"), Sprint) : (Recovery > 0 ? FString::Printf(TEXT("RECOVERY %.1f s"), Recovery) : TEXT("SPRINT READY  |  double-tap W")),
-            FVector2D(EdgeMargin,SprintBottom),FLinearColor(.6f,.8f,1),.85f,FVector2D(0,1));
+        const float BarWidth=180.f*HUDScale, BarHeight=8.f*HUDScale;
+        const float BarTop=SprintBottom-BarHeight;
+        const FLinearColor StaminaColor=Movement->IsSprinting() ? FLinearColor(1,.65f,.2f) : FLinearColor(.6f,.8f,1);
+        DrawRect(FLinearColor(0,0,0,.65f),EdgeMargin-HUDScale,BarTop-HUDScale,BarWidth+2*HUDScale,BarHeight+2*HUDScale);
+        DrawRect(FLinearColor(.15f,.18f,.22f,.9f),EdgeMargin,BarTop,BarWidth,BarHeight);
+        DrawRect(StaminaColor,EdgeMargin,BarTop,BarWidth*Movement->GetStaminaFraction(),BarHeight);
+        const FVector2D SprintSize=DrawHUDTextAnchored(TEXT("STAMINA"),
+            FVector2D(EdgeMargin,BarTop-3.f*HUDScale),StaminaColor,.85f,FVector2D(0,1));
         if (Movement->bProneWanted || Movement->IsProne()) DrawHUDTextAnchored(TEXT("PRONE  |  C / Ctrl to stand up"),
-            FVector2D(EdgeMargin,SprintBottom-SprintSize.Y-6.f*HUDScale),FLinearColor::White,.85f,FVector2D(0,1));
+            FVector2D(EdgeMargin,BarTop-3.f*HUDScale-SprintSize.Y-6.f*HUDScale),FLinearColor::White,.85f,FVector2D(0,1));
         const bool bOptical = Character->Weapon && Character->Weapon->HasOpticalScope();
         if (!bOptical)
         {

@@ -83,7 +83,7 @@ void AERPlayerController::OpenMenuPage(int32 Page)
 void AERPlayerController::ShowMenu(bool bShow)
 {
     if (!IsLocalController() || !GetWorld()->GetGameViewport()) return;
-    ForwardReleased(); LastForwardTap = LastCrouchTap = -1;
+    ResetSprintInput(); LastCrouchTap = -1;
     FireReleased(); WalkReleased(); CrouchReleased(); JumpReleased(); bShowScoreboard = false;
     if (auto* C = Cast<AERCharacter>(GetPawn()); C && C->Weapon) C->Weapon->ServerClearScope();
     bShowingLobby = IsInLobby();
@@ -247,7 +247,7 @@ void AERPlayerController::ShowMenu(bool bShow)
             Slider(TEXT("Music"), [GI]() { return GI->GetMusicVolume(); }, [GI](float V) { GI->SetMusicVolume(V); }, [GI]() { GI->SaveMusicVolume(); });
             Slider(TEXT("Mouse sensitivity"), [GI]() { return GI->GetMouseSensitivity(); }, [GI](float V) { GI->SetMouseSensitivity(V); }, [GI]() { GI->SaveMouseSensitivity(); });
             Slider(TEXT("Mouse acceleration"), [GI]() { return GI->GetMouseAcceleration(); }, [GI](float V) { GI->SetMouseAcceleration(V); }, [GI]() { GI->SaveMouseSensitivity(); });
-            Add(Panel, Text(TEXT("WASD Move · Shift Walk · double W Sprint\nSpace Jump / Climb · C / Ctrl Crouch · double C Prone\nR Reload · Tab Scores · Esc Menu"), 20));
+            Add(Panel, Text(TEXT("WASD Move · Shift Walk · double W / hold E Sprint\nSpace Jump / Climb · C / Ctrl Crouch · double C Prone\nR Reload · Tab Scores · Esc Menu"), 20));
             Add(Panel, Button(TEXT("Credits"), Go(7)));
         }
         else if (MenuPage == 5)

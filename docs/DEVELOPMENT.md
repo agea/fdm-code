@@ -2434,3 +2434,29 @@ automatico usato dal generico helper dei menu. È allineato in basso a destra
 all'interno di SSafeZone (title-safe), con padding32 anziché16/8; il contenitore
 non intercetta input. La stessa struttura serve menu principale, pausa e
 sottopagine e viene riallineata al cambio di dimensioni del viewport.
+
+
+### Stamina e sprint — 21 ottobre 2026
+
+Sostituito il conto alla rovescia con una barra STAMINA sopra HP/AP,
+azzurra durante il recupero e ambra durante lo sprint. Sprint sempre a 18 km/h
+con doppio W, ora massimo 10 s da pieno. Ricarica lineare completa in 20 s senza
+sprint, anche durante corsa normale/cammino: 2 s consumati richiedono 4 s
+di recupero. È una scelta di ritmo di gioco, non un modello fisiologico.
+Si può ripartire con stamina parziale con un nuovo doppio W; W tenuto
+non riavvia automaticamente. Le interruzioni conservano tutta la stamina
+consumata anche dopo sprint consecutivi. Scadenze esistenti replicate, orologio
+server e saved moves conservano autorità e previsione senza nuovi RPC.
+Questo aggiornamento sostituisce il limite di 5 s delle note storiche;
+il recupero resta doppio dello sprint.
+
+
+### Sprint anche con E premuto — 21 ottobre 2026
+
+Aggiunto E tenuto premuto insieme a W come alternativa al doppio W. Funziona
+anche premendo E prima di iniziare ad avanzare. Rilasciare E interrompe la sua
+richiesta; un doppio W ancora attivo continua indipendentemente. Fermarsi
+rilasciando W interrompe lo sprint e permette di richiederlo nuovamente
+avanzando con E ancora premuto. Il menu e un nuovo personaggio azzerano gli
+intenti precedenti. Stamina 10 s, recupero 20 s da vuoto e controlli server
+invariati; nessun nuovo RPC o asset input. Aggiornato il riepilogo dei controlli.

@@ -159,6 +159,12 @@ private:
     double LastForwardTap = -1;
     double LastCrouchTap = -1;
     TWeakObjectPtr<APawn> GesturePawn;
+    bool bSprintKeyHeld = false, bForwardSprintHeld = false, bForwardHeld = false;
+    void ResetSprintInput();
+    void PrepareGesturePawn(class AERCharacter* Character);
+    void UpdateSprintInput();
+    void SprintPressed();
+    void SprintReleased();
     void ForwardPressed();
     void ForwardReleased();
     double WheelQuietUntil = 0;

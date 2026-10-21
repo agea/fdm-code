@@ -11,6 +11,7 @@
 #include "HAL/PlatformMisc.h"
 #include "EngineUtils.h"
 #include "InputKeyEventArgs.h"
+#include "UnrealClient.h"
 #include "GameFramework/PlayerController.h"
 AERMovementProbe::AERMovementProbe()
 {
@@ -97,6 +98,14 @@ void AERMovementProbe::Tick(float DeltaTime)
                 const float RunCone=C->Weapon->GetSpreadDegrees();M->Velocity=SprintVelocity;
                 UE_LOG(LogTemp,Display,TEXT("ER_MOVEMENT_CLIENT_%s owner_sprint_has_extra_spread run=%.3f sprint=%.3f"),
                     SprintCone>RunCone+1.4f?TEXT("PASS"):TEXT("FAIL"),RunCone,SprintCone);
+                UE_LOG(LogTemp,Display,TEXT("ER_MOVEMENT_CLIENT_%s owner_stamina_drains"),
+                    M->GetStaminaFraction()>.7f && M->GetStaminaFraction()<1.f ? TEXT("PASS") : TEXT("FAIL"));
+                Peak=1;
+            }
+            if (Phase == 34 && Elapsed>20.f && Peak==0)
+            {
+                UE_LOG(LogTemp,Display,TEXT("ER_MOVEMENT_CLIENT_%s owner_stamina_refills"),
+                    !M->IsSprinting() && M->GetStaminaFraction()==1.f ? TEXT("PASS") : TEXT("FAIL"));
                 Peak=1;
             }
             if (Phase == 37 && Elapsed > 1.6f && Peak == 0)
@@ -130,6 +139,47 @@ void AERMovementProbe::Tick(float DeltaTime)
             const FKey Key = Phase==40 ? EKeys::W : (Phase==43 ? EKeys::LeftControl : EKeys::C);
             Send(.05f,Key,IE_Pressed); Send(.12f,Key,IE_Released);
             if (Phase != 42) { Send(.22f,Key,IE_Pressed); Send(Phase==40 ? 1.f : .3f,Key,IE_Released); }
+        }
+        if (C && Phase >= 48 && Phase <= 53)
+        {
+            auto* PC=Cast<APlayerController>(C->Controller);
+            if (LocalPhase!=Phase) { LocalPhase=Phase; Elapsed=0; Peak=0; PC->SetControlRotation(FRotator::ZeroRotator); }
+            const float Previous=Elapsed; Elapsed+=DeltaTime;
+            auto Send=[&](float At,FKey Key,EInputEvent Event)
+            {
+                if (Previous>=At || Elapsed<At) return;
+                FInputKeyEventArgs Args; Args.Key=Key; Args.Event=Event;
+                Args.AmountDepressed=Event==IE_Released?0.f:1.f;
+                Args.EventTimestamp=FPlatformTime::Cycles64(); PC->InputKey(Args);
+            };
+            if (Phase==48)
+            {
+                Send(.5f,EKeys::C,IE_Pressed); Send(.65f,EKeys::C,IE_Released);
+                Send(1.8f,EKeys::W,IE_Pressed); Send(2.2f,EKeys::E,IE_Pressed);
+            }
+            if (Phase==49) Send(.05f,EKeys::E,IE_Released);
+            if (Phase==50)
+            {
+                Send(.05f,EKeys::E,IE_Pressed); Send(.1f,EKeys::W,IE_Released);
+                Send(.7f,EKeys::W,IE_Pressed);
+            }
+            if (Phase==51)
+            {
+                Send(.05f,EKeys::W,IE_Released); Send(.8f,EKeys::W,IE_Pressed);
+            }
+            if (Phase==52)
+            {
+                Send(.05f,EKeys::W,IE_Released); Send(.2f,EKeys::W,IE_Pressed);
+                Send(.3f,EKeys::W,IE_Released); Send(.4f,EKeys::W,IE_Pressed);
+                Send(.8f,EKeys::E,IE_Released);
+            }
+            if (Phase==53) { Send(.05f,EKeys::W,IE_Released); Send(.05f,EKeys::E,IE_Released); }
+            if ((Phase==48 || Phase==50 || Phase==52) && Peak==0 && Elapsed>(Phase==48?2.7f:1.2f))
+            {
+                UE_LOG(LogTemp,Display,TEXT("ER_MOVEMENT_CLIENT_%s sprint_E_phase_%d"),
+                    Cast<UERMovement>(C->GetCharacterMovement())->IsSprinting()?TEXT("PASS"):TEXT("FAIL"),Phase);
+                Peak=1;
+            }
         }
         return;
     }
@@ -331,17 +381,17 @@ void AERMovementProbe::Tick(float DeltaTime)
                     TEXT("actual sprint shot samples the same widened cone as the HUD"));
                 Peak=1;
             }
-            if (Elapsed > 5.8f) { Check(Peak==1 && !Remote->IsSprinting() && Remote->GetRecoveryRemaining()>8 && Remote->GetRecoveryRemaining()<10,TEXT("sprint ends at 5 seconds; 10 second recovery")); Advance(); }
+            if (Elapsed > 10.8f) { Check(Peak==1 && !Remote->IsSprinting() && Remote->GetRecoveryRemaining()>18 && Remote->GetRecoveryRemaining()<20 && Remote->GetStaminaFraction()>0 && Remote->GetStaminaFraction()<.3f,TEXT("sprint ends at 10 seconds; stamina refills over 20 seconds")); Advance(); }
         }
-        else if (Phase == 34 && Elapsed > 10.5f)
+        else if (Phase == 34 && Elapsed > 20.5f)
         {
-            Check(!Remote->IsSprinting() && Remote->GetRecoveryRemaining()==0 && Remote->Velocity.Size2D()<280,TEXT("held sprint cannot restart after cooldown")); Advance();
+            Check(!Remote->IsSprinting() && Remote->GetRecoveryRemaining()==0 && Remote->GetStaminaFraction()==1 && Remote->Velocity.Size2D()<280,TEXT("held sprint cannot restart after cooldown")); Advance();
         }
         else if (Phase == 35 && Elapsed > .5f) Advance();
         else if (Phase == 36 && Elapsed > 1)
         {
             Check(Remote->IsSprinting(),TEXT("fresh remote gesture restarts recovered sprint"));
-            SprintStartedAt = Remote->Locomotion.SprintUntil - 5;
+            SprintStartedAt = Remote->Locomotion.SprintUntil - UERMovement::MaxSprintDuration;
             Advance();
         }
         else if (Phase == 37)
@@ -365,8 +415,8 @@ void AERMovementProbe::Tick(float DeltaTime)
                 Check(Peak==1 && Remote->IsProne() && FMath::IsNearlyEqual(Remote->Locomotion.HalfHeight,34.f,.1f),TEXT("remote prone capsule reaches 68cm"));
                 Check(FVector::Dist(Eye,Client->Camera->GetComponentLocation())<1,TEXT("prone camera equals authoritative eye"));
                 const double SprintDuration = Remote->Locomotion.SprintUntil - SprintStartedAt;
-                Check(!Remote->IsSprinting() && SprintDuration > 0 && SprintDuration < 5 &&
-                    FMath::IsNearlyEqual(Remote->Locomotion.RecoverUntil - Remote->Locomotion.SprintUntil, 2 * SprintDuration, .001),
+                Check(!Remote->IsSprinting() && SprintDuration > 0 && SprintDuration < UERMovement::MaxSprintDuration &&
+                    FMath::IsNearlyEqual(Remote->Locomotion.RecoverUntil - Remote->Locomotion.SprintUntil, UERMovement::RecoveryRatio * SprintDuration, .001),
                     TEXT("posture interruption: recovery is twice the actual sprint duration"));
                 Advance();
             }
@@ -390,19 +440,84 @@ void AERMovementProbe::Tick(float DeltaTime)
         if (Phase == 40 && Elapsed > .85f && Peak == 0)
         {
             Check(Remote->IsSprinting() && Remote->Velocity.Size2D()>350,TEXT("InputKey double W reaches real sprint/movement bindings"));
-            SprintStartedAt = Remote->Locomotion.SprintUntil - 5; Peak=1;
+            SprintStartedAt = Remote->Locomotion.SprintUntil - UERMovement::MaxSprintDuration; Peak=1;
         }
         if (Elapsed > 1.8f)
         {
             if (Phase == 40)
             {
                 const double SprintDuration = Remote->Locomotion.SprintUntil - SprintStartedAt;
-                Check(Peak==1 && !Remote->IsSprinting() && SprintDuration > 0 && SprintDuration < 5 &&
-                    FMath::IsNearlyEqual(Remote->Locomotion.RecoverUntil - Remote->Locomotion.SprintUntil, 2 * SprintDuration, .001),
+                Check(Peak==1 && !Remote->IsSprinting() && SprintDuration > 0 && SprintDuration < UERMovement::MaxSprintDuration &&
+                    FMath::IsNearlyEqual(Remote->Locomotion.RecoverUntil - Remote->Locomotion.SprintUntil, UERMovement::RecoveryRatio * SprintDuration, .001),
                     TEXT("InputKey W release: recovery is twice the actual sprint duration"));
             }
             else Check(Phase == 42 ? !Remote->IsProne() && Remote->Locomotion.HalfHeight>92 : Remote->IsProne() && Remote->Locomotion.HalfHeight<35,
                 Phase == 41 ? TEXT("InputKey double C reaches prone binding") : (Phase == 42 ? TEXT("InputKey single C rises from prone") : TEXT("InputKey double Ctrl reaches prone binding")));
+            Advance();
+        }
+        return;
+    }
+    if (Phase >= 44 && Phase <= 47)
+    {
+        if (LocalPhase != Phase)
+        {
+            LocalPhase=Phase;
+            Host->TeleportTo(FVector(-900,-1900,95),FRotator::ZeroRotator);
+            Host->Controller->SetControlRotation(FRotator::ZeroRotator);
+        }
+        if (FParse::Param(FCommandLine::Get(),TEXT("ERStaminaGallery")) && Elapsed-DeltaTime<.3f && Elapsed>=.3f)
+            FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir()/FString::Printf(TEXT("Testing/Stamina/Phase%d.png"),Phase),true,false);
+        Move->bSprintHeld=Phase==44 || Phase==46;
+        if (Move->bSprintHeld) Host->AddMovementInput(FVector(1,0,0));
+        if (Phase==44 && Elapsed>4.f)
+        {
+            Check(Move->IsSprinting() && Move->GetStaminaFraction()>.55f && Move->GetStaminaFraction()<.65f,
+                TEXT("four seconds of sprint consumes forty percent stamina"));
+            Advance();
+        }
+        else if (Phase==45 && Elapsed>.4f)
+        {
+            Check(!Move->IsSprinting() && Move->GetStaminaFraction()>.6f && Move->GetStaminaFraction()<.75f,
+                TEXT("short rest restores only part of the spent stamina"));
+            Advance();
+        }
+        else if (Phase==46 && Elapsed>1.f)
+        {
+            Check(Move->IsSprinting() && Move->GetSprintRemaining()>5.f && Move->GetSprintRemaining()<6.5f,
+                TEXT("fresh gesture resumes partial stamina without resetting to ten seconds"));
+            Advance();
+        }
+        else if (Phase==47 && Elapsed>20.5f)
+        {
+            Check(!Move->IsSprinting() && Move->GetStaminaFraction()==1.f,
+                TEXT("interrupted partial sprint refills fully while resting"));
+            Advance();
+        }
+        return;
+    }
+    if (Phase>=48 && Phase<=53)
+    {
+        auto* Remote=Cast<UERMovement>(Client->GetCharacterMovement());
+        if (LocalPhase!=Phase)
+        {
+            LocalPhase=Phase;
+            if (Phase==48 || Phase==50 || Phase==51 || Phase==52)
+                Client->TeleportTo(FVector(-900,1900,Remote->Locomotion.HalfHeight+2.1f),FRotator::ZeroRotator);
+        }
+        if (Phase==51 && Peak==0 && Elapsed>.5f)
+        {
+            Check(!Remote->IsSprinting(),TEXT("held E without forward movement does not sprint")); Peak=1;
+        }
+        if (Elapsed>(Phase==48?3.f:(Phase==49 || Phase==53?.6f:1.5f)))
+        {
+            const bool Sprint=Phase!=49 && Phase!=53;
+            Check(Remote->IsSprinting()==Sprint && (!Sprint || Remote->GetStaminaFraction()<1.f),
+                Phase==48?TEXT("InputKey held E starts sprint during normal W movement"):
+                Phase==49?TEXT("InputKey releasing E stops sprint while W remains held"):
+                Phase==50?TEXT("InputKey E held before W starts sprint after gesture window"):
+                Phase==51?TEXT("InputKey forward resumes sprint while E remains held"):
+                Phase==52?TEXT("InputKey releasing E preserves simultaneous double-W sprint"):
+                TEXT("InputKey releasing both sprint controls clears intent"));
             Advance();
         }
         return;

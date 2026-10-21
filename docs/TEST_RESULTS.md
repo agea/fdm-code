@@ -4583,3 +4583,52 @@ Nessuna nuova prova grafica per questa modifica del solo contenitore Slate.
   workflow tests **15/15 PASS**, notarization workflow tests **14/14 PASS**.
 - App, build/notarization/upload receipts and logs retained in
   `/private/tmp/rr-sm5-releases/release-20261021-111304-93c27528/`.
+
+
+## Barra stamina e sprint 10/20 secondi — 21 ottobre 2026
+
+- Editor Mac arm64 Development: **PASS**, build finale 28,93 s.
+  Warning di deprecazione preesistenti; nessun errore di compilazione.
+- `python3 scripts/test-movement.py --render`: **PASS**, 79 controlli server,
+  quattro controlli owner/proxy e quattro catture Metal aggiornate.
+  Verificati corsa, cammino, salto, ostacoli 10–200 cm, limiti di scavalcamento,
+  clearance, crouch/prone, camera/occhio server e input reali W/C/Ctrl.
+  Sprint remoto a 18 km/h esaurito dopo 10 s; ricarica in 20 s senza riavvio
+  automatico tenendo W. Interruzioni con recupero doppio del consumo effettivo.
+  Verificati consumo del 40% dopo 4 s, breve recupero parziale, nuova partenza
+  senza reset a 10 s e ricarica completa dopo una seconda interruzione.
+- `python3 scripts/test-network.py --accuracy`: **PASS**, compresi stato owner,
+  dispersione reale e recupero bloom. Cono owner corsa .730°, sprint 2.230°.
+- `python3 scripts/test-network.py`: **PASS**, combattimento, protezione,
+  morte/respawn, ragdoll e replica dei personaggi conservati.
+- Ispezionate le catture Metal 1280×720: barra ambra durante sprint,
+  azzurra con riempimento parziale durante riposo; etichetta, HP/AP e margini
+  inferiori leggibili. Nessuna verifica grafica di altre risoluzioni in questa prova.
+
+Log finali: `Saved/Testing/stamina-build.log`, `stamina-movement-final.log`,
+`stamina-accuracy-final.log`, `stamina-network-final.log`, con log host/client
+nelle consuete posizioni. Catture: `Saved/Testing/Stamina/Phase44.png`–`Phase47.png`.
+Nessun cook, packaging, pubblicazione o modifica di asset binari.
+
+
+## Sprint con E tenuto premuto — 21 ottobre 2026
+
+- Editor Mac arm64 Development: **PASS**; build iniziale 31,44 s,
+  ricompilazione della sola fixture 10,17 s.
+- `python3 scripts/test-movement.py --posture-only`: **PASS** su host e client
+  reali. Verificati E premuto durante W, rilascio E mantenendo W, E prima
+  della ripartenza con W oltre la finestra del doppio tocco, arresto/ripresa
+  con E ancora premuto, rilascio E durante doppio W e rilascio di entrambi.
+  Tre riscontri owner confermano lo sprint predetto; il server valida tutti
+  gli input. Restano superati stamina 10/20 s, consumo/ricarica parziale,
+  interruzioni, doppio W, crouch/prone e relativa replica.
+- Prima esecuzione: nuovi casi E falliti perché la fixture teletrasportava il
+  client ancora prono alla quota da personaggio in piedi, facendo ignorare C
+  durante la caduta. Corretto solo il test usando la mezza altezza effettiva
+  della capsula e aspettando il contatto col suolo prima di rialzarsi.
+- `python3 -m py_compile scripts/test-movement.py` e `git diff --check`: **PASS**.
+  Prova headless: nessuna nuova verifica grafica del testo dei controlli.
+
+Log: `Saved/Testing/sprint-e-build.log`, `sprint-e-movement.log`,
+`movement-host.log`, `movement-client.log`; primo tentativo conservato in
+`sprint-e-movement-initial.log`. Nessun asset binario o packaging modificato.
