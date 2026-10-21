@@ -1,4 +1,68 @@
-# Verifiche locali — 12 ottobre 2026
+# Verifiche locali — 21 ottobre 2026
+
+## 21 ottobre 2026 — aim punch reale e feedback rosso del danno
+
+Implementata la specifica dell'utente in [AIM_PUNCH.md](AIM_PUNCH.md). Il rinculo
+worksheet attuale era già gameplay: resta indipendente. I danni Bullet accettati,
+positivi e non letali aggiungono pitch/yaw all'unica mira effettiva, prima della
+normale dispersione. Tuning iniziale .40° + .012°/HP, testa1.5, armatura mitigante.6,
+yaw.35, limiti2.5°/1.5°, emivita.20s. Rimossi i doppi pitch cosmetici dei proiettili;
+conservati traslazione/roll e risposta precedente degli altri danni. Nessuna modifica
+alle statistiche delle armi, collisioni, capsule o ControlRotation.
+
+PASS build Editor Mac Development arm64 UE5.8.3 (133.38s) e test nativo
+`EclipseRecoil.Weapons.AimPunch`: 20HP=.64°/.224°, testa/armatura, pellet senza
+ripetere il termine base, duplicati/riordino/wrap, accumulo/limiti, recupero numerico
+identico a30/60/120Hz e assenza di deriva. Comando: `test-aim-punch.py --automation`.
+
+PASS tre esecuzioni di `test-aim-punch.py`: default, `--render` e `--lag 100`.
+43 controlli autorità per ciascuna: HP effettivi, testa/armatura reali, protezione,
+danni non Bullet, accumulo/cap, input e posizione invariati, controsterzo, pellet,
+bot, colpo fisico host verso vittima remota, sparo remoto durante il punch,
+recupero, morte, nuova pawn e cambio possessore. Undici casi di sparo coprono
+le sei armi Bullet, i livelli ottici di Sniper/Marksman e il launcher; nessuna
+penalità aggiuntiva alla dispersione. La camera owner coincide con il suo accessor
+effettivo in pitch/yaw entro .001°, senza duplicazione; verificati anche FOV ottico
+e recupero. Questo controllo locale non implica sincronizzazione perfetta tra peer.
+
+Misure con timestamp FPlatformTime condiviso dallo stesso Mac. Ogni esecuzione
+ha sette osservazioni del recupero degli snapshot alla ricezione (incluse
+transizioni fra pellet e morte); non sono un campionamento continuo dello stato
+corrente del server. Il confronto fra mira autorevole prima della dispersione e
+POV owner usa il frame più vicino, a distanza massima50ms.
+
+| Esecuzione | Ritardo reale di ricezione, ms | Errore recupero snapshot mediano/max, ° | Confronti camera |
+| --- | ---: | ---: | ---: |
+| Nessun ritardo aggiunto, NullRHI | 6.0–17.4 | 0.012 / 0.038 | 31 |
+| Nessun ritardo aggiunto, Metal/catture | 16.3–185.0 | 0.042 / 0.412 | 2 |
+| 100 ms in uscita per peer, NullRHI | 128.7–251.5 | 0.022 / 0.043 | 31 |
+
+Nei due test NullRHI i29 confronti dopo la notifica hanno scarto massimo della
+sola componente punch .049° senza ritardo aggiunto e .060° con100ms per peer.
+Lo scarto massimo del pitch completo è rispettivamente .361° e1.936°: comprende
+il rinculo da fuoco già esistente, la sua replica e la separazione fra campioni.
+La prova Metal, con caricamenti/readback pesanti, presenta un outlier di .412°
+nel recupero di uno snapshot; non viene dichiarata equivalenza perfetta. Il nuovo
+clock usa l'ultimo campione server, metà RTT stimata e un limite temporale monotono,
+senza cambiare i clock medi preesistenti. Misurati anche due spari prima della
+notifica in ciascun test NullRHI: il server usa già il punch mentre l'owner ancora
+non conosce quel danno. Questo intervallo di rete non viene nascosto o eliminato.
+
+PASS catture Metal1280x720 ispezionate: `AimPunch/owner-hit-5.png`,
+`owner-hit-7.png` (ottica) e `owner-recovered.png`. Arco rosso a due linee nella
+direzione del colpo, fade.65s e flash rosso sfumato ai bordi.45s; centro libero e
+scomparsa completa. La piattaforma del probe è transiente e replicata; handshake
+owner evita di saltare intere fasi durante il caricamento dei modelli.
+
+PASS regressioni `test-network.py --shot-feedback` (incluse morte/respawn e audio
+owner danno), `test-network.py --accuracy`, `test-network.py --recoil`,
+`test-arsenal.py`, `test-grenades.py` e `test-movement.py` completo, inclusi InputKey,
+posture e stamina. Nessun asset binario o submodule modificato in questa revisione.
+Log grezzi in Saved/Testing e ricevute `aim-punch-final-*.log`; riepilogo preservato
+in [AIM_PUNCH_RESULTS.json](AIM_PUNCH_RESULTS.json). Le prime iterazioni del fixture
+hanno evidenziato cadute dall'area sospesa e caricamenti iniziali: corretti il
+pavimento replicato e la sincronizzazione del test, poi ripetute le prove.
+Non eseguiti LAN su due PC fisici, nuovo cook/package o playtest soggettivo.
 
 ## 21 ottobre2026 — passi, varianti di sparo e smoke -10dB
 

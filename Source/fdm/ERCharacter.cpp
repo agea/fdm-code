@@ -455,6 +455,8 @@ void AERCharacter::Tick(float DeltaTime)
     if(HasAuthority())for(auto Item:Inventory)if(Item)Item->UpdateAccuracyRecovery();
     UpdateWeaponPresentation();
     DamageViewKick = FMath::VInterpTo(DamageViewKick, FVector::ZeroVector, DeltaTime, 18.f);
+    CosmeticDamagePitch = FMath::VInterpTo(CosmeticDamagePitch, FVector::ZeroVector, DeltaTime, 18.f);
+    DamageVisuals.RemoveAll([this](const FERDamageVisual& V){return GetWorld()->GetTimeSeconds()-V.LocalTime>.7;});
     DeathViewDrop = FMath::FInterpTo(DeathViewDrop, Health->bDead ? -55.f : 0.f, DeltaTime, 5.f);
 #if !UE_BUILD_SHIPPING
     if (!bFPSPoseAudited && IsLocallyControlled() && GetWorld()->GetTimeSeconds() > 2 && FParse::Param(FCommandLine::Get(), TEXT("ERFPSAudit")))
@@ -646,15 +648,57 @@ FRotator AERCharacter::GetRecoilRotation() const
     const double Now=GS?GS->GetServerWorldTimeSeconds():GetWorld()->GetTimeSeconds();
     return ERWeaponRecoil::Rotation(ERWeaponRecoil::At(RecoilState,Now));
 }
-FRotator AERCharacter::GetViewRotation() const
+static double AimPunchClock(const AERCharacter* Character)
+{
+    const auto* World=Character->GetWorld();const auto* GS=World->GetGameState<AERGameState>();
+    const auto* PS=Character->GetPlayerState();
+    // GameState time samples describe their send time. Approximate the missing
+    // one-way transit from measured RTT; this never changes authority or input.
+    return (GS?GS->GetAimPunchServerTimeSeconds():World->GetTimeSeconds())+
+        (!Character->HasAuthority() && PS?PS->GetPingInMilliseconds()*.0005:0.);
+}
+FRotator AERCharacter::GetAimPunchRotation() const
+{
+    if(!GetWorld() || !Controller || !Health || Health->bDead)return FRotator::ZeroRotator;
+    const double Now=AimPunchClock(this);
+    // Keep recovery moving even while the initial GameState clock is catching
+    // up after loading, or a smoothed clock correction briefly moves backwards.
+    const double SampleTime=HasAuthority()?Now:(OwnerPunchLastSampleTime=FMath::Max3(Now,OwnerPunchReceiptServerTime+GetWorld()->GetTimeSeconds()-OwnerPunchReceiptTime,OwnerPunchLastSampleTime));
+    const auto Angle=ERAimPunch::At(GetAimPunchState(),SampleTime);
+    return FRotator(Angle.X,Angle.Y,0);
+}
+void AERCharacter::ResetAimPunch()
+{
+    // Preserve the sequence watermark across possession changes, so an old
+    // reliable hit event cannot resurrect a previous owner's disturbance.
+    const uint32 Sequence=AuthorityPunch.Sequence+1;
+    AuthorityPunch=FERAimPunchState();AuthorityPunch.Sequence=Sequence;
+    const uint32 OwnerSequence=OwnerPunch.Sequence;
+    OwnerPunch=FERAimPunchState();OwnerPunch.Sequence=OwnerSequence;OwnerPunchLastSampleTime=0;
+    DamageViewKick=CosmeticDamagePitch=FVector::ZeroVector;DamageVisuals.Reset();
+    PunchPelletWeapon.Reset();PunchPelletShot=MAX_uint32;
+    if(HasAuthority() && Controller && Controller->IsPlayerController())
+        ClientDamageFeedback(0,FVector::ZeroVector,AuthorityPunch,false);
+}
+void AERCharacter::PossessedBy(AController* NewController)
+{Super::PossessedBy(NewController);ResetAimPunch();}
+void AERCharacter::UnPossessed()
+{ResetAimPunch();Super::UnPossessed();}
+void AERCharacter::OnRep_Controller()
+{
+    Super::OnRep_Controller();
+    if(!Controller){OwnerPunch.Angle=FVector2D::ZeroVector;DamageVisuals.Reset();DamageViewKick=CosmeticDamagePitch=FVector::ZeroVector;}
+}
+FRotator AERCharacter::GetEffectiveAimRotation() const
 {
     // Camera component, attached FPS rig and authoritative eyes use this once.
     // ControlRotation remains the player's input, so mouse compensation is natural.
-    const FRotator Recoil=GetRecoilRotation();
+    const FRotator Recoil=GetRecoilRotation()+GetAimPunchRotation();
     FRotator View=(Super::GetViewRotation()+Recoil).GetNormalized();
     if(!Recoil.IsNearlyZero())View.Pitch=FMath::Clamp(View.Pitch,-89.f,89.f);
     return View;
 }
+FRotator AERCharacter::GetViewRotation() const { return GetEffectiveAimRotation(); }
 void AERCharacter::AddWeaponRecoil(const FVector2D& Impulse)
 {
     if (!HasAuthority()) return;
@@ -678,7 +722,7 @@ void AERCharacter::CalcCamera(float DeltaTime, FMinimalViewInfo& OutResult)
         OutResult.Rotation.Pitch += CameraKick;
         const FVector LocalKick = FRotationMatrix(OutResult.Rotation).GetTransposed().TransformVector(DamageViewKick);
         OutResult.Location += DamageViewKick * .8f;
-        OutResult.Rotation.Pitch -= LocalKick.X * .45f;
+        OutResult.Rotation.Pitch -= FRotationMatrix(OutResult.Rotation).GetTransposed().TransformVector(CosmeticDamagePitch).X * .45f;
         OutResult.Rotation.Roll += LocalKick.Y * .9f;
     }
     if (IsLocallyControlled() && Health->bDead)
@@ -739,7 +783,9 @@ void AERCharacter::EndPlay(const EEndPlayReason::Type Reason)
 }
 float AERCharacter::TakeDamage(float Damage, const FDamageEvent& Event, AController* Killer, AActor* Causer)
 {
-    const float Before = Health->Health;
+    if(!HasAuthority() || !Health || Health->bDead)return 0;
+    const float Before = Health->Health, ArmorBefore = Health->Armor;
+    bool bBullet=false;
     FERMessageDamage Facts;
     FVector Direction = Killer && Killer->GetPawn() ? GetActorLocation() - Killer->GetPawn()->GetActorLocation() : FVector::ForwardVector;
     if (Event.IsOfType(FPointDamageEvent::ClassID)) Direction = static_cast<const FPointDamageEvent&>(Event).ShotDirection;
@@ -754,6 +800,7 @@ float AERCharacter::TakeDamage(float Damage, const FDamageEvent& Event, AControl
         Facts.LastBullet = Gun->Data->Payload == EERPayload::Bullet && Gun->MagazineAmmo == 0;
         if (Gun->Data->Payload == EERPayload::Bullet && Event.IsOfType(FPointDamageEvent::ClassID))
         {
+            bBullet=true;
             const auto& Point = static_cast<const FPointDamageEvent&>(Event);
             Facts.DistanceMeters = FVector::Distance(Gun->LastShotTraceStart, Point.HitInfo.ImpactPoint) / 100.f;
             Facts.Headshot = !Point.HitInfo.BoneName.IsNone() && ERWeaponBallistics::ZoneForBone(Point.HitInfo.BoneName) == ERWeaponBallistics::EHitZone::Head;
@@ -780,12 +827,50 @@ float AERCharacter::TakeDamage(float Damage, const FDamageEvent& Event, AControl
         Facts.Grenade = Facts.Explosion && (Projectile->Payload == EERPayload::HE || Projectile->Payload == EERPayload::LaunchedHE);
     }
     Health->ReceiveDamage(Damage, Killer, Ratio, Facts);
-    if (Before > Health->Health) ClientDamageFeedback(Before - Health->Health, LastHitDirection);
+    const float Applied=Before-Health->Health;
+    if(Applied>0)
+    {
+        if(bBullet && !Health->bDead)
+        {
+            auto* Gun=CastChecked<AERWeapon>(Causer);
+            const bool FirstPellet=PunchPelletWeapon.Get()!=Gun || PunchPelletShot!=Gun->AuthorizedShotCount;
+            const FVector Right=FRotationMatrix(GetEffectiveAimRotation()).GetUnitAxis(EAxis::Y);
+            const float Side=FVector::DotProduct(-LastHitDirection,Right);
+            const auto Impulse=ERAimPunch::Impulse(AimPunchTuning,Applied,Facts.Headshot,Health->Armor<ArmorBefore,Side,AuthorityPunch.Sequence+1,FirstPellet);
+            ERAimPunch::Add(AuthorityPunch,AimPunchTuning,Impulse,GetWorld()->GetTimeSeconds());
+            PunchPelletWeapon=Gun;PunchPelletShot=Gun->AuthorizedShotCount;
+        }
+        ++AuthorityPunch.Sequence;
+#if !UE_BUILD_SHIPPING
+        if(bBullet && !Health->bDead && FParse::Param(FCommandLine::Get(),TEXT("ERAimPunchAudit")))
+            UE_LOG(LogTemp,Display,TEXT("ER_AIMPUNCH_STATE pawn=%s seq=%u time=%.6f real=%.6f pitch=%.6f half_life=%.6f"),
+                *GetName(),AuthorityPunch.Sequence,AuthorityPunch.ServerTime,FPlatformTime::Seconds(),AuthorityPunch.Angle.X,AuthorityPunch.HalfLife);
+#endif
+        ClientDamageFeedback(Applied,LastHitDirection,AuthorityPunch,bBullet);
+    }
     return Before - Health->Health;
 }
-void AERCharacter::ClientDamageFeedback_Implementation(float Amount, FVector_NetQuantizeNormal Direction)
+void AERCharacter::ClientDamageFeedback_Implementation(float Amount, FVector_NetQuantizeNormal Direction, const FERAimPunchState& Snapshot, bool bBullet)
 {
     if (!IsLocallyControlled() || !Controller || !Controller->IsPlayerController()) return;
+    if(!HasAuthority())
+    {
+        if(!ERAimPunch::Newer(Snapshot.Sequence,OwnerPunch.Sequence))return;
+        OwnerPunch=Snapshot;
+        OwnerPunchReceiptTime=GetWorld()->GetTimeSeconds();
+        OwnerPunchReceiptServerTime=FMath::Max(Snapshot.ServerTime,AimPunchClock(this));
+    }
+#if !UE_BUILD_SHIPPING
+    if(!HasAuthority() && Amount>0 && bBullet && FParse::Param(FCommandLine::Get(),TEXT("ERAimPunchAudit")))
+        UE_LOG(LogTemp,Display,TEXT("ER_AIMPUNCH_RECEIVED pawn=%s seq=%u real=%.6f pitch=%.6f ping_ms=%.3f"),*GetName(),Snapshot.Sequence,FPlatformTime::Seconds(),GetAimPunchRotation().Pitch,GetPlayerState()?GetPlayerState()->GetPingInMilliseconds():0.f);
+#endif
+    if(Amount<=0){DamageVisuals.Reset();DamageViewKick=CosmeticDamagePitch=FVector::ZeroVector;return;}
+    if(!Health->bDead)
+    {
+        if(DamageVisuals.Num()>=4)DamageVisuals.RemoveAt(0);
+        DamageVisuals.Add({-FVector(Direction),GetWorld()->GetTimeSeconds(),FMath::Clamp(.30f+Amount/100.f,.35f,.75f)});
+    }
+    if(!bBullet)CosmeticDamagePitch=(CosmeticDamagePitch+FVector(Direction)*FMath::Clamp(Amount/25.f,.5f,1.2f)).GetClampedToMaxSize(1.5f);
     DamageViewKick = (DamageViewKick + FVector(Direction) * FMath::Clamp(Amount / 25.f, .5f, 1.2f)).GetClampedToMaxSize(1.5f);
     if (HitSound) UGameplayStatics::PlaySoundAtLocation(this, HitSound,
         Camera->GetComponentLocation() - FVector(Direction) * 140.f, .65f, 1.f, 0.f, HitAttenuation);
@@ -810,7 +895,7 @@ void AERCharacter::Landed(const FHitResult& Hit)
     {
         FERMessageDamage Facts; Facts.Fall = true;
         const float Applied=Health->ReceiveDamage(Damage,nullptr,2.f,Facts);
-        if(Applied>0)ClientDamageFeedback(Applied,FVector(0,0,-1));
+        if(Applied>0){++AuthorityPunch.Sequence;ClientDamageFeedback(Applied,FVector(0,0,-1),AuthorityPunch,false);}
         UE_LOG(LogTemp,Display,TEXT("ER_FALL_DAMAGE amount=%.2f applied=%.2f hp=%.2f"),Damage,Applied,Health->Health);
     }
 }
@@ -826,6 +911,7 @@ void AERCharacter::ApplyDeathVisuals()
 {
     if (bDeathVisualsApplied) return;
     bDeathVisualsApplied = true;
+    ResetAimPunch();
     if (HasAuthority()) for (auto Item : Inventory) if (Item) Item->Cancel();
     if (HasAuthority() && CorpseClass)
     {

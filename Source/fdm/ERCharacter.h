@@ -6,6 +6,7 @@
 #include "ERGameplayMessages.h"
 #include "ERWeaponRecoil.h"
 #include "ERAudio.h"
+#include "ERAimPunch.h"
 #include "ERCharacter.generated.h"
 
 USTRUCT()
@@ -104,6 +105,15 @@ public:
     UPROPERTY(Replicated) TArray<TObjectPtr<class AERWeapon>> Inventory;
     UPROPERTY(Replicated) FERWeaponRecoilState RecoilState;
     FRotator GetRecoilRotation() const;
+    UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Damage feedback") FERAimPunchTuning AimPunchTuning;
+    FRotator GetAimPunchRotation() const;
+    FRotator GetEffectiveAimRotation() const;
+    const FERAimPunchState& GetAimPunchState() const { return HasAuthority()?AuthorityPunch:OwnerPunch; }
+    void ResetAimPunch();
+    virtual void PossessedBy(AController* NewController) override;
+    virtual void UnPossessed() override;
+    virtual void OnRep_Controller() override;
+    const TArray<FERDamageVisual>& GetDamageVisuals() const { return DamageVisuals; }
     virtual FRotator GetViewRotation() const override;
     void AddWeaponRecoil(const FVector2D& Impulse);
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Arsenal") TArray<TObjectPtr<class UERWeaponData>> Arsenal;
@@ -113,7 +123,7 @@ public:
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Damage feedback") TObjectPtr<class USoundBase> HitSound;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Damage feedback") TObjectPtr<class USoundAttenuation> HitAttenuation;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Death") TSubclassOf<class AERCorpse> CorpseClass;
-    UFUNCTION(Client, Reliable) void ClientDamageFeedback(float Amount, FVector_NetQuantizeNormal Direction);
+    UFUNCTION(Client, Reliable) void ClientDamageFeedback(float Amount, FVector_NetQuantizeNormal Direction, const FERAimPunchState& Snapshot, bool bBullet = false);
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Shot feedback") TObjectPtr<class UAnimSequence> FirstPersonFireAnimation;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Shot feedback") TObjectPtr<class USoundBase> FireSound;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Shot feedback") TObjectPtr<class USoundAttenuation> FireAttenuation;
@@ -166,6 +176,13 @@ private:
     void UpdateWeaponPresentation();
     FVector LastHitDirection = FVector::ForwardVector;
     FVector DamageViewKick = FVector::ZeroVector;
+    FVector CosmeticDamagePitch = FVector::ZeroVector;
+    FERAimPunchState AuthorityPunch, OwnerPunch;
+    double OwnerPunchReceiptTime = 0, OwnerPunchReceiptServerTime = 0;
+    mutable double OwnerPunchLastSampleTime = 0;
+    TWeakObjectPtr<class AERWeapon> PunchPelletWeapon;
+    uint32 PunchPelletShot = MAX_uint32;
+    TArray<FERDamageVisual> DamageVisuals;
     float DeathViewDrop = 0;
     bool bDeathCameraInitialized = false;
     FVector DeathCameraLocation = FVector::ZeroVector;

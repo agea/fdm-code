@@ -1,5 +1,6 @@
 #include "ERPlayerController.h"
 #include "ERAudioProbe.h"
+#include "ERAimPunchProbe.h"
 #include "EROnline.h"
 #include "ERRecon.h"
 #include "ERInterfaceStyle.h"
@@ -973,6 +974,7 @@ void AERHUD::DrawHUD()
         }
     }
 
+    DrawDamageFeedback(Character);
     const FLinearColor AlphaColor=ERRecon::TeamColor(EERTeam::Alpha), OmegaColor=ERRecon::TeamColor(EERTeam::Omega);
     DrawHUDText(FString::Printf(TEXT("%02d"),GS->AlphaScore),W/2-85*HUDScale,20*HUDScale,AlphaColor,1.45f,true);
     DrawHUDText(TEXT("50"),W/2,27*HUDScale,FLinearColor(.8f,.82f,.85f),1.f,true);
@@ -1234,5 +1236,12 @@ void AERPlayerController::ServerAudioProbeReady_Implementation(AERAudioProbe* Pr
 {
 #if !UE_BUILD_SHIPPING
     if(FParse::Param(FCommandLine::Get(),TEXT("ERAudioProbe")) && Probe && Probe->GetWorld()==GetWorld())Probe->ConfirmReady(this,Token);
+#endif
+}
+
+void AERPlayerController::ServerAimPunchProbeReady_Implementation(AERAimPunchProbe* Probe,int32 Stage)
+{
+#if !UE_BUILD_SHIPPING
+    if(FParse::Param(FCommandLine::Get(),TEXT("ERAimPunchProbe")) && Probe && Probe->GetWorld()==GetWorld())Probe->ConfirmReady(this,Stage);
 #endif
 }

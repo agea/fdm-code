@@ -1,0 +1,136 @@
+{
+  "date": "2026-10-21",
+  "engine": "5.8.3",
+  "environment": "Mac arm64; two actual Unreal game processes on loopback, not two physical PCs",
+  "build": "Editor Mac Development arm64 succeeded, 133.38s",
+  "runs": {
+    "aim-punch": {
+      "checks": {
+        "authority": true,
+        "owner": true,
+        "owner_recovers": true,
+        "scoped_camera": true,
+        "measured_camera_and_transit": true
+      },
+      "authority_checks": 43,
+      "nominal_outgoing_lag_per_peer_ms": 0,
+      "receipt_samples": 7,
+      "measured_receipt_delay_ms": {
+        "min": 5.964998155832291,
+        "max": 17.374999821186066
+      },
+      "event_snapshot_recovery_error_deg": {
+        "median_abs": 0.012075908911678535,
+        "max_abs": 0.038204099171118555
+      },
+      "camera_comparisons": 31,
+      "post_notification_camera_comparisons": 29,
+      "post_notification_punch_difference_max_deg": 0.048900000000000055,
+      "post_notification_full_camera_pitch_difference_max_deg": 0.3609079999999949,
+      "max_sample_separation_ms": 3.5719983279705048,
+      "shots_before_owner_notification": [
+        {
+          "sequence": 3,
+          "ms_before_owner_receipt": 13.08399811387062,
+          "server_punch_pitch_deg": 0.644543
+        },
+        {
+          "sequence": 6,
+          "ms_before_owner_receipt": 13.059999793767929,
+          "server_punch_pitch_deg": 0.646685
+        }
+      ]
+    },
+    "aim-punch-render": {
+      "checks": {
+        "authority": true,
+        "owner": true,
+        "owner_recovers": true,
+        "scoped_camera": true,
+        "hit_captures": true,
+        "recovered_capture": true,
+        "measured_camera_and_transit": true
+      },
+      "authority_checks": 43,
+      "nominal_outgoing_lag_per_peer_ms": 0,
+      "receipt_samples": 7,
+      "measured_receipt_delay_ms": {
+        "min": 16.323000192642212,
+        "max": 185.02700328826904
+      },
+      "event_snapshot_recovery_error_deg": {
+        "median_abs": 0.04152461988550826,
+        "max_abs": 0.4123827776933659
+      },
+      "camera_comparisons": 2,
+      "post_notification_camera_comparisons": 1,
+      "post_notification_punch_difference_max_deg": 0.32972,
+      "post_notification_full_camera_pitch_difference_max_deg": 0.3297199999999947,
+      "max_sample_separation_ms": 25.76100081205368,
+      "shots_before_owner_notification": [
+        {
+          "sequence": 6,
+          "ms_before_owner_receipt": 63.196998089551926,
+          "server_punch_pitch_deg": 0.641037
+        }
+      ]
+    },
+    "aim-punch-lag100": {
+      "checks": {
+        "authority": true,
+        "owner": true,
+        "owner_recovers": true,
+        "scoped_camera": true,
+        "measured_camera_and_transit": true
+      },
+      "authority_checks": 43,
+      "nominal_outgoing_lag_per_peer_ms": 100,
+      "receipt_samples": 7,
+      "measured_receipt_delay_ms": {
+        "min": 128.67699936032295,
+        "max": 251.48700177669525
+      },
+      "event_snapshot_recovery_error_deg": {
+        "median_abs": 0.021591124126333627,
+        "max_abs": 0.04307685934279737
+      },
+      "camera_comparisons": 31,
+      "post_notification_camera_comparisons": 29,
+      "post_notification_punch_difference_max_deg": 0.05998399999999998,
+      "post_notification_full_camera_pitch_difference_max_deg": 1.9361099999999993,
+      "max_sample_separation_ms": 8.289001882076263,
+      "shots_before_owner_notification": [
+        {
+          "sequence": 3,
+          "ms_before_owner_receipt": 19.05599981546402,
+          "server_punch_pitch_deg": 0.466983
+        },
+        {
+          "sequence": 6,
+          "ms_before_owner_receipt": 130.39299845695496,
+          "server_punch_pitch_deg": 0.642932
+        }
+      ]
+    }
+  },
+  "regression_exit_codes": {
+    "render": 0,
+    "lag": 0,
+    "recoil": 0,
+    "grenades": 0,
+    "movement": 0
+  },
+  "additional_passes": [
+    "EclipseRecoil.Weapons.AimPunch native automation",
+    "test-aim-punch.py without added lag",
+    "test-network.py --shot-feedback",
+    "test-network.py --accuracy",
+    "test-arsenal.py"
+  ],
+  "limitations": [
+    "No physical two-PC LAN test or cook/package",
+    "Cross-process platform timestamps share one Mac clock",
+    "Nearest camera comparisons allow at most 50ms separation and include existing independent firing recoil",
+    "No perfect pre-notification synchronization; transient loading/queueing outliers remain visible in the render measurements"
+  ]
+}

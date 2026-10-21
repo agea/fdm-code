@@ -38,6 +38,14 @@ class FDM_API AERGameState : public AGameState
 {
     GENERATED_BODY()
 public:
+    // Aim punch needs the newest clock sample after loading hitches; keep the
+    // engine's averaged clock unchanged for all existing gameplay systems.
+    double GetAimPunchServerTimeSeconds() const;
+protected:
+    virtual void OnRep_ReplicatedWorldTimeSecondsDouble() override;
+private:
+    double AimClockReceiptTime = -1;
+public:
     UPROPERTY(Replicated, BlueprintReadOnly) int32 ServerMaxPlayers = ERServer::DefaultMaxPlayers;
     UPROPERTY(Replicated, BlueprintReadOnly) bool bOnline = false;
     UPROPERTY(Replicated, BlueprintReadOnly) bool bLobby = false;

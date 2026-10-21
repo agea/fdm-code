@@ -1,5 +1,27 @@
 # Respawn & Rage Unreal development
 
+Bullet aim punch and damage HUD (21 October, latest request): supersedes ALL
+older cosmetic-only damage-flinch rules below and in DEVELOPMENT.md. Positive,
+nonlethal server-accepted Bullet point damage adds pitch/yaw to the pawn's
+GetEffectiveAimRotation/GetViewRotation, shared by camera/FPS rig and authoritative
+weapon fire before unchanged spread. ControlRotation/capsule/hitboxes stay intact.
+Keep worksheet firing recoil independent; never add cosmetic bullet pitch again.
+FERAimPunchTuning owns all defaults (.4 + .012/HP, head1.5, mitigated armor.6,
+yaw.35, caps2.5/1.5deg, half-life.2s). Use actual HP lost/bone/armor consumption.
+Pellets share the base term per accepted weapon shot; their actual HP terms add.
+AuthorityPunch is gameplay; reliable owner-only ClientDamageFeedback carries
+absolute post-hit snapshots, sequence and server time. OwnerPunch ages them on
+a dedicated latest-sample server clock plus measured half-RTT and monotonic
+recovery; leave existing averaged match/recoil clocks unchanged. Reject duplicate or
+older events; never accept client offsets.
+Reset on death/possession; fresh pawns and match restarts start empty. Bots use
+the same final firing accessor. Damage HUD draws transient red directional arcs
+(.65s) and feathered edge flashes (.45s), owner view only, without texture assets.
+See docs/AIM_PUNCH.md; run test-aim-punch.py --automation, default, --lag 100
+and --render, plus network/accuracy/recoil/arsenal regressions.
+Record the unavoidable pre-notification latency interval; do not claim zero-latency
+camera/trace agreement, physical two-PC LAN or subjective playtest without evidence.
+
 Audio pass (21 October, latest request): see docs/AUDIO_PASS.md. Six current
 Bullet weapon data assets reference separate real-recording palettes (4/6/4/6/4/4)
 under the private weapons Audio mount. Launcher retains one existing Epic take;
@@ -31,7 +53,8 @@ character state, owner-only snapshots, synchronized clock, GetViewRotation for
 both camera/FPS rig and authoritative eyes. Never change ControlRotation or
 apply the kick twice. Each authorized shell adds one impulse after its own ray
 is sampled, using the scoped mode before AWP unscopes. Holstering retains the
-shared residual; rejected shots add nothing. Damage flinch stays cosmetic.
+shared residual; rejected shots add nothing. Bullet flinch now follows the
+aim-punch section above; other damage retains its previous cosmetic response.
 Migrate only six data assets through Unreal with setup_weapon_recoil.py.
 
 Worksheet accuracy (21 October, latest request): all six current Bullet guns use
@@ -127,7 +150,8 @@ reviewing their new repository ownership.
 - Do not modify the original game under `/Users/agea/git/csgopen/eclipse-recoil`.
 - Combat, ammo, teams, scoring, protection and respawn are server authoritative.
 - Point damage supplies server-authorized shot direction to owner hit feedback.
-  Keep camera flinch cosmetic; never move the capsule or change ControlRotation.
+  Bullet damage changes effective aim as specified above; never move the capsule
+  or change ControlRotation for flinch.
 - Death spawns a separate replicated cosmetic team-character corpse. Ragdoll contacts
   only WorldStatic, never players/projectiles; retain it through respawn, settle
   after five seconds, cap twelve/90 seconds and clear on round reset.

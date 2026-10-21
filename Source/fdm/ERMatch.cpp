@@ -20,6 +20,7 @@
 #include "ERTraversalProbe.h"
 #include "ERAccuracyProbe.h"
 #include "ERRecoilProbe.h"
+#include "ERAimPunchProbe.h"
 #include "ERAudioProbe.h"
 #include "ERArsenalProbe.h"
 #include "ERGrenadeProbe.h"
@@ -206,6 +207,7 @@ void AERGameMode::BeginPlay()
     if (FParse::Param(FCommandLine::Get(), TEXT("ERBotProbe")) || FParse::Param(FCommandLine::Get(), TEXT("ERTargetSkinsProbe"))) GetWorld()->SpawnActor<AERBotProbe>();
     if (FParse::Param(FCommandLine::Get(), TEXT("ERAccuracyProbe"))) GetWorld()->SpawnActor<AERAccuracyProbe>();
     if (FParse::Param(FCommandLine::Get(), TEXT("ERAudioProbe"))) GetWorld()->SpawnActor<AERAudioProbe>();
+    if (FParse::Param(FCommandLine::Get(), TEXT("ERAimPunchProbe"))) GetWorld()->SpawnActor<AERAimPunchProbe>();
     if (FParse::Param(FCommandLine::Get(), TEXT("ERRecoilProbe"))) GetWorld()->SpawnActor<AERRecoilProbe>();
     if (FParse::Param(FCommandLine::Get(), TEXT("ERReferenceWeaponProbe"))) GetWorld()->SpawnActor<AERReferenceWeaponProbe>();
     if (FParse::Param(FCommandLine::Get(), TEXT("ERGrenadeProbe")) || FParse::Param(FCommandLine::Get(), TEXT("ERGrenadeCombatProbe"))) GetWorld()->SpawnActor<AERGrenadeProbe>();
@@ -473,4 +475,15 @@ void AERGameMode::RequestRespawn(AController* Controller)
         if (PC) { PC->bAwaitingRespawn = false; PC->RespawnAllowedAt = 0; }
         if (Bot) Bot->ResetLife();
     }
+}
+
+void AERGameState::OnRep_ReplicatedWorldTimeSecondsDouble()
+{
+    Super::OnRep_ReplicatedWorldTimeSecondsDouble();
+    AimClockReceiptTime=GetWorld()->GetTimeSeconds();
+}
+double AERGameState::GetAimPunchServerTimeSeconds() const
+{
+    if(HasAuthority() || AimClockReceiptTime<0)return GetServerWorldTimeSeconds();
+    return ReplicatedWorldTimeSecondsDouble+FMath::Max(0.,GetWorld()->GetTimeSeconds()-AimClockReceiptTime);
 }

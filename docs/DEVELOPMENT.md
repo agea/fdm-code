@@ -1,5 +1,17 @@
 # Respawn & Rage — sviluppo Unreal
 
+## Aim punch e feedback rosso del danno — 21 ottobre 2026
+
+Implementata la specifica `RESPAWN_AND_RAGE_AIM_PUNCH.md` sul rinculo da fuoco
+attuale, già autorevole e condiviso tra camera e server. Questa revisione
+sostituisce i precedenti vincoli di flinch esclusivamente cosmetico per i
+proiettili; il rinculo delle armi rimane indipendente e invariato. Solo danni
+Bullet accettati, positivi e non letali aggiungono l'offset pitch/yaw, con fatti
+reali di HP, testa e armatura, recupero esponenziale e limiti configurabili.
+Il feedback owner mostra anche l'arco rosso direzionale e il flash sfumato ai
+bordi. Nessuna modifica a ControlRotation, capsula o hitbox. Dettagli, clock e
+limiti di latenza: [AIM_PUNCH.md](AIM_PUNCH.md). Esiti misurati in TEST_RESULTS.md.
+
 ## Audio passi, spari e fumogena — 21 ottobre 2026
 
 Implementati i passi per distanza orizzontale reale sul server, con eventi

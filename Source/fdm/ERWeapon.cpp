@@ -323,7 +323,7 @@ void AERWeapon::ReleaseGrenade(bool bThrow)
             {
                 // Physical overhead origin; a modest upward component creates
                 // the arm throw without changing camera/control rotation.
-                const FVector Direction=(Character->GetBaseAimRotation().Vector()+FVector(0,0,.35f)).GetSafeNormal();
+                const FVector Direction=(Character->GetEffectiveAimRotation().Vector()+FVector(0,0,.35f)).GetSafeNormal();
                 Velocity=GetLaunchVelocity(Direction)+Character->GetVelocity();
             }
             else Velocity=Character->GetVelocity()*.5f;
@@ -359,6 +359,15 @@ void AERWeapon::TryFire()
     auto* Character = CastChecked<AERCharacter>(GetOwner());
     FVector Eye; FRotator Aim;
     Character->GetActorEyesViewPoint(Eye, Aim);
+    Aim=Character->GetEffectiveAimRotation();
+#if !UE_BUILD_SHIPPING
+    if(FParse::Param(FCommandLine::Get(),TEXT("ERAimPunchAudit")))
+    {
+        const auto P=Character->GetAimPunchRotation();
+        UE_LOG(LogTemp,Display,TEXT("ER_AIMPUNCH_SHOT pawn=%s seq=%u time=%.6f real=%.6f punch_pitch=%.6f punch_yaw=%.6f aim_pitch=%.6f aim_yaw=%.6f"),
+            *Character->GetName(),Character->GetAimPunchState().Sequence,Now,FPlatformTime::Seconds(),P.Pitch,P.Yaw,Aim.Pitch,Aim.Yaw);
+    }
+#endif
     // Camera height is explicit: no animated socket is required for authoritative collision.
     Eye = Character->Camera->GetComponentLocation();
     FCollisionQueryParams Params(SCENE_QUERY_STAT(ERRifle), false, Character); Params.AddIgnoredActor(this);
