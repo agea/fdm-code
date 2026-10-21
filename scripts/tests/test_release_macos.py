@@ -107,6 +107,21 @@ class MacReleaseTests(unittest.TestCase):
         self.assertTrue(any(c[0] == 'spctl' for c in calls))
         self.assertFalse(any('push' in c for c in calls))
 
+    def test_package_ignores_retained_xcode_app_but_rejects_multiple_delivery_apps(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            original = self.fixture(root)
+            app = original.parent / 'Mac' / original.name
+            app.parent.mkdir()
+            original.rename(app)
+            diagnostic = root / 'build/dist/RespawnAndRage.xcarchive/Products/Applications/RespawnAndRage.app'
+            diagnostic.mkdir(parents=True)
+            with patch.object(module, 'run', side_effect=self.runner([])):
+                self.assertEqual(module.package(root)[0], app)
+                (root / 'build/dist/Other/RespawnAndRage.app').mkdir(parents=True)
+                with self.assertRaisesRegex(RuntimeError, 'Expected exactly one packaged'):
+                    module.package(root)
+
     def test_resume_after_notarization_failure_verifies_without_rebuilding_or_uploading(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

@@ -177,6 +177,8 @@ Development packages also boot a real cooked Depot session with six bots,
 including the pistol, before the package is accepted. This checks the native
 rendering profile and animation evaluation; starting the main menu alone misses
 these failures. Both SM5 and SM6 also run with real offscreen Metal rendering.
+These checks require an SM6-capable build Mac (M2+ with macOS 15+), and verify
+the shader platform actually selected by the game.
 The logs and receipts are saved under `runtime-smoke/` in the build
 directory. To repeat it, run:
 

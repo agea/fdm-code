@@ -188,7 +188,9 @@ def package(run_dir):
     archive = build / 'dist'
     if Path(receipt['archive']).resolve() != archive.resolve():
         raise RuntimeError('Build receipt archive does not match this release')
-    apps = [p for p in archive.rglob('RespawnAndRage.app') if not p.is_symlink()]
+    # Xcode retains a diagnostic archive containing another copy of the app.
+    apps = [p for p in archive.rglob('RespawnAndRage.app') if not p.is_symlink()
+            and not any(part.endswith('.xcarchive') for part in p.relative_to(archive).parts[:-1])]
     if len(apps) != 1:
         raise RuntimeError('Expected exactly one packaged RespawnAndRage.app')
     app = apps[0]

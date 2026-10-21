@@ -54,9 +54,14 @@ checks = dict(clean_exit=code == 0,
 fps = [int(n) for n in re.findall(r'ER_PERFORMANCE (\d+) FPS', text)]
 if args.render:
     checks['real_frames'] = len(fps) >= 5
+selected = re.search(r'Metadata set : shaderplatform="METAL_(SM[56])"', text)
+selected_shader_model = selected.group(1).lower() if selected else None
+if args.shader_model:
+    checks['requested_shader_model'] = selected_shader_model == args.shader_model
 report = dict(result='PASS' if all(checks.values()) else 'FAIL', exit_code=code, checks=checks,
               renderer='Metal' if args.render else 'null',
               shader_model=args.shader_model,
+              selected_shader_model=selected_shader_model,
               fps_median=statistics.median(fps[5:]) if args.render and len(fps) > 5 else None,
               log=str(log), command=command)
 (out / (report_name + '.json')).write_text(json.dumps(report, indent=2) + '\n')

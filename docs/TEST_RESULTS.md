@@ -4558,3 +4558,28 @@ Nessuna nuova prova grafica per questa modifica del solo contenitore Slate.
 - Su richiesta rimossi tutti e quattro i run locali in `builds/macos`,
   inclusi snapshot, intermedi, archivi Xcode, app finali e log di quei run.
   Cartella vuota; recuperati circa **39.14GiB fisici** (cloni APFS).
+
+### Metal SM5 compatibility release — 21 October 2026
+
+- Universal Development build `26.10.21.0f726326`, source commit
+  `0f7263261d65dadbb5122571cb213195e953933b`, UE 5.8.3: compilation and
+  packaging PASS; 2286 content packages cooked. Mac targets now include both
+  Metal SM6 and SM5, with Global and game shader libraries generated for each.
+- Packaged Depot checks before notarization: NullRHI, forced SM5 and forced
+  SM6 all PASS, each with the pistol and six bots, clean exit and no fatal.
+  Rendered checks ran on Apple M2 Pro / macOS 27.0.1. Logs explicitly confirm
+  `shaderplatform="METAL_SM5"` and `shaderplatform="METAL_SM6"` respectively.
+  M1 and Intel hardware were not tested; M1 verification is deferred.
+- Developer ID Application Dr Wolf srl (`8V893A78SP`), Xcode notarized export,
+  ticket stapling/validation, strict signature and Gatekeeper checks all PASS:
+  `accepted-and-gatekeeper-verified`, `Notarized Developer ID`.
+- itch.io `mac-universal`: upload complete, build **2176283**, upload
+  **19859089**. Butler confirmed server processing complete and the current
+  downloadable version `26.10.21.0f726326`.
+- Upload retry initially counted the diagnostic `.xcarchive` app as a second
+  delivery app. Retained that archive under the release's `diagnostics/` and
+  uploaded the unchanged notarized app. The helper now excludes diagnostic
+  Xcode archives while still rejecting multiple actual delivery apps; release
+  workflow tests **15/15 PASS**, notarization workflow tests **14/14 PASS**.
+- App, build/notarization/upload receipts and logs retained in
+  `/private/tmp/rr-sm5-releases/release-20261021-111304-93c27528/`.
