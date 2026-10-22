@@ -83,14 +83,20 @@ shared damage profiles and calibrated 5cm/2mm sheet cells unchanged. A rifle
 damages the steel but cannot penetrate the reinforced intact shell. Cell geometry
 supplies the visible surface and collision; no intact vendor mesh hides a breach.
 All oriented constructions retain orthonormal local cell grids through damage,
-support and replication. Wire mesh blocks
-pawns and dynamic objects across the whole panel. A synchronous native triangle
-mesh supplies both the visible metal and shot/visibility/blast collision: 4cm
-frames and 0.4cm diagonal wires on a 16cm pitch. Shots pass through actual diamond
-apertures and stop on the metal; there is no random hit probability. Both sides
-use the same collision, and the wire geometry version enters the layout digest.
-Metal is cooked synchronously in bounded parts below Unreal's triangle limit;
-the full movement volume is excluded from WorldStatic blast-cover queries.
+support and replication. Fixed steel barriers block pawns and dynamic objects
+across the whole reserved panel. Since 22 October, the production recipe repeats
+only `Fence_1_Straight_01_Horizontal` from Nullified's
+[Aluminium Fences 57 Modular Parts](https://sketchfab.com/3d-models/aluminium-fences-57-modular-parts-a2d4c1a74e724b7b8a5d6873a0c3561e)
+(CC BY 4.0). The centered source module has 1,124 triangles; the other 56 parts
+are not imported. `FenceModule` references one instanced mesh, fitted repeatedly
+inside the existing fence spans without changing routes or movement bounds.
+The existing opaque steel material covers the solid bars. No chain-link texture
+or opacity mask is applied. Original LOD0 triangles supply bullet, visibility and
+WorldStatic blast collision; openings remain physically open from both sides.
+The full movement volume is excluded from WorldStatic blast-cover queries.
+Module path, collision body GUID and fence geometry version enter the layout
+digest, so peers cannot silently mix old and new barriers. Empty test/legacy
+recipes retain the previous procedural wire fallback.
 Hidden authored boxes approximate solid vendor prop bounds. Detailed art never
 provides the walkable surface of a stair or floor. Geometry digests include
 barrier behavior as well as meshes/transforms and the template identity.
@@ -125,12 +131,17 @@ as an inactive authoring snapshot.
 
 Private industrial assets come from the user-specified
 `/Users/agea/Documents/Unreal Projects/FactoryEnvironmentCollect` through Unreal
-migration, under `/Game/EclipseRecoil/Art/FactoryEnvironment`. Added wire-mesh
-materials/textures preserve vendor provenance. The source project is unchanged.
-`Art/Industrial/SM_ER_Chainlink` remains an authoring reference with an owned,
-two-sided masked material using the supplied wire mask's red channel. Runtime
-fences use explicit metal geometry so visible apertures agree with shot queries;
-their surface comes from the existing industrial metal catalog. The migrated
+migration, under `/Game/EclipseRecoil/Art/FactoryEnvironment`. Source metadata
+preserves vendor provenance. The source project is unchanged.
+The old owned chain-link mesh/material and unused migrated wire meshes,
+materials and textures were removed through Unreal on 22 October at the user's
+request. `cleanup_industrial_wire.py` verifies references and a local rollback
+archive; the old creation script and migration selection were retired.
+The production barriers use the imported single module described above, with the existing
+industrial steel finish. `setup_industrial_fence.py` imports it and saves only the
+owned module and Central Building recipe, after a private rollback backup.
+Original ZIP, metadata, credits, hashes and extracted FBX remain privately in
+`SourceAssets/AluminiumFences`. The migrated
 prop material parents enable instancing via `setup_industrial_material_usage.py`;
 their appearance parameters and the original Factory project remain unchanged.
 The shared destructible catalog and edited Depot are preserved byte-for-byte.

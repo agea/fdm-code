@@ -14,7 +14,7 @@ if not template:
     candidate.set_editor_property('symmetry',ue.ERTemplateSymmetry.HALF_TURN)
     candidate.set_editor_property('arena_size',ue.Vector(8000,10000,1600))
     recipe=candidate.get_editor_property('central_building')
-    for prop,name in [('fence_mesh','SM_Fence_01'),('container_mesh','SM_Container01_01'),('tank_mesh','SM_WaterContainer01'),('barrel_mesh','SM_Barrel02')]:
+    for prop,name in [('container_mesh','SM_Container01_01'),('tank_mesh','SM_WaterContainer01'),('barrel_mesh','SM_Barrel02')]:
         obj=assets.load_asset('/Game/EclipseRecoil/Art/FactoryEnvironment/Meshes/'+name)
         if not obj:raise RuntimeError('Missing industrial asset '+name)
         recipe.set_editor_property(prop,obj)

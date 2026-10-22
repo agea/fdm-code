@@ -5,6 +5,7 @@
 #include "GameFramework/Pawn.h"
 #include "Components/DynamicMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/InstancedStaticMeshComponent.h"
 
 // Deterministic authority cuts for probes: gameplay still uses real shot/blast
 // damage. These isolate structural connectivity and route changes in tests.
@@ -16,6 +17,13 @@ inline bool FactoryPaletteMatches(AERProceduralMap& Map)
     const auto* T=Map.LayoutConfig.TemplateAsset.Get();
     if(!T || !T->CentralBuilding.SteelSurface || T->CentralBuilding.ContainerSurfaces.IsEmpty())return false;
     const auto& V=T->CentralBuilding;
+    if(V.FenceModule)
+    {
+        TInlineComponentArray<UInstancedStaticMeshComponent*> Instances(&Map);bool Found=false;
+        for(const auto* Mesh:Instances)if(Mesh->GetName()==TEXT("IndustrialFenceModules"))
+        {Found=true;if(Mesh->GetStaticMesh()!=V.FenceModule || Mesh->GetMaterial(0)!=V.SteelSurface || Mesh->GetInstanceCount()==0)return false;}
+        if(!Found)return false;
+    }
     TMap<FString,UMaterialInterface*> Expected;
     for(const auto& P:Map.GetCellWorld().GetPanels())
     {
@@ -40,6 +48,23 @@ inline bool FactoryPaletteMatches(AERProceduralMap& Map)
         if(Mesh->GetName().StartsWith(TEXT("IndustrialFenceMetal_")) && Mesh->GetMaterial(0)!=V.SteelSurface)return false;
     }
     return Matched>0;
+}
+inline bool FenceAperturesMatch(AERProceduralMap& Map,const FCollisionQueryParams& Q)
+{
+    const auto& L=Map.GetLayout();
+    const auto* Fence=L.FixedPieces.FindByPredicate([&](const auto& P){return P.PawnBarrier && P.Transform.GetLocation().Y<-L.ArenaSize.Y*.5+10 && P.Transform.GetLocation().Z<101;});
+    if(!Fence)return false;
+    int32 Blocked=0;FHitResult Hit;
+    const FVector Center=Fence->Transform.GetLocation(),Size=Fence->Transform.GetScale3D()*100;
+    for(int32 I=0;I<64;++I)
+    {
+        const FVector P=Center+FVector((-.45+(I%8)*.9/7)*Size.X,0,(-.45+(I/8)*.9/7)*Size.Z);
+        const bool Metal=Map.GetWorld()->LineTraceSingleByChannel(Hit,P-FVector(0,60,0),P+FVector(0,60,0),ECC_GameTraceChannel1,Q);
+        Blocked+=Metal;
+        if(Map.GetWorld()->LineTraceSingleByChannel(Hit,P+FVector(0,60,0),P-FVector(0,60,0),ECC_GameTraceChannel1,Q)!=Metal)return false;
+        if(Map.GetWorld()->LineTraceSingleByChannel(Hit,P-FVector(0,60,0),P+FVector(0,60,0),ECC_Visibility,Q)!=Metal)return false;
+    }
+    return Blocked>0 && Blocked<64;
 }
 inline bool IntermediateCoverMatches(AERProceduralMap& Map,bool Breached=false)
 {

@@ -58,12 +58,23 @@ void AERIndustrialMapProbe::Capture(AERProceduralMap* Map,int32 View)
             if(Found)break;
         }
     }
+    if(View==4)
+    {
+        const auto* Fence=L.FixedPieces.FindByPredicate([&](const auto& P){return P.PawnBarrier && P.Transform.GetLocation().Y<-L.ArenaSize.Y*.5+10 && P.Transform.GetLocation().Z<101;});
+        if(Fence)
+        {
+            const FVector Target=Fence->Transform.GetLocation()+FVector(180,0,100);
+            Camera->SetActorLocation(Target+FVector(120,470,70));
+            Camera->SetActorRotation((Target-Camera->GetActorLocation()).Rotation());
+            Camera->GetCameraComponent()->FieldOfView=65;
+        }
+    }
     if(!Ground)
     {
         Camera->GetCameraComponent()->ProjectionMode=ECameraProjectionMode::Orthographic;
         Camera->GetCameraComponent()->OrthoWidth=FMath::Max(L.ArenaSize.X,L.ArenaSize.Y*16.f/9)*1.08;
     }
-    const FString Filename=FPaths::ProjectSavedDir()/FString::Printf(TEXT("Testing/Industrial-%s-rule%d-seed%d.png"),View==3 ? TEXT("Concrete"):View==2 ? TEXT("Container"):Ground ? TEXT("Ground"):TEXT("Plan"),int32(L.CrossingRule),Map->LayoutConfig.Seed);
+    const FString Filename=FPaths::ProjectSavedDir()/FString::Printf(TEXT("Testing/Industrial-%s-rule%d-seed%d.png"),View==4 ? TEXT("Fence"):View==3 ? TEXT("Concrete"):View==2 ? TEXT("Container"):Ground ? TEXT("Ground"):TEXT("Plan"),int32(L.CrossingRule),Map->LayoutConfig.Seed);
     FTimerHandle ScreenshotTimer;GetWorldTimerManager().SetTimer(ScreenshotTimer,[Filename](){FScreenshotRequest::RequestScreenshot(Filename,false,false);},.35f,false);
 }
 void AERIndustrialMapProbe::Tick(float Delta)
@@ -86,14 +97,7 @@ void AERIndustrialMapProbe::Tick(float Delta)
             Good&=ERIndustrialTest::IntermediateCoverMatches(*Map,Phase==2 || Phase==3);
             const auto& L=Map->GetLayout();const float Edge=L.ArenaSize.X*.5;
             Good&=GetWorld()->LineTraceSingleByChannel(Hit,{Edge-100,0,300},{Edge+100,0,300},ECC_Pawn,Q);
-            const auto* Fence=L.FixedPieces.FindByPredicate([&](const auto& P){return P.PawnBarrier && P.Transform.GetLocation().Y<-L.ArenaSize.Y*.5+10 && P.Transform.GetLocation().Z<101;});
-            if(Fence)
-            {
-                const FVector P=Fence->Transform.GetLocation();
-                Good&=GetWorld()->LineTraceSingleByChannel(Hit,P-FVector(0,60,0),P+FVector(0,60,0),ECC_GameTraceChannel1,Q);
-                Good&=!GetWorld()->LineTraceSingleByChannel(Hit,P+FVector(0,-60,8),P+FVector(0,60,8),ECC_GameTraceChannel1,Q);
-            }
-            else Good=false;
+            Good&=ERIndustrialTest::FenceAperturesMatch(*Map,Q);
             if(!L.Containers.IsEmpty())Good&=ERIndustrialTest::ContainerBlocked(*GetWorld(),L.Containers[0],Q)==(Phase==1 || Phase==4);
             if(!L.WallBridges.IsEmpty())
             {
@@ -117,7 +121,8 @@ void AERIndustrialMapProbe::Tick(float Delta)
         if(Phase && Elapsed>7 && Gallery==0){Capture(Map,2);++Gallery;}
         if(Phase && Elapsed>11 && Gallery==1){Capture(Map,1);++Gallery;}
         if(Phase && Elapsed>15 && Gallery==2){Capture(Map,3);++Gallery;}
-        if(Elapsed>19){UE_LOG(LogTemp,Display,TEXT("ER_INDUSTRIAL_PROBE_COMPLETE result=%s"),Failed ? TEXT("FAIL"):TEXT("PASS"));FPlatformMisc::RequestExitWithStatus(false,Failed ? 1:0);}
+        if(Phase && Elapsed>19 && Gallery==3){Capture(Map,4);++Gallery;}
+        if(Elapsed>23){UE_LOG(LogTemp,Display,TEXT("ER_INDUSTRIAL_PROBE_COMPLETE result=%s"),Failed ? TEXT("FAIL"):TEXT("PASS"));FPlatformMisc::RequestExitWithStatus(false,Failed ? 1:0);}
         return;
     }
     const float DamageAt=DamageTime,RegenAt=DamageTime+(Network ? 43:8),EndAt=DamageTime+(Network ? 70:18);
@@ -125,6 +130,8 @@ void AERIndustrialMapProbe::Tick(float Delta)
     {
         Check(Map->IsMapReady() && Map->ValidateCells(),TEXT("initial_map_ready"));
         Check(ERIndustrialTest::FactoryPaletteMatches(*Map),TEXT("factory_palette_applied_to_rendered_metal"));
+        FCollisionQueryParams FenceQ(SCENE_QUERY_STAT(ERFenceProbe),false);
+        Check(ERIndustrialTest::FenceAperturesMatch(*Map,FenceQ),TEXT("steel_module_bars_and_apertures"));
         Check(ERIndustrialTest::IntermediateCoverMatches(*Map),TEXT("intermediate_cover_access_and_concealment"));
         int32 Crouched=0;for(const auto& Site:Map->GetLayout().CoverSites)Crouched+=Site.HalfHeight<70;
         UE_LOG(LogTemp,Display,TEXT("ER_INDUSTRIAL_COVER sites=%d standing=%d crouched=%d"),Map->GetLayout().CoverSites.Num(),Map->GetLayout().CoverSites.Num()-Crouched,Crouched);

@@ -25,7 +25,7 @@ bool BuildCentralBuilding(const UERMapTemplate& T,int32 Seed,TArray<FERMapTempla
         !Range({V.ArenaMin.X,V.ArenaMax.X},6400,8000) || !Range({V.ArenaMin.Y,V.ArenaMax.Y},8400,10000) ||
         !Range(V.BuildingWidth,1800,2400) || !Range(V.BuildingDepth,2200,3000) ||
         V.MinFloors<1 || V.MaxFloors>3 || V.MinFloors>V.MaxFloors || T.RoofMesh || T.ShellWallMesh)return false;
-    for(auto* Mesh:{V.FenceMesh.Get(),V.ContainerMesh.Get(),V.TankMesh.Get(),V.BarrelMesh.Get()})
+    for(auto* Mesh:{V.FenceMesh.Get(),V.FenceModule.Get(),V.ContainerMesh.Get(),V.TankMesh.Get(),V.BarrelMesh.Get()})
         if(Mesh && (Mesh->GetBoundingBox().GetSize().ContainsNaN() || Mesh->GetBoundingBox().GetSize().GetMin()<.1))return false;
     if(V.ContainerSurfaces.Num()>8 || V.ContainerSurfaces.Contains(nullptr))return false;
     for(const auto* Palette:{&V.ConcreteSurfaces,&V.BrickSurfaces,&V.WoodSurfaces,&V.GroundSurfaces})

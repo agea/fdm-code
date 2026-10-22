@@ -11,5 +11,5 @@ class FDM_API UERNetDriverEOS : public UNetDriverEOS
     GENERATED_BODY()
 public:
     virtual bool IsAvailable() const override { return true; }
-    virtual bool InitListen(FNetworkNotify* Notify, FURL& URL, bool Reuse, FString& Error) override;
+    virtual bool InitListen(FNetworkNotify* InNotify, FURL& URL, bool Reuse, FString& Error) override;
 };

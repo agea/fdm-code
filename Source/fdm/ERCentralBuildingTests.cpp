@@ -2,6 +2,8 @@
 #include "ERMapCatalog.h"
 #include "Misc/AutomationTest.h"
 #include "Engine/World.h"
+#include "Engine/StaticMesh.h"
+#include "PhysicsEngine/BodySetup.h"
 #include "ERCharacter.h"
 #include "ERMovement.h"
 #include "ERLadder.h"
@@ -133,6 +135,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FERCentralBuildingCollisionTest,"EclipseRecoil.
 bool FERCentralBuildingCollisionTest::RunTest(const FString& Parameters)
 {
     auto* T=NewObject<UERMapTemplate>();T->TemplateId=TEXT("test.central.physics");T->Archetype=EERMapArchetype::CentralBuilding;T->Symmetry=EERTemplateSymmetry::HalfTurn;T->ArenaSize=FVector(8000,10000,1600);
+    T->CentralBuilding.FenceModule=LoadObject<UStaticMesh>(nullptr,TEXT("/Game/EclipseRecoil/Art/Industrial/SM_ER_AluminiumFenceModule.SM_ER_AluminiumFenceModule"));
+    if(!TestNotNull(TEXT("imported single aluminium module"),T->CentralBuilding.FenceModule.Get()))return false;
     UWorld::InitializationValues V;V.AllowAudioPlayback(false).CreateNavigation(false).CreateAISystem(false).CreateFXSystem(false).EnableTraceCollision(true);
     auto* World=UWorld::CreateWorld(EWorldType::Game,false,NAME_None,nullptr,true,ERHIFeatureLevel::Num,&V);if(!World)return false;
     auto* Map=World->SpawnActor<AERProceduralMap>();Map->LayoutConfig.TemplateAsset=T;Map->bCeilings=false;
@@ -171,10 +175,10 @@ bool FERCentralBuildingCollisionTest::RunTest(const FString& Parameters)
         }
         if(Rule==1)for(float Sign:{-1.f,1.f})
             TestTrue(TEXT("open flank eye-height sightline is broken"),World->LineTraceSingleByChannel(Hit,{Sign*(L.CentralBuildingSize.X*.5+500),-L.CentralBuildingSize.Y*.5-100,172.5},{Sign*(L.CentralBuildingSize.X*.5+500),L.CentralBuildingSize.Y*.5+100,172.5},ECC_GameTraceChannel1,Q));
-        TInlineComponentArray<UDynamicMeshComponent*> Metal(Map);int32 WireParts=0;
-        for(auto* Part:Metal)if(Part->GetName().StartsWith(TEXT("IndustrialFenceMetal_")))
-        {++WireParts;Part->ProcessMesh([&](const UE::Geometry::FDynamicMesh3& Mesh){TestTrue(TEXT("wire collision parts stay below cook limit"),Mesh.TriangleCount()>0 && Mesh.TriangleCount()<60000);});}
-        TestTrue(TEXT("wire cooked as bounded parts"),WireParts>1);
+        TInlineComponentArray<UInstancedStaticMeshComponent*> FenceInstances(Map);int32 Modules=0;
+        for(auto* Part:FenceInstances)if(Part->GetName()==TEXT("IndustrialFenceModules"))
+        {Modules+=Part->GetInstanceCount();TestTrue(TEXT("one imported module reused"),Part->GetStaticMesh()==T->CentralBuilding.FenceModule);}
+        TestTrue(TEXT("small module repeated across barriers"),Modules>L.FixedPieces.FilterByPredicate([](const auto& P){return P.PawnBarrier;}).Num());
         for(const auto* Starts:{&L.AlphaSpawns,&L.OmegaSpawns})for(const auto& S:*Starts)
         {TestFalse(TEXT("spawn capsule clear"),World->OverlapBlockingTestByChannel(S.GetLocation(),FQuat::Identity,ECC_Pawn,Capsule,Q));TestTrue(TEXT("spawn supported"),World->LineTraceSingleByChannel(Hit,S.GetLocation(),S.GetLocation()-FVector(0,0,120),ECC_WorldStatic,Q));}
         for(const auto& Route:L.CrossingRoutes)for(int32 I=1;I<Route.Num();++I)
@@ -205,29 +209,31 @@ bool FERCentralBuildingCollisionTest::RunTest(const FString& Parameters)
             TestTrue(TEXT("central ground route sealed"),World->LineTraceSingleByChannel(Hit,{0,-100,100},{0,100,100},ECC_Pawn,Q));
             FERCellId Id;TestFalse(TEXT("fixed separator is not a destructible chunk"),Map->ResolveCell(Hit,Id));
         }
-        // Every rule uses the same physical wire on its perimeter. Trace an
-        // isolated panel from both sides, including an actual diamond aperture.
-        const auto* Fence=L.FixedPieces.FindByPredicate([&](const auto& P){return P.PawnBarrier && P.Transform.GetLocation().Y<-L.ArenaSize.Y*.5+10 && P.Transform.GetLocation().Z<101;});
-        if(TestNotNull(TEXT("perimeter wire panel"),Fence))
+        // Exercise the imported module on both perimeter axes and the internal
+        // separator. Apertures must agree for bullets, visibility and blast rays.
+        for(bool AlongX:{true,false})
         {
-            const FVector Center=Fence->Transform.GetLocation();const float W=Fence->Transform.GetScale3D().X*100;
-            auto Shot=[&](FVector P,bool Reverse=false,ECollisionChannel Channel=ECC_GameTraceChannel1)
-            {return World->LineTraceSingleByChannel(Hit,P+FVector(0,Reverse ? 60:-60,0),P+FVector(0,Reverse ? -60:60,0),Channel,Q);};
-            TestTrue(TEXT("bullet strikes metal post"),Shot(Center+FVector(-W*.5+2,0,0)));
-            TestTrue(TEXT("bullet strikes wire"),Shot(Center));
-            TestTrue(TEXT("bullet strikes ascending wire"),Shot(Center+FVector(4,0,4)));
-            TestTrue(TEXT("bullet strikes descending wire"),Shot(Center+FVector(4,0,-4)));
-            FERCellId Id;TestFalse(TEXT("wire is indestructible"),Map->ResolveCell(Hit,Id));
-            TestTrue(TEXT("wire blocks shots from reverse side"),Shot(Center,true));
-            TestFalse(TEXT("bullet passes diamond aperture"),Shot(Center+FVector(0,0,ERIndustrialFence::PitchCm*.5)));
-            TestFalse(TEXT("aperture works from reverse side"),Shot(Center+FVector(0,0,ERIndustrialFence::PitchCm*.5),true));
-            TestTrue(TEXT("metal also occludes visibility/blast queries"),Shot(Center,false,ECC_Visibility));
-            TestFalse(TEXT("apertures transmit visibility/blast queries"),Shot(Center+FVector(0,0,ERIndustrialFence::PitchCm*.5),false,ECC_Visibility));
-            TestTrue(TEXT("blast object query hits physical metal"),World->LineTraceSingleByObjectType(Hit,Center-FVector(0,60,0),Center+FVector(0,60,0),FCollisionObjectQueryParams(ECC_WorldStatic),Q));
-            TestFalse(TEXT("blast object query passes diamond aperture"),World->LineTraceSingleByObjectType(Hit,Center+FVector(0,-60,8),Center+FVector(0,60,8),FCollisionObjectQueryParams(ECC_WorldStatic),Q));
+            const auto* Fence=L.FixedPieces.FindByPredicate([&](const auto& P)
+            {const auto S=P.Transform.GetScale3D();return P.PawnBarrier && (S.X>=S.Y)==AlongX && P.Transform.GetLocation().Z<101;});
+            if(!TestNotNull(TEXT("modular fence panel"),Fence))continue;
+            const FVector Center=Fence->Transform.GetLocation(),S=Fence->Transform.GetScale3D()*100;
+            const FVector Across=AlongX ? FVector(1,0,0):FVector(0,1,0);
+            const FVector Normal=AlongX ? FVector(0,1,0):FVector(1,0,0);
             int32 BlockedShots=0;
-            for(int32 I=0;I<256;++I)BlockedShots+=Shot(Center+FVector(-15.5+(I%16)*2,0,-15.5+(I/16)*2));
-            TestTrue(TEXT("wire field is partially permeable"),BlockedShots>0 && BlockedShots<128);
+            for(int32 I=0;I<256;++I)
+            {
+                const FVector P=Center+Across*((-.47+(I%16)*.94/15)*(AlongX ? S.X:S.Y))+FVector(0,0,(-.47+(I/16)*.94/15)*S.Z);
+                auto Ray=[&](ECollisionChannel Channel,bool Reverse=false)
+                {return World->LineTraceSingleByChannel(Hit,P-Normal*(Reverse ? -60:60),P+Normal*(Reverse ? -60:60),Channel,Q);};
+                const bool HitMetal=Ray(ECC_GameTraceChannel1);BlockedShots+=HitMetal;
+                if(HitMetal){FERCellId Id;TestFalse(TEXT("module stays indestructible"),Map->ResolveCell(Hit,Id));}
+                TestEqual(TEXT("module shots agree from both sides"),Ray(ECC_GameTraceChannel1,true),HitMetal);
+                TestEqual(TEXT("visibility follows actual module bars"),Ray(ECC_Visibility),HitMetal);
+                TestEqual(TEXT("blast object queries follow actual module bars"),World->LineTraceSingleByObjectType(Hit,P-Normal*60,P+Normal*60,FCollisionObjectQueryParams(ECC_WorldStatic),Q),HitMetal);
+                TestTrue(TEXT("pawn cannot cross module apertures"),Ray(ECC_Pawn));
+            }
+            AddInfo(FString::Printf(TEXT("ER_FENCE_RAYS rule=%d floors=%d axis=%d blocked=%d triangles=%d flag=%d never_cook=%d"),Rule,Floors,AlongX,BlockedShots,T->CentralBuilding.FenceModule->GetBodySetup()->TriMeshGeometries.Num(),int32(T->CentralBuilding.FenceModule->GetBodySetup()->GetCollisionTraceFlag()),T->CentralBuilding.FenceModule->GetBodySetup()->bNeverNeedsCookedCollisionData));
+            TestTrue(TEXT("original module has solid bars and open apertures"),BlockedShots>0 && BlockedShots<256);
         }
         const auto& Container=L.Containers[0];
         TestTrue(TEXT("container stops bullets"),World->LineTraceSingleByChannel(Hit,Container.Frame.TransformPosition({0,-Container.Size.Y*.5-50,0}),Container.Frame.TransformPosition({0,Container.Size.Y*.5+50,0}),ECC_GameTraceChannel1,Q));

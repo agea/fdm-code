@@ -483,10 +483,10 @@ void AERPlayerController::ResetSprintInput()
     LastForwardTap = -1;
     UpdateSprintInput();
 }
-void AERPlayerController::PrepareGesturePawn(AERCharacter* Character)
+void AERPlayerController::PrepareGesturePawn(AERCharacter* InCharacter)
 {
-    if (GesturePawn.Get() == Character) return;
-    GesturePawn = Character;
+    if (GesturePawn.Get() == InCharacter) return;
+    GesturePawn = InCharacter;
     ResetSprintInput();
     LastCrouchTap = -1;
 }

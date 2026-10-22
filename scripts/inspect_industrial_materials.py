@@ -1,15 +1,10 @@
-"""Read industrial material dependencies and export the wire mask for inspection."""
-from pathlib import Path
+"""Inspect the current solid steel barrier and shared industrial prop materials."""
 import unreal as ue
-root=Path(ue.Paths.project_dir());assets=ue.EditorAssetLibrary
-for name in ['MI_Fence_01','M_MetalGrid01','MI_Container01','MI_Platform_01']:
+assets=ue.EditorAssetLibrary
+template=assets.load_asset('/Game/EclipseRecoil/Art/MapTemplates/DA_CentralBuilding')
+recipe=template.get_editor_property('central_building')
+module=recipe.get_editor_property('fence_module')
+print('ER_STEEL_BARRIER',module.get_path_name(),module.get_material(0).get_path_name(),module.get_material(0).get_base_material().get_editor_property('blend_mode'))
+for name in ['MI_Container01','MI_Platform_01']:
     obj=assets.load_asset('/Game/EclipseRecoil/Art/FactoryEnvironment/Materials/'+name)
-    if not obj:continue
-    print('ER_WIRE_MATERIAL',name,obj.get_editor_property('parent') if isinstance(obj,ue.MaterialInstanceConstant) else '',obj.get_base_material().get_editor_property('blend_mode'))
-    if isinstance(obj,ue.MaterialInstanceConstant):
-        print('ER_WIRE_PARAMETERS',name,obj.get_editor_property('base_property_overrides'),obj.get_editor_property('texture_parameter_values'))
-for name in ['T_ChainlinkFence_MSK','T_ChainlinkFence_BC']:
-    texture=assets.load_asset('/Game/EclipseRecoil/Art/FactoryEnvironment/Textures/'+name)
-    task=ue.AssetExportTask();task.object=texture;task.filename=str(root/'Saved/Testing'/(name+'.png'));task.automated=True;task.prompt=False;task.replace_identical=True
-    task.exporter=ue.TextureExporterPNG();ue.Exporter.run_asset_export_task(task)
-    print('ER_WIRE_EXPORT',task.filename)
+    if obj:print('ER_INDUSTRIAL_MATERIAL',name,obj.get_base_material().get_editor_property('blend_mode'))

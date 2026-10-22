@@ -25,6 +25,8 @@ struct FERCentralBuildingRecipe
     UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="1",ClampMax="3")) int32 MinFloors=1;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="1",ClampMax="3")) int32 MaxFloors=3;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UStaticMesh> FenceMesh;
+    // Optional original straight module, repeated inside the existing barrier bounds.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UStaticMesh> FenceModule;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UStaticMesh> ContainerMesh;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UStaticMesh> TankMesh;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UStaticMesh> BarrelMesh;

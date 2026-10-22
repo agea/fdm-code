@@ -213,3 +213,9 @@ https://creativecommons.org/publicdomain/zero/1.0/
 
 Recordings edited for the game: isolated shots, silence trimming, mono
 conversion/resampling, adjusted levels and short fades at the ends.
+
+Aluminium Fences 57 Modular Parts
+by Nullified (https://sketchfab.com/Nullifiedit)
+Source: https://sketchfab.com/3d-models/aluminium-fences-57-modular-parts-a2d4c1a74e724b7b8a5d6873a0c3561e
+License: CC BY 4.0 (http://creativecommons.org/licenses/by/4.0/)
+Adaptation: single Fence_1_Straight_01_Horizontal, centered and repeated; project steel finish replaces source material. Original geometry and UVs retained.

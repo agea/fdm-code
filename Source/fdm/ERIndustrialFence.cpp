@@ -3,6 +3,23 @@
 #include "DynamicMesh/DynamicMesh3.h"
 #include "DynamicMesh/DynamicMeshAttributeSet.h"
 
+void ERIndustrialFence::ModuleTransforms(const FERLayoutFixedPiece& Panel,const FBox& Bounds,TArray<FTransform>& Out)
+{
+    const FVector Size=Panel.Transform.GetScale3D()*100,Source=Bounds.GetSize();
+    const bool AlongX=Size.X>=Size.Y;
+    const float W=AlongX ? Size.X:Size.Y,H=Size.Z;
+    // Match the original aspect ratio as closely as the reserved span allows.
+    // Keep depth proportional to height, bounded by the existing pawn barrier.
+    const int32 Count=FMath::Max(1,FMath::RoundToInt(W/(H*Source.X/Source.Z)));
+    const FVector Scale(W/Count/Source.X,FMath::Min(H/Source.Z,12/Source.Y),H/Source.Z);
+    const FQuat Rotation=Panel.Transform.GetRotation()*FRotator(0,AlongX ? 0:90,0).Quaternion();
+    for(int32 I=0;I<Count;++I)
+    {
+        const FVector Center(-W*.5+(I+.5)*W/Count,0,0);
+        Out.Emplace(Rotation,Panel.Transform.GetLocation()+Rotation.RotateVector(Center-Bounds.GetCenter()*Scale),Scale);
+    }
+}
+
 void ERIndustrialFence::Append(const FERLayoutFixedPiece& Panel,UE::Geometry::FDynamicMesh3& Mesh)
 {
     using UE::Geometry::FIndex3i;

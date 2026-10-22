@@ -171,7 +171,7 @@ private:
     TWeakObjectPtr<APawn> GesturePawn;
     bool bSprintKeyHeld = false, bForwardSprintHeld = false, bForwardHeld = false;
     void ResetSprintInput();
-    void PrepareGesturePawn(class AERCharacter* Character);
+    void PrepareGesturePawn(class AERCharacter* InCharacter);
     void UpdateSprintInput();
     void SprintPressed();
     void SprintReleased();

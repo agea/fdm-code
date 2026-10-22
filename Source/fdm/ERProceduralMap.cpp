@@ -6,6 +6,9 @@
 #include "DynamicMesh/DynamicMesh3.h"
 #include "Engine/StaticMesh.h"
 #include "PhysicsEngine/BodySetup.h"
+#if WITH_EDITOR
+#include "StaticMeshCompiler.h"
+#endif
 #include "ERBotController.h"
 #include "EngineUtils.h"
 
@@ -307,6 +310,25 @@ void AERProceduralMap::ConfigureTemplateFloors()
     for(auto* Mesh:{TileFloors.Get(),WoodFloors.Get(),Ceilings.Get(),Stairs.Get()}){Mesh->ClearInstances();Mesh->SetStaticMesh(BlockMesh);}
     FixedCollision->SetStaticMesh(BlockMesh);
     FenceCollision->SetStaticMesh(BlockMesh);
+    UInstancedStaticMeshComponent* FenceModules=nullptr;
+    if(auto* Module=Template->CentralBuilding.FenceModule.Get())
+    {
+#if WITH_EDITOR
+        // First editor load may still be building the imported collision mesh.
+        // The barrier must be ready for queries as soon as the layout is ready.
+        FStaticMeshCompilingManager::Get().FinishCompilation({Module});
+#endif
+        if(auto* Body=Module->GetBodySetup())Body->CreatePhysicsMeshes();
+        FenceModules=NewObject<UInstancedStaticMeshComponent>(this,TEXT("IndustrialFenceModules"));
+        AddInstanceComponent(FenceModules);FenceModules->SetMobility(EComponentMobility::Movable);
+        FenceModules->SetNetAddressable();FenceModules->SetupAttachment(RootComponent);
+        FenceModules->SetStaticMesh(Module);FenceModules->SetCanEverAffectNavigation(false);
+        FenceModules->SetCollisionProfileName(TEXT("BlockAll"));
+        FenceModules->SetCollisionResponseToChannel(ECC_Pawn,ECR_Ignore);
+        FenceModules->SetCollisionResponseToChannel(ECC_WorldDynamic,ECR_Ignore);
+        if(auto* Steel=Template->CentralBuilding.SteelSurface.Get())FenceModules->SetMaterial(0,Steel);
+        FenceModules->RegisterComponent();FixedMeshes.Add(FenceModules);
+    }
     UE::Geometry::FDynamicMesh3 Metal;Metal.EnableAttributes();
     auto FlushMetal=[&]()
     {
@@ -333,6 +355,13 @@ void AERProceduralMap::ConfigureTemplateFloors()
         if(Piece.PawnBarrier)
         {
             FenceCollision->AddInstance(Piece.Transform);
+            if(FenceModules)
+            {
+                TArray<FTransform> Instances;
+                ERIndustrialFence::ModuleTransforms(Piece,FenceModules->GetStaticMesh()->GetBoundingBox(),Instances);
+                for(const auto& Instance:Instances)FenceModules->AddInstance(Instance);
+                continue;
+            }
             ERIndustrialFence::Append(Piece,Metal);
             if(Metal.TriangleCount()>=50000)FlushMetal();
             continue;
@@ -410,6 +439,11 @@ uint32 AERProceduralMap::GetTemplateGeometryDigest() const
     uint32 H=GetTypeHash(LayoutConfig.TemplateAsset->Revision);
     H=HashCombine(H,FCrc::StrCrc32(*LayoutConfig.TemplateAsset->TemplateId));
     H=HashCombine(H,GetTypeHash(uint8(LayoutConfig.TemplateAsset->Archetype)));
+    if(auto* Module=LayoutConfig.TemplateAsset->CentralBuilding.FenceModule.Get())
+    {
+        H=HashCombine(H,FCrc::StrCrc32(*Module->GetPathName()));
+        if(Module->GetBodySetup())H=HashCombine(H,GetTypeHash(Module->GetBodySetup()->BodySetupGuid));
+    }
     if(Layout.GroundSurface)H=HashCombine(H,FCrc::StrCrc32(*Layout.GroundSurface->GetPathName()));
     auto MixVector=[&](FVector V){for(int32 I=0;I<3;++I)H=HashCombine(H,GetTypeHash(FMath::RoundToInt(V[I]*100)));};
     MixVector(Layout.ArenaSize);H=HashCombine(H,GetTypeHash(bCeilings));H=HashCombine(H,GetTypeHash(uint8(LayoutConfig.TemplateAsset->Symmetry)));

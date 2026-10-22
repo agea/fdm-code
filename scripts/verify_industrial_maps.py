@@ -5,23 +5,24 @@ import unreal as ue
 root=Path(ue.Paths.project_dir());assets=ue.EditorAssetLibrary
 registry=ue.AssetRegistryHelpers.get_asset_registry();registry.search_all_assets(True)
 maps={str(x.package_name).rsplit('/',1)[-1] for x in registry.get_assets_by_path('/Game/EclipseRecoil/Maps') if str(x.asset_class_path.asset_name)=='World'}
-expected={'L_MainMenu','L_Depot','L_CentralBuilding'}
+expected={'L_MainMenu','L_Depot','L_CentralBuilding','L_MiddleEasternAlleys'}
 if maps!=expected:raise RuntimeError('Unexpected active maps '+str(maps))
 template=assets.load_asset('/Game/EclipseRecoil/Art/MapTemplates/DA_CentralBuilding')
 if template.get_editor_property('archetype')!=ue.ERMapArchetype.CENTRAL_BUILDING or template.get_editor_property('symmetry')!=ue.ERTemplateSymmetry.HALF_TURN:raise RuntimeError('Incorrect industrial archetype')
 for seed in list(range(512))+[7919,-17,2147483647,-2147483648]:
     if not template.validate_layout(seed):raise RuntimeError('Invalid saved recipe '+str(seed))
-wire=template.get_editor_property('central_building').get_editor_property('fence_mesh')
+if template.get_editor_property('central_building').get_editor_property('fence_mesh'):raise RuntimeError('Retired wire reference remains')
 for field in ['container_mesh','tank_mesh','barrel_mesh']:
     mesh=template.get_editor_property('central_building').get_editor_property(field)
     for slot in range(len(mesh.get_editor_property('static_materials'))):
         surface=mesh.get_material(slot)
         if surface and not surface.get_base_material().get_editor_property('used_with_instanced_static_meshes'):
             raise RuntimeError('Industrial prop material cannot render instances: '+surface.get_path_name())
-material=wire.get_material(1)
-if material.get_editor_property('blend_mode')!=ue.BlendMode.BLEND_MASKED or not material.get_editor_property('two_sided'):raise RuntimeError('Wire material is not masked/two-sided')
-mask_input=ue.MaterialEditingLibrary.get_material_property_input_node_output_name(material,ue.MaterialProperty.MP_OPACITY_MASK)
-if mask_input!='R':raise RuntimeError('Incorrect wire mask channel '+str(mask_input))
+module=template.get_editor_property('central_building').get_editor_property('fence_module')
+if not module or module.get_name()!='SM_ER_AluminiumFenceModule':raise RuntimeError('Missing single modular steel barrier')
+if module.get_material(0).get_base_material().get_editor_property('blend_mode')!=ue.BlendMode.BLEND_OPAQUE:raise RuntimeError('Barrier steel must be opaque')
+if module.get_editor_property('body_setup').get_editor_property('collision_trace_flag')!=ue.CollisionTraceFlag.CTF_USE_COMPLEX_AS_SIMPLE:raise RuntimeError('Barrier must use original triangle collision')
+mask_input='none (opaque steel geometry)'
 snapshot='DA_CentralBuilding_42_SketchfabTextures' if template.get_editor_property('revision')>=7 else 'DA_CentralBuilding_42_DenseCover'
 preview=assets.load_asset('/Game/EclipseRecoil/Art/MapTemplates/IndustrialPCG/'+snapshot)
 graph=assets.load_asset('/Game/EclipseRecoil/Art/MapTemplates/IndustrialPCG/PCG_CentralBuildingRoutes')

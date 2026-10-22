@@ -1,3 +1,57 @@
+## 22 October 2026 — remove retired industrial wire assets
+
+- `cleanup_industrial_wire.py`: PASS. Removed 12 packages through Unreal after
+  an outside-reference audit and SHA256-verified local rollback archive: four
+  migrated fence meshes, the owned chain-link mesh, three dedicated materials,
+  and four chain-link textures. Cleared DA_CentralBuilding's historical
+  fence_mesh reference. The new aluminium module, Depot, Alleys, shared material
+  catalog and map packages retain their exact protected hashes.
+- Removed the old creation script; Factory selection and setup scripts no longer
+  request/import the retired wire assets. Historical provenance remains private.
+- `verify_industrial_maps.py`: PASS,516 seeds; replacement barrier uses opaque
+  steel and original triangle collision. `test-industrial-map.py --finish-gallery
+  --offscreen`: PASS, exit0; fresh Metal fence close-up visually inspected.
+  No missing fence/chain-link package warnings in the production render run.
+
+## 22 October 2026 — Windows C4458 build correction
+
+- Supplied Windows `editor.log` (UE5.8, MSVC14.51.36260): failed with two
+  C4458 errors. `UERNetDriverEOS::InitListen` parameter `Notify` hid
+  `UNetDriver::Notify`; `AERPlayerController::PrepareGesturePawn` parameter
+  `Character` hid `AController::Character`. Renamed parameters to `InNotify`
+  and `InCharacter` in declarations/definitions, preserving behavior and build
+  warning policy. The newer-than-preferred MSVC warning was not the fatal error.
+- `./scripts/build-editor.command`: PASS, Mac arm64 Development, exit0,
+  30.13s. Both affected translation units compiled and the module linked.
+  Log: `/private/tmp/rr-windows-shadow-fix-build.log`. Initial sandbox attempt
+  stopped before compilation on UBT trace-log permissions; authorized retry
+  succeeded. Existing deprecation warnings remain.
+- `git diff --check`: PASS. Native Windows rebuild and packaging are pending;
+  the failed isolated Windows project snapshot must receive the corrected
+  sources (or be regenerated) before retrying. No runtime gameplay changes.
+
+## 22 October 2026 — Central Building steel barriers
+
+- Editor arm64 Development build: PASS. One original straight module from
+  Nullified's Aluminium Fences pack imported (1,124 triangles, ~99KiB runtime
+  mesh). Existing opaque `M_ER_SF_steel_irregular` applied; no fence texture or
+  opacity mask. Source ZIP/metadata/credits, derivative and rollback stay private.
+- `setup_industrial_fence.py` and `verify_industrial_maps.py`: PASS,516 seeds;
+  original triangle collision enabled, Depot and shared material catalog hashes
+  unchanged. Private changes are confined to the owned module and central recipe.
+- `test-industrial-map.py`: all four CentralBuilding native tests PASS. Actual
+  module bars/apertures checked for both axes, three crossing rules and one to
+  three floors, with reverse bullet/visibility/blast queries and pawn barriers.
+  The initial failure exposed asynchronous editor mesh compilation; generation
+  now waits for compilation and prepares physics before registering instances.
+- `test-industrial-map.py --finish-gallery --offscreen`: PASS. Metal fence close-up
+  visually inspected at `Saved/Testing/Industrial-Fence-rule3-seed42.png`.
+- `test-industrial-map.py --network`: PASS, host exit0. Host and two local clients
+  agree initially, after destruction/late join and after regeneration. Phase1/3/4
+  digests:1214446960 /2212089187 /1346785968. Source bars and open apertures,
+  traversal, damage, support loss and new-epoch restoration pass. This is a local
+  multi-process check; no physical second computer or subjective playtest.
+
 ## 22 October 2026 — destructible Middle Eastern architecture, revision6
 
 - Editor arm64 Development build: PASS. Thirteen derived LOD0/UV/normal assets

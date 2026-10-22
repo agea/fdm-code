@@ -816,7 +816,7 @@ destructible catalog retain their original SHA-256 hashes.
 | Destructible cover | Existing timber cells; shared material damage calibration unchanged. |
 | Additional available damage profiles | Drywall, stone, sheet metal and glass stay in the seven-profile catalog. |
 | Cargo/cover | Reinforced destructible steel containers, timber crates/stacks and brick/concrete barriers; fixed Factory tanks/barrels. Oblique placements are paired between teams. |
-| Permanent separators/perimeter | Explicit metal frames and diamond wires share their visible/query triangle geometry; full hidden movement collision is separate. SM_ER_Chainlink and its masked material remain authoring references. |
+| Permanent separators/perimeter | One original aluminium fence module repeated with opaque steel material and triangle collision; full movement collision is separate. Retired chain-link meshes, materials and textures have been removed. |
 | Walkable floors/stairs | Fixed main slabs/stairs; destructible timber decks, posts and stair treads in the secondary buildings/towers and wall crossings. |
 | Authoring | Revision3 DA_CentralBuilding; PCG_CentralBuildingRoutes now loads DA_CentralBuilding_42_Ladders with fixed and cell volume pins. |
 

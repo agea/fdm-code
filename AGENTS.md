@@ -1,5 +1,26 @@
 # Respawn & Rage Unreal development
 
+Industrial wire removal (22 October, subsequent request): the user explicitly
+authorized completely removing the obsolete industrial wire assets, superseding
+the earlier reference/vendor retention rules for this retired fence family only.
+Use cleanup_industrial_wire.py through Unreal after outside-reference and verified
+rollback checks. Clear the historical FenceMesh slot, remove the old creator and
+prune the Factory migration selection so reruns cannot restore the wire. Preserve
+the aluminium FenceModule, shared steel/platform materials, Depot and Alleys.
+
+Industrial barriers (22 October, latest request): replace Central Building's
+runtime chain-link geometry with the single original straight module from
+Nullified's Aluminium Fences 57 Modular Parts (CC BY4.0). Treat bars as opaque
+steel with the existing SteelSurface, without chain-link textures or masks.
+FenceModule instances fit the existing spans on both axes; preserve movement
+barriers, routes, symmetry and fixed status. Use original triangles for bullet,
+visibility and blast queries, keeping apertures open. Preserve source ZIP,
+metadata, credits and derived FBX privately in SourceAssets/AluminiumFences;
+setup_industrial_fence.py backs up the recipe and imports through Unreal.
+Validate actual module collision, Metal close-up and initial/late LAN clients.
+This supersedes the historical production diagonal-wire requirement below.
+
+
 Alley architecture revision6 (22 October, explicit follow-up): make the twelve
 Middle Eastern house shells, arches, internal masonry, low walls and added roof
 decks destructible. Preserve original LOD0 corners/UVs/normals, doors, windows
