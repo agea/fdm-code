@@ -27,14 +27,14 @@ struct FERBlockCollapseSettings
     UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="0.1",ClampMax="20")) float DebrisSettleAfter=2;
 };
 
-// Protocol 8: 5cm cells with complete shard-payload witnesses. BlockCount holds the cell count, PageVersions the
+// Protocol 9: bounded compressed skin masks; 5cm cells with complete shard-payload witnesses. BlockCount holds the cell count, PageVersions the
 // versions of the chunk-mask shards (AERCellNetShard).
 USTRUCT()
 struct FERBlockNetworkDescriptor
 {
     GENERATED_BODY()
     UPROPERTY() uint32 Epoch=0;
-    UPROPERTY() uint32 Protocol=8;
+    UPROPERTY() uint32 Protocol=9;
     UPROPERTY() uint32 LayoutDigest=0;
     UPROPERTY() uint32 Sequence=0;
     UPROPERTY() int32 BlockCount=0;
@@ -156,6 +156,9 @@ private:
     FERCellSupport Support;
     UPROPERTY() TArray<TObjectPtr<class UDynamicMeshComponent>> CellMeshes;
     TMap<const UPrimitiveComponent*, int32> CellComponentChunks;
+    UPROPERTY() TMap<int32,TObjectPtr<class UDynamicMeshComponent>> SkinMeshes;
+    TMap<const UPrimitiveComponent*,int32> SkinComponentPanels;
+    TSet<int32> DirtySkinPanels;
     TArray<int32> ChunkQuads, ChunkBoxes;
     TArray<TWeakObjectPtr<class AERCellNetShard>> AuthorityShards;
     TMap<int32, TWeakObjectPtr<class AERCellNetShard>> ReceivedShards;
@@ -176,6 +179,7 @@ private:
     void BuildCellComponents();
     void ClearCells();
     void RebuildCellChunk(int32 Chunk);
+    void FlushSkinMeshes();
     void PublishCellGeneration();
     void PublishCellChanges(const TArray<int32>& Chunks);
     void TryApplyCellNetwork();

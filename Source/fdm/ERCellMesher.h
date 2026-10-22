@@ -8,7 +8,7 @@
 namespace ERCellMesh
 {
     struct FQuad { FVector3f Corner[4]; FVector3f Normal; };
-    void BuildFaces(const FERCellWorld& World, int32 Chunk, TArray<FQuad>& Quads);
+    void BuildFaces(const FERCellWorld& World, int32 Chunk, TArray<FQuad>& Quads,bool FracturesOnly=false);
     // Greedy maximal boxes over the chunk's alive cells, deterministic order.
     void BuildBoxes(const FERCellWorld& World, int32 Chunk, TArray<FBox>& Boxes);
 }

@@ -38,12 +38,15 @@ if counts.get('StaticMesh')!=15 or counts.get('Material')!=5 or counts.get('Text
 template=assets.load_asset('/Game/EclipseRecoil/Art/MapTemplates/DA_MiddleEasternAlleys')
 if not template or not template.validate_layout(42):problems.append('Invalid saved template')
 if template and template.get_editor_property('revision')>=3:
-    if assets.get_metadata_tag(template,'ERAlleyDistrictRevision') not in ('3','4','5') or not template.get_editor_property('town').get_editor_property('seeded_district'):problems.append('Missing district recipe revision3')
+    if assets.get_metadata_tag(template,'ERAlleyDistrictRevision') not in ('3','4','5','6') or not template.get_editor_property('town').get_editor_property('seeded_district'):problems.append('Missing district recipe revision3')
 if template and template.get_editor_property('revision')>=4:
     town=template.get_editor_property('town')
-    if assets.get_metadata_tag(template,'ERAlleyDistrictRevision')not in ('4','5') or town.get_editor_property('min_central_walls')!=0 or town.get_editor_property('max_central_walls')!=2:problems.append('Missing core recipe revision4')
+    if assets.get_metadata_tag(template,'ERAlleyDistrictRevision')not in ('4','5','6') or town.get_editor_property('min_central_walls')!=0 or town.get_editor_property('max_central_walls')!=2:problems.append('Missing core recipe revision4')
 if template and template.get_editor_property('revision')>=5:
-    if assets.get_metadata_tag(template,'ERAlleyDistrictRevision')!='5' or not template.get_editor_property('town').get_editor_property('low_cover_and_underpass'):problems.append('Missing passages recipe revision5')
+    if assets.get_metadata_tag(template,'ERAlleyDistrictRevision')not in ('5','6') or not template.get_editor_property('town').get_editor_property('low_cover_and_underpass'):problems.append('Missing passages recipe revision5')
+if template and template.get_editor_property('revision')>=6:
+    town=template.get_editor_property('town')
+    if not town.get_editor_property('destructible_architecture') or len(town.get_editor_property('building_structures'))!=13:problems.append('Missing original destructible architecture')
 if not assets.does_asset_exist('/Game/EclipseRecoil/Maps/L_MiddleEasternAlleys'):problems.append('Missing saved map')
 (project/'Saved/Testing/alleys-assets-report.json').write_text(json.dumps(dict(counts=counts,meshes=report,problems=problems),indent=2)+'\n')
 if problems:raise RuntimeError('\n'.join(problems))

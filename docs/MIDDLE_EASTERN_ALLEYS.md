@@ -4,6 +4,33 @@
 The new production template is `Art/MapTemplates/DA_MiddleEasternAlleys`, with
 level `Maps/L_MiddleEasternAlleys`. Central Building and Depot remain available.
 
+
+Revision6 makes imported houses, arches, internal masonry, low stone cover and
+added roof decks damageable. The original12 house meshes and their two atlases
+are retained unchanged. Thirteen derived `Structures/DA_*_Structure` assets store
+LOD0 corners, UV seams and shading normals. At runtime the original triangles
+are clipped at destroyed5cm cells, with generic masonry on fracture edges;
+visible holes and synchronous collision rebuilds agree. Source doors/windows
+remain open from generation. Concrete houses use Concrete HP and mud houses
+use Brick HP from the unchanged shared catalog. Authored stone boxes retain
+filled collision; imported houses retain exact hollow triangle collision.
+
+Weapons, HE, structural support, bounded debris and initial/late-client damage
+snapshots share the established authority path. A damaged house can remain
+supported by neighbouring walls; removing lower and lateral support allows its
+upper parts to detach. The enclosing perimeter, sand terrain, lower passage
+retaining structure and solid stair foundations remain permanent. Destroyed
+roofs can expose lower floors/interiors and real fall routes. A new round
+reconstructs the original geometry. Large doorway/roof cuts used in the probe
+are controlled geometry tests, separate from the unchanged firearm/HE checks.
+
+One runtime mesh/body is used per imported house or masonry piece. Protocol9 wraps large shell RLE masks in bounded zlib frames, retaining the
+same alive bits and transactional shard witnesses. Mostly empty house volumes
+use compact support labels; filled chunks use one uniform component label.
+Only layouts containing these skins have expanded storage guards (512M grid
+slots,96M occupied cells); ordinary templates retain their8M cell guard and all
+maps retain5cm calibration. These are resource guards, not gameplay tuning.
+
 The user's minimap and Dave Johnston's
 [Making of Dust 2](https://www.johnsto.co.uk/design/making-dust2/) informed the
 original town. Revision3 replaces its fixed lane graph with seeded districts:
@@ -110,6 +137,18 @@ seeds, own recipe only. `MinCentralWalls`/`MaxCentralWalls` bound the wall count
 them. Run `setup_alley_passages.py` for revision5: verified revision4 rollback,
 516 candidate seeds and only the own recipe saved. The new behavior is stored
 in `Town.LowCoverAndUnderpass`; art and shared combat data remain unchanged.
+Run `setup_alley_destruction.py` for revision6: verified revision5 rollback,
+13 derived structure assets and516 candidate seeds, with original art hashes
+protected. `Town.DestructibleArchitecture` and `BuildingStructures` bind the
+owned geometry. Earlier import/migration commands preserve this revision.
+
+`test-dust-template.py --alleys --architecture --render --network` separately
+checks a real weapon against locally weakened cells, the standard HE profile,
+a controlled facade cut walked by the pawn, a roof cut and real fall, removal
+of lower/lateral supports, initial/late peers and a seed rebuild. It captures
+five matching facade/roof/collapse views in `Saved/Testing/MiddleEasternDestruction-*`.
+The native `MiddleEasternArchitecture` test also puts a physical target inside
+a house: penetration must resume world tracing before reaching the far facade.
 
 Validation: native `EclipseRecoil.Destruction.MiddleEasternAlleys` tests sample
 512 layouts and six actual physics worlds. Run `test-dust-template.py --alleys`

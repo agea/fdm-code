@@ -1,4 +1,5 @@
 #pragma once
+#include "ERDestructibleMesh.h"
 #include "CoreMinimal.h"
 #include "ERBlockWorld.h"
 #include "ERCellWorld.generated.h"
@@ -38,6 +39,12 @@ struct FERCellPanelDesc
     TArray<FBox2D> Holes;
     // Support: the bottom row rests on the ground or a fixed slab; or every cell is fixed.
     bool bAnchorBottom = false, bAnchored = false;
+    // A hollow imported shell. Original triangles drive visual AND collision
+    // geometry; the ordinary calibrated cells carry damage, support and masks.
+    TArray<FERMeshCorner> Skin;
+    uint32 SkinCRC=0;
+    FName SkinName;
+    bool bSolidSkin=false; // authored masonry box, never an imported house
 };
 struct FERCellPanel : FERCellPanelDesc
 {
@@ -60,6 +67,7 @@ struct FERCellChunk
     int32 Panel = 0, X0 = 0, Z0 = 0, SX = 0, SZ = 0, AliveCount = 0;
     uint32 Revision = 0;
     TArray<uint64> Alive;
+    TArray<uint64> InitialAlive; // only skins: distinguish source voids from cuts
     TArray<FERDamagedCell> Damaged;
     FBox Bounds = FBox(ForceInit); // room-local
 };
@@ -93,6 +101,7 @@ public:
     bool IsAlive(int32 Panel, int32 X, int32 Y, int32 Z) const;
     bool IsAlive(const FERCellId& Id) const { return IsAlive(Id.Panel, Id.X, Id.Y, Id.Z); }
     bool IsValid(const FERCellId& Id) const;
+    bool WasInitiallyAlive(const FERCellId& Id) const;
     float GetHealth(const FERCellId& Id) const;
     float GetMaxHealth(int32 Panel) const { return Panels.IsValidIndex(Panel) ? MaxHealth[uint8(Panels[Panel].Material)]*Panels[Panel].Strength : 0; }
     int32 GetChunkIndex(int32 Panel, int32 X, int32 Z) const;
@@ -107,7 +116,8 @@ public:
     void Traverse(int32 Panel, const FVector& A, const FVector& B, TFunctionRef<bool(const FIntVector&, double, double)> Visit) const;
     // Cell under a surface point (room-local), preferring the nearest alive cell.
     bool LocateCell(int32 Panel, const FVector& Point, const FVector& Normal, FERCellId& Out) const;
-    // Network: run-length alive mask. Decoding validates sizes before use.
+    // Network: run-length alive mask; complex skins optionally use a bounded zlib
+    // frame around that same RLE stream. Decoding validates sizes before use.
     void EncodeChunk(int32 Chunk, TArray<uint8>& Out) const;
     bool DecodeChunk(int32 Chunk, const TArray<uint8>& Data, TArray<uint64>& OutAlive) const;
     // Client state: alive bits only, HP stay on the server.

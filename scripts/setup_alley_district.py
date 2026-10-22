@@ -15,7 +15,7 @@ sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
 protected=[private/p for p in ['Maps/L_Depot.umap','Maps/L_CentralBuilding.umap','Art/MapTemplates/DA_CentralBuilding.uasset','Art/Destruction/DA_ER_BlockMaterials.uasset','Maps/L_MiddleEasternAlleys.umap']]
 protected+=list((private/'Art/MiddleEasternAlleys').rglob('*.uasset'))
 before={str(p):sha(p) for p in protected}
-if assets.get_metadata_tag(template,'ERAlleyDistrictRevision') in ('3','4','5'):
+if assets.get_metadata_tag(template,'ERAlleyDistrictRevision') in ('3','4','5','6'):
     print('ER_ALLEY_DISTRICT_PRESERVED')
 else:
     package=private/'Art/MapTemplates/DA_MiddleEasternAlleys.uasset'

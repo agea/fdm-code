@@ -36,6 +36,7 @@
 #include "GameFramework/GameUserSettings.h"
 #include "Scalability.h"
 #include "GenericPlatform/GenericApplication.h"
+#include "GenericPlatform/GenericWindow.h"
 #include "UnrealClient.h"
 #include "DynamicResolutionState.h"
 #include "ERResolutionPolicy.h"
@@ -380,6 +381,7 @@ void AERPlayerController::ClientGameplayMessage_Implementation(const FString& Ev
 void AERPlayerController::PlayerTick(float DeltaTime)
 {
     Super::PlayerTick(DeltaTime);
+    UpdateWindowInput();
     UpdateBlockMapLoading();
     if (IsLocalController() && bShowingLobby && !IsMenuLevel()) { MenuPage = 0; ShowMenu(false); }
     if (IsLocalController() && IsMenuLevel() && bShowingLobby != IsInLobby())
@@ -754,12 +756,56 @@ void AERPlayerController::ApplyDisplaySize(int32 Percent)
     Settings->SetScreenResolution(Resolution);
     // The local launcher supplies an initial size; menu choices must override it.
     Settings->ApplyResolutionSettings(false);
+    bPendingWindowInput = true;
+    InputWindowStableAt = FPlatformTime::Seconds();
     Settings->ConfirmVideoMode();
     Settings->SaveSettings();
     GConfig->SetBool(TEXT("EclipseRecoil.Display"), TEXT("Configured"), true, GGameUserSettingsIni);
     GConfig->Flush(false, GGameUserSettingsIni);
     if (DisplaySizeSelector.IsValid()) DisplaySizeSelector->SetIsOpen(false);
     UE_LOG(LogTemp, Display, TEXT("ER_DISPLAY size=%d%% resolution=%dx%d fullscreen=%d"), Percent, Resolution.X, Resolution.Y, bFullscreen);
+}
+
+void AERPlayerController::ApplyWindowInputMode()
+{
+    bShowMouseCursor = bMenuOpen;
+    if (bMenuOpen)
+        SetInputMode(FInputModeGameAndUI().SetWidgetToFocus(MenuFocusWidget.Pin())
+            .SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock).SetHideCursorDuringCapture(false));
+    else
+        SetInputMode(FInputModeGameOnly().SetConsumeCaptureMouseDown(false));
+}
+
+void AERPlayerController::UpdateWindowInput()
+{
+    if (!IsLocalController() || GIsEditor || !FSlateApplication::IsInitialized()) return;
+    auto* ViewportClient = GetWorld()->GetGameViewport();
+    if (!ViewportClient || !ViewportClient->Viewport) return;
+    const auto Window = ViewportClient->GetWindow();
+    if (!Window.IsValid() || !Window->GetNativeWindow().IsValid()) return;
+    const bool Active = FSlateApplication::Get().IsActive() && Window->GetNativeWindow()->IsForegroundWindow();
+    const auto Size = ViewportClient->Viewport->GetSizeXY();
+    const auto Position = Window->GetPositionInScreen();
+    const int32 Mode = Window->GetWindowMode();
+    const double Now = FPlatformTime::Seconds();
+    if (InputWindow.Pin() != Window || InputViewportSize != Size || InputWindowPosition != Position ||
+        InputWindowMode != Mode || bInputWindowActive != Active)
+    {
+        InputWindow = Window; InputViewportSize = Size; InputWindowPosition = Position;
+        InputWindowMode = Mode; bInputWindowActive = Active;
+        InputWindowStableAt = Now;
+        bPendingWindowInput = true;
+    }
+    // macOS applies fullscreen/activation asynchronously. Repair only after the
+    // foreground game window settles; never activate it over another application.
+    if (!Active || Size.X <= 0 || Size.Y <= 0 || Now - InputWindowStableAt < .25) return;
+    const bool MissingGameCapture = !bMenuOpen && !ViewportClient->Viewport->HasMouseCapture();
+    if (!bPendingWindowInput && !MissingGameCapture) return;
+    ApplyWindowInputMode();
+    bPendingWindowInput = false;
+    InputWindowStableAt = Now; // allow Slate to consume the queued input operations
+    UE_LOG(LogTemp, Display, TEXT("ER_WINDOW_INPUT mode=%s size=%dx%d recovered_capture=%d"),
+        bMenuOpen ? TEXT("menu") : TEXT("game"), Size.X, Size.Y, MissingGameCapture);
 }
 
 void AERPlayerController::UpdateMenuMusic()

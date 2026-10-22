@@ -341,7 +341,7 @@ bool FERCellNetTransactionTest::RunTest(const FString& Parameters)
     auto* Client = World->SpawnActor<AERBlockRoom>(); Client->SetRole(ROLE_SimulatedProxy); Client->bNetworkBegunPlay = true;
     const int32 Shards = FMath::DivideAndRoundUp(Server->GetCellWorld().GetChunks().Num(), AERCellNetShard::Capacity);
     auto& N = Client->Network;
-    N.Epoch = 1; N.Protocol = 8; N.Cells = true; N.CellSettings = Server->CellSettings; N.Blocks = Server->Config;
+    N.Epoch = 1; N.Protocol = 9; N.Cells = true; N.CellSettings = Server->CellSettings; N.Blocks = Server->Config;
     N.BlockCount = int32(Server->GetCellWorld().GetCellCount()); N.LayoutDigest = Server->GetLayoutDigest(); N.Sequence = 1; N.PageVersions.Init(1, Shards);
     Client->OnRep_Network();
     TestTrue(TEXT("client built cells from the descriptor"), Client->GetCellWorld().GetCellCount() > 0 && !Client->bNetworkError);

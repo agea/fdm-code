@@ -5,6 +5,7 @@ from pathlib import Path
 
 p = argparse.ArgumentParser(description=__doc__)
 p.add_argument('--render', action='store_true')
+p.add_argument('--architecture', action='store_true', help='Real weapon, HE, controlled facade/roof cuts, pawn traversal, support collapse and peer reconstruction')
 p.add_argument('--network', action='store_true')
 p.add_argument('--alleys', action='store_true', help='Exercise the current Middle Eastern Alleys template')
 p.add_argument('--gallery', action='store_true', help='Capture held alley cameras after shader/asset compilation, without the gameplay probe')
@@ -17,6 +18,7 @@ if sum([args.plans,args.tower,args.passage])>1:p.error('--plans, --tower and --p
 if args.passage:args.gallery=True
 if args.tower:args.gallery=True
 if args.plans:args.gallery=True
+if args.architecture and (not args.alleys or args.gallery):p.error('--architecture requires --alleys without --gallery')
 if args.gallery and (not args.alleys or args.network):p.error('--gallery requires --alleys and standalone execution')
 if args.gallery:args.render=True
 root = Path(__file__).resolve().parents[1]
@@ -26,12 +28,19 @@ exe = Path(os.environ.get('UE_ROOT', '/Users/Shared/Epic Games/UE_5.8')) / 'Engi
 label = 'dust' + ('-network' if args.network else '-local') + ('-metal' if args.render else '')
 if args.alleys: label = 'alleys' + label.removeprefix('dust')
 if args.gallery:label += '-gallery'
+if args.architecture:label += '-architecture'
 if args.plans:label += '-plans'
 if args.tower:label += '-tower'
 if args.passage:label += '-passage'
 children, handles, paths = [], [], {}
 receipt=out/(label+'-late-ready')
 if args.network:receipt.unlink(missing_ok=True)
+initial_receipt=out/(label+'-initial-ready')
+if args.network and args.architecture:initial_receipt.unlink(missing_ok=True)
+
+architecture_images=[out/('MiddleEasternDestruction-'+name+'.png') for name in ['Facade-Intact','Facade-Breached','Roof-Intact','Roof-Breached','House-Collapsed']]
+if args.architecture and args.render:
+    for image in architecture_images:image.unlink(missing_ok=True)
 
 def launch(role, url, render=False, extra=()):
     paths[role] = out / (label + '-' + role + '.log')
@@ -40,6 +49,7 @@ def launch(role, url, render=False, extra=()):
                '-nosound', '-unattended', '-NoSplash', '-Multiprocess', '-stdout',
                '-FullStdOutLogOutput', '-windowed', '-ResX=1280', '-ResY=720',
                '-ExecCmds=t.MaxFPS 60,sg.GlobalIlluminationQuality 0,sg.ReflectionQuality 0,sg.ShadowQuality 1,p.NetShowCorrections 1']
+    if args.architecture:command.append('-ERAlleyArchitecture')
     if args.plans:
         command[command.index('-ResX=1280')]='-ResX=1536'
         command[command.index('-ResY=720')]='-ResY=1536'
@@ -59,7 +69,9 @@ def read(role): return paths[role].read_text(errors='replace')
 def wait(marker,role='host'):
     end = time.monotonic() + (650 if args.alleys else 180)
     while time.monotonic() < end:
-        if marker in read(role): return
+        current=read(role)
+        if marker in current: return
+        if 'ER_BLOCK_NET_INCOMPATIBLE' in current or 'Attempted to send bunch exceeding' in read('host'):raise RuntimeError(role+' rejected map reconstruction or the host exceeded a network payload limit')
         if children[0].poll() is not None: raise RuntimeError('Host stopped before ' + marker)
         time.sleep(.3)
     raise RuntimeError('Timed out before ' + marker)
@@ -71,10 +83,14 @@ try:
     if args.network: url += '?listen'
     extra=['-port=17793', '-MULTIHOME=127.0.0.1']
     if args.network:extra.append('-ERDustLateReceipt='+str(receipt))
+    if args.network and args.architecture:extra.append('-ERArchitectureInitialReceipt='+str(initial_receipt))
     host = launch('host', url, args.render, extra)
     if args.network:
         wait('ER_DUST_STATE phase=1 ')
         launch('initial', '127.0.0.1:17793?Name=Initial?Primary=0')
+        if args.architecture:
+            wait('ER_DUST_CLIENT_PASS phase=1 ','initial')
+            initial_receipt.write_text('phase1\n')
         wait('ER_DUST_STATE phase=6 ')
         launch('late', '127.0.0.1:17793?Name=Late?Primary=0')
         wait('ER_DUST_CLIENT_PASS phase=6 ', 'late')
@@ -119,6 +135,10 @@ try:
                 view.update(passages.get(view['seed'],{}));view['image']=str(out / f'MiddleEasternPassages-Aerial-{view["seed"]}.png')
         good &= len(aerial)==4 and all(Path(view['image']).is_file() for view in report['aerial'])
         report['result']='PASS' if good else 'FAIL'
+    if args.architecture and args.render:
+        report['architecture_images']=[str(path) for path in architecture_images]
+        good &= all(path.is_file() for path in architecture_images)
+        report['result']='PASS' if good else 'FAIL'
     (out / (label + '-report.json')).write_text(json.dumps(report, indent=2) + '\n')
     raise SystemExit(0 if good else 1)
 except (RuntimeError, subprocess.TimeoutExpired) as error:
@@ -132,3 +152,4 @@ finally:
         except subprocess.TimeoutExpired: child.kill(); child.wait()
     for handle in handles: handle.close()
     if args.network:receipt.unlink(missing_ok=True)
+    if args.network and args.architecture:initial_receipt.unlink(missing_ok=True)

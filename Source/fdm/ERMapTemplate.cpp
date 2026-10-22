@@ -2,6 +2,7 @@
 #include "ERProceduralMap.h"
 #include "Engine/StaticMesh.h"
 #include "PhysicsEngine/BodySetup.h"
+#include "ERMeshCells.h"
 
 namespace ERProcedural
 {
@@ -32,6 +33,9 @@ bool BuildTemplate(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERP
     }
     if(T->Town.Enabled && (T->Variation.Enabled || !BuildDustTown(*T,C.Seed,Pieces,L,Patrol)))return false;
     if(T->Variation.Enabled && !BuildTemplateVariants(*T,C.Seed,Pieces,L,Patrol))return false;
+    const bool BreakArchitecture=Alleys && T->Town.DestructibleArchitecture;
+    if(BreakArchitecture)for(const auto& Mesh:T->Town.BuildingMeshes)
+        if(!T->Town.BuildingStructures.ContainsByPredicate([&](const auto& S){return S && S->Source==Mesh && S->GeometryCRC && S->Corners.Num()%3==0;}))return false;
     const FVector Size=L.ArenaSize,Half=Size*.5;
     L.Corridors.Add({FVector2D(-Half.X,-Half.Y),FVector2D(Half.X,Half.Y)});
     TArray<FBox> Volumes;TArray<FTransform> VolumeFrames;int32 Wall=0;
@@ -84,6 +88,25 @@ bool BuildTemplate(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERP
                 // Legacy axis-aligned paired pieces keep their old physical
                 // transform; only explicit town leaves rotate their boxes.
                 const FQuat R=Piece.RotationYaw!=0 ? PhysicalRotation:FQuat::Identity;
+                if(BreakArchitecture && Piece.MeshCollision && T->Town.BuildingMeshes.Contains(Piece.FixedMesh))continue;
+                const UERDestructibleMesh* Structure=nullptr;
+                if(BreakArchitecture && Piece.FixedMesh)for(const auto& S:T->Town.BuildingStructures)if(S && S->Source==Piece.FixedMesh){Structure=S;break;}
+                const bool Masonry=BreakArchitecture && !Piece.FixedMesh && !Piece.VisualOnly &&
+                    (Piece.FixedSurface==T->Town.WallSurface || (Piece.FixedSurface==T->Town.RoofSurface && Piece.Size.Z<=30));
+                if(Masonry || Structure)
+                {
+                    auto& P=L.Panels.AddDefaulted_GetRef();P.Id=Wall++*8;P.Material=EERBlockMaterial::Stone;
+                    P.Size=Structure ? Rotation.UnrotateVector(Piece.Size).GetAbs():Piece.Size;
+                    const FQuat Q=R*(Structure ? Rotation.Quaternion():FQuat::Identity);
+                    P.Transform=FTransform(Q,Center-Q.RotateVector(P.Size*.5));
+                    P.Cell=FVector(FERCellWorld::FitCell(P.Size.X,Cells.CellSize),FERCellWorld::FitCell(P.Size.Y,Cells.CellSize),FERCellWorld::FitCell(P.Size.Z,Cells.CellSize));
+                    // Authored town foundations are at 0 or +180cm, as for the imported shells.
+                    P.bAnchorBottom=P.Transform.GetLocation().Z<=180.1;
+                    P.Surface=Structure ? Structure->Source->GetMaterial(0):Piece.FixedSurface.Get();
+                    if(Structure){P.Skin=Structure->Corners;P.SkinCRC=Structure->GeometryCRC;P.SkinName=Structure->Source->GetFName();for(auto& V:P.Skin){V.Position*=P.Size;V.Normal=(V.Normal*Structure->Source->GetBoundingBox().GetSize()/P.Size).GetSafeNormal();}}
+                    else ERMeshCells::BoxSkin(P);
+                    continue;
+                }
                 L.FixedPieces.Add({FTransform(R,Center,Piece.Size/100),Piece.Material,Piece.FixedMesh,Rotation,false,Piece.VisualOnly,Piece.FixedSurface,Piece.PawnBarrier,Piece.MeshCollision});continue;
             }
             // Generate in an orthonormal local grid, then rotate the entire
@@ -111,6 +134,18 @@ bool BuildTemplate(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERP
             for(int32 P=First;P<L.Panels.Num();++P){L.Panels[P].Strength=Piece.Strength;L.Panels[P].Surface=Copy && Piece.MirroredCellSurface ? Piece.MirroredCellSurface.Get():Piece.CellSurface.Get();}
             ++Wall;
         }
+    }
+    if(BreakArchitecture)for(const auto& House:L.Houses)
+    {
+        const UERDestructibleMesh* Source=nullptr;for(const auto& S:T->Town.BuildingStructures)if(S && S->Source==House.Mesh){Source=S;break;}
+        if(!Source)return false;
+        auto& P=L.Panels.AddDefaulted_GetRef();P.Id=Wall++*8;
+        P.Material=House.Mesh->GetName().Contains(TEXT("Concrete")) ? EERBlockMaterial::Concrete:EERBlockMaterial::Brick;
+        P.Size=House.Frame.GetScale3D();
+        P.Transform=FTransform(House.Frame.GetRotation(),House.Frame.GetLocation()-House.Frame.GetRotation().RotateVector(FVector(P.Size.X*.5,P.Size.Y*.5,0)));
+        P.Cell={FERCellWorld::FitCell(P.Size.X,Cells.CellSize),FERCellWorld::FitCell(P.Size.Y,Cells.CellSize),FERCellWorld::FitCell(P.Size.Z,Cells.CellSize)};
+        P.bAnchorBottom=true;P.Surface=House.Mesh->GetMaterial(0);P.SkinCRC=Source->GeometryCRC;P.SkinName=House.Mesh->GetFName();
+        P.Skin=Source->Corners;for(auto& V:P.Skin){V.Position*=P.Size;V.Normal=(V.Normal*Source->Source->GetBoundingBox().GetSize()/P.Size).GetSafeNormal();}
     }
     // Fixed shed panels tile at <=5m to retain vendor detail and texel scale.
     auto Fixed=[&](FVector Center,FVector Size,FRotator Rotation=FRotator::ZeroRotator){L.FixedPieces.Add({FTransform(FQuat::Identity,Center,Size/100),Alleys ? EERBlockMaterial::Stone:EERBlockMaterial::Metal,T->ShellWallMesh,Rotation,false,false,Alleys ? T->Town.WallSurface.Get():nullptr});};

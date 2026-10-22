@@ -1,5 +1,22 @@
 # Respawn & Rage Unreal development
 
+Alley architecture revision6 (22 October, explicit follow-up): make the twelve
+Middle Eastern house shells, arches, internal masonry, low walls and added roof
+decks destructible. Preserve original LOD0 corners/UVs/normals, doors, windows
+and walkable interiors through baked UERDestructibleMesh assets and clipped
+runtime skins. Original art is immutable. Use the existing server-only5cm HP,
+blast, support graph and alive-mask snapshots. Cell protocol9 adds bounded
+zlib framing to large shell masks; never raise network bunch limits. Imported shells keep hollow
+triangle collision; authored masonry boxes keep solid aggregate collision.
+Foundations at0/+180cm anchor bottom rows; upper parts need actual cell support.
+Outer perimeter, terrain, tunnel retaining structure and solid stair foundations
+remain fixed. setup_alley_destruction.py backs up revision5, bakes13 owned
+structure assets and migrates only the own recipe. Validate native facade/roof
+cuts and support loss, real firearm/HE and pawn traversal/fall, initial/late
+peers, regeneration and Metal before/after captures. Do not claim a particular
+number of grenades opens an entire doorway: HP/calibration are unchanged.
+
+
 Team graffiti (22 October): supplied Alpha/Omega transparent PNGs belong to the
 private maps assets. Sparse wall decals fade toward the central30% exclusion;
 cosmetic RNG must not change geometry or collision. Rebuild/clear per map epoch

@@ -10,6 +10,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--industrial', action='store_true', help='Vote for the generated Central Building instead of Depot')
 parser.add_argument('--timeout', action='store_true', help='Also check the real 30-second no-server timeout')
 parser.add_argument('--settings', action='store_true', help='Check fullscreen defaults and preferences across two graphical launches')
+parser.add_argument('--focus', action='store_true', help='Graphical foreground fullscreen/menu/game mouse capture recovery probe')
 parser.add_argument('--gallery', action='store_true', help='Capture the menu pages using Metal')
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[1]
@@ -39,7 +40,18 @@ def wait_for(role, process, marker, timeout=75):
         time.sleep(.2)
 
 try:
-    if args.settings:
+    if args.focus:
+        # Foreground activation is part of this test; unattended/multiprocess
+        # launches deliberately suppress it on macOS.
+        common.remove('-unattended')
+        common.remove('-Multiprocess')
+        user = 'focus-' + str(time.time_ns())
+        process = launch('focus', ['-ERWindowInputProbe'], user=user)
+        process.wait(timeout=90)
+        output = log('focus')
+        print('\n'.join(line for line in output.splitlines() if 'ER_LOBBY_' in line or 'ER_WINDOW_INPUT' in line), flush=True)
+        assert process.returncode == 0 and 'ER_WINDOW_INPUT_COMPLETE result=PASS' in output
+    elif args.settings:
         # Fresh isolated user settings ensure the default is actually tested.
         import shutil
         shutil.rmtree(out / 'user-settings', ignore_errors=True)

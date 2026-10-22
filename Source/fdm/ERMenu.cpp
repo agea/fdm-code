@@ -94,7 +94,9 @@ void AERPlayerController::ShowMenu(bool bShow)
     if (MenuWidget.IsValid()) { GetWorld()->GetGameViewport()->RemoveViewportWidgetContent(MenuWidget.ToSharedRef()); MenuWidget.Reset(); }
     if (MenuPreview) { MenuPreview->Destroy(); MenuPreview = nullptr; }
     PreviewBrush.Reset();
-    if (!bShow) { SetInputMode(FInputModeGameOnly()); return; }
+    MenuFocusWidget.Reset();
+    bPendingWindowInput = true;
+    if (!bShow) { ApplyWindowInputMode(); return; }
     auto* GI = GetGameInstance<UERGameInstance>(); if (!GI) return;
     const bool Main = IsMenuLevel();
     const bool Lobby = bShowingLobby;
@@ -373,5 +375,6 @@ void AERPlayerController::ShowMenu(bool bShow)
             .Visibility(EVisibility::HitTestInvisible)[Version]];
     MenuWidget = Overlay;
     GetWorld()->GetGameViewport()->AddViewportWidgetContent(MenuWidget.ToSharedRef(), 20);
-    SetInputMode(FInputModeGameAndUI().SetWidgetToFocus(Focus).SetHideCursorDuringCapture(false));
+    MenuFocusWidget = Focus;
+    ApplyWindowInputMode();
 }

@@ -23,7 +23,7 @@ public:
     double BuildMs = 0, LastMs = 0;
     int32 LastRelabelled = 0, LastComponents = 0, LastWork = 0;
 private:
-    struct FLabels { uint32 Revision = MAX_uint32; int32 Count = 0; TArray<int32> Label; TArray<uint8> Anchored; };
+    struct FLabels { uint32 Revision = MAX_uint32; int32 Count = 0; bool Uniform=false; TArray<int32> Label; TArray<FIntPoint> Sparse; TArray<uint8> Anchored; int32 At(int32 Index) const; };
     // Two chunks that can touch: grid neighbours (Axis 0/2) or contact partners (Axis 3).
     struct FPair { int32 A = 0, B = 0, Axis = 0; uint32 RevA = MAX_uint32, RevB = MAX_uint32; TArray<FIntPoint> Contacts; TArray<FIntPoint> Edges; };
     TArray<FLabels> Labels;

@@ -1,5 +1,6 @@
 #include "ERCellSupport.h"
 #include "HAL/PlatformTime.h"
+#include "Algo/BinarySearch.h"
 #include "ProfilingDebugging/CpuProfilerTrace.h"
 
 namespace
@@ -10,6 +11,14 @@ int32 Find(TArray<int32>& Parent, int32 X)
     while (Parent[X] != X) { Parent[X] = Parent[Parent[X]]; X = Parent[X]; }
     return X;
 }
+}
+
+int32 FERCellSupport::FLabels::At(int32 I) const
+{
+    if(Uniform)return 0;
+    if(!Label.IsEmpty())return Label[I];
+    const int32 K=Algo::LowerBoundBy(Sparse,I,[](FIntPoint P){return P.X;});
+    return Sparse.IsValidIndex(K) && Sparse[K].X==I ? Sparse[K].Y:INDEX_NONE;
 }
 
 void FERCellSupport::Reset()
@@ -93,7 +102,13 @@ void FERCellSupport::Relabel(const FERCellWorld& World, int32 Index)
     const auto& P = World.GetPanels()[C.Panel];
     auto& L = Labels[Index];
     const int32 NY = P.Dims.Y, Bits = C.SX * C.SZ * NY;
-    L.Revision = C.Revision; L.Count = 0; L.Label.Init(INDEX_NONE, Bits); L.Anchored.Reset();
+    L.Revision=C.Revision;L.Count=0;L.Uniform=C.AliveCount==Bits;L.Label.Reset();L.Sparse.Reset();L.Anchored.Reset();
+    if(L.Uniform)
+    {
+        L.Count=1;L.Anchored.Add(P.bAnchored || P.bIndestructible || ((P.bAnchorBottom || GroundPanel[C.Panel]) && C.Z0==0));++LastRelabelled;return;
+    }
+    if(!C.AliveCount){L.Label.Empty();L.Sparse.Empty();++LastRelabelled;return;}
+    L.Label.Init(INDEX_NONE,Bits);
     TArray<int32> Stack;
     for (int32 Seed = 0; Seed < Bits; ++Seed)
     {
@@ -120,6 +135,7 @@ void FERCellSupport::Relabel(const FERCellWorld& World, int32 Index)
         }
         L.Anchored.Add(bAnchored);
     }
+    if(!P.Skin.IsEmpty()){L.Sparse.Reserve(C.AliveCount);for(int32 I=0;I<Bits;++I)if(L.Label[I]!=INDEX_NONE)L.Sparse.Add({I,L.Label[I]});L.Label.Empty();}
     ++LastRelabelled;
 }
 
@@ -127,7 +143,7 @@ void FERCellSupport::RefreshEdges(const FERCellWorld& World, FPair& Pair)
 {
     const auto& LA = Labels[Pair.A], &LB = Labels[Pair.B];
     TSet<FIntPoint> Unique;
-    auto Add = [&](int32 IA, int32 IB) { const int32 A = LA.Label[IA], B = LB.Label[IB]; if (A != INDEX_NONE && B != INDEX_NONE) Unique.Add(FIntPoint(A, B)); };
+    auto Add = [&](int32 IA, int32 IB) { const int32 A = LA.At(IA), B = LB.At(IB); if (A != INDEX_NONE && B != INDEX_NONE) Unique.Add(FIntPoint(A, B)); };
     const auto& KA = World.GetChunks()[Pair.A], &KB = World.GetChunks()[Pair.B];
     const int32 NY = World.GetPanels()[KA.Panel].Dims.Y;
     if (Pair.Axis == 0) for (int32 Z = 0; Z < KA.SZ; ++Z) for (int32 Y = 0; Y < NY; ++Y) Add(FERCellWorld::CellIndex(KA, KA.SX - 1, Y, Z), FERCellWorld::CellIndex(KB, 0, Y, Z));
@@ -172,11 +188,14 @@ void FERCellSupport::Evaluate(const FERCellWorld& World, TArray<TArray<FERCellId
         for (int32 I = 0; I < L.Count && !bAny; ++I) bAny = !Supported[Find(Parent, Offset[C] + I)];
         if (!bAny) continue;
         const auto& K = Chunks[C];
-        for (int32 I = 0; I < L.Label.Num(); ++I)
+        const int32 Items=L.Uniform ? K.SX*K.SZ*World.GetPanels()[K.Panel].Dims.Y:L.Label.IsEmpty() ? L.Sparse.Num():L.Label.Num();
+        for(int32 Item=0;Item<Items;++Item)
         {
-            if (L.Label[I] == INDEX_NONE) continue;
-            const int32 Root = Find(Parent, Offset[C] + L.Label[I]);
-            if (Supported[Root]) continue;
+            const int32 I=!L.Uniform && L.Label.IsEmpty() ? L.Sparse[Item].X:Item;
+            const int32 Label=L.Uniform ? 0:L.Label.IsEmpty() ? L.Sparse[Item].Y:L.Label[I];
+            if(Label==INDEX_NONE)continue;
+            const int32 Root=Find(Parent,Offset[C]+Label);
+            if(Supported[Root])continue;
             int32* Group = GroupOfRoot.Find(Root);
             if (!Group) { Group = &GroupOfRoot.Add(Root, Unsupported.Num()); Unsupported.AddDefaulted(); }
             const int32 X = I % K.SX, Z = (I / K.SX) % K.SZ, Y = I / (K.SX * K.SZ);
@@ -191,7 +210,7 @@ void FERCellSupport::Evaluate(const FERCellWorld& World, TArray<TArray<FERCellId
 SIZE_T FERCellSupport::GetAllocatedBytes() const
 {
     SIZE_T Bytes = Pairs.GetAllocatedSize() + Labels.GetAllocatedSize() + GroundPanel.GetAllocatedSize();
-    for (const auto& L : Labels) Bytes += L.Label.GetAllocatedSize() + L.Anchored.GetAllocatedSize();
+    for (const auto& L : Labels) Bytes += L.Label.GetAllocatedSize() + L.Sparse.GetAllocatedSize() + L.Anchored.GetAllocatedSize();
     for (const auto& P : Pairs) Bytes += P.Contacts.GetAllocatedSize() + P.Edges.GetAllocatedSize();
     return Bytes;
 }

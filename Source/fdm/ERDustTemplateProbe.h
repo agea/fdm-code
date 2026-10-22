@@ -14,6 +14,14 @@ public:
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& Out) const override;
 private:
     int32 Phase=0;
+    int32 ArchitectureStage=0,WallPanel=INDEX_NONE,RoofPanel=INDEX_NONE;
+    int64 BeforeArchitectureDetach=0;
+    FVector WallPoint=FVector::ZeroVector,WallNormal=FVector::ZeroVector;
+    float WallFloor=0;
+    UPROPERTY(Replicated) FVector ArchitectureOutside=FVector::ZeroVector;
+    UPROPERTY(Replicated) FVector ArchitectureInside=FVector::ZeroVector;
+    UPROPERTY(Replicated) FVector ArchitectureRoof=FVector::ZeroVector;
+    void TickArchitecture(class AERProceduralMap* Map,class AERCharacter* Character,class AERPlayerController* Controller);
     UPROPERTY(Replicated) int32 SnapshotPhase=0;
     UPROPERTY(Replicated) uint32 ExpectedDigest=0;
     int32 SeenPhase=0;

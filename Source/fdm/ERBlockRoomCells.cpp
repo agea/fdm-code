@@ -2,6 +2,7 @@
 // (visible faces only) and one aggregate-box body per dirty chunk.
 #include "ERBlockRoom.h"
 #include "ERCellMesher.h"
+#include "ERMeshCells.h"
 #include "ERCellNetShard.h"
 #include "ERPlayerController.h"
 #include "ERProceduralMap.h"
@@ -26,6 +27,9 @@ void AERBlockRoom::ClearCells()
         // Free the deterministic, net-addressable name before a regeneration reuses it.
         Mesh->Rename(*MakeUniqueObjectName(this, UDynamicMeshComponent::StaticClass(), TEXT("DeadCells")).ToString(), nullptr, REN_DontCreateRedirectors | REN_NonTransactional);
     }
+    for(auto& Entry:SkinMeshes)if(auto* Mesh=Entry.Value.Get())
+    {RemoveInstanceComponent(Mesh);Mesh->DestroyComponent();Mesh->Rename(*MakeUniqueObjectName(this,UDynamicMeshComponent::StaticClass(),TEXT("DeadSkin")).ToString(),nullptr,REN_DontCreateRedirectors|REN_NonTransactional);}
+    SkinMeshes.Reset();SkinComponentPanels.Reset();DirtySkinPanels.Reset();
     CellMeshes.Reset(); CellComponentChunks.Reset(); ChunkQuads.Reset(); ChunkBoxes.Reset(); AppliedChunkRevisions.Reset();
 }
 
@@ -36,6 +40,7 @@ void AERBlockRoom::BuildCellComponents()
     for (int32 Index = 0; Index < Chunks.Num(); ++Index)
     {
         const auto& Panel = CellWorld.GetPanels()[Chunks[Index].Panel];
+        if(!Panel.Skin.IsEmpty()){CellMeshes.Add(nullptr);DirtySkinPanels.Add(Chunks[Index].Panel);continue;}
         auto* Mesh = NewObject<UDynamicMeshComponent>(this, *FString::Printf(TEXT("Cells_P%d_C%d"), Panel.Id, Index));
         AddInstanceComponent(Mesh);
         Mesh->SetMobility(EComponentMobility::Movable);
@@ -55,11 +60,14 @@ void AERBlockRoom::BuildCellComponents()
         CellMeshes.Add(Mesh); CellComponentChunks.Add(Mesh, Index);
         RebuildCellChunk(Index);
     }
+    FlushSkinMeshes();
 }
 
 void AERBlockRoom::RebuildCellChunk(int32 Index)
 {
     TRACE_CPUPROFILER_EVENT_SCOPE(ERCell_RebuildChunk);
+    const int32 SkinPanelIndex=CellWorld.GetChunks()[Index].Panel;
+    if(!CellWorld.GetPanels()[SkinPanelIndex].Skin.IsEmpty()){DirtySkinPanels.Add(SkinPanelIndex);return;}
     auto* Component = CellMeshes.IsValidIndex(Index) ? CellMeshes[Index].Get() : nullptr;
     if (!Component) return;
     const auto& Panel = CellWorld.GetPanels()[CellWorld.GetChunks()[Index].Panel];
@@ -111,13 +119,49 @@ void AERBlockRoom::RebuildCellChunk(int32 Index)
     ChunkQuads[Index] = Quads.Num(); ChunkBoxes[Index] = Boxes.Num();
 }
 
+void AERBlockRoom::FlushSkinMeshes()
+{
+    auto Order=DirtySkinPanels.Array();Order.Sort();DirtySkinPanels.Reset();
+    for(int32 SkinPanelIndex:Order)
+    {
+        const auto& P=CellWorld.GetPanels()[SkinPanelIndex];auto* Mesh=SkinMeshes.FindRef(SkinPanelIndex).Get();
+        if(!Mesh)
+        {
+            Mesh=NewObject<UDynamicMeshComponent>(this,*FString::Printf(TEXT("Cells_Skin_P%d"),P.Id));AddInstanceComponent(Mesh);
+            Mesh->SetMobility(EComponentMobility::Movable);Mesh->SetNetAddressable();Mesh->SetupAttachment(RootComponent);Mesh->SetRelativeTransform(P.Transform);
+            Mesh->SetDeferredCollisionUpdatesEnabled(true,false);Mesh->SetTangentsType(EDynamicMeshComponentTangentsMode::AutoCalculated);
+            Mesh->bEnableComplexCollision=!P.bSolidSkin;Mesh->CollisionType=P.bSolidSkin ? CTF_UseSimpleAsComplex:CTF_UseComplexAsSimple;Mesh->SetCollisionProfileName(TEXT("BlockAll"));Mesh->SetCanEverAffectNavigation(false);
+            Mesh->ComponentTags.Add(TEXT("ERDestructibleShell"));Mesh->ComponentTags.Add(P.SkinName);
+            Mesh->SetMaterial(0,P.Surface ? P.Surface:MaterialCatalog->Find(P.Material)->Surface.Get());Mesh->SetMaterial(1,MaterialCatalog->Find(P.Material)->Surface);
+            Mesh->RegisterComponent();SkinMeshes.Add(SkinPanelIndex,Mesh);SkinComponentPanels.Add(Mesh,SkinPanelIndex);
+        }
+        const double Start=FPlatformTime::Seconds();FDynamicMesh3 Geometry;ERMeshCells::Build(CellWorld,SkinPanelIndex,Geometry);
+        const int32 Triangles=Geometry.TriangleCount();const bool Empty=Triangles==0;
+        RebuildProfile.Quads+=FMath::DivideAndRoundUp(Triangles,2);
+        Mesh->SetMesh(MoveTemp(Geometry));const double Built=FPlatformTime::Seconds();
+        if(P.bSolidSkin)
+        {
+            bool Intact=true;for(int32 C=P.FirstChunk;C<P.FirstChunk+P.ChunksX*P.ChunksZ;++C)Intact&=CellWorld.GetChunks()[C].Revision==0;
+            TArray<FBox> Boxes,Chunk;
+            if(Intact)Boxes.Add(FBox(FVector::ZeroVector,P.Size));
+            else for(int32 C=P.FirstChunk;C<P.FirstChunk+P.ChunksX*P.ChunksZ;++C){ERCellMesh::BuildBoxes(CellWorld,C,Chunk);Boxes.Append(Chunk);}
+            FKAggregateGeom Shapes;for(const auto& Box:Boxes){const auto S=Box.GetSize();auto& E=Shapes.BoxElems.Emplace_GetRef(S.X,S.Y,S.Z);E.Center=Box.GetCenter();}
+            RebuildProfile.Boxes+=Boxes.Num();Mesh->SetSimpleCollisionShapes(Shapes,true);
+        }
+        else {Mesh->GetBodySetup()->bDoubleSidedGeometry=true;Mesh->UpdateCollision(false);}
+        Mesh->SetCollisionEnabled(Empty || (!HasAuthority() && !bMapReady) ? ECollisionEnabled::NoCollision:ECollisionEnabled::QueryAndPhysics);
+        RebuildProfile.MeshMs+=(Built-Start)*1000;RebuildProfile.CollisionMs+=(FPlatformTime::Seconds()-Built)*1000;++RebuildProfile.Groups;
+    }
+}
+
 bool AERBlockRoom::ResolveCell(const FHitResult& Hit, FERCellId& Id) const
 {
     if (Hit.GetActor() != this) return false;
     const int32* Chunk = CellComponentChunks.Find(Hit.GetComponent());
-    if (!Chunk || !CellWorld.GetChunks().IsValidIndex(*Chunk)) return false;
+    const int32* Skin=SkinComponentPanels.Find(Hit.GetComponent());
+    if ((!Chunk || !CellWorld.GetChunks().IsValidIndex(*Chunk)) && !Skin) return false;
     const FTransform& Actor = GetActorTransform();
-    return CellWorld.LocateCell(CellWorld.GetChunks()[*Chunk].Panel, Actor.InverseTransformPosition(Hit.ImpactPoint),
+    return CellWorld.LocateCell(Skin ? *Skin:CellWorld.GetChunks()[*Chunk].Panel, Actor.InverseTransformPosition(Hit.ImpactPoint),
         Actor.InverseTransformVectorNoScale(Hit.ImpactNormal), Id);
 }
 
@@ -154,6 +198,7 @@ FERBlockBatchResult AERBlockRoom::ApplyCellBatch(const TMap<FERCellId, float>& D
     const auto Batch = CellWorld.ApplyDamage(Damage);
     UpdateProfile.LogicalMs = (FPlatformTime::Seconds() - Start) * 1000;
     for (int32 Chunk : Batch.DirtyChunks) RebuildCellChunk(Chunk);
+    FlushSkinMeshes();
     UpdateProfile.MeshMs = RebuildProfile.MeshMs; UpdateProfile.CollisionMs = RebuildProfile.CollisionMs;
     UpdateProfile.Quads = RebuildProfile.Quads; UpdateProfile.Boxes = RebuildProfile.Boxes; UpdateProfile.Groups = RebuildProfile.Groups;
     Result.Damaged = Batch.Damaged; Result.Destroyed = Batch.Destroyed; Result.GroupsRebuilt = Batch.DirtyChunks.Num();
@@ -186,7 +231,14 @@ AERBlockRoom::FERCellShotStep AERBlockRoom::ShootCells(const FHitResult& Hit, co
     CellWorld.Traverse(Panel, Actor.InverseTransformPosition(Start), Actor.InverseTransformPosition(Start + Ray * Length), [&](const FIntVector& C, double T0, double T1)
     {
         ExitT = T1;
-        if (!CellWorld.IsAlive(Panel, C.X, C.Y, C.Z)) { bInside = false; return true; }
+        if (!CellWorld.IsAlive(Panel, C.X, C.Y, C.Z))
+        {
+            // A house bounds an entire room. Re-enter the world trace as soon
+            // as the ray leaves this material run, so an interior pawn/object
+            // is considered before another facade of the same house.
+            if(bInside && !P.Skin.IsEmpty()){ExitT=T0;return false;}
+            bInside=false;return true;
+        }
         const bool bEnter = !bInside;
         if (bEnter && Step.Runs >= RunsLeft) { Step.bLimited = bStopped = true; ExitT = T0; return false; }
         if (bEnter) { bInside = true; ++Step.Runs; }
@@ -315,16 +367,33 @@ void AERBlockRoom::CollectCellExplosion(const FVector& Origin, const FERBlockExp
 void AERBlockRoom::GetCellComponents(TArray<UPrimitiveComponent*>& Out) const
 {
     for (const auto& Mesh : CellMeshes) if (Mesh) Out.Add(Mesh);
+    for(const auto& Pair:SkinMeshes)if(Pair.Value)Out.Add(Pair.Value);
 }
 
 bool AERBlockRoom::ValidateCells() const
 {
     const auto& Chunks = CellWorld.GetChunks();
-    if (CellMeshes.Num() != Chunks.Num() || CellComponentChunks.Num() != Chunks.Num()) return false;
-    TArray<ERCellMesh::FQuad> Quads; TArray<FBox> Boxes;
+    if (CellMeshes.Num() != Chunks.Num()) return false;
+    TArray<ERCellMesh::FQuad> Quads; TArray<FBox> Boxes;TSet<int32> CheckedSkins;int32 Ordinary=0;
+    if(SkinMeshes.Num()!=SkinComponentPanels.Num())return false;
     for (int32 I = 0; I < Chunks.Num(); ++I)
     {
-        const auto* Mesh = CellMeshes[I].Get();
+        const auto& P=CellWorld.GetPanels()[Chunks[I].Panel];
+        if(!P.Skin.IsEmpty())
+        {
+            const auto* Found=SkinMeshes.Find(Chunks[I].Panel);if(!Found || !*Found || CellMeshes[I])return false;
+            const auto* Skin=Found->Get();const auto* SkinPanelIndex=SkinComponentPanels.Find(Skin);
+            if(!Skin->IsRegistered() || !SkinPanelIndex || *SkinPanelIndex!=Chunks[I].Panel || !Skin->GetRelativeTransform().Equals(P.Transform,1.e-3))return false;
+            if(!CheckedSkins.Contains(Chunks[I].Panel))
+            {
+                CheckedSkins.Add(Chunks[I].Panel);int32 Triangles=0;Skin->ProcessMesh([&](const FDynamicMesh3& Mesh){Triangles=Mesh.TriangleCount();});
+                bool Intact=true;for(int32 C=P.FirstChunk;C<P.FirstChunk+P.ChunksX*P.ChunksZ;++C)Intact&=Chunks[C].Revision==0;
+                if(Intact && Triangles!=P.Skin.Num()/3)return false;
+                if(Triangles && Skin->GetCollisionEnabled()!=ECollisionEnabled::NoCollision && !Skin->GetBodyInstance()->IsValidBodyInstance())return false;
+            }
+            continue;
+        }
+        ++Ordinary;const auto* Mesh = CellMeshes[I].Get();
         const int32* Index = CellComponentChunks.Find(Mesh);
         if (!Mesh || !Mesh->IsRegistered() || !Index || *Index != I) return false;
         if (!Mesh->GetRelativeTransform().Equals(CellWorld.GetPanels()[Chunks[I].Panel].Transform, 1.e-3)) return false;
@@ -335,7 +404,7 @@ bool AERBlockRoom::ValidateCells() const
             Mesh->GetSimpleCollisionShapes().BoxElems.Num() != Boxes.Num()) return false;
         if (!Boxes.IsEmpty() && Mesh->GetCollisionEnabled() != ECollisionEnabled::NoCollision && !Mesh->GetBodyInstance()->IsValidBodyInstance()) return false;
     }
-    return true;
+    return Ordinary==CellComponentChunks.Num() && CheckedSkins.Num()==SkinMeshes.Num();
 }
 
 void AERBlockRoom::SpawnCellImpact(EERBlockMaterial Material, const FVector& Position, const FVector& Normal)
@@ -355,7 +424,7 @@ void AERBlockRoom::PublishCellGeneration()
     for (auto& S : AuthorityShards) if (S.IsValid()) S->Destroy();
     AuthorityShards.Empty();
     const uint32 Epoch = Network.Epoch + 1;
-    Network = {}; Network.Epoch = Epoch ? Epoch : 1; Network.Protocol = 8; Network.Cells = true; Network.CellSettings = CellSettings;
+    Network = {}; Network.Epoch = Epoch ? Epoch : 1; Network.Protocol = 9; Network.Cells = true; Network.CellSettings = CellSettings;
     Network.Blocks = Config; Network.BlockCount = int32(CellWorld.GetCellCount()); Network.LayoutDigest = GetLayoutDigest(); Network.Sequence = 1;
     if (auto* Map = Cast<AERProceduralMap>(this)) { Network.Procedural = true; Network.Layout = Map->LayoutConfig; Network.Ceilings = Map->bCeilings; }
     // Untouched chunks never travel: shards start empty and only carry modified masks.
@@ -395,7 +464,9 @@ void AERBlockRoom::PublishCellChanges(const TArray<int32>& Changed)
 bool AERBlockRoom::OnRepCellDescriptor()
 {
     auto* Map = Cast<AERProceduralMap>(this);
-    if (Network.Protocol != 8 || !Network.Cells || Network.BlockCount <= 0 || Network.BlockCount > 8000000 || Network.Procedural != (Map != nullptr))
+    const auto* Template=Network.Procedural ? Network.Layout.TemplateAsset.Get():nullptr;
+    const bool Architecture=Template && Template->Archetype==EERMapArchetype::MiddleEasternAlleys && Template->Town.DestructibleArchitecture;
+    if (Network.Protocol != 9 || !Network.Cells || Network.BlockCount <= 0 || Network.BlockCount > (Architecture ? 96000000:8000000) || Network.Procedural != (Map != nullptr))
     { bNetworkError = true; UE_LOG(LogTemp, Error, TEXT("ER_BLOCK_NET_INCOMPATIBLE descriptor")); return false; }
     Config = Network.Blocks; CellSettings = Network.CellSettings;
     if (Map) { Map->LayoutConfig = Network.Layout; Map->bCeilings = Network.Ceilings; }
@@ -446,6 +517,7 @@ void AERBlockRoom::TryApplyCellNetwork()
         if (Item.Chunk == Entry.Key) AppliedChunkRevisions[Entry.Key] = Item.Revision;
     RebuildProfile = {};
     for (int32 Chunk : Dirty) RebuildCellChunk(Chunk);
+    FlushSkinMeshes();
     for (int32 I = 0; I < Network.PageVersions.Num(); ++I) AppliedPageVersions[I] = Network.PageVersions[I];
     AppliedSequence = Network.Sequence;
     if (!bMapReady) { bMapReady = true; SetMapCollision(true); }

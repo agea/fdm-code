@@ -105,6 +105,8 @@ struct FERDustTownVariation
     UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="0",ClampMax="2")) int32 MinCentralWalls=1;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="0",ClampMax="2")) int32 MaxCentralWalls=1;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) bool LowCoverAndUnderpass=false;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) bool DestructibleArchitecture=false;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<TObjectPtr<class UERDestructibleMesh>> BuildingStructures;
 };
 
 // Ranges and art palette belong to the template, never to runtime file paths.

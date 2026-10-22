@@ -14,6 +14,9 @@
 #include "Engine/Engine.h"
 #include "GameFramework/GameUserSettings.h"
 #include "Misc/ConfigCacheIni.h"
+#include "Engine/GameViewportClient.h"
+#include "Framework/Application/SlateApplication.h"
+#include "Widgets/Input/SEditableTextBox.h"
 
 AERLobbyProbe::AERLobbyProbe() { bReplicates = true; bAlwaysRelevant = true; PrimaryActorTick.bCanEverTick = true; }
 void AERLobbyProbe::Check(bool Value, const TCHAR* Label)
@@ -28,6 +31,54 @@ void AERLobbyProbe::Tick(float DeltaTime)
     auto* GI = GetGameInstance<UERGameInstance>();
     auto* PC = Cast<AERPlayerController>(GetWorld()->GetFirstPlayerController());
     if (!GI || !PC || !PC->IsLocalController()) return;
+    if (FParse::Param(FCommandLine::Get(), TEXT("ERWindowInputProbe")))
+    {
+        const double Now = FPlatformTime::Seconds();
+        if (GetWorld()->GetTimeSeconds() < 3 || Now < Deadline) return;
+        auto* Viewport = GetWorld()->GetGameViewport();
+        auto& Slate = FSlateApplication::Get();
+        if (Phase == 0)
+        {
+            Check(PC->bInputWindowActive && !PC->bPendingWindowInput, TEXT("startup_foreground_input_settled"));
+            Check(PC->bMenuOpen && PC->bShowMouseCursor && !Viewport->Viewport->HasMouseCapture(), TEXT("startup_menu_releases_mouse"));
+            PC->ERMenu(5);
+            Phase = 1; Deadline = Now + 1;
+        }
+        else if (Phase == 1)
+        {
+            Check(PC->NameBox.IsValid(), TEXT("settings_name_widget_available"));
+            if (PC->NameBox.IsValid()) Slate.SetKeyboardFocus(PC->NameBox);
+            Phase = 2; Deadline = Now + 1;
+        }
+        else if (Phase == 2)
+        {
+            Check(PC->NameBox.IsValid() && (PC->NameBox->HasKeyboardFocus() || PC->NameBox->HasFocusedDescendants()), TEXT("stable_menu_preserves_text_focus"));
+            PC->ShowMenu(false);
+            Phase = 3; Deadline = Now + 1;
+        }
+        else if (Phase == 3)
+        {
+            Check(!PC->bShowMouseCursor && Viewport->Viewport->HasMouseCapture(), TEXT("game_captures_mouse_without_click"));
+            Slate.ReleaseAllPointerCapture();
+            Check(!Viewport->Viewport->HasMouseCapture(), TEXT("simulate_lost_game_capture"));
+            Phase = 4; Deadline = Now + 1;
+        }
+        else if (Phase == 4)
+        {
+            Check(Viewport->Viewport->HasMouseCapture(), TEXT("game_recovers_lost_capture_without_click"));
+            PC->ShowMenu(true);
+            PC->ApplyDisplaySize(60);
+            Phase = 5; Deadline = Now + 2;
+        }
+        else
+        {
+            Check(PC->bInputWindowActive && !PC->bPendingWindowInput && PC->bShowMouseCursor &&
+                !Viewport->Viewport->HasMouseCapture(), TEXT("resized_menu_releases_mouse"));
+            UE_LOG(LogTemp, Display, TEXT("ER_WINDOW_INPUT_COMPLETE result=%s"), Failed ? TEXT("FAIL") : TEXT("PASS"));
+            FPlatformMisc::RequestExitWithStatus(false, Failed ? 1 : 0);
+        }
+        return;
+    }
     if (FParse::Param(FCommandLine::Get(), TEXT("EROnlineUnconfiguredProbe")))
     {
         if (GetWorld()->GetTimeSeconds() < 2 || Phase) return;

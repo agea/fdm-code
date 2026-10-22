@@ -1,6 +1,8 @@
 #include "ERCellWorld.h"
 #include "Materials/MaterialInterface.h"
 #include "Algo/BinarySearch.h"
+#include "ERMeshCells.h"
+#include "Misc/Compression.h"
 
 namespace
 {
@@ -59,6 +61,7 @@ bool FERCellWorld::Build(const TArray<FERCellPanelDesc>& Desc, const FERCellSett
     if (S.ChunkCells < 4 || S.ChunkCells > 64 || Desc.IsEmpty() || Desc.Num() > 4096 || !(S.MinCollisionThickness > 0)) { Error = TEXT("invalid cell settings or panel count"); return false; }
     TArray<FERCellPanel> NewPanels; TArray<FERCellChunk> NewChunks; TSet<int32> Ids;
     int64 Cells = 0, Voids = 0;
+    const bool HasSkins=Desc.ContainsByPredicate([](const auto& P){return !P.Skin.IsEmpty();});
     uint32 H = HashCombineFast(7, ::GetTypeHash(S.ChunkCells));
     auto Mix = [&H](double V) { H = HashCombineFast(H, ::GetTypeHash(FMath::RoundToInt64(V * 1000))); };
     for (const auto& D : Desc)
@@ -73,9 +76,10 @@ bool FERCellWorld::Build(const TArray<FERCellPanelDesc>& Desc, const FERCellSett
             N[A] = FMath::RoundToInt(R);
             if (N[A] < 1 || N[A] > 100000 || FMath::Abs(R - N[A]) > 1.e-3) { Error = FString::Printf(TEXT("panel %d size is not a whole number of cells"), D.Id); return false; }
         }
-        if ((D.bPane && N != FIntVector(1)) || N.Y > 256) { Error = FString::Printf(TEXT("invalid panel %d depth"), D.Id); return false; }
+        if ((D.bPane && N != FIntVector(1)) || N.Y > (D.Skin.IsEmpty() ? 256:1024)) { Error = FString::Printf(TEXT("invalid panel %d depth"), D.Id); return false; }
         Cells += int64(N.X) * N.Y * N.Z;
-        if (Cells > MaxCells) { Error = TEXT("cell budget exceeded"); return false; }
+        if (Cells > (HasSkins ? 512000000:MaxCells)) { Error = TEXT("cell storage budget exceeded"); return false; }
+        if(!D.Skin.IsEmpty() && (D.Skin.Num()%3 || !D.SkinCRC || D.Skin.Num()>30000)){Error=TEXT("invalid mesh skin");return false;}
         auto& P = NewPanels.AddDefaulted_GetRef();
         static_cast<FERCellPanelDesc&>(P) = D; P.Dims = N;
         P.Bounds = FBox(FVector::ZeroVector, D.Size).TransformBy(D.Transform);
@@ -89,9 +93,9 @@ bool FERCellWorld::Build(const TArray<FERCellPanelDesc>& Desc, const FERCellSett
                 C.Panel = NewPanels.Num() - 1; C.X0 = CX * S.ChunkCells; C.Z0 = CZ * S.ChunkCells;
                 C.SX = FMath::Min(S.ChunkCells, N.X - C.X0); C.SZ = FMath::Min(S.ChunkCells, N.Z - C.Z0);
                 const int32 Bits = C.SX * C.SZ * N.Y;
-                C.Alive.Init(~0ull, FMath::DivideAndRoundUp(Bits, 64));
-                if (Bits & 63) C.Alive.Last() = (1ull << (Bits & 63)) - 1;
-                C.AliveCount = Bits;
+                C.Alive.Init(D.Skin.IsEmpty() || D.bSolidSkin ? ~0ull:0ull, FMath::DivideAndRoundUp(Bits, 64));
+                if ((D.Skin.IsEmpty() || D.bSolidSkin) && (Bits & 63)) C.Alive.Last() = (1ull << (Bits & 63)) - 1;
+                C.AliveCount = D.Skin.IsEmpty() || D.bSolidSkin ? Bits:0;
                 for (const FBox2D& Hole : D.Holes)
                 {
                     // Cells whose centre lies inside the opening never exist.
@@ -105,6 +109,19 @@ bool FERCellWorld::Build(const TArray<FERCellPanelDesc>& Desc, const FERCellSett
                 }
                 C.Bounds = FBox(FVector(C.X0 * D.Cell.X, 0, C.Z0 * D.Cell.Z), FVector((C.X0 + C.SX) * D.Cell.X, D.Size.Y, (C.Z0 + C.SZ) * D.Cell.Z)).TransformBy(D.Transform);
             }
+        if(!D.Skin.IsEmpty())
+        {
+            if(!D.bSolidSkin)ERMeshCells::Rasterize(P,[&](FIntVector V)
+            {
+                auto& C=NewChunks[P.FirstChunk+(V.Z/S.ChunkCells)*P.ChunksX+V.X/S.ChunkCells];
+                const int32 I=CellIndex(C,V.X-C.X0,V.Y,V.Z-C.Z0);
+                if(!TestBit(C.Alive,I)){C.Alive[I>>6]|=1ull<<(I&63);++C.AliveCount;}
+            });
+            for(int32 CI=P.FirstChunk;CI<NewChunks.Num();++CI)
+            {auto& C=NewChunks[CI];C.InitialAlive=C.Alive;Voids+=int64(C.SX)*C.SZ*N.Y-C.AliveCount;}
+            H=HashCombineFast(H,D.SkinCRC);H=HashCombineFast(H,uint32(D.bSolidSkin));H=HashCombineFast(H,FCrc::StrCrc32(*D.SkinName.ToString()));
+        }
+        if(Cells-Voids>(HasSkins ? 96000000:MaxCells)){Error=TEXT("occupied cell budget exceeded");return false;}
         H = HashCombineFast(H, ::GetTypeHash(D.Id)); H = HashCombineFast(H, ::GetTypeHash(uint8(D.Material)));Mix(D.Strength);
         if(D.Surface)H=HashCombineFast(H,FCrc::StrCrc32(*D.Surface->GetPathName()));
         H = HashCombineFast(H, ::GetTypeHash(uint32(D.bPane) | (uint32(D.bIndestructible) << 1) | (uint32(D.bAnchorBottom) << 2) | (uint32(D.bAnchored) << 3)));
@@ -137,6 +154,12 @@ int32 FERCellWorld::GetChunkIndex(int32 Panel, int32 X, int32 Z) const
 {
     const auto& P = Panels[Panel];
     return P.FirstChunk + (Z / ChunkCells) * P.ChunksX + X / ChunkCells;
+}
+bool FERCellWorld::WasInitiallyAlive(const FERCellId& Id) const
+{
+    if(!IsValid(Id))return false;
+    const auto& C=Chunks[GetChunkIndex(Id.Panel,Id.X,Id.Z)];
+    return C.InitialAlive.IsEmpty() ? true:TestBit(C.InitialAlive,CellIndex(C,Id.X-C.X0,Id.Y,Id.Z-C.Z0));
 }
 bool FERCellWorld::IsAlive(int32 Panel, int32 X, int32 Y, int32 Z) const
 {
@@ -277,7 +300,7 @@ bool FERCellWorld::LocateCell(int32 Panel, const FVector& Point, const FVector& 
     // Shared faces and inflated thin collision: take the nearest alive neighbour.
     double Best = TNumericLimits<double>::Max();
     for (int32 Z = Cell.Z - 1; Z <= Cell.Z + 1; ++Z)
-        for (int32 Y = 0; Y < P.Dims.Y; ++Y)
+        for (int32 Y = P.Skin.IsEmpty() ? 0:Cell.Y-1; Y < (P.Skin.IsEmpty() ? P.Dims.Y:Cell.Y+2); ++Y)
             for (int32 X = Cell.X - 1; X <= Cell.X + 1; ++X)
                 if (IsAlive(Panel, X, Y, Z))
                 {
@@ -301,12 +324,32 @@ void FERCellWorld::EncodeChunk(int32 Index, TArray<uint8>& Out) const
         Put(Run); Value = !Value; Run = 1;
     }
     Put(Run);
+    if(!Panels[C.Panel].Skin.IsEmpty() && Out.Num()>512)
+    {
+        const int32 Raw=Out.Num();int32 Size=FCompression::CompressMemoryBound(NAME_Zlib,Raw);
+        TArray<uint8> Packed;Packed.SetNumUninitialized(Size+5);Packed[0]=2;
+        for(int32 I=0;I<4;++I)Packed[1+I]=uint32(Raw)>>(8*I);
+        if(FCompression::CompressMemory(NAME_Zlib,Packed.GetData()+5,Size,Out.GetData(),Raw) && Size+5<Raw)
+        {Packed.SetNum(Size+5);Out=MoveTemp(Packed);}
+    }
 }
 bool FERCellWorld::DecodeChunk(int32 Index, const TArray<uint8>& Data, TArray<uint64>& OutAlive) const
 {
-    if (!Chunks.IsValidIndex(Index) || Data.Num() < 2 || Data[0] > 1) return false;
+    if (!Chunks.IsValidIndex(Index) || Data.Num() < 2) return false;
     const auto& C = Chunks[Index];
     const int32 Bits = C.SX * C.SZ * Panels[C.Panel].Dims.Y;
+    if(Data[0]==2)
+    {
+        if(Data.Num()<6)return false;
+        uint32 Raw=0;for(int32 I=0;I<4;++I)Raw|=uint32(Data[1+I])<<(8*I);
+        // A run occupies at most one byte per bit, plus the starting value.
+        // Validate before allocation/decompression; nested frames are forbidden.
+        if(Raw<2 || Raw>uint32(Bits)+1)return false;
+        TArray<uint8> RLE;RLE.SetNumUninitialized(Raw);
+        if(!FCompression::UncompressMemory(NAME_Zlib,RLE.GetData(),Raw,Data.GetData()+5,Data.Num()-5) || RLE[0]>1)return false;
+        return DecodeChunk(Index,RLE,OutAlive);
+    }
+    if(Data[0]>1)return false;
     OutAlive.Init(0, C.Alive.Num());
     bool Value = Data[0] != 0;
     int32 Cursor = 1, Written = 0;
@@ -323,6 +366,7 @@ bool FERCellWorld::DecodeChunk(int32 Index, const TArray<uint8>& Data, TArray<ui
         if (Value) for (uint32 I = 0; I < Run; ++I) OutAlive[(Written + I) >> 6] |= 1ull << ((Written + I) & 63);
         Written += Run; Value = !Value;
     }
+    if(!C.InitialAlive.IsEmpty())for(int32 I=0;I<OutAlive.Num();++I)if(OutAlive[I]&~C.InitialAlive[I])return false;
     return Written == Bits;
 }
 void FERCellWorld::SetChunkAlive(int32 Index, const TArray<uint64>& Alive, TArray<int32>& Dirty)
@@ -353,6 +397,7 @@ uint32 FERCellWorld::GetAliveDigest() const
 SIZE_T FERCellWorld::GetAllocatedBytes() const
 {
     SIZE_T Bytes = Panels.GetAllocatedSize() + Chunks.GetAllocatedSize();
-    for (const auto& C : Chunks) Bytes += C.Alive.GetAllocatedSize() + C.Damaged.GetAllocatedSize();
+    for (const auto& C : Chunks) Bytes += C.Alive.GetAllocatedSize() + C.InitialAlive.GetAllocatedSize() + C.Damaged.GetAllocatedSize();
+    for(const auto& P:Panels)Bytes+=P.Skin.GetAllocatedSize()+P.Holes.GetAllocatedSize();
     return Bytes;
 }

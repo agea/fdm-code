@@ -1,6 +1,6 @@
 #include "ERCellMesher.h"
 
-void ERCellMesh::BuildFaces(const FERCellWorld& World, int32 ChunkIndex, TArray<FQuad>& Quads)
+void ERCellMesh::BuildFaces(const FERCellWorld& World, int32 ChunkIndex, TArray<FQuad>& Quads,bool FracturesOnly)
 {
     Quads.Reset();
     const auto& C = World.GetChunks()[ChunkIndex];
@@ -22,7 +22,7 @@ void ERCellMesh::BuildFaces(const FERCellWorld& World, int32 ChunkIndex, TArray<
                     {
                         FIntVector L; L[Axis] = D; L[U] = A; L[V] = B;
                         FIntVector N = L; N[Axis] += Sign;
-                        const bool bFace = Alive(L) && !Alive(N);
+                        const bool bFace = Alive(L) && !Alive(N) && (!FracturesOnly || World.WasInitiallyAlive({C.Panel,C.X0+N.X,N.Y,C.Z0+N.Z}));
                         Mask[A + Ext[U] * B] = bFace; bAny |= bFace;
                     }
                 if (!bAny) continue;

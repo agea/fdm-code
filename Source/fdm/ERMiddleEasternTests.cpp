@@ -47,7 +47,7 @@ bool FERAlleysLayoutTest::RunTest(const FString& Parameters)
         }
         TestTrue(TEXT("full upper and lower routes"),L.UpperRoute.Num()>30 && L.LowerRoute.Num()==2);
         TestTrue(TEXT("graded terrain and multiple roof accesses"),L.GradedTerrain && L.RooftopRoutes.Num()>=2 && L.GroundRoutes.Num()==2);
-        int32 Houses=0;for(const auto& P:L.FixedPieces)Houses+=T->Town.BuildingMeshes.Contains(P.Mesh);
+        int32 Houses=L.Houses.Num();
         TestTrue(TEXT("requested house variants form actual parcels"),Houses>12);
         TestTrue(TEXT("three-sand ground material bound"),L.GroundSurface==T->Town.GroundSurface && L.GroundSurface);
         if(T->Town.LowCoverAndUnderpass)
@@ -94,6 +94,11 @@ bool FERAlleysCollisionTest::RunTest(const FString& Parameters)
     for(int32 Seed:{0,42,73,511,7919,INT32_MAX})
     {
         Map->LayoutConfig.Seed=Seed;if(!TestTrue(TEXT("physical seeded map"),Map->Regenerate()))break;
+        if(T->Town.DestructibleArchitecture)
+        {
+            Map->RequestSupportCheck();for(int32 I=0;I<500 && Map->IsSupportPending();++I)Map->StepSupport();
+            TestEqual(TEXT("all intact town structures start supported"),Map->GetCellWorld().GetRemovedCount(),int64(0));
+        }
         const auto& L=Map->GetLayout();const auto P=L.TownCrossing;
         TestTrue(TEXT("bridge top is 320cm"),World->LineTraceSingleByChannel(Hit,P+FVector(0,0,500),P+FVector(0,0,200),ECC_WorldStatic,Q) && FMath::IsNearlyEqual(Hit.ImpactPoint.Z,320.f,1.f));
         TestFalse(TEXT("standing capsule crosses under bridge"),World->SweepSingleByChannel(Hit,L.LowerRoute[0],L.LowerRoute.Last(),FQuat::Identity,ECC_Pawn,Capsule,Q));
@@ -146,7 +151,7 @@ bool FERAlleysCollisionTest::RunTest(const FString& Parameters)
         {
             const auto Landing=Route.Last();const bool HitRoof=World->LineTraceSingleByChannel(Hit,Landing+FVector(0,0,150),Landing-FVector(0,0,200),ECC_WorldStatic,Q);
             const auto* Base=HitRoof ? Cast<UInstancedStaticMeshComponent>(Hit.GetComponent()):nullptr;
-            TestTrue(TEXT("roof landing is supported by the actual house mesh"),Base && Base->GetStaticMesh() && Base->GetStaticMesh()->GetName().Contains(TEXT("House_")));
+            TestTrue(TEXT("roof landing is supported by the actual house mesh"),(Base && Base->GetStaticMesh() && Base->GetStaticMesh()->GetName().Contains(TEXT("House_"))) || (HitRoof && Hit.GetComponent()->ComponentHasTag(TEXT("ERDestructibleShell"))));
         }
         TArray<FVector> Interior;TestTrue(TEXT("actual source opening admits a standing player into a house"),ERProcedural::FindAlleyInteriorRoute(World,L,Interior));
         for(const auto& Route:L.GroundRoutes)

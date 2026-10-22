@@ -1,3 +1,60 @@
+## 22 October 2026 — destructible Middle Eastern architecture, revision6
+
+- Editor arm64 Development build: PASS. Thirteen derived LOD0/UV/normal assets
+  baked through Unreal; revision5 rollback verified,516 candidate layouts pass.
+- `scripts/test-destruction.py`: all16 native tests PASS with cell protocol9,
+  including512 layouts, six physical worlds and initially supported structures.
+  New cases cover source facade HP, a standing capsule through a new wall hole,
+  a real roof fall opening, lower/lateral support loss, collision mappings,
+  restoration, identical compressed masks, bounded decode rejection and a
+  physical target inside a house after bullet penetration.
+- `test-dust-template.py --alleys --architecture --render --network --seed42`:
+  PASS. Real weapon on weakened source cells, standard HE damage, real pawn
+  entry through the controlled facade cut, standing on/falling through the
+  roof, support collapse and seed7919 restoration. Host plus two local clients
+  agree before damage, after damage (including late join) and after rebuild.
+  Digests1/6/7:3022322659 /266656279 /2434774792. Both remote movement bases
+  resolve to the new stable skin component names; no unresolved corrections,
+  rejected map states or oversized network bunches in the passing run.
+- Standard `test-dust-template.py --alleys --render --network --seed42`: PASS.
+  Real arch passage, bridge over/under route, both roof staircases, house entry,
+  up/down terrain grades, all four tower ladders/decks, full inter-base route,
+  lower passage/both ramps in both directions, HE road breach and actual fall,
+  wood weapon damage/collapse and initial/late peer rebuilds all pass.
+  Digests1/6/7:3022322659 /461304668 /2434774792; no unresolved bases.
+- Full seven-step art pipeline rerun: PASS; all53 package/protected hashes
+  unchanged, inventory15 original meshes,5 materials,14 textures,13 structures.
+  Original archives and source-file hashes also pass verification.
+- Five Metal screenshots inspected: matching facade and roof before/after,
+  plus collapsed upper building. Large openings/support cuts are controlled
+  geometry fixtures; the firearm fixture weakens a local region beforehand.
+  No claim that one unchanged HE creates a full doorway, physical two-PC LAN,
+  competitive balance or arbitrary fully demolished-map performance.
+
+Evidence: `Saved/Testing/alleys-architecture-*-summary.log`,
+`alleys-architecture-validation-report.json`,
+`alleys-network-metal-architecture-report.json`, `alleys-architecture-assets.log`
+and `MiddleEasternDestruction-*.png`.
+
+## 22 October 2026 — macOS startup focus / mouse capture
+
+- Editor arm64 Development build: PASS.
+- `scripts/test-lobby.py --focus`: Metal foreground launch with a fresh isolated
+  profile PASS, process exit 0. Initial fullscreen 5120x2880 settles with visible
+  menu cursor and no viewport capture; the name field retains text focus.
+  GameOnly captures without a click; explicitly releasing Slate pointer capture
+  is recovered automatically. Returning to the menu and resizing to 3072x1728
+  restores the visible, uncaptured cursor. All eight probe checks PASS.
+- `scripts/test-lobby.py --settings`: PASS across two graphical launches, both
+  exit 0. Fullscreen default and saved window mode/resolution, input, sound,
+  profile and server capacity survive restart.
+- `git diff --check` and Python syntax check: PASS.
+
+Evidence: `Saved/Testing/Lobby/focus.log`. The capture loss is injected through
+Slate; this does not establish reproduction of the intermittent itch-downloaded
+app failure or physical mouse/camera testing in a packaged build. No new itch
+package was built or uploaded during this fix.
+
 ## 22 October 2026 — team graffiti / recon case
 
 - Editor arm64 Development build: PASS. Unreal import/save: PASS, zero errors

@@ -1,5 +1,36 @@
 # Respawn & Rage — sviluppo Unreal
 
+## Edifici distruttibili nei vicoli — 22 ottobre 2026
+
+La ricetta Middle Eastern Alleys è alla revisione6. Case originali, archi, muri
+interni e bassi muretti, torri e piattaforme aggiunte usano il danno autorevole
+esistente. I triangoli importati conservano texture/aperture e vengono ritagliati
+alle celle distrutte, con collisione aggiornata nello stesso batch. I tetti
+possono aprirsi; parti separate dai sostegni inferiori e laterali si staccano
+attraverso il sistema di crollo e detriti già presente. Le case vicine possono
+continuare a sostenerle. Perimetro, terreno, struttura del sottopasso e basi delle
+scale restano fissi. Nessuna modifica agli HP condivisi o agli asset originali.
+
+Tredici DataAsset derivati sono creati da `setup_alley_destruction.py`, con
+backup verificato revision5 e516 semi candidati. Il protocollo celle9 comprime
+le maschere più grandi, con limite di espansione e witness transazionali; i nomi
+usati nel digest dipendono dal testo, non dagli indici FName del processo.
+Vedi `docs/MIDDLE_EASTERN_ALLEYS.md`, test nativo `MiddleEasternArchitecture`
+e `test-dust-template.py --alleys --architecture --render --network`.
+
+## Focus e mouse all’avvio su macOS — 22 ottobre 2026
+
+Il fullscreen iniziale e il cambio modalità finestra sono asincroni rispetto a
+`ShowMenu` e alle operazioni Slate. Il controller riapplica la modalità input
+quando la finestra del gioco è in primo piano e dimensioni, posizione, modalità
+e attivazione sono stabili da 250ms. Lo stesso controllo copre ritorno da Cmd-Tab
+e travel; in partita recupera anche una cattura mouse persa senza richiedere un
+click. Il menù mantiene cursore visibile e mouse libero, la partita usa input
+GameOnly con movimento relativo. Nessuna richiesta di attivazione della app;
+nessun ripristino periodico del focus nei menù stabili, per preservare i campi
+di testo. Il comportamento non interviene nel viewport dell’Editor o senza una
+finestra grafica. Test locale: `scripts/test-lobby.py --focus`.
+
 ## Graffiti delle squadre e valigia droni — 22 ottobre 2026
 
 Alpha blu e Omega arancione sono decal trasparenti sulle pareti, con campionamento

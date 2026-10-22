@@ -1,4 +1,5 @@
 #include "ERDustTemplateProbe.h"
+#include "ERAlleyDestruction.h"
 #include "ERProceduralMap.h"
 #include "ERCharacter.h"
 #include "ERWeapon.h"
@@ -28,7 +29,7 @@ AERDustTemplateProbe::AERDustTemplateProbe()
 }
 void AERDustTemplateProbe::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
-    Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(AERDustTemplateProbe,SnapshotPhase);DOREPLIFETIME(AERDustTemplateProbe,ExpectedDigest);DOREPLIFETIME(AERDustTemplateProbe,DeckPlayer);
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps);DOREPLIFETIME(AERDustTemplateProbe,SnapshotPhase);DOREPLIFETIME(AERDustTemplateProbe,ExpectedDigest);DOREPLIFETIME(AERDustTemplateProbe,DeckPlayer);DOREPLIFETIME(AERDustTemplateProbe,ArchitectureOutside);DOREPLIFETIME(AERDustTemplateProbe,ArchitectureInside);DOREPLIFETIME(AERDustTemplateProbe,ArchitectureRoof);
 }
 void AERDustTemplateProbe::Check(bool Good,const TCHAR* Label)
 {
@@ -86,6 +87,13 @@ void AERDustTemplateProbe::Tick(float Delta)
                 const auto Hole=L.UnderpassBreaches[0].GetCenter();
                 Good&=GetWorld()->LineTraceSingleByChannel(Hit,Hole+FVector(0,0,150),Hole-FVector(0,0,400),ECC_WorldStatic,Q) && FMath::IsNearlyEqual(Hit.ImpactPoint.Z,SnapshotPhase==6 ? -360.f:0.f,1.f);
             }
+            if(FParse::Param(FCommandLine::Get(),TEXT("ERAlleyArchitecture")) && SnapshotPhase!=7)
+            {
+                const bool Blocked=GetWorld()->SweepTestByChannel(ArchitectureOutside+FVector(0,0,30),ArchitectureInside+FVector(0,0,30),FQuat::Identity,ECC_Pawn,FCollisionShape::MakeCapsule(34,92.5),Q);
+                Good&=Blocked==(SnapshotPhase==1);
+                const bool Roof=GetWorld()->LineTraceSingleByChannel(Hit,ArchitectureRoof+FVector(0,0,100),ArchitectureRoof-FVector(0,0,150),ECC_WorldStatic,Q);
+                Good&=SnapshotPhase==1 ? Roof && FMath::Abs(Hit.ImpactPoint.Z-ArchitectureRoof.Z)<2:!Roof || Hit.ImpactPoint.Z<ArchitectureRoof.Z-100;
+            }
             UE_LOG(LogTemp,Display,TEXT("ER_DUST_CLIENT_%s phase=%d digest=%u epoch=%u"),Good ? TEXT("PASS"):TEXT("FAIL"),SnapshotPhase,ExpectedDigest,Map->GetMapEpoch());SeenPhase=SnapshotPhase;
         }
         // Phase 6 puts the initial client on the deck, phase 7 (after the seed rebuild) the late one.
@@ -107,6 +115,7 @@ void AERDustTemplateProbe::Tick(float Delta)
     auto* C=PC ? Cast<AERCharacter>(PC->GetPawn()):nullptr;
     if(!C || !C->Weapon || (!L.SeededDistrict && L.TownGates.Num()<2)){if(Elapsed>50)FPlatformMisc::RequestExitWithStatus(false,1);return;}
     auto* Move=C->GetCharacterMovement();
+    if(FParse::Param(FCommandLine::Get(),TEXT("ERAlleyArchitecture"))){TickArchitecture(Map,C,PC);return;}
     // Opt-in art gallery: fixed cameras are held across many rendered frames
     // after compilation, so captures cannot inherit a just-teleported FPS view.
     if(FParse::Param(FCommandLine::Get(),TEXT("ERAlleyGallery")))
@@ -261,7 +270,7 @@ void AERDustTemplateProbe::Tick(float Delta)
         if(!TraversalStarted){Place(Route[0],0);Waypoint=0;StageTime=Elapsed;TraversalStarted=true;}
         const bool Reached=Follow(Route,12.f);
         const auto* Roof=Cast<UInstancedStaticMeshComponent>(Move->GetMovementBase());
-        if(Reached && Move->IsMovingOnGround() && Roof && Roof->GetStaticMesh() && Roof->GetStaticMesh()->GetName().Contains(TEXT("House_")))
+        if(Reached && Move->IsMovingOnGround() && ((Roof && Roof->GetStaticMesh() && Roof->GetStaticMesh()->GetName().Contains(TEXT("House_"))) || (Move->GetMovementBase() && Move->GetMovementBase()->ComponentHasTag(TEXT("ERDestructibleShell")))))
         {Check(true,TEXT("actual_pawn_climbs_external_switchback_to_roof"));++TraversalIndex;TraversalStarted=false;}
         else if(Elapsed-StageTime>25)
         {Check(false,TEXT("roof_stair_timeout"));UE_LOG(LogTemp,Display,TEXT("ER_DUST_ROOF index=%d waypoint=%d pos=%s target=%s"),TraversalIndex,Waypoint,*C->GetActorLocation().ToString(),*Route[FMath::Min(Waypoint,Route.Num()-1)].ToString());++TraversalIndex;TraversalStarted=false;}

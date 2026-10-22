@@ -179,6 +179,16 @@ private:
     void ForwardReleased();
     double WheelQuietUntil = 0;
     TSharedPtr<class SWidget> MenuWidget;
+    TWeakPtr<class SWidget> MenuFocusWidget;
+    TWeakPtr<class SWindow> InputWindow;
+    FIntPoint InputViewportSize = FIntPoint::ZeroValue;
+    FVector2D InputWindowPosition = FVector2D::ZeroVector;
+    int32 InputWindowMode = -1;
+    bool bInputWindowActive = false;
+    bool bPendingWindowInput = true;
+    double InputWindowStableAt = 0;
+    void ApplyWindowInputMode();
+    void UpdateWindowInput();
     TSharedPtr<class SWidget> FrameRateWidget;
     TSharedPtr<class SComboButton> DisplaySizeSelector;
     float FrameTimeMs = 0;

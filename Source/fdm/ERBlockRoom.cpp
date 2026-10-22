@@ -202,6 +202,7 @@ void AERBlockRoom::SpawnExplosionEffect(const FVector& Origin)
 FString AERBlockRoom::GetStatistics() const
 {
     int32 Quads=0,Boxes=0,Debris=0,Physics=0; for (int32 Q:ChunkQuads) Quads+=Q; for (int32 B:ChunkBoxes) Boxes+=B;
+    for(const auto& Entry:SkinMeshes)if(Entry.Value){Entry.Value->ProcessMesh([&](const UE::Geometry::FDynamicMesh3& M){Quads+=FMath::DivideAndRoundUp(M.TriangleCount(),2);});Boxes+=Entry.Value->GetSimpleCollisionShapes().BoxElems.Num();}
     GetDebrisCounts(Debris,Physics);
     return FString::Printf(TEXT("%s resolution=%.0fcm cells=%lld alive=%lld destroyed=%lld detached=%lld panels=%d chunks=%d quads=%d boxes=%d generation=%.2fms update=%.2fms chunks_updated=%d mesh=%.2fms collision=%.2fms debris=%d physics=%d support=%.2fms pending=%d"),
         *GetLayoutStatistics(), CellSettings.CellSize, CellWorld.GetCellCount(), CellWorld.GetCellCount()-CellWorld.GetRemovedCount(), CellWorld.GetRemovedCount()-CellWorld.GetDetachedCount(), CellWorld.GetDetachedCount(),
@@ -227,6 +228,14 @@ FERBlockMemoryProfile AERBlockRoom::GetMemoryProfile() const
         CellMeshes[I]->ProcessMesh([&Result](const UE::Geometry::FDynamicMesh3& Mesh){Result.InstanceResourceBytes+=Mesh.GetByteCount();});
         if (CellMeshes[I]->GetBodyInstance() && CellMeshes[I]->GetBodyInstance()->IsValidBodyInstance()) ++Result.CollisionBodies;
         Result.Quads+=ChunkQuads[I]; Result.CollisionBoxes+=ChunkBoxes[I];
+    }
+    Result.MappingBytes+=SkinMeshes.GetAllocatedSize()+SkinComponentPanels.GetAllocatedSize()+DirtySkinPanels.GetAllocatedSize();
+    for(const auto& Entry:SkinMeshes)if(auto* Mesh=Entry.Value.Get())
+    {
+        FResourceSizeEx Size(EResourceSizeMode::Exclusive);Mesh->GetResourceSizeEx(Size);Result.InstanceResourceBytes+=Size.GetTotalMemoryBytes();
+        Mesh->ProcessMesh([&](const UE::Geometry::FDynamicMesh3& Geometry){Result.InstanceResourceBytes+=Geometry.GetByteCount();Result.Quads+=FMath::DivideAndRoundUp(Geometry.TriangleCount(),2);});
+        Result.CollisionBoxes+=Mesh->GetSimpleCollisionShapes().BoxElems.Num();
+        if(Mesh->GetBodyInstance() && Mesh->GetBodyInstance()->IsValidBodyInstance())++Result.CollisionBodies;
     }
     Result.Components=GetInstanceComponents().Num();
     GetEffectCounts(Result.Decals,Result.Emitters,Result.Bursts);
@@ -306,7 +315,7 @@ void AERBlockRoom::SpawnCellDebris(const TArray<FERCellDebris>& Debris)
         // The existing debris payload contains its original centre. Resolve the
         // local panel palette on each peer without changing the network schema.
         const FVector Center=GetActorTransform().InverseTransformPosition(D.Transform.GetLocation());
-        for(const auto& P:CellWorld.GetPanels())if(P.Surface && uint8(P.Material)==D.Material &&
+        for(const auto& P:CellWorld.GetPanels())if(P.Surface && (P.Skin.IsEmpty() || P.bSolidSkin) && uint8(P.Material)==D.Material &&
             FBox(FVector::ZeroVector,P.Size).ExpandBy(.01).IsInsideOrOn(P.Transform.InverseTransformPosition(Center)))
         {Surface=P.Surface;break;}
         Actor->Initialize(BlockMesh,Surface,D.Transform,Collapse.DebrisLifetime,Collapse.DebrisSettleAfter);
@@ -353,6 +362,7 @@ void AERBlockRoom::StepSupport()
         const auto Batch=CellWorld.DetachCells(Cells);
         // Static collision of the whole batch goes before any debris wakes Chaos.
         for (int32 Chunk:Batch.DirtyChunks) RebuildCellChunk(Chunk);
+        FlushSkinMeshes();
         LastDetached=Batch.Destroyed;
         PublishCellChanges(Batch.ChangedChunks);
         if (!Debris.IsEmpty()) { if (GetNetMode()==NM_Standalone) SpawnCellDebris(Debris); else MulticastCellDebris(Network.Epoch,Debris); }

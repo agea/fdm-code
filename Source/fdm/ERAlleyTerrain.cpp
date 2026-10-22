@@ -151,7 +151,7 @@ bool FindAlleyInteriorRoute(UWorld* World,const FERProceduralLayout& L,TArray<FV
             {
                 if(!World->LineTraceSingleByChannel(Hit,B+FVector(0,0,94),B+FVector(0,0,Size.Z+100),ECC_WorldStatic,Q))continue;
                 const auto* Ceiling=Cast<UInstancedStaticMeshComponent>(Hit.GetComponent());
-                if(!Ceiling || Ceiling->GetStaticMesh()!=House.Mesh)continue;
+                if((!Ceiling || Ceiling->GetStaticMesh()!=House.Mesh) && !Hit.GetComponent()->ComponentHasTag(House.Mesh->GetFName()))continue;
             }
             FVector From=A,To=B;From.Z=To.Z=FMath::Max(A.Z,B.Z)+3;
             if(World->SweepSingleByChannel(Hit,From,To,FQuat::Identity,ECC_Pawn,Capsule,Q))continue;

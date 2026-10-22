@@ -1,5 +1,11 @@
 # Inventario asset — primo prototipo locale
 
+22 ottobre2026 — revisione6 vicoli:13 nuovi DataAsset derivati dalle12 case e
+dall'arco, sotto `Art/MiddleEasternAlleys/Structures`, conservano triangoli LOD0,
+UV e normali. `setup_alley_destruction.py` salva questi asset e la sola ricetta;
+backup revision5 in `Saved/AlleyTraversalBackup/revision5.zip`. Mesh, materiali,
+texture e archivi originali restano invariati.
+
 22 ottobre2026 — revisione5 vicoli: coperture basse, sottopassi a curve e due
 pavimentazioni forabili in geometria propria e celle del catalogo esistente.
 `setup_alley_passages.py` salva solo la ricetta con backup revision4. Nessuna
