@@ -34,6 +34,43 @@ class PublicTreeTests(unittest.TestCase):
             self.git(root, 'commit', '-m', 'Asset link only')
             self.assertEqual(module.verify(root)[0], 2)
 
+    def test_exact_eos_guest_snippets_are_allowed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.fixture(root)
+            for name in module.PUBLIC_EOS_GUEST_TEXT:
+                target = root / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes((module.ROOT / name).read_bytes())
+            self.git(root, 'add', '.')
+            self.git(root, 'commit', '-m', 'Owned guest snippets')
+            self.assertEqual(module.verify(root)[0], 2)
+
+    def test_eos_guest_exception_remains_narrow_and_text_only(self):
+        cases = [(name, content, error)
+                 for name in module.PUBLIC_EOS_GUEST_TEXT
+                 for content, error in ((b'private\0asset', 'binary/LFS'),
+                                        (b'version https://git-lfs.github.com/spec/v1\n', 'binary/LFS'),
+                                        (None, 'forbidden path/mode'))]
+        cases += [(name, b'// Unapproved source\n', 'forbidden path/mode')
+                  for name in ('scripts/eos-guest/Extra.inl', 'scripts/eos-guest/Extra.h',
+                               'scripts/other/RRGuestEOS.h',
+                               'Plugins/OnlineSubsystemEOS/Source/RRGuestEOS.h')]
+        for name, content, error in cases:
+            with self.subTest(name=name, content=content), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                self.fixture(root)
+                target = root / name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                if content is None:
+                    target.symlink_to('../../README.md')
+                else:
+                    target.write_bytes(content)
+                self.git(root, 'add', '.')
+                self.git(root, 'commit', '-m', 'Invalid guest snippet')
+                with self.assertRaisesRegex(RuntimeError, error):
+                    module.verify(root)
+
     def test_exact_gameplay_catalog_and_readme_are_allowed(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

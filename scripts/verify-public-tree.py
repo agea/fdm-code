@@ -12,6 +12,15 @@ ROOT_FILES = {'fdm.uproject', 'RespawnAndRage.uproject', 'README.md', 'AGENTS.md
 EXTENSIONS = {'Source': {'.cpp', '.h', '.cs', '.mm'}, 'Config': {'.ini'},
               'scripts': {'.py', '.command', '.sh', '.ps1'}, 'docs': {'.md', '.txt', '.json', '.csv'}}
 SUBMODULES = {'Assets/characters', 'Assets/weapons', 'Assets/maps'}
+# Owned extension snippets used to prepare the ignored, locally licensed plugin.
+# Keep this exact: generated plugin and arbitrary C++ under scripts stay private.
+PUBLIC_EOS_GUEST_TEXT = {
+    'scripts/eos-guest/RRDeviceIdLogin.inl',
+    'scripts/eos-guest/RRDeviceIdRefresh.inl',
+    'scripts/eos-guest/RRDeviceIdUserInfo.inl',
+    'scripts/eos-guest/RRGuestEOS.h',
+    'scripts/eos-guest/RRGuestProbe.inl',
+}
 # Owner-supplied runtime copy and its documentation; keep all other Config
 # JSON/Markdown paths forbidden and apply the usual text/LFS/mode checks.
 PUBLIC_GAMEPLAY_TEXT = {
@@ -97,6 +106,7 @@ def verify(root):
                 count += 1
                 continue
             allowed = (name in ROOT_FILES or name in PUBLIC_BRANDING_TEXT or name in PUBLIC_GAMEPLAY_TEXT or
+                       name in PUBLIC_EOS_GUEST_TEXT or
                        (path.parts[0] in EXTENSIONS and path.suffix in EXTENSIONS[path.parts[0]]))
             if kind != 'blob' or mode not in ('100644', '100755') or not allowed:
                 failures.append(revision[:8] + ': forbidden path/mode ' + name)
