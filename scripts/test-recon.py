@@ -35,6 +35,9 @@ try:
     for role in ['enemy','ally','late']:
         txt=read(role);good='ER_RECON_CLIENT_PASS' in txt and not any(marker in txt for marker in ['ER_RECON_CLIENT_FAIL','Critical error','Fatal error'])
         print(role,'PASS' if good else 'FAIL');passed &= good
+        for phase in [14,15]:
+            good='ER_RECON_CLIENT_PASS case_animation phase='+str(phase) in txt
+            print(role,'case animation',phase,'PASS' if good else 'FAIL');passed &= good
         if role!='late':
             for phase in [2,4,5,6,7,8,9]:
                 good='ER_RECON_CLIENT_PASS sightings phase='+str(phase)+' ' in txt

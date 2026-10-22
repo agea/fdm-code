@@ -219,6 +219,12 @@ void AERProceduralMap::ConfigureFloors()
 {
     for(auto Ladder:LadderActors)if(Ladder)Ladder->Destroy();
     LadderActors.Reset();
+    if(AlleyTerrain)
+    {
+        RemoveInstanceComponent(AlleyTerrain);AlleyTerrain->DestroyComponent();
+        AlleyTerrain->Rename(*MakeUniqueObjectName(this,UDynamicMeshComponent::StaticClass(),TEXT("DeadAlleyTerrain")).ToString(),nullptr,REN_DontCreateRedirectors|REN_NonTransactional);
+        AlleyTerrain=nullptr;
+    }
     for(auto& Mesh:FixedMeshes)
     {
         RemoveInstanceComponent(Mesh); Mesh->DestroyComponent();
@@ -272,6 +278,10 @@ SIZE_T AERProceduralMap::GetLayoutBytes() const
     Bytes+=Layout.TownBuildings.GetAllocatedSize()+Layout.TownCourts.GetAllocatedSize()+Layout.TownGates.GetAllocatedSize()+Layout.TownStreetNames.GetAllocatedSize()+Layout.UpperRoute.GetAllocatedSize()+Layout.LowerRoute.GetAllocatedSize();
     for(const auto& Gate:Layout.TownGates)Bytes+=Gate.Passage.GetAllocatedSize();
     for(const auto& Route:Layout.RoomAccessRoutes)Bytes+=Route.GetAllocatedSize();
+    Bytes+=Layout.Houses.GetAllocatedSize()+Layout.TerrainPads.GetAllocatedSize()+Layout.Ladders.GetAllocatedSize()+Layout.DistrictTowers.GetAllocatedSize()+Layout.DistrictTowerHeights.GetAllocatedSize();
+    Bytes+=Layout.UnderpassRamps.GetAllocatedSize()+Layout.UnderpassBreaches.GetAllocatedSize()+Layout.LowCovers.GetAllocatedSize()+Layout.UnderpassRoute.GetAllocatedSize()+Layout.UnderpassApproach.GetAllocatedSize();
+    for(const auto* Routes:{&Layout.RooftopRoutes,&Layout.GroundRoutes,&Layout.DistrictRoutes})
+    {Bytes+=Routes->GetAllocatedSize();for(const auto& Route:*Routes)Bytes+=Route.GetAllocatedSize();}
     Bytes+=Layout.CrossingRoutes.GetAllocatedSize()+Layout.ClimbPoints.GetAllocatedSize();
     Bytes+=Layout.CoverSites.GetAllocatedSize()+Layout.Containers.GetAllocatedSize()+Layout.SecondaryStructures.GetAllocatedSize()+Layout.CoverAngles.GetAllocatedSize()+Layout.WallAccessFlights.GetAllocatedSize()+Layout.WallBridges.GetAllocatedSize();
     for(const auto& Route:Layout.CrossingRoutes)Bytes+=Route.GetAllocatedSize();
@@ -282,9 +292,18 @@ SIZE_T AERProceduralMap::GetLayoutBytes() const
 void AERProceduralMap::ConfigureTemplateFloors()
 {
     const auto* Template=LayoutConfig.TemplateAsset.Get();const FVector Size=Layout.ArenaSize;
-    Floor->SetStaticMesh(BlockMesh);Floor->SetRelativeLocation(FVector(0,0,-10));Floor->SetRelativeScale3D(FVector(Size.X+40,Size.Y+40,20)/100);
+    Floor->SetStaticMesh(Layout.GradedTerrain ? nullptr:BlockMesh.Get());Floor->SetRelativeLocation(FVector(0,0,-10));Floor->SetRelativeScale3D(FVector(Size.X+40,Size.Y+40,20)/100);
     Floor->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);Floor->SetVisibility(true);
     if(auto* Surface=Layout.GroundSurface ? Layout.GroundSurface:FloorSurface.Get())Floor->SetMaterial(0,Surface);
+    if(Layout.GradedTerrain)
+    {
+        AlleyTerrain=NewObject<UDynamicMeshComponent>(this,TEXT("AlleyTerrain"));AddInstanceComponent(AlleyTerrain);
+        AlleyTerrain->SetMobility(EComponentMobility::Movable);AlleyTerrain->SetNetAddressable();AlleyTerrain->SetupAttachment(RootComponent);
+        AlleyTerrain->SetCanEverAffectNavigation(false);AlleyTerrain->SetDeferredCollisionUpdatesEnabled(true,false);
+        AlleyTerrain->SetComplexAsSimpleCollisionEnabled(true,false);AlleyTerrain->SetCollisionProfileName(TEXT("BlockAll"));
+        AlleyTerrain->SetTangentsType(EDynamicMeshComponentTangentsMode::AutoCalculated);
+        AlleyTerrain->SetMaterial(0,Layout.GroundSurface);AlleyTerrain->RegisterComponent();ERProcedural::BuildAlleyTerrain(AlleyTerrain,Layout);
+    }
     for(auto* Mesh:{TileFloors.Get(),WoodFloors.Get(),Ceilings.Get(),Stairs.Get()}){Mesh->ClearInstances();Mesh->SetStaticMesh(BlockMesh);}
     FixedCollision->SetStaticMesh(BlockMesh);
     FenceCollision->SetStaticMesh(BlockMesh);
@@ -322,15 +341,16 @@ void AERProceduralMap::ConfigureTemplateFloors()
         auto* Surface=Piece.Surface ? Piece.Surface:MaterialCatalog->Find(Piece.Material)->Surface.Get();
         auto* ExpectedSurface=Piece.Surface ? Piece.Surface:(Piece.Mesh ? Asset->GetMaterial(0):Surface);
         UInstancedStaticMeshComponent* Group=nullptr;
-        for(auto& Existing:FixedMeshes)if(Existing->GetStaticMesh()==Asset && Existing->ComponentHasTag(TEXT("ERTemplateRoof"))==Piece.Roof && Existing->ComponentHasTag(TEXT("ERTemplateVisual"))==bool(Piece.Mesh || Piece.VisualOnly || Piece.PawnBarrier) && Existing->GetMaterial(0)==ExpectedSurface){Group=Existing;break;}
+        const bool Visual=(!Piece.MeshCollision && Piece.Mesh) || Piece.VisualOnly || Piece.PawnBarrier;
+        for(auto& Existing:FixedMeshes)if(Existing->GetStaticMesh()==Asset && Existing->ComponentHasTag(TEXT("ERTemplateRoof"))==Piece.Roof && Existing->ComponentHasTag(TEXT("ERTemplateVisual"))==Visual && Existing->GetMaterial(0)==ExpectedSurface){Group=Existing;break;}
         if(!Group)
         {
             // Groups are created in FixedPieces order, identical on host and clients:
             // pawns stand on them, so corrections carry them by name.
             Group=NewObject<UInstancedStaticMeshComponent>(this,*FString::Printf(TEXT("TemplateFixed_%d"),FixedMeshes.Num()));AddInstanceComponent(Group);Group->SetMobility(EComponentMobility::Movable);
             Group->SetNetAddressable();
-            Group->SetupAttachment(RootComponent);Group->SetStaticMesh(Asset);Group->SetCollisionProfileName(Piece.Mesh || Piece.VisualOnly || Piece.PawnBarrier ? TEXT("NoCollision"):TEXT("BlockAll"));
-            if(Piece.Mesh || Piece.VisualOnly || Piece.PawnBarrier)Group->ComponentTags.Add(TEXT("ERTemplateVisual"));
+            Group->SetupAttachment(RootComponent);Group->SetStaticMesh(Asset);Group->SetCollisionProfileName(Visual ? TEXT("NoCollision"):TEXT("BlockAll"));
+            if(Visual)Group->ComponentTags.Add(TEXT("ERTemplateVisual"));
             if(Piece.Roof)Group->ComponentTags.Add(TEXT("ERTemplateRoof"));
             Group->SetCanEverAffectNavigation(false);
             if(Piece.Surface)for(int32 Slot=0;Slot<FMath::Max(1,Asset->GetStaticMaterials().Num());++Slot)Group->SetMaterial(Slot,Surface);
@@ -343,7 +363,7 @@ void AERProceduralMap::ConfigureTemplateFloors()
             const FBox Box=Asset->GetBoundingBox();const FQuat MeshRotation=Piece.MeshRotation.Quaternion(),Rotation=T.GetRotation()*MeshRotation;
             const FVector Scale=MeshRotation.UnrotateVector(T.GetScale3D()*100).GetAbs()/Box.GetSize();
             T.SetRotation(Rotation);T.SetScale3D(Scale);T.AddToTranslation(-Rotation.RotateVector(Box.GetCenter()*Scale));
-            if(!Piece.VisualOnly && !Piece.PawnBarrier)FixedCollision->AddInstance(Piece.Transform);
+            if(!Piece.VisualOnly && !Piece.PawnBarrier && !Piece.MeshCollision)FixedCollision->AddInstance(Piece.Transform);
         }
         Group->AddInstance(T);
     }
@@ -354,7 +374,7 @@ void AERProceduralMap::ConfigureTemplateFloors()
         auto* Ladder=GetWorld()->SpawnActor<AERLadder>(AERLadder::StaticClass(),Desc.Frame*GetActorTransform(),Params);
         if(Ladder){Ladder->Height=Desc.Height;Ladder->DeckHeight=Desc.DeckHeight;LadderActors.Add(Ladder);}
     }
-    if(HasAuthority() && Layout.Routes.Num()>1 && Template->Archetype==EERMapArchetype::CentralBuilding)
+    if(HasAuthority() && Layout.Routes.Num()>1 && (Template->Archetype==EERMapArchetype::CentralBuilding || Template->Archetype==EERMapArchetype::MiddleEasternAlleys))
     {
         // Crossing rules have different route lengths. Never leave saved
         // placeholder points at the origin or feed bots obsolete waypoints.
@@ -365,12 +385,12 @@ void AERProceduralMap::ConfigureTemplateFloors()
             Existing.Add(It->RouteIndex);
             It->GetRootComponent()->SetMobility(EComponentMobility::Movable);
             It->SetActorLocation(GetActorTransform().TransformPosition(Layout.Routes[1][It->RouteIndex]));
-            It->AcceptanceRadius=20;
+            It->AcceptanceRadius=Layout.TownGates.IsEmpty() ? 20:10;
         }
         for(int32 I=0;I<Layout.Routes[1].Num();++I)if(!Existing.Contains(I))
         {
             auto* Point=GetWorld()->SpawnActor<AERBotPatrolPoint>(GetActorTransform().TransformPosition(Layout.Routes[1][I]),FRotator::ZeroRotator);
-            Point->RouteIndex=I;Point->AcceptanceRadius=20;
+            Point->RouteIndex=I;Point->AcceptanceRadius=Layout.TownGates.IsEmpty() ? 20:10;
         }
     }
     else if(HasAuthority() && Layout.Routes.Num()>1)
@@ -396,6 +416,7 @@ uint32 AERProceduralMap::GetTemplateGeometryDigest() const
     for(const auto& P:Layout.FixedPieces)
     {
         H=HashCombine(H,GetTypeHash(P.PawnBarrier));
+        H=HashCombine(H,GetTypeHash(P.MeshCollision));
         if(P.PawnBarrier)H=HashCombine(H,ERIndustrialFence::GeometryVersion);
         MixVector(P.Transform.GetLocation());MixVector(P.Transform.GetScale3D());MixVector(FVector(P.MeshRotation.Pitch,P.MeshRotation.Yaw,P.MeshRotation.Roll));H=HashCombine(H,GetTypeHash(P.Roof));H=HashCombine(H,GetTypeHash(P.VisualOnly));H=HashCombine(H,GetTypeHash(uint8(P.Material)));
         MixVector(P.Transform.GetRotation().GetForwardVector());
@@ -407,6 +428,20 @@ uint32 AERProceduralMap::GetTemplateGeometryDigest() const
     for(const auto& Route:Layout.Routes)for(const auto& P:Route)MixVector(P);
     if(LayoutConfig.TemplateAsset->Town.Enabled)
     {
+        H=HashCombine(H,GetTypeHash(Layout.GradedTerrain));
+        H=HashCombine(H,GetTypeHash(Layout.SeededDistrict));
+        H=HashCombine(H,GetTypeHash(Layout.DistrictAccesses));H=HashCombine(H,GetTypeHash(Layout.DistrictBends));
+        H=HashCombine(H,GetTypeHash(Layout.DistrictWallCount));
+        H=HashCombine(H,GetTypeHash(Layout.DistrictWallOffset));H=HashCombine(H,GetTypeHash(Layout.DistrictOpenHalfDepth));
+        H=HashCombine(H,GetTypeHash(Layout.UnderpassAxis));H=HashCombine(H,GetTypeHash(Layout.CentralLowCovers));
+        for(const auto& R:Layout.UnderpassRamps){MixVector(R.Bounds.Min);MixVector(R.Bounds.Max);MixVector(R.Entry);MixVector(R.Exit);}
+        for(const auto* Bounds:{&Layout.UnderpassBreaches,&Layout.LowCovers})for(const auto& P:*Bounds){MixVector(P.Min);MixVector(P.Max);}
+        for(const auto& P:Layout.UnderpassRoute)MixVector(P);
+        for(const auto& Tower:Layout.DistrictTowers){MixVector(Tower.GetLocation());MixVector(Tower.GetRotation().GetForwardVector());}
+        for(float Height:Layout.DistrictTowerHeights)H=HashCombine(H,GetTypeHash(Height));
+        for(const auto& Route:Layout.DistrictRoutes)for(const auto& P:Route)MixVector(P);
+        for(const auto& P:Layout.TerrainPads){MixVector(P.Min);MixVector(P.Max);}
+        for(const auto* Routes:{&Layout.RooftopRoutes,&Layout.GroundRoutes})for(const auto& Route:*Routes)for(const auto& P:Route)MixVector(P);
         MixVector(Layout.TownCrossing);
         for(const auto* Paths:{&Layout.RoomAccessRoutes,&Layout.StairRoutes})for(const auto& Route:*Paths)for(const auto& P:Route)MixVector(P);
         for(const auto& P:Layout.UpperRoute)MixVector(P);

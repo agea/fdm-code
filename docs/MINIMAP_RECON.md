@@ -122,3 +122,24 @@ hits and advance only the probe's replacement deadline to bound test duration.
 `-ERReconProbe -ERReconGallery` is an explicit standalone art fixture with
 frozen drone pose and camera; it is never enabled in ordinary play. Test logs,
 screenshots and results are stored in Saved/Testing and recorded in TEST_RESULTS.md.
+
+
+### Team emblems and animated case (22 October 2026)
+
+The user supplied Alpha/Omega wall graffiti textures are also projected onto the
+case lid. This replaces the earlier permanently closed case. Each authorized
+launch replicates `LaunchAt`; lower shell, lid and lock retain the original
+source geometry with fitted closed hinges. Original FBX angular keys (101
+samples at 25fps) open and close the lid/lock on server time; original exploded
+translation is removed. Drone ascent starts 1.2 seconds after the opening begins.
+Only the grounded lower shell collides. Stock, bullet damage and the 30-second
+replacement schedule retain server authority. Client late joins evaluate the
+current animation pose instead of replaying the opening from the start.
+
+Sparse wall decals are owned by the recon director, reference Blueprint art
+defaults, and rebuild after the local map geometry epoch is ready. Each team's
+probability decreases across its outer35% of the inter-base span. The central30%
+is excluded including image bounds; 5m separation and 36 per-team cap prevent
+wallpaper coverage. Geometry/collision, spawn placement and layout RNG are
+unchanged. `test-team-graffiti.py` captures the actual wall and animated case
+on Depot, Central Building and Middle Eastern Alleys.

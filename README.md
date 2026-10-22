@@ -22,6 +22,17 @@ The default builds both targets and uploads to `windows-x86_64` and
 toolchain. Use `-TargetPlatform Windows` or `-TargetPlatform Linux` for one
 platform. Run `butler login` once; add `-NoUpload` to keep packages local.
 
+## Middle Eastern Alleys — 22 October 2026
+
+The match menu also offers **Middle Eastern Alleys · Desert**: seeded districts
+with2–4 main approaches, zero/one/two central walls, low cover in open plazas, winding streets and climbable
+watchtowers. A winding lower passage has paired ramps and breachable brick road sections. Gameplay spaces have counterparts rotated180°, including terrain
+and paired3.2m routes above walkable underpasses. It uses the requested three
+Sketchfab sand textures and twelve mud/concrete house variants. Accessible house openings use the
+original shell collision; exterior stairs reach several roofs, and sloping sand
+connects different ground elevations. See [the alley template](docs/MIDDLE_EASTERN_ALLEYS.md)
+for assets, regeneration and validation. Existing team deathmatch rules apply.
+
 ## Industrial map generation — 19 October 2026
 
 The match menu now uses **Central Building · Industrial**, with seeded open-yard,

@@ -1,4 +1,294 @@
+## 22 October 2026 — team graffiti / recon case
+
+- Editor arm64 Development build: PASS. Unreal import/save: PASS, zero errors
+  and warnings in the final asset import commandlet. Original PNG alpha retained.
+- `test-recon.py --automation`: Flight, FogAndSight, SmokeOcclusion PASS (3/3).
+  Engine startup also logs pre-existing generic automation condition messages;
+  all three requested test results and process exit are successful.
+- `test-team-graffiti.py --map CentralBuilding`: Metal PASS; 5 Alpha / 8 Omega.
+- `test-team-graffiti.py --map MiddleEasternAlleys`: Metal PASS; 26 / 30.
+- `test-team-graffiti.py --map Depot`: Metal PASS; 6 / 3.
+  Actual wall and closed/open/closing/closed case captures inspected. Corrected
+  decal UV orientation after the first capture; materials preserve transparency.
+  Counts are seed-specific, not a coverage percentage or balance claim.
+- `test-recon.py --render`: PASS, actual listen host, enemy, ally and late client.
+  Existing sight/smoke, authorized drone hit, five losses, actual 30-second
+  replacement, debris and round reset checks pass. New checks verify saved source
+  keys/parts, team lid emblem, 1.2s opening lead-in, and opening/reclosing on all
+  three remote clients, including late join. The initial client sample timing
+  was corrected to observe the open and closed portions of the cycle.
+- `test-industrial-map.py`: industrial native automation PASS (layout/collision/
+  evolution and finishes). `test-network.py --accuracy`: actual host/client PASS.
+- `git diff --check` and Python syntax checks: PASS.
+
+Reports and named captures: `Saved/Testing/graffiti-*-report.json`,
+`graffiti-*-GraffitiWall.png`, `graffiti-*-GraffitiCase[0-3].png`,
+`recon-metal-report.json`. These are local checks on one Mac; no separate-device
+or subjective gameplay/balance claim.
+
 # Verifiche locali — 22 ottobre 2026
+
+
+## 22 ottobre 2026 — coperture basse, sottopassi e pavimentazione forabile
+
+Build Editor Mac Development arm64 UE5.8.3 PASS. Migrazione esplicita revision5
+con backup revision4 verificato,516 candidati e salvataggio della sola ricetta.
+Target14 coperture centrali e18 nei distretti (minimi verificati8/6), a65–110cm,
+in coppie ruotate180°; varchi, percorsi, scale, pioli, rampe e ingressi riservati.
+Sottopasso a -3.6m con curve e due rampe, seed base-base oppure ovest-est.
+Due sezioni di laterizio10cm hanno veri fori nel terreno dietro le celle.
+Il resto del pavimento e della struttura è permanente. I2–4 varchi sono quelli
+in superficie; il sottopasso aggiunge una connessione inferiore.
+
+PASS `test-destruction.py`,15 test nativi,512 layout e sei mondi fisici.
+Verificate entrambe le orientazioni, coperture accoppiate, appoggio e spazio per
+la capsule sull'intero percorso inferiore/rampe, tetti e torri. Il profilo
+strutturale dell'asset reale `DA_Grenade_RGD5` apre un foro attraversabile nella
+pavimentazione in tutti i sei mondi, con appoggio sottostante a -360cm.
+HP, trasmissione, armi e catalogo condiviso invariati. Corretti il verso dei
+triangoli delle rampe e le facce dei muri di contenimento; nessun piano nascosto
+resta nei fori. Il conteggio degli archi campiona lo spessore della cinta;
+le nuove coperture sono comunque escluse dalle bocche degli archi.
+Regressioni celle, Central Building e più piani passate. Riepilogo:
+`Saved/Testing/alleys-passages-native-summary.log`.
+
+PASS idempotenza delle migrazioni3/4/5 e inventario15 mesh/5 materiali/14 texture:
+36 package propri e quattro asset protetti identici; originali verificati e
+quattro seed estremi aggiuntivi validati sulla build finale. Report:
+`Saved/Testing/alleys-passages-idempotence-report.json`.
+
+PASS quattro viste Metal1536×1536, PNG distinti ispezionati. Seed42/73 hanno
+sottopasso base-base;511/7919 ovest-est. Tutti e quattro mostrano32 coperture
+nuove,14 centrali. Viste Entry/Lower/Intact/Breached1280×720 ispezionate:
+rampa e curva visibili, foro reale aperto con il profilo HE salvato.
+Report `alleys-passages-aerial-report.json`, immagini `MiddleEasternPassages-*`
+e archivio `Saved/Testing/MiddleEasternPassages-Maps-and-Tunnels.zip`.
+
+
+
+PASS `test-dust-template.py --alleys --seed 511` (exit0): percorso superiore
+Alpha–Omega, sottopasso ovest-est completo nei due versi, entrambe le rampe,
+foro con il profilo HE reale e caduta del personaggio fino al piano inferiore.
+Passati anche case, tetti, torri, rampe ordinarie, arma/coperture e rigenerazione.
+Report `Saved/Testing/alleys-passages-crosswise-report.json`; riepilogo
+`alleys-passages-crosswise-summary.log`.
+
+PASS `test-dust-template.py --alleys --render --network --seed 42` (exit0):
+intero sottopasso tra le basi nei due versi, foro nella pavimentazione con
+il profilo HE salvato e caduta reale del personaggio sul piano a -3.6m.
+Passate anche le funzionalità precedenti. Host Metal e due client locali
+concordano3866611771 intatto,2052419806 danneggiato e1790143882 rigenerato.
+I client controllano fisicamente il foro nello stato6 e la strada ripristinata
+nello stato7; snapshot iniziale/tardivo e basi di movimento passati, zero
+correzioni scartate per basi irrisolte o oggetti non supportati. Report:
+`Saved/Testing/alleys-passages-network-report.json`; riepilogo
+`alleys-passages-network-summary.log`. Compilazione Python e diff-check PASS.
+Queste prove locali verificano geometria, movimento, danno e ricostruzione;
+non misurano bilanciamento competitivo o reti/dispositivi differenti.
+
+## 22 ottobre 2026 — centro aperto e zero/una/due cinte
+
+Build Editor Mac Development arm64 UE5.8.3 PASS. `setup_alley_core.py` salva
+la sola ricetta revision4 dopo516 seed validati, con rollback revision3
+verificato. Conteggio cinte0–2 indipendente dalle2–4 direttrici principali.
+Senza cinta le direttrici si collegano liberamente al centro; due cinte
+lasciano23.6–29.6m tra le facce, senza case o torri nella fascia riservata.
+Ponti accoppiati e piccole coperture restano nel centro. Parità geometrica a180°.
+
+PASS `test-destruction.py`,15 test nativi:512 layout, tutte le nove combinazioni
+cinte/accessi, parità degli isolati, determinismo e percorsi completi; sei mondi
+fisici0,42,73,511,7919,INT32_MAX. Sweep della capsule contano i varchi su ogni
+cinta presente; nelle varianti0/2 il centro deve avere oltre75% di larghezza
+attraversabile, senza una barriera aggiuntiva. Confermati ponti, tetti, scale,
+pioli/pianerottoli, ingressi nelle case e terreno. Passate le regressioni celle,
+Central Building e più piani. `Saved/Testing/alleys-core-native-summary.log`.
+
+PASS idempotenza delle migrazioni revision3/revision4:36 package della mappa
+e quattro asset protetti invariati; inventario15 mesh/5 materiali/14 texture,
+originali con hash corretti. Altri quattro seed estremi rivalidati. Report:
+`Saved/Testing/alleys-core-idempotence-report.json`; log `alleys-core-assets.log`.
+
+PASS quattro viste Metal ortografiche1536×1536, PNG distinti ispezionati:
+42 una cinta/2 accessi,73 due cinte/3 accessi/29.6m centrali,511 nessuna
+cinta/3 direttrici/18m centrali,7919 due cinte/4 accessi/27.6m centrali.
+Gli accessi indicano il conteggio per ciascuna cinta, quando presente.
+Immagini `Saved/Testing/MiddleEasternCore-Aerial-<seed>.png`; report con
+metadati/hash `alleys-core-aerial-report.json`; ZIP `MiddleEasternCore-4maps.zip`.
+
+
+PASS `test-dust-template.py --alleys --render --network --seed 511` (exit0):
+centro senza cinte, ponte/sottopasso, due scale ai tetti, ingresso/uscita casa,
+quattro rampe in salita/discesa, quattro torri e percorso Alpha–Omega.
+Fucile, distruzione/collasso, ingresso tardivo e rigenerazione7919 con due
+cinte passati. Host Metal e due client locali condividono47045505 intatto,
+3981942898 danneggiato e260779632 rigenerato. Entrambe le basi di movimento
+risolte; zero correzioni scartate/oggetti di rete non supportati. Report:
+`Saved/Testing/alleys-core-network-report.json`; riepilogo
+`alleys-core-network-summary.log`. Nessuna misura di bilanciamento competitivo
+o collegamento tra dispositivi/reti differenti.
+
+PASS anche `test-dust-template.py --alleys --seed 73` (exit0): personaggio
+reale attraverso tutti e sei gli archi delle due cinte, ponte/sottopasso, due
+tetti, casa, rampe, quattro torri, percorso Alpha–Omega, danno e rigenerazione.
+Report `Saved/Testing/alleys-core-twinwalls-report.json`; riepilogo
+`alleys-core-twinwalls-summary.log`. Compilazione Python e diff-check PASS.
+
+## 22 ottobre 2026 — distretti variabili, piazze e torri
+
+Build Editor Mac Development arm64 UE5.8.3 riuscita. Migrazione esplicita
+revision3 salvata attraverso Unreal dopo516 seed validati, con backup della
+ricetta revision2. La nuova ricetta genera il grafo dei vicoli:2–4 varchi
+inter-base reali, quattro impostazioni di tortuosità, due/quattro piazze e
+due/quattro torri con scale a pioli del gioco. Spazi, lotti, spawn, quote,
+scale ai tetti e torri hanno controparti ruotate180°.
+
+PASS finale `test-destruction.py`,15 test nativi:512 layout con tutte le
+varianti di accessi/tortuosità/piazze/torri, parità delle opportunità di salita
+e degli isolati, determinismo e rifiuto atomico; sei mondi fisici0,42,73,511,
+7919,INT32_MAX. I varchi sono contati tramite sweep della capsule lungo la
+cinta centrale; percorsi completi, scale, pioli, maniglie e pianerottoli delle
+torri verificati fisicamente. Rampe percorse da sweep con contatti ammessi
+solo sul terreno realmente calpestabile (normale Z≥.72). Le quote di percorso
+interpolano gli stessi triangoli della collisione. I controlli hanno rilevato
+e corretto raccordi troppo bruschi presso gli spawn, senza cambiare le regole
+di movimento. Passate le regressioni Central Building, celle e più piani.
+Log: `Saved/Testing/destruction-automation.log`.
+
+PASS finale `test-dust-template.py --alleys --render --network` (exit0):
+attraversati tutti gli archi del seed42, sottopasso e ponte, due scale fino
+all'appoggio sulla mesh dei tetti, ingresso/uscita da una casa, quattro
+attraversamenti delle rampe e tutte e quattro le torri con salita reale sulle
+scale a pioli e appoggio sui pianerottoli. Percorso completo Alpha–Omega,
+fucile, distruzione/collasso e rigenerazione con seed7919 passati. Host Metal
+e due client locali condividono995061080 intatto,1253835183 danneggiato e
+2654399937 dopo rigenerazione. Snapshot iniziale/tardivo e basi di movimento
+passati, zero correzioni scartate per basi irrisolte/oggetti non supportati.
+Il driver attende ora la conferma dello snapshot danneggiato del client tardivo
+prima del cambio seed: elimina una gara con i tempi di caricamento del test,
+senza cambiare la rete di produzione. Report:
+`Saved/Testing/alleys-network-metal-report.json`; riepilogo
+`Saved/Testing/alleys-district-network-summary.log`.
+
+PASS inventario15 mesh/5 materiali/14 texture e idempotenza:36 package della
+mappa e quattro risorse protette invariati. La migrazione revision3 modifica
+soltanto la ricetta; mesh, materiali, sorgenti e livelli preservati. Report:
+`Saved/Testing/alleys-district-idempotence-report.json`.
+Quattro seed estremi aggiuntivi (-17,7919,INT32_MAX,INT32_MIN) rivalidati
+sulla build definitiva, oltre ai512 del test nativo.
+
+PASS quattro viste Metal ortografiche1536×1536, senza HUD né overflow ombre:
+seed42 (2 accessi, winding2,4 piazze/4 torri),73 (3,0,4/4),511 (3,1,4/4),
+7919 (4,1,2/2). PNG distinti ispezionati; nuove immagini separate dalle
+catture revision2 in `MiddleEasternDistrict-Aerial-<seed>.png`. Report con
+seed/dimensioni/digest/hash: `Saved/Testing/alleys-district-aerial-report.json`;
+archivio `Saved/Testing/MiddleEasternDistrict-4maps.zip`.
+Galleria Metal completa passata; viste Interior/Ramp ispezionate e vista
+Rooftop della torre ricatturata con `--alleys --tower` dopo aver corretto una
+camera occlusa dalla cinta. Il probe verifica con un raggio la vista libera
+della torre; immagine `MiddleEasternDistrict-Rooftop.png` ispezionata, scala
+a pioli e pianerottolo chiaramente visibili. Compilazione Python e
+`git diff --check` passati. Queste verifiche locali non misurano il
+bilanciamento competitivo né una partita fra dispositivi o reti differenti.
+
+## 22 ottobre 2026 — quattro mappe, catture dall'alto
+
+PASS `test-dust-template.py --alleys --plans`, build Editor Mac riuscita ed
+exit0 della galleria Metal. Generati seed42,73,511,7919; salvati e ispezionati
+quattro screenshot verticali ortografici1536×1536, senza HUD, con inquadratura
+completa. Dimensioni rispettive:67×75m,71×73.5m,71×81m,67.5×82.5m. Il passaggio
+finale usa4096 pagine ombre solo per queste catture, senza overflow; i PNG hanno
+hash distinti e dimensioni verificate. Nessuna modifica alle regole di gioco.
+Report: `Saved/Testing/alleys-local-metal-gallery-plans-report.json`.
+Immagini `Saved/Testing/MiddleEasternAlleys-Aerial-<seed>.png`; archivio
+`Saved/Testing/MiddleEasternAlleys-Aerial-4maps.zip` con i quattro PNG.
+Compilazione sintattica Python e `git diff --check` passati.
+
+## 22 ottobre 2026 — case accessibili, tetti e terreno graduato
+
+Build Editor Mac Development arm64 UE5.8.3 riuscita. Migrazione esplicita
+revision2 eseguita attraverso Unreal con backup verificato: dodici case con
+collisione sulle superfici originali, due materiali con facce interne visibili
+e ricetta aggiornata; livello, altre mappe e catalogo condiviso preservati.
+Validazione prima del salvataggio:516 seed. Nessun volume pieno chiude più le
+aperture delle dodici case. Scale esterne a tornante riservate negli isolati,
+terreno reale a quota0/+120/+180cm e rampe; perimetro alzato a14m per contenere
+anche i percorsi sui tetti.
+
+PASS finale `test-destruction.py`:15 test nativi. I512 layout verificano almeno
+due accessi ai tetti e due percorsi sul terreno; sei mondi fisici verificano
+passaggi nelle case, spazio per la capsule sulle scale, appoggio finale sulla
+mesh originale del tetto, collisione del terreno entro3cm e dislivelli oltre1m.
+Passate le regressioni Central Building, celle, materiali e generatore a più
+piani. Log: `Saved/Testing/destruction-automation.log` e
+`Saved/Testing/alleys-traversal-native-summary.log`.
+
+PASS finale `test-dust-template.py --alleys --render --network` (exit0):
+personaggio reale attraverso le porte, sotto/sopra Short A, due scale esterne
+con appoggio effettivo sulla mesh del tetto, ingresso/uscita da una casa e
+quattro attraversamenti delle rampe nelle due direzioni. Tiro di fucile,
+distruzione/collasso e rigenerazione con seed7919 passati. Il fixture di tiro
+segue ora l'altezza effettiva del terreno. Host Metal e due client locali sulla
+stessa build, iniziale e tardivo, condividono i digest1793307698 intatto,
+3164166188 dopo danno e1210327691 dopo rigenerazione. Entrambi risolvono la
+base del ponte, senza correzioni scartate né oggetti di rete non supportati.
+Report: `Saved/Testing/alleys-network-metal-report.json`; riepilogo
+`Saved/Testing/alleys-traversal-network-final-summary.log`.
+
+PASS `verify_middle_eastern_assets.py`: inventario15 mesh/5 materiali/14 texture,
+marker di collisione revision2 sulle dodici case e materiali interni bifacciali.
+PASS seconda migrazione: exit0, tutti i36 package del template e quattro
+risorse protette SHA-256 invariati; report
+`Saved/Testing/alleys-traversal-idempotence-report.json`.
+PASS galleria Metal con dieci viste, comprese Rooftop, Interior e Ramp,
+ispezionate visivamente. Le viste Interior guardano dall'apertura verso il
+vicolo; nessun nuovo arredamento o stanza è aggiunto ai modelli sorgente.
+Compilazione sintattica Python e `git diff --check` passati.
+Questi controlli locali non stabiliscono il bilanciamento competitivo né
+verificano Internet o una partita fra due dispositivi fisici.
+
+## 22 ottobre 2026 — Middle Eastern Alleys
+
+Build Editor Mac Development arm64 UE5.8.3 riuscita. Nuovo livello e DataAsset
+salvati attraverso Unreal; validazione candidata di516 seed passata prima del
+salvataggio. Il nuovo template si aggiunge al catalogo menu/rotazione e al cook.
+
+PASS `test-destruction.py`:15 test nativi, compresi i nuovi
+`MiddleEasternAlleysLayout` (512 seed, variabilità degli isolati, percorsi
+completi,20 spawn, determinismo e rifiuto atomico) e
+`MiddleEasternAlleysCollision` (sei mondi fisici:0,42,73,511,7919,INT32_MAX;
+capsule alle porte/spawn/scale, piano del ponte a320cm e sottopasso libero).
+Passate anche le regressioni Central Building, celle, balistica, rete,
+materiali e generatore a più piani. Log: `Saved/Testing/destruction-automation.log`.
+
+PASS `verify_middle_eastern_assets.py`:15 StaticMesh (dodici case e tre mesh
+proprie arco/ante),5 materiali e14 texture; dodici campioni PBR collegati al
+blend delle tre sabbie, uso ISM, dipendenze private e hash delle sorgenti.
+I quattro archivi/metadati Sketchfab e i crediti CC BY4.0 sono conservati nel
+privato maps. SHA-256 invariati per Depot, Central Building, il suo DataAsset
+e il catalogo condiviso della distruzione. Un secondo setup è terminato exit0
+senza cambiare nessuno dei36 nuovi package (34 art + template + livello).
+Report: `Saved/Testing/alleys-assets-report.json` e
+`Saved/Testing/alleys-idempotence-report.json`.
+
+PASS finale `test-dust-template.py --alleys --render --network`: host Metal e
+due client locali, ingresso iniziale/tardivo, attraversamento reale delle tre
+porte diagonali, sottopasso, entrambe le scale e Short A; tiro reale di fucile,
+distruzione/collasso, ricostruzione con seed7919 ed epoch2. Digest condivisi:
+1237050361 intatto,4198946245 dopo danno,1848351699 dopo rigenerazione. Entrambi
+i client risolvono il movimento relativo al ponte; nessuna correzione scartata
+per base irrisolta o oggetto di rete non supportato. Report:
+`Saved/Testing/alleys-network-metal-report.json`. Il primo passaggio aveva
+rilevato un fixture storico non aggiornato: `Primary=0` selezionava il coltello;
+il driver ora usa `Primary=4` per il nuovo template e la prova di tiro passa.
+
+Galleria Metal con camere ferme dopo compilazione asset, HUD sostituito soltanto
+nel probe e sette viste in `Saved/Testing/MiddleEasternAlleys-*.png`: due piante
+dei seed42/7919, corte A, Long, ponte, sottopasso e porta. Il pool ombre maggiore
+della galleria evita overflow nella vista completa; le impostazioni di gioco
+restano invariate. Compilazione sintattica Python e `git diff --check` passati.
+Queste prove non misurano bilanciamento competitivo, prestazioni di una partita
+completa, collegamenti fra due Mac fisici o Internet. A/B sono corti di scontro
+del deathmatch esistente, senza nuova modalità bomba/cattura.
 
 
 ## 22 ottobre 2026 — EOS senza account Epic

@@ -2,8 +2,12 @@
 #include "ERProceduralMap.h"
 #include "ERCharacter.h"
 #include "ERWeapon.h"
+#include "ERMovement.h"
 #include "ERPlayerController.h"
 #include "GameFramework/PlayerState.h"
+#include "GameFramework/HUD.h"
+#include "Components/InstancedStaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -13,6 +17,10 @@
 #include "UnrealClient.h"
 #include "Misc/App.h"
 #include "Misc/Paths.h"
+#include "Algo/Reverse.h"
+#if WITH_EDITOR
+#include "AssetCompilingManager.h"
+#endif
 
 AERDustTemplateProbe::AERDustTemplateProbe()
 {
@@ -61,6 +69,7 @@ void AERDustTemplateProbe::Tick(float Delta)
     Elapsed+=Delta;TActorIterator<AERProceduralMap> It(GetWorld());if(!It)return;
     auto* Map=*It;if(!Map->IsMapReady())return;
     const auto& L=Map->GetLayout();
+    auto RoadBlast=[](){const auto* HE=LoadObject<UERWeaponData>(nullptr,TEXT("/Game/EclipseRecoil/Weapons/LowPoly/DA_Grenade_RGD5"));return HE ? HE->BlockExplosion:FERBlockExplosionProfile();};
     if(!HasAuthority())
     {
         if((SnapshotPhase==1 || SnapshotPhase==6 || SnapshotPhase==7) && SeenPhase!=SnapshotPhase && Map->IsSnapshotCurrent() && Map->GetStateDigest()==ExpectedDigest)
@@ -69,9 +78,14 @@ void AERDustTemplateProbe::Tick(float Delta)
             // Sample replicated environment collision, excluding the host or
             // another pawn currently walking through the tested underpass.
             for(TActorIterator<APawn> Pawn(GetWorld());Pawn;++Pawn)Q.AddIgnoredActor(*Pawn);
-            bool Good=Map->ValidateCells() && L.TownBuildings.Num()>=12 && L.TownGates.Num()==3;
+            bool Good=Map->ValidateCells() && L.TownBuildings.Num()>=12 && (L.SeededDistrict ? L.TownGates.Num()==L.DistrictAccesses*L.DistrictWallCount:L.TownGates.Num()==3);
             Good&=GetWorld()->LineTraceSingleByChannel(Hit,P+FVector(0,0,500),P+FVector(0,0,200),ECC_WorldStatic,Q) && FMath::IsNearlyEqual(Hit.ImpactPoint.Z,320.f,1.f);
-            Good&=!GetWorld()->SweepSingleByChannel(Hit,P+FVector(-500,0,100),P+FVector(500,0,100),FQuat::Identity,ECC_Pawn,FCollisionShape::MakeCapsule(34,92.5),Q);
+            Good&=!GetWorld()->SweepSingleByChannel(Hit,L.LowerRoute[0],L.LowerRoute.Last(),FQuat::Identity,ECC_Pawn,FCollisionShape::MakeCapsule(34,92.5),Q);
+            if(L.UnderpassAxis)
+            {
+                const auto Hole=L.UnderpassBreaches[0].GetCenter();
+                Good&=GetWorld()->LineTraceSingleByChannel(Hit,Hole+FVector(0,0,150),Hole-FVector(0,0,400),ECC_WorldStatic,Q) && FMath::IsNearlyEqual(Hit.ImpactPoint.Z,SnapshotPhase==6 ? -360.f:0.f,1.f);
+            }
             UE_LOG(LogTemp,Display,TEXT("ER_DUST_CLIENT_%s phase=%d digest=%u epoch=%u"),Good ? TEXT("PASS"):TEXT("FAIL"),SnapshotPhase,ExpectedDigest,Map->GetMapEpoch());SeenPhase=SnapshotPhase;
         }
         // Phase 6 puts the initial client on the deck, phase 7 (after the seed rebuild) the late one.
@@ -91,8 +105,96 @@ void AERDustTemplateProbe::Tick(float Delta)
     }
     auto* PC=Cast<AERPlayerController>(UGameplayStatics::GetPlayerController(GetWorld(),0));
     auto* C=PC ? Cast<AERCharacter>(PC->GetPawn()):nullptr;
-    if(!C || !C->Weapon || L.TownGates.Num()!=3){if(Elapsed>50)FPlatformMisc::RequestExitWithStatus(false,1);return;}
+    if(!C || !C->Weapon || (!L.SeededDistrict && L.TownGates.Num()<2)){if(Elapsed>50)FPlatformMisc::RequestExitWithStatus(false,1);return;}
     auto* Move=C->GetCharacterMovement();
+    // Opt-in art gallery: fixed cameras are held across many rendered frames
+    // after compilation, so captures cannot inherit a just-teleported FPS view.
+    if(FParse::Param(FCommandLine::Get(),TEXT("ERAlleyGallery")))
+    {
+        const bool Plans=FParse::Param(FCommandLine::Get(),TEXT("ERAlleyPlans"));
+        const bool TowerOnly=!Plans && FParse::Param(FCommandLine::Get(),TEXT("ERAlleyTowerOnly"));
+        const bool PassageOnly=!Plans && FParse::Param(FCommandLine::Get(),TEXT("ERAlleyPassageOnly"));
+        static constexpr int32 PlanSeeds[]={42,73,511,7919};
+        if(Phase==0)
+        {
+            if(Elapsed<12)return;
+#if WITH_EDITOR
+            FAssetCompilingManager::Get().FinishAllCompilation();
+#endif
+            C->SetActorHiddenInGame(true);Move->StopMovementImmediately();PC->ClientSetHUD(AHUD::StaticClass());
+            Phase=90;GateIndex=PassageOnly ? 10:TowerOnly ? 6:0;Waypoint=0;StageTime=Elapsed;return;
+        }
+        static const TCHAR* Names[]={TEXT("Plan-42"),TEXT("Courtyard-A"),TEXT("Long"),TEXT("Underpass"),TEXT("Short-A"),TEXT("Gate"),TEXT("Rooftop"),TEXT("Interior"),TEXT("Ramp"),TEXT("Plan-7919"),TEXT("Tunnel-Entry"),TEXT("Tunnel-Lower"),TEXT("Road-Intact"),TEXT("Road-Breached")};
+        if(Phase==90 && Waypoint==0)
+        {
+            if(Plans)
+            {
+                Map->LayoutConfig.Seed=PlanSeeds[GateIndex];Check(Map->Regenerate(),TEXT("gallery_aerial_seed"));
+                UE_LOG(LogTemp,Display,TEXT("ER_DUST_AERIAL seed=%d size=%s digest=%u"),PlanSeeds[GateIndex],*L.ArenaSize.ToString(),Map->GetStateDigest());
+                if(L.SeededDistrict)UE_LOG(LogTemp,Display,TEXT("ER_DISTRICT_AERIAL seed=%d accesses=%d bends=%d plazas=%d towers=%d walls=%d open_depth=%.0f"),PlanSeeds[GateIndex],L.DistrictAccesses,L.DistrictBends,L.TownCourts.Num()-2,L.DistrictTowers.Num(),L.DistrictWallCount,L.DistrictOpenHalfDepth*2);
+                if(L.UnderpassAxis)UE_LOG(LogTemp,Display,TEXT("ER_PASSAGE_AERIAL seed=%d axis=%d cover=%d center_cover=%d"),PlanSeeds[GateIndex],L.UnderpassAxis,L.LowCovers.Num(),L.CentralLowCovers);
+            }
+            else if(GateIndex==9){Map->LayoutConfig.Seed=7919;Check(Map->Regenerate(),TEXT("gallery_second_seed"));}
+            FVector Eye,Target;bool Plan=Plans || GateIndex==0 || GateIndex==9;
+            if(GateIndex>=10 && !Plans && L.UnderpassAxis)
+            {
+                const auto& R=L.UnderpassRamps[0];const auto D=(R.Exit-R.Entry).GetSafeNormal2D();
+                if(GateIndex==10){Eye=R.Entry+D*60+FVector(0,0,180);Target=R.Exit+FVector(0,0,140);}
+                else if(GateIndex==11){const int32 Mid=L.UnderpassRoute.Num()/2;Eye=L.UnderpassRoute[Mid]+FVector(0,0,65);Target=L.UnderpassRoute[FMath::Min(Mid+6,L.UnderpassRoute.Num()-1)]+FVector(0,0,65);}
+                else
+                {
+                    Target=L.UnderpassBreaches[0].GetCenter();Eye=Target+FVector(0,0,1000);
+                    if(GateIndex==13)AERBlockRoom::ApplyWorldExplosion(GetWorld(),Target+FVector(0,0,10),RoadBlast(),nullptr);
+                }
+            }
+            else if(Plan){Eye=FVector(0,0,11000);Target=FVector::ZeroVector;}
+            else if(GateIndex==1){Target=L.TownCourts[3].GetCenter()+FVector(0,0,180);Eye=Target+FVector(0,700,420);}
+            else if(GateIndex==2){Target=L.TownCourts[3].GetCenter()+FVector(0,0,150);Eye=L.TownCourts[4].GetCenter()+FVector(0,0,180);Eye.X=L.ArenaSize.X*.42;Target.X=Eye.X;}
+            else if(GateIndex==3){Eye=L.LowerRoute[0]+FVector(0,0,65);Target=L.TownCrossing+FVector(0,0,160);}
+            else if(GateIndex==4){Eye=L.TownCrossing+FVector(0,280,480);Target=L.TownCrossing+FVector(0,-700,370);}
+            else if(GateIndex==5 && !L.TownGates.IsEmpty()){const auto& G=L.TownGates[0];Eye=G.Frame.TransformPosition(FVector(0,-550,170));Target=G.Frame.TransformPosition(FVector(0,0,190));}
+            else if(GateIndex==5){Eye={0,-L.DistrictOpenHalfDepth,170};Target={0,0,190};}
+            else if(GateIndex==6 && L.SeededDistrict)
+            {
+                const auto& F=L.DistrictTowers[0];const float H=L.DistrictTowerHeights[0];Target=F.TransformPosition({-220,0,H*.65f});
+                FCollisionQueryParams Q(SCENE_QUERY_STAT(ERDistrictTowerCamera),false);Q.AddIgnoredActor(C);bool Clear=false;
+                for(float Lift:{400.f,700.f,1000.f})
+                {
+                    Eye=F.TransformPosition({900,900,H+Lift});FHitResult Hit;
+                    if(GetWorld()->LineTraceSingleByChannel(Hit,Eye,Target,ECC_Visibility,Q))
+                    {const auto P=F.InverseTransformPosition(Hit.ImpactPoint);Clear=P.X>=-700 && P.X<=30 && FMath::Abs(P.Y)<350 && P.Z<=H+120;}
+                    if(Clear)break;
+                }
+                Check(Clear,TEXT("tower_gallery_camera_has_clear_view"));
+            }
+            else if(GateIndex==6 && !L.RooftopRoutes.IsEmpty())
+            {const auto& R=L.RooftopRoutes[0];Target=R.Last()+FVector(0,0,30);Eye=R[R.Num()/2]+FVector(0,0,240);}
+            else if(GateIndex==7)
+            {TArray<FVector> Entry;if(ERProcedural::FindAlleyInteriorRoute(GetWorld(),L,Entry)){Eye=Entry[1]+FVector(0,0,66);Target=Entry[0]+FVector(0,0,66);}else{Eye=FVector(0,0,800);Target=FVector::ZeroVector;}}
+            else{Eye=L.GroundRoutes[0][1]+FVector(0,0,70);Target=L.GroundRoutes[0][2]+FVector(0,0,50);}
+            auto* Camera=GetWorld()->SpawnActor<ACameraActor>(Eye,Plan ? FRotator(-90,-90,0):(Target-Eye).Rotation());
+            Camera->GetCameraComponent()->SetFieldOfView(78);
+            if(Plan)
+            {
+                Camera->GetCameraComponent()->SetProjectionMode(ECameraProjectionMode::Orthographic);
+                Camera->GetCameraComponent()->SetAspectRatio(Plans ? 1.f:16.f/9);
+                Camera->GetCameraComponent()->OrthoWidth=FMath::Max(L.ArenaSize.X,L.ArenaSize.Y*(Plans ? 1.f:16.f/9))*1.06;
+            }
+            PC->SetViewTarget(Camera);Waypoint=1;StageTime=Elapsed;
+        }
+        else if(Phase==90 && Waypoint==1 && Elapsed-StageTime>3)
+        {
+            const FString Name=Plans ? FString::Printf(TEXT("Aerial-%d"),PlanSeeds[GateIndex]):FString(Names[GateIndex]);
+            const FString Prefix=L.UnderpassAxis ? TEXT("Testing/MiddleEasternPassages-"):L.SeededDistrict ? TEXT("Testing/MiddleEasternCore-"):TEXT("Testing/MiddleEasternAlleys-");
+            FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir()/Prefix+Name+TEXT(".png"),false,false);Waypoint=2;StageTime=Elapsed;
+        }
+        else if(Phase==90 && Waypoint==2 && Elapsed-StageTime>1)
+        {
+            if(++GateIndex==(Plans ? 4:TowerOnly ? 7:L.UnderpassAxis ? 14:10)){UE_LOG(LogTemp,Display,TEXT("ER_DUST_COMPLETE result=%s gallery=1"),Failed ? TEXT("FAIL"):TEXT("PASS"));FPlatformMisc::RequestExitWithStatus(false,Failed ? 1:0);Phase=91;}
+            else Waypoint=0;
+        }
+        return;
+    }
     auto Place=[&](FVector P,float Yaw){Move->StopMovementImmediately();C->TeleportTo(P,FRotator(0,Yaw,0));PC->SetControlRotation(FRotator(0,Yaw,0));Move->SetMovementMode(MOVE_Walking);};
     auto Capture=[&](const FString& Name){if(FApp::CanEverRender())FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir()/TEXT("Testing")/Name,true,false);};
     auto Follow=[&](const TArray<FVector>& Path,float Reach=38.f)
@@ -105,10 +207,11 @@ void AERDustTemplateProbe::Tick(float Delta)
     };
     if(Phase==0 && Elapsed>4)
     {
-        Check(Map->ValidateCells() && L.TownBuildings.Num()>=12 && L.TownCourts.Num()==6,TEXT("plan_city_parcels_and_courts"));
+        Check(Map->ValidateCells() && L.TownBuildings.Num()>=12 && (L.SeededDistrict ? L.TownCourts.Num()>=4:L.TownCourts.Num()==6),TEXT("plan_city_parcels_and_courts"));
         PC->SetIgnoreLookInput(true);
-        const auto& G=L.TownGates[0];Place(G.Passage[0],G.Frame.Rotator().Yaw+90);
         Publish(1,Map);StageTime=Elapsed;
+        if(L.TownGates.IsEmpty()){Place(L.LowerRoute[0],0);Phase=2;Check(L.SeededDistrict && L.DistrictWallCount==0,TEXT("open_center_has_no_city_wall_gates"));}
+        else{const auto& G=L.TownGates[0];Place(G.Passage[0],G.Frame.Rotator().Yaw+90);}
     }
     else if(Phase==1)
     {
@@ -126,8 +229,8 @@ void AERDustTemplateProbe::Tick(float Delta)
         const auto& G=L.TownGates[GateIndex];
         if(Follow(G.Passage,10.f))
         {
-            Check(true,TEXT("actual_pawn_passes_opposite_swing_arched_gate"));Waypoint=0;
-            if(++GateIndex<3){const auto& Next=L.TownGates[GateIndex];Place(Next.Passage[0],Next.Frame.Rotator().Yaw+90);}
+            Check(true,L.SeededDistrict ? TEXT("actual_pawn_passes_generated_district_arch"):TEXT("actual_pawn_passes_opposite_swing_arched_gate"));Waypoint=0;
+            if(++GateIndex<L.TownGates.Num()){const auto& Next=L.TownGates[GateIndex];Place(Next.Passage[0],Next.Frame.Rotator().Yaw+90);StageTime=Elapsed;}
             else{Place(L.LowerRoute[0],0);Phase=2;StageTime=Elapsed;}
         }
         if(Elapsed-StageTime>18){Check(false,TEXT("arched_gate_timeout"));Phase=2;Waypoint=0;Place(L.LowerRoute[0],0);StageTime=Elapsed;}
@@ -146,9 +249,86 @@ void AERDustTemplateProbe::Tick(float Delta)
         {ReachedUpper=true;Capture(TEXT("DustTown-ShortA.png"));}
         if(Follow(L.UpperRoute) || Elapsed-StageTime>70)
         {
-            Check(ReachedUpper && FVector::Dist2D(C->GetActorLocation(),L.UpperRoute.Last())<60 && C->GetActorLocation().Z<110,TEXT("actual_pawn_climbs_and_follows_bent_Short_A_to_A_court"));
-            Move->StopMovementImmediately();Phase=4;StageTime=Elapsed;
+            Check(ReachedUpper && FVector::Dist2D(C->GetActorLocation(),L.UpperRoute.Last())<60 && FMath::Abs(C->GetActorLocation().Z-L.UpperRoute.Last().Z)<45,TEXT("actual_pawn_climbs_and_follows_bent_Short_A_to_A_court"));
+            Move->StopMovementImmediately();Phase=L.GradedTerrain ? 30:4;StageTime=Elapsed;Waypoint=0;
         }
+    }
+    else if(Phase==30)
+    {
+        if(TraversalIndex>=FMath::Min(2,L.RooftopRoutes.Num()))
+        {Check(L.RooftopRoutes.Num()>=2,TEXT("multiple_external_roof_staircases"));Phase=31;TraversalStarted=false;return;}
+        const auto& Route=L.RooftopRoutes[TraversalIndex];
+        if(!TraversalStarted){Place(Route[0],0);Waypoint=0;StageTime=Elapsed;TraversalStarted=true;}
+        const bool Reached=Follow(Route,12.f);
+        const auto* Roof=Cast<UInstancedStaticMeshComponent>(Move->GetMovementBase());
+        if(Reached && Move->IsMovingOnGround() && Roof && Roof->GetStaticMesh() && Roof->GetStaticMesh()->GetName().Contains(TEXT("House_")))
+        {Check(true,TEXT("actual_pawn_climbs_external_switchback_to_roof"));++TraversalIndex;TraversalStarted=false;}
+        else if(Elapsed-StageTime>25)
+        {Check(false,TEXT("roof_stair_timeout"));UE_LOG(LogTemp,Display,TEXT("ER_DUST_ROOF index=%d waypoint=%d pos=%s target=%s"),TraversalIndex,Waypoint,*C->GetActorLocation().ToString(),*Route[FMath::Min(Waypoint,Route.Num()-1)].ToString());++TraversalIndex;TraversalStarted=false;}
+    }
+    else if(Phase==31)
+    {
+        if(!TraversalStarted)
+        {
+            const bool Found=ERProcedural::FindAlleyInteriorRoute(GetWorld(),L,TraversalPath);Check(Found,TEXT("visible_house_opening_has_standing_capsule_passage"));
+            if(!Found){Phase=32;TraversalIndex=0;return;}
+            Place(TraversalPath[0],0);Waypoint=0;StageTime=Elapsed;TraversalStarted=true;
+        }
+        if(Follow(TraversalPath,15.f) || Elapsed-StageTime>15)
+        {Check(Waypoint>=TraversalPath.Num(),TEXT("actual_pawn_enters_house_and_returns_through_opening"));Phase=32;TraversalIndex=0;TraversalStarted=false;}
+    }
+    else if(Phase==32)
+    {
+        if(TraversalIndex>=L.GroundRoutes.Num()*2){Phase=L.SeededDistrict ? 33:4;TraversalIndex=0;StageTime=Elapsed;return;}
+        if(!TraversalStarted)
+        {
+            TraversalPath=L.GroundRoutes[TraversalIndex/2];if(TraversalIndex%2)Algo::Reverse(TraversalPath);
+            Place(TraversalPath[0],0);Waypoint=0;StageTime=Elapsed;TraversalStarted=true;
+        }
+        if(Follow(TraversalPath) || Elapsed-StageTime>(L.SeededDistrict ? 45:20))
+        {Check(Waypoint>=TraversalPath.Num(),TEXT("actual_pawn_walks_grade_up_and_down"));++TraversalIndex;TraversalStarted=false;}
+    }
+    else if(Phase==33)
+    {
+        if(TraversalIndex>=L.Ladders.Num()){Phase=34;TraversalStarted=false;return;}
+        const auto& Desc=L.Ladders[TraversalIndex];const auto Direction=-Desc.Frame.GetUnitAxis(EAxis::X);auto* M=Cast<UERMovement>(Move);
+        if(!TraversalStarted)
+        {
+            Place(Desc.Frame.TransformPosition({55,0,95}),Direction.Rotation().Yaw);M->RetryAfter=0;M->bLadderNeedsRelease=false;
+            StageTime=Elapsed;TraversalStarted=true;SawTowerLadder=false;
+        }
+        SawTowerLadder|=M->IsOnLadder();const FVector Local=Desc.Frame.InverseTransformPosition(C->GetActorLocation());
+        if(SawTowerLadder && !M->IsTraversing() && M->IsMovingOnGround() && Local.X< -60 && FMath::Abs(Local.Z-Desc.DeckHeight-94)<20)
+        {Check(true,TEXT("actual_pawn_climbs_tower_ladder_and_stands_on_deck"));++TraversalIndex;TraversalStarted=false;}
+        else C->AddMovementInput(Direction);
+        if(TraversalStarted && Elapsed-StageTime>Desc.Height/144.f+5)
+        {Check(false,TEXT("district_tower_ladder_timeout"));UE_LOG(LogTemp,Display,TEXT("ER_DISTRICT_LADDER index=%d local=%s mode=%d/%d"),TraversalIndex,*Local.ToString(),M->MovementMode.GetValue(),M->CustomMovementMode);++TraversalIndex;TraversalStarted=false;}
+    }
+    else if(Phase==34)
+    {
+        if(!TraversalStarted){TraversalPath=L.DistrictRoutes[0];Place(TraversalPath[0],90);Waypoint=0;StageTime=Elapsed;TraversalStarted=true;}
+        if(Follow(TraversalPath,20) || Elapsed-StageTime>150)
+        {Check(Waypoint>=TraversalPath.Num(),TEXT("actual_pawn_follows_generated_route_from_Alpha_to_Omega"));Phase=L.UnderpassAxis ? 35:4;TraversalIndex=0;StageTime=Elapsed;TraversalStarted=false;}
+    }
+    else if(Phase==35)
+    {
+        if(!TraversalStarted)
+        {TraversalPath=L.UnderpassRoute;if(TraversalIndex)Algo::Reverse(TraversalPath);Place(TraversalPath[0],0);Waypoint=0;StageTime=Elapsed;TraversalStarted=true;}
+        if(Follow(TraversalPath,20) || Elapsed-StageTime>180)
+        {
+            Check(Waypoint>=TraversalPath.Num(),TEXT("actual_pawn_walks_bent_lower_passage_and_both_ramps"));
+            if(++TraversalIndex<2){TraversalStarted=false;return;}
+            const FVector Hole=L.UnderpassBreaches[0].GetCenter();FHitResult Hit;FERCellId Id;FCollisionQueryParams Q(SCENE_QUERY_STAT(ERAlleyRoad),false,C);
+            Check(GetWorld()->LineTraceSingleByChannel(Hit,Hole+FVector(0,0,150),Hole-FVector(0,0,50),ECC_GameTraceChannel1,Q) && Map->ResolveCell(Hit,Id),TEXT("upper_road_resolves_damageable_cells"));
+            AERBlockRoom::ApplyWorldExplosion(GetWorld(),Hole+FVector(0,0,10),RoadBlast(),nullptr);
+            Check(!GetWorld()->SweepSingleByChannel(Hit,Hole+FVector(0,0,100),Hole-FVector(0,0,260),FQuat::Identity,ECC_Pawn,FCollisionShape::MakeCapsule(34,92.5),Q),TEXT("road_destruction_opens_real_capsule_hole"));
+            Place(Hole+FVector(0,0,100),0);Move->SetMovementMode(MOVE_Falling);Phase=36;StageTime=Elapsed;
+        }
+    }
+    else if(Phase==36 && Elapsed-StageTime>2)
+    {
+        Check(Move->IsMovingOnGround() && FMath::Abs(C->GetActorLocation().Z+266)<10,TEXT("actual_pawn_falls_through_breached_road_to_lower_floor"));
+        Capture(TEXT("Alley-Road-Breached.png"));Phase=4;StageTime=Elapsed;
     }
     else if(Phase==4)
     {
@@ -158,12 +338,14 @@ void AERDustTemplateProbe::Tick(float Delta)
         {
             // Lower part of a side board of the project cover.
             const auto& Panel=Cells.GetPanels()[Index];const FERCellId Low{Index,Panel.Dims.X/2,0,FMath::Min(Panel.Dims.Z/2,10)};
+            if(Panel.Material!=EERBlockMaterial::Wood)continue;
             if(Panel.Transform.GetRotation().GetAxisZ().Z<.99 || !Cells.IsAlive(Low))continue;
             const FVector Target=Map->GetActorTransform().TransformPosition(Cells.GetCellCenter(Low));
-            if(Target.Z>100)continue;
+            if(Target.Z>ERProcedural::AlleyGroundHeight(L,FVector2D(Target))+100)continue;
             for(const FVector D:{FVector(1,0,0),FVector(-1,0,0),FVector(0,1,0),FVector(0,-1,0)})
             {
-                const FVector P(Target.X+D.X*300,Target.Y+D.Y*300,100);
+                FVector P(Target.X+D.X*300,Target.Y+D.Y*300,100);
+                P.Z+=ERProcedural::AlleyGroundHeight(L,FVector2D(P));
                 if(GetWorld()->OverlapBlockingTestByChannel(P,FQuat::Identity,ECC_Pawn,FCollisionShape::MakeCapsule(34,92.5),Q))continue;
                 Place(P,0);const FVector Eye=C->Camera->GetComponentLocation();PC->SetControlRotation((Target-Eye).Rotation());
                 if(GetWorld()->LineTraceSingleByChannel(Hit,Eye,Target,ECC_GameTraceChannel1,Q) && Map->ResolveCell(Hit,Id)){Found=true;break;}
@@ -195,8 +377,10 @@ void AERDustTemplateProbe::Tick(float Delta)
     }
     if((Phase==6 || Phase==7) && PlacedPhase!=Phase && Elapsed-StageTime>3)
     {PlaceRemote(Phase==7,DeckStand(GetWorld(),L.TownCrossing));PlacedPhase=Phase;}
-    if(Phase==6 && Elapsed-StageTime>30)
+    FString LateReceipt;const bool PeerPending=Phase==6 && FParse::Value(FCommandLine::Get(),TEXT("ERDustLateReceipt="),LateReceipt) && !FPaths::FileExists(LateReceipt);
+    if(Phase==6 && Elapsed-StageTime>30 && (!PeerPending || Elapsed-StageTime>120))
     {
+        if(!LateReceipt.IsEmpty())Check(!PeerPending,TEXT("late_client_confirmed_damaged_snapshot_before_seed_rebuild"));
         Map->LayoutConfig.Seed=7919;Check(Map->Regenerate() && Map->GetCellWorld().GetRemovedCount()==0,TEXT("seed_rebuilds_city_and_restores_cover"));Publish(7,Map);StageTime=Elapsed;
         Capture(TEXT("DustTown-Plan-7919.png"));
     }

@@ -1,5 +1,72 @@
 # Respawn & Rage Unreal development
 
+Team graffiti (22 October): supplied Alpha/Omega transparent PNGs belong to the
+private maps assets. Sparse wall decals fade toward the central30% exclusion;
+cosmetic RNG must not change geometry or collision. Rebuild/clear per map epoch
+after local geometry is ready. Recon cases carry their team emblem on the lid
+and play original FBX angular keys from replicated launch time, before ascent.
+This supersedes the historical closed-static-case requirement. Keep originals,
+CC BY attribution and stock/replacement authority. See setup_team_graffiti.py
+and bake_recon_case_animation.py; verify build, recon LAN and Metal gallery.
+
+
+Alley passages revision5 (22 October, subsequent request): reduce empty space
+with symmetric low cover in the plaza and both districts, preserving circulation.
+Add a real lower passage at -3.6m, seeded base-to-base or west-to-east with bends,
+paired open ramps and two brick paving patches that can be breached. Terrain
+must contain exact holes behind these cell panels, so damage opens a real fall
+route. Limit negative construction bounds to this owned recipe. Preserve shared
+combat calibration, source art, other maps, house/roof/tower access and half-turn
+parity. setup_alley_passages.py backs up revision4 and saves only the own recipe.
+Validate both lower routes/ramps, real pawn traversal/fall, grenade/road collision,
+initial and late clients before/after damage/regeneration and Metal captures.
+
+Alley core revision4 (22 October, subsequent request): vary central city walls
+independently between zero, one and two. With no wall, 2–4 main approaches
+join freely in an open center; do not claim an exact choke count there. Twin
+walls enclose a wide open core, with houses/towers outside it and 2–4 actual
+arches per wall. Preserve half-turn parity, bridges, roofs, enterable shells
+and terrain. setup_alley_core.py backs up revision3 and saves only the own
+recipe after seed validation. Verify each real wall and the open center with
+capsule sweeps, complete routes, clients and four new aerial captures.
+
+Alley district revision3 (22 October, subsequent request): supersedes the fixed
+Dust-style street graph below for Middle Eastern Alleys. Generate 2–4 physical
+inter-base passages, varying plazas, street winding and climbable sandstone
+towers. Pair gameplay spaces/terrain/spawns/roof stairs/towers by a half-turn;
+keep the original enterable house shells, sand palette and raised over/under
+crossing. Count actual capsule passages and validate full base-to-base routes,
+tower ladders/decks, deterministic reconstruction and initial/late clients.
+Only the own recipe is migrated through setup_alley_district.py with rollback;
+preserve house art, Depot, Central Building and the shared destruction catalog.
+Capture four aerial seeds for comparison. Geometric symmetry is not a claim
+of competitive balance or subjective playtesting.
+
+Alley traversal revision2 (22 October, subsequent request): houses must admit
+players wherever their actual openings and interior clearance permit. Supersedes
+sealed fitted-box collision below. Use the twelve original mesh shells with
+double-sided complex-as-simple collision and visible interior faces; never fill
+their openings with box collision. Add reserved exterior switchback stairs to
+several roofs and real graded sand terrain (north +1.2m, south +1.8m, core zero).
+Preserve the bridge underpass and shared gameplay. Use the explicit backed-up
+setup_alley_traversal.py migration through Unreal. Validate doors, roof stairs,
+terrain support, real pawn entry/exit and up/down walking, plus initial/late
+client reconstruction. Inspect Interior/Rooftop/Ramp Metal gallery captures.
+
+Middle Eastern Alleys (22 October, latest map request): add the new production
+template/map DA_MiddleEasternAlleys/L_MiddleEasternAlleys beside Central Building.
+This supersedes the industrial-only map scope below. Use all three requested
+RR sand sources and twelve Desert Mud Concrete House variants, with private
+originals/metadata/credits in SourceAssets/MiddleEasternAlleys. Preserve Depot,
+Central Building, the shared combat catalog and retired Arabian vendor content.
+Reuse the owned town street graph with a B-to-Mid link, covered B tunnels and
+3.2m Short A over a 2.9m underpass. Courts A/B remain deathmatch landmarks;
+no new bomb/capture mode was requested. Building meshes use fitted fixed box
+collision; steps/decks use matching solids. Visual RNG stays independent of
+geometry. See docs/MIDDLE_EASTERN_ALLEYS.md. Run native layout/physics checks,
+test-dust-template.py --alleys --render --network and destruction regressions;
+distinguish geometric validation from competitive balance/playtesting.
+
 Account-free Internet multiplayer (22 October, latest request): supersedes the
 EAS/account-login requirement in the historical EOS section below. Online play
 uses Connect Device ID, with bUseEAS=false, no browser/launcher login and the

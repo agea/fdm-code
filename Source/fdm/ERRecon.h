@@ -61,7 +61,16 @@ class FDM_API AERReconBase : public AActor
 public:
     AERReconBase();
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly) TObjectPtr<class UStaticMeshComponent> Case;
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly) TObjectPtr<class UStaticMeshComponent> Lid;
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly) TObjectPtr<class UStaticMeshComponent> Lock;
+    UPROPERTY(VisibleAnywhere) TObjectPtr<class UDecalComponent> Emblem;
+    UPROPERTY(EditDefaultsOnly) TArray<float> LidOpening;
+    UPROPERTY(EditDefaultsOnly) TArray<float> LockOpening;
+    UPROPERTY(EditDefaultsOnly) TObjectPtr<class UMaterialInterface> AlphaGraffiti;
+    UPROPERTY(EditDefaultsOnly) TObjectPtr<class UMaterialInterface> OmegaGraffiti;
+    UPROPERTY(Replicated) double LaunchAt = -100;
     UPROPERTY(Replicated) EERTeam Team = EERTeam::None;
+    virtual void Tick(float DeltaSeconds) override;
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 };
 
@@ -114,6 +123,8 @@ public:
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) TSubclassOf<AERReconDrone> DroneClass;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) TSubclassOf<AERReconBase> BaseClass;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Recon|Effects") TArray<TObjectPtr<class UStaticMesh>> DebrisMeshes;
+    UPROPERTY(EditDefaultsOnly) TObjectPtr<class UMaterialInterface> AlphaGraffiti;
+    UPROPERTY(EditDefaultsOnly) TObjectPtr<class UMaterialInterface> OmegaGraffiti;
     UPROPERTY(Replicated) FERReconMapFrame Frame;
     UPROPERTY(VisibleAnywhere) TObjectPtr<class USceneCaptureComponent2D> BirdCamera;
     UPROPERTY(Transient) TObjectPtr<class UTextureRenderTarget2D> BirdView;
@@ -154,6 +165,13 @@ private:
     FVector LastBreakPosition = FVector::ZeroVector;
     int32 LastDrawnEnemies = 0;
     double LastHUDSample = -1;
+    UPROPERTY(Transient) TArray<TObjectPtr<class UDecalComponent>> Graffiti;
+    uint32 GraffitiEpoch = 0;
+    void DecorateBases();
+    void TickGraffitiGallery();
+    double GraffitiGalleryStart = -1;
+    int32 GraffitiGalleryStep = 0;
+    UPROPERTY(Transient) TObjectPtr<class ACameraActor> GraffitiCamera;
     void ConfigureMap();
     void LaunchDrone(int32 Team);
     void UpdateVisibility();

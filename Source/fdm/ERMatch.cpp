@@ -193,7 +193,7 @@ void AERGameMode::BeginPlay()
     GetWorldTimerManager().SetTimer(MatchTimer, this, &AERGameMode::CheckMatch, 0.2f, true);
 #if !UE_BUILD_SHIPPING
     if (GetWorld()->GetMapName().Contains(TEXT("L_Killhouse")) && FParse::Param(FCommandLine::Get(),TEXT("ERMapTemplateProbe"))) GetWorld()->SpawnActor<AERMapTemplateProbe>();
-    if (GetWorld()->GetMapName().Contains(TEXT("L_DustMirror")) && FParse::Param(FCommandLine::Get(),TEXT("ERDustTemplateProbe"))) GetWorld()->SpawnActor<AERDustTemplateProbe>();
+    if ((GetWorld()->GetMapName().Contains(TEXT("L_DustMirror")) || GetWorld()->GetMapName().Contains(TEXT("L_MiddleEasternAlleys"))) && FParse::Param(FCommandLine::Get(),TEXT("ERDustTemplateProbe"))) GetWorld()->SpawnActor<AERDustTemplateProbe>();
     if (GetNetMode() == NM_Standalone && GetWorld()->GetMapName().Contains(TEXT("L_DestructionLab")) && FParse::Param(FCommandLine::Get(), TEXT("ERCellLabProbe"))) GetWorld()->SpawnActor<AERCellLabProbe>();
     if (GetNetMode() == NM_Standalone && GetWorld()->GetMapName().Contains(TEXT("L_ProceduralLab")) && FParse::Param(FCommandLine::Get(), TEXT("ERProceduralProbe"))) GetWorld()->SpawnActor<AERProceduralProbe>();
     if (GetNetMode() == NM_Standalone && GetWorld()->GetMapName().Contains(TEXT("L_ProceduralLab")) && FParse::Param(FCommandLine::Get(), TEXT("ERBlockStressProbe"))) GetWorld()->SpawnActor<AERBlockStressProbe>();
@@ -415,7 +415,7 @@ void AERGameMode::ResetRound()
     // Production archetypes start the next round with a fresh deterministic
     // seed. Publish the new epoch before spawning anyone into its collision.
     for(TActorIterator<AERProceduralMap> It(GetWorld());It;++It)
-        if(It->LayoutConfig.TemplateAsset && It->LayoutConfig.TemplateAsset->Archetype==EERMapArchetype::CentralBuilding)
+        if(It->LayoutConfig.TemplateAsset && (It->LayoutConfig.TemplateAsset->Archetype==EERMapArchetype::CentralBuilding || It->LayoutConfig.TemplateAsset->Archetype==EERMapArchetype::MiddleEasternAlleys))
         {
             // Stationary targets keep a start across deaths, but that start
             // belongs to the old arena. Choose a fresh clear start this round.

@@ -1,5 +1,35 @@
 # Inventario asset — primo prototipo locale
 
+22 ottobre2026 — revisione5 vicoli: coperture basse, sottopassi a curve e due
+pavimentazioni forabili in geometria propria e celle del catalogo esistente.
+`setup_alley_passages.py` salva solo la ricetta con backup revision4. Nessuna
+modifica agli HP condivisi, alle mesh importate, alle sabbie o alle altre mappe.
+
+22 ottobre2026 — revisione4 vicoli: sola ricetta aggiornata per zero/una/due
+cinte centrali e fascia aperta al centro. Migrazione `setup_alley_core.py` con
+backup revision3; art, livelli e cataloghi condivisi preservati.
+
+22 ottobre2026 — revisione3 vicoli: sola ricetta aggiornata, con grafo seeded
+di2–4 accessi, piazze, torri in geometria propria e scale a pioli di celle
+metalliche del catalogo esistente. Nessun nuovo download o modifica alle mesh,
+ai materiali delle case o alle altre mappe. Migrazione `setup_alley_district.py`.
+
+22 ottobre2026 — revisione2 vicoli: conservata la geometria originale delle
+dodici case, con collisione triangolare a due lati e aperture libere. I due
+materiali delle case mostrano le facce interne. Scale esterne e terreno
+inclinato sono generati dalla ricetta; nessun nuovo modello o download.
+Backup verificato degli asset precedenti in `Saved/AlleyTraversalBackup`.
+
+22 ottobre2026 — nuovo template Middle Eastern Alleys: tre sabbie della raccolta
+RR (XY01 e CATholic) e dodici varianti del pacchetto Desert Mud Concrete House
+Lowpoly di 00amza, CC BY4.0 secondo i quattro metadati pubblici. ZIP originali,
+metadati, hash, crediti, minimappa e derivati nel privato maps
+`SourceAssets/MiddleEasternAlleys`; import Unreal in `Art/MiddleEasternAlleys`,
+nuovi `DA_MiddleEasternAlleys` e `L_MiddleEasternAlleys`. Atlanti originali delle
+case, sabbie preparate fino a2K e blend world-space; riuso dei tre OBJ propri
+arco/ante e grafo vicoli archiviati. Nessun ripristino di livelli ritirati o
+asset vendor Arabian. Dettagli in `MIDDLE_EASTERN_ALLEYS.md`.
+
 21 ottobre2026 — ritocco HUD successivo: minimappa15% più piccola e rialzata;
 barre/icone e tracce vuote più scure, soltanto costanti di layout/colore in codice.
 Nessun asset aggiunto o modificato.
@@ -910,3 +940,15 @@ provenance extend the existing public numeric JSON. Artwork, animations, optics
 and the byte-identical full private XLSX are preserved. Pre-migration data asset
 backups: `/tmp/rr-weapon-recoil-backup`. See WEAPON_RECOIL.md for the response
 adaptation (the workbook does not contain spray coordinates, seeds or decay).
+
+
+## Team graffiti — 22 October 2026
+
+User-provided transparent `alpha.png` and `omega.png` originals live in the private
+maps `SourceAssets/TeamGraffiti`, with SHA256 import receipt. Runtime textures and
+rough translucent deferred decals are in `Art/TeamGraffiti`; references belong to
+`BP_ReconDirector` and `BP_ReconBase`. No runtime Downloads dependency.
+`setup_team_graffiti.py` imports these assets and the three split recon case parts.
+`bake_recon_case_animation.py` preserves the original case FBX angular animation
+(101 keys, 25fps), refitting the original exploded source to closed hinges. The
+original archives and CC BY4.0 attribution remain in `ReconDrones`.

@@ -6,13 +6,32 @@ from pathlib import Path
 p = argparse.ArgumentParser(description=__doc__)
 p.add_argument('--render', action='store_true')
 p.add_argument('--network', action='store_true')
+p.add_argument('--alleys', action='store_true', help='Exercise the current Middle Eastern Alleys template')
+p.add_argument('--gallery', action='store_true', help='Capture held alley cameras after shader/asset compilation, without the gameplay probe')
+p.add_argument('--plans', action='store_true', help='Capture four square aerial views of alley seeds 42, 73, 511 and 7919')
+p.add_argument('--seed', type=int, default=42, help='Starting seed for the gameplay probe')
+p.add_argument('--passage', action='store_true', help='Capture the lower passage, ramp and intact/breached road')
+p.add_argument('--tower', action='store_true', help='Capture the district watchtower and ladder only')
 args = p.parse_args()
+if sum([args.plans,args.tower,args.passage])>1:p.error('--plans, --tower and --passage are separate captures')
+if args.passage:args.gallery=True
+if args.tower:args.gallery=True
+if args.plans:args.gallery=True
+if args.gallery and (not args.alleys or args.network):p.error('--gallery requires --alleys and standalone execution')
+if args.gallery:args.render=True
 root = Path(__file__).resolve().parents[1]
 out = root / 'Saved/Testing'
 out.mkdir(parents=True, exist_ok=True)
 exe = Path(os.environ.get('UE_ROOT', '/Users/Shared/Epic Games/UE_5.8')) / 'Engine/Binaries/Mac/UnrealEditor.app/Contents/MacOS/UnrealEditor'
 label = 'dust' + ('-network' if args.network else '-local') + ('-metal' if args.render else '')
+if args.alleys: label = 'alleys' + label.removeprefix('dust')
+if args.gallery:label += '-gallery'
+if args.plans:label += '-plans'
+if args.tower:label += '-tower'
+if args.passage:label += '-passage'
 children, handles, paths = [], [], {}
+receipt=out/(label+'-late-ready')
+if args.network:receipt.unlink(missing_ok=True)
 
 def launch(role, url, render=False, extra=()):
     paths[role] = out / (label + '-' + role + '.log')
@@ -21,31 +40,46 @@ def launch(role, url, render=False, extra=()):
                '-nosound', '-unattended', '-NoSplash', '-Multiprocess', '-stdout',
                '-FullStdOutLogOutput', '-windowed', '-ResX=1280', '-ResY=720',
                '-ExecCmds=t.MaxFPS 60,sg.GlobalIlluminationQuality 0,sg.ReflectionQuality 0,sg.ShadowQuality 1,p.NetShowCorrections 1']
+    if args.plans:
+        command[command.index('-ResX=1280')]='-ResX=1536'
+        command[command.index('-ResY=720')]='-ResY=1536'
     if not render: command.append('-nullrhi')
+    if args.gallery:
+        command[-1] += ',r.Shadow.Virtual.MaxPhysicalPages ' + ('4096' if args.plans else '2048')
+        command.append('-ERAlleyGallery')
+        if args.plans:command.extend(['-ERAlleyPlans','-forceres'])
+        if args.tower:command.append('-ERAlleyTowerOnly')
+        if args.passage:command.append('-ERAlleyPassageOnly')
     child = subprocess.Popen(command + list(extra), cwd=root, stdout=handle, stderr=subprocess.STDOUT)
     children.append(child)
     return child
 
 def read(role): return paths[role].read_text(errors='replace')
 
-def wait(marker):
-    end = time.monotonic() + 180
+def wait(marker,role='host'):
+    end = time.monotonic() + (650 if args.alleys else 180)
     while time.monotonic() < end:
-        if marker in read('host'): return
+        if marker in read(role): return
         if children[0].poll() is not None: raise RuntimeError('Host stopped before ' + marker)
         time.sleep(.3)
     raise RuntimeError('Timed out before ' + marker)
 
 try:
     url = '/Game/EclipseRecoil/Maps/L_DustMirror?Name=Host?Primary=0?MapSeed=42'
+    if args.alleys: url = url.replace('L_DustMirror', 'L_MiddleEasternAlleys').replace('Primary=0','Primary=4')
+    url=url.replace('MapSeed=42',f'MapSeed={args.seed}')
     if args.network: url += '?listen'
-    host = launch('host', url, args.render, ['-port=17793', '-MULTIHOME=127.0.0.1'])
+    extra=['-port=17793', '-MULTIHOME=127.0.0.1']
+    if args.network:extra.append('-ERDustLateReceipt='+str(receipt))
+    host = launch('host', url, args.render, extra)
     if args.network:
         wait('ER_DUST_STATE phase=1 ')
         launch('initial', '127.0.0.1:17793?Name=Initial?Primary=0')
         wait('ER_DUST_STATE phase=6 ')
         launch('late', '127.0.0.1:17793?Name=Late?Primary=0')
-    host.wait(timeout=220)
+        wait('ER_DUST_CLIENT_PASS phase=6 ', 'late')
+        receipt.write_text('phase6\n')
+    host.wait(timeout=1000 if args.alleys else 220)
     text = read('host')
     good = host.returncode == 0 and 'ER_DUST_COMPLETE result=PASS' in text and 'ER_DUST_FAIL' not in text
     states = {int(a): int(b) for a, b in re.findall(r'ER_DUST_STATE phase=(\d+) digest=(\d+)', text)}
@@ -70,8 +104,21 @@ try:
         good &= not unsupported
     for line in text.splitlines():
         if 'ER_DUST_' in line: print(line)
-    report = dict(result='PASS' if good else 'FAIL', network=args.network, render=args.render,
+    report = dict(result='PASS' if good else 'FAIL', network=args.network, render=args.render, gallery=args.gallery,
                   states=states, logs={role: str(path) for role, path in paths.items()})
+    if args.plans:
+        aerial = re.findall(r'ER_DUST_AERIAL seed=(\d+) size=(.*?) digest=(\d+)', text)
+        report['aerial'] = [dict(seed=int(seed), size=size, digest=int(digest),
+                                image=str(out / f'MiddleEasternAlleys-Aerial-{seed}.png')) for seed,size,digest in aerial]
+        features={int(seed):dict(accesses=int(access),bends=int(bends),plazas=int(plazas),towers=int(towers),walls=int(walls),open_depth=int(depth)) for seed,access,bends,plazas,towers,walls,depth in re.findall(r'ER_DISTRICT_AERIAL seed=(\d+) accesses=(\d+) bends=(\d+) plazas=(\d+) towers=(\d+) walls=(\d+) open_depth=(\d+)',text)}
+        passages={int(seed):dict(underpass_axis=int(axis),low_cover=int(cover),center_cover=int(center)) for seed,axis,cover,center in re.findall(r'ER_PASSAGE_AERIAL seed=(\d+) axis=(\d+) cover=(\d+) center_cover=(\d+)',text)}
+        for view in report['aerial']:
+            view.update(features.get(view['seed'],{}))
+            if features:view['image']=str(out / f'MiddleEasternCore-Aerial-{view["seed"]}.png')
+            if passages:
+                view.update(passages.get(view['seed'],{}));view['image']=str(out / f'MiddleEasternPassages-Aerial-{view["seed"]}.png')
+        good &= len(aerial)==4 and all(Path(view['image']).is_file() for view in report['aerial'])
+        report['result']='PASS' if good else 'FAIL'
     (out / (label + '-report.json')).write_text(json.dumps(report, indent=2) + '\n')
     raise SystemExit(0 if good else 1)
 except (RuntimeError, subprocess.TimeoutExpired) as error:
@@ -84,3 +131,4 @@ finally:
         try: child.wait(timeout=10)
         except subprocess.TimeoutExpired: child.kill(); child.wait()
     for handle in handles: handle.close()
+    if args.network:receipt.unlink(missing_ok=True)

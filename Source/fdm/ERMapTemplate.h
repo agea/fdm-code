@@ -8,7 +8,7 @@ UENUM(BlueprintType)
 enum class EERTemplateSymmetry : uint8 { None, HalfTurn };
 
 UENUM(BlueprintType)
-enum class EERMapArchetype : uint8 { LegacyAssembly, CentralBuilding };
+enum class EERMapArchetype : uint8 { LegacyAssembly, CentralBuilding, MiddleEasternAlleys };
 
 UENUM(BlueprintType)
 enum class EERCrossingRule : uint8 { Seeded, OpenYard, ClimbableWall, FencedCrossings };
@@ -92,6 +92,19 @@ struct FERDustTownVariation
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UStaticMesh> ArchMesh;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UStaticMesh> LeftDoorMesh;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UStaticMesh> RightDoorMesh;
+    // Optional alley palette. Cosmetic choices use a separate seeded stream.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<TObjectPtr<class UStaticMesh>> BuildingMeshes;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> GroundSurface;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) bool CoveredTunnels=false;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) bool TraversableTown=false;
+    // Revision3: generate the street graph itself, with paired gameplay spaces.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) bool SeededDistrict=false;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="2",ClampMax="4")) int32 MinAccesses=2;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="2",ClampMax="4")) int32 MaxAccesses=4;
+    // Revision4: open square, one city wall, or two walls around an open core.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="0",ClampMax="2")) int32 MinCentralWalls=1;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="0",ClampMax="2")) int32 MaxCentralWalls=1;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) bool LowCoverAndUnderpass=false;
 };
 
 // Ranges and art palette belong to the template, never to runtime file paths.
@@ -137,6 +150,8 @@ struct FERMapTemplatePiece
     UPROPERTY(EditAnywhere, BlueprintReadWrite) bool VisualOnly=false;
     // Permanent movement barrier; visible metal has separate perforated collision.
     UPROPERTY(EditAnywhere, BlueprintReadWrite) bool PawnBarrier=false;
+    // Collision follows the imported shell, including doors, rooms and roofs.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) bool MeshCollision=false;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> FixedSurface;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> CellSurface;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> MirroredCellSurface;
@@ -151,6 +166,7 @@ class FDM_API UERMapTemplate : public UDataAsset
     GENERATED_BODY()
 public:
     UFUNCTION(BlueprintCallable, Category="Template") bool ValidateLayout(int32 Seed=42) const;
+    UFUNCTION(BlueprintCallable, Category="Template|Maintenance") static bool PrepareAlleyHouseCollision(class UStaticMesh* Mesh);
     // PCG/PCGEx authoring receives the same validated recipe as runtime collision.
     UFUNCTION(BlueprintCallable, Category="Template|PCG") class UPCGDataAsset* CreatePCGPreview(int32 Seed=42) const;
     UFUNCTION(BlueprintCallable, Category="Template|PCG") class UPCGDataAsset* SavePCGPreview(const FString& PackageName,int32 Seed=42) const;

@@ -82,7 +82,7 @@ def blueprint(name,parent):
         factory=ue.BlueprintFactory();factory.set_editor_property('parent_class',parent);bp=tools.create_asset(name,folder,ue.Blueprint,factory)
     return bp,ue.get_default_object(bp.generated_class())
 drone,d=blueprint('BP_ReconDrone',ue.ERReconDrone);d.get_editor_property('body').set_static_mesh(meshes['Drone']);ue.BlueprintEditorLibrary.compile_blueprint(drone);save(drone)
-case,c=blueprint('BP_ReconBase',ue.ERReconBase);c.get_editor_property('case').set_static_mesh(meshes['Case']);ue.BlueprintEditorLibrary.compile_blueprint(case);save(case)
+case,c=blueprint('BP_ReconBase',ue.ERReconBase);c.get_editor_property('case').set_static_mesh(assets.load_asset(folder+'/SM_ReconCaseLower') if assets.does_asset_exist(folder+'/SM_ReconCaseLower') else meshes['Case']);ue.BlueprintEditorLibrary.compile_blueprint(case);save(case)
 director,r=blueprint('BP_ReconDirector',ue.ERReconDirector)
 r.set_editor_property('drone_class',drone.generated_class());r.set_editor_property('base_class',case.generated_class());r.set_editor_property('debris_meshes',debris)
 ue.BlueprintEditorLibrary.compile_blueprint(director);save(director)

@@ -1,5 +1,62 @@
 # Respawn & Rage — sviluppo Unreal
 
+## Graffiti delle squadre e valigia droni — 22 ottobre 2026
+
+Alpha blu e Omega arancione sono decal trasparenti sulle pareti, con campionamento
+cosmetico indipendente dal layout. Griglia5.5m, separazione minima5m e massimo36
+immagini per squadra; probabilità decrescente fino al35% del percorso inter-base
+per lato, lasciando il30% centrale senza immagini, compresi i bordi delle decal.
+Controlli della normale e dei quattro angoli evitano superfici orizzontali,
+aperture e spigoli; ogni rigenerazione pulisce e ricostruisce le decal sul client
+solo quando la geometria della nuova epoca è pronta.
+
+La valigia mostra il simbolo sul coperchio. Fondo, coperchio e chiusura usano la
+geometria originale separata; curve angolari originali101 fotogrammi/25fps con
+cerniere adattate alla valigia chiusa (traslazioni esplose rimosse). Ogni lancio
+replica il tempo server e ritarda la salita di1.2s; anche un late join valuta la
+posa corrente. Solo il fondo mantiene collisione; stock e sostituzione30s restano
+invariati. Script: `bake_recon_case_animation.py`, `setup_team_graffiti.py`.
+Verifica visiva opt-in `-ERGraffitiGallery`, solo sviluppo, su qualsiasi mappa.
+
+## Vicoli mediorientali — 22 ottobre 2026
+
+Revisione5: coperture basse accoppiate nella piazza e nei distretti, con
+passaggi riservati. Sottopasso a -3.6m, a curve, seed base-base oppure ovest-est,
+con due rampe aperte e pavimentazione superiore in laterizio10cm distruttibile
+in due punti opposti. I fori nel terreno sono reali, senza collisione nascosta
+sotto le celle; HP e profili di danno condivisi invariati. Migrazione esplicita
+`setup_alley_passages.py`, backup revision4 e sola ricetta propria.
+
+Revisione4: zero, una o due cinte centrali, indipendenti dai2–4 accessi. Senza
+cinta le direttrici si collegano liberamente in una piazza aperta; con due
+cinte lo spazio tra le facce è23.6–29.6m, libero da case e torri. Ogni cinta
+presente ha2–4 varchi effettivi. Restano ponti, scale, rampe e parità a180°.
+`setup_alley_core.py` migra solo la ricetta, con rollback revision3 verificato.
+
+Revisione3: il seed genera anche il grafo delle strade, con2–4 passaggi
+inter-base verificabili fisicamente, piazze variabili, tortuosità diversa e
+due/quattro torri con scale a pioli reali. Spazi, quote, spawn e opportunità
+di salita hanno controparti ruotate180°. Restano le case accessibili, le scale
+ai tetti e gli attraversamenti sopra/sotto a3.2m. Le basi hanno terrazze
+equivalenti fino a+1.8m. `setup_alley_district.py` migra solo la ricetta con
+backup e validazione516 seed; il layout non usa più il vecchio grafo Dust fisso.
+La parità geometrica non sostituisce il playtest competitivo.
+
+Richiesta successiva, revisione2: collisioni delle case aderenti ai modelli,
+senza blocchi pieni nelle aperture; accesso agli interni dove passano le capsule.
+Scale esterne riservate negli isolati raggiungono alcuni tetti. Il terreno
+sabbioso ha quote0/+1.2/+1.8m e raccordi percorribili in salita e discesa.
+La migrazione esplicita è `setup_alley_traversal.py`; conserva livello,
+materiali condivisi e altre mappe.
+
+Nuovo template selezionabile **Middle Eastern Alleys · Desert**, con le tre
+sabbie e le dodici case mud/concrete richieste da Sketchfab. Aggiunge una seconda
+ricetta alla rotazione: corti A/B, Mid, via lunga, tunnel B con collegamento al
+centro, percorso Short A a3.2m e sottopasso libero a2.9m. Dimensioni, isolati e
+fronti cambiano per seed; partite e round usano il descrittore deterministico
+esistente. Le due corti sono punti di scontro nel deathmatch attuale. Il
+bilanciamento competitivo richiede playtest. Vedi `MIDDLE_EASTERN_ALLEYS.md`.
+
 ## Multiplayer Internet senza account — 22 ottobre 2026
 
 Il percorso Internet ora usa EOS Connect Device ID: ingresso automatico senza

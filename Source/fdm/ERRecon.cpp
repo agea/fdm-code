@@ -9,6 +9,7 @@
 #include "ERBlockDebris.h"
 #include "Camera/CameraComponent.h"
 #include "Components/SphereComponent.h"
+#include "Components/DecalComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Components/SceneCaptureComponent2D.h"
 #include "Engine/TextureRenderTarget2D.h"
@@ -61,15 +62,37 @@ AERReconBase::AERReconBase()
 {
     bReplicates = true; bAlwaysRelevant = true; SetCanBeDamaged(false);
     Case = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("ClosedCase")); SetRootComponent(Case);
-    // A fixed, closed case; no opening/damage/stock interaction. Placement checks
-    // reserve player clearance. The source lid is baked closed during import.
+    PrimaryActorTick.bCanEverTick = true;
+    Lid = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Lid")); Lid->SetupAttachment(Case);
+    Lock = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Lock")); Lock->SetupAttachment(Case);
+    Lid->SetCollisionEnabled(ECollisionEnabled::NoCollision); Lock->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    Emblem = CreateDefaultSubobject<UDecalComponent>(TEXT("TeamEmblem")); Emblem->SetupAttachment(Lid);
+    Emblem->DecalSize=FVector(3,13,13); Emblem->SetRelativeRotation(FRotator(-90,0,0));
+    // Only the grounded lower shell blocks movement; animated parts are cosmetic.
     Case->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
     Case->SetCollisionObjectType(ECC_WorldStatic);
     Case->SetCollisionResponseToAllChannels(ECR_Block);
 }
 void AERReconBase::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
-    Super::GetLifetimeReplicatedProps(OutLifetimeProps); DOREPLIFETIME(AERReconBase, Team);
+    Super::GetLifetimeReplicatedProps(OutLifetimeProps); DOREPLIFETIME(AERReconBase, Team); DOREPLIFETIME(AERReconBase, LaunchAt);
+}
+void AERReconBase::Tick(float DeltaSeconds)
+{
+    Super::Tick(DeltaSeconds);
+    auto* Material=Team==EERTeam::Omega ? OmegaGraffiti.Get() : AlphaGraffiti.Get();
+    if(Emblem->GetDecalMaterial()!=Material) Emblem->SetDecalMaterial(Material);
+    // Original source rotation keys, sampled against replicated server time.
+    const double Age=ServerTime(GetWorld())-LaunchAt;
+    const float Key=FMath::Clamp(float(Age*25),0.f,100.f);
+    auto Angle=[Key](const TArray<float>& Keys)
+    {
+        if(Keys.Num()!=101) return 0.f;
+        const int32 I=FMath::Min(99,FMath::FloorToInt(Key));
+        return FMath::RadiansToDegrees(FMath::Lerp(Keys[I],Keys[I+1],Key-I));
+    };
+    Lid->SetRelativeRotation(FRotator(0,0,-Angle(LidOpening)));
+    Lock->SetRelativeRotation(FRotator(0,0,-Angle(LockOpening)));
 }
 AERReconDrone::AERReconDrone()
 {
@@ -156,6 +179,8 @@ void AERReconDirector::EndPlay(const EEndPlayReason::Type Reason)
 {
     if (HasAuthority()) ClearFleet();
     ClearDebris();
+    for(UDecalComponent* Mark:Graffiti) if(IsValid(Mark)) Mark->DestroyComponent();
+    Graffiti.Reset();
     BirdCamera->TextureTarget = nullptr; BirdView = nullptr;
     Super::EndPlay(Reason);
 }
@@ -299,7 +324,8 @@ void AERReconDirector::LaunchDrone(int32 Index)
     Drone->Flight.Team = TeamAt(Index); Drone->Flight.Launch = Launch;
     Drone->Flight.Center = FVector(Frame.Center.X,Frame.Center.Y,Frame.Top+900);
     Drone->Flight.Radius = FVector2D(Frame.Span*.26);
-    Drone->Flight.StartedAt = ServerTime(GetWorld());
+    Team.Base->LaunchAt = ServerTime(GetWorld()); Team.Base->ForceNetUpdate();
+    Drone->Flight.StartedAt = Team.Base->LaunchAt+1.2;
     Drone->FinishSpawning(Transform);
     Team.Drone = Drone; ++Team.Launched; Team.NextLaunch = 0;
     UE_LOG(LogTemp,Display,TEXT("ER_RECON_LAUNCH team=%d number=%d time=%.2f"),Index,Team.Launched,Drone->Flight.StartedAt);
@@ -455,6 +481,8 @@ void AERReconDirector::Tick(float DeltaSeconds)
     if (GetNetMode()==NM_DedicatedServer || !FApp::CanEverRender() || !Frame.Epoch) return;
     for (TActorIterator<AERBlockRoom> It(GetWorld()); It; ++It)
         if (!It->IsMapReady() || It->GetMapEpoch()!=Frame.GeometryEpoch) return;
+    if (GraffitiEpoch != Frame.Epoch) DecorateBases();
+    TickGraffitiGallery();
     if (CapturedEpoch != Frame.Epoch)
     {
         if (!bCapturePending) { CaptureAfter=GetWorld()->GetTimeSeconds()+1; bCapturePending=true; }

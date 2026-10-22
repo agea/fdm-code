@@ -158,6 +158,31 @@ https://sketchfab.com/bumstrum
 http://creativecommons.org/licenses/by/4.0/
 Creative Commons Attribution 4.0. Changes: texture-only Unreal PBR adaptation, world projection, ground blending/grass tint and runtime resolution up to 2K. Original maps and credits retained privately.
 
+MIDDLE EASTERN ALLEYS — SKETCHFAB
+Tiled PBR material  - Sand — XY01
+https://sketchfab.com/3d-models/tiled-pbr-material-sand-fdd6f27663c049638afbbe30f9e9c93d
+https://sketchfab.com/XY01
+http://creativecommons.org/licenses/by/4.0/
+Changes: Unreal adaptation, texture resizing/world projection; house origins and units normalized.
+
+Rocky Sand | Tile Texture — CATholic
+https://sketchfab.com/3d-models/rocky-sand-tile-texture-cbc349f96250408b8f75fa1171d0cadb
+https://sketchfab.com/CATholic
+http://creativecommons.org/licenses/by/4.0/
+Changes: Unreal adaptation, texture resizing/world projection; house origins and units normalized.
+
+Loose Sand | Tile Texture — CATholic
+https://sketchfab.com/3d-models/loose-sand-tile-texture-201fa0a7659c42cc865cf2ada9427bf6
+https://sketchfab.com/CATholic
+http://creativecommons.org/licenses/by/4.0/
+Changes: Unreal adaptation, texture resizing/world projection; house origins and units normalized.
+
+Desert Mud Concrete House Lowpoly — 00amza
+https://sketchfab.com/3d-models/desert-mud-concrete-house-lowpoly-bd4917fa72c84e41aa1e5299871f1b2e
+https://sketchfab.com/00amza
+http://creativecommons.org/licenses/by/4.0/
+Changes: Unreal adaptation, texture resizing/world projection; house origins and units normalized.
+
 THANK YOU
 Thank you to all the artists, animators, sound designers and open-source contributors whose work supports Respawn & Rage.
 

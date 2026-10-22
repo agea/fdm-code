@@ -7,6 +7,7 @@
 #include "ERSmokeCloud.h"
 #include "ERBlockDebris.h"
 #include "Components/BoxComponent.h"
+#include "Components/DecalComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Engine/DamageEvents.h"
@@ -37,7 +38,7 @@ void AERReconProbe::ClientStep()
     const double Now=GetWorld()->GetTimeSeconds();
     if (ClientPhase!=Phase)
     {
-        ClientPhase=Phase; ClientFireAt=Now+.6; ClientFired=false; ClientValidated=false;
+        ClientPhase=Phase; ClientFireAt=Now+(Phase==14 ? 1.25 : Phase==15 ? 3. : .6); ClientFired=false; ClientValidated=false;
         const auto& S=PC->Recon->Snapshot;
         if (S.Epoch && S.Team==PC->GetPlayerState<AERPlayerState>()->Team)
             UE_LOG(LogTemp,Display,TEXT("ER_RECON_CLIENT_PASS phase=%d team=%d bytes=%d contacts=%d remaining=%d"),Phase,int32(S.Team),S.Explored.Num(),S.Contacts.Num(),S.Remaining);
@@ -49,6 +50,16 @@ void AERReconProbe::ClientStep()
         const bool Expected=Phase==6 || Phase==8 ? false : Phase==4 ? S.Team==EERTeam::Omega : true;
         const bool Good=S.Epoch && S.Team==PC->GetPlayerState<AERPlayerState>()->Team && Seen==Expected;
         UE_LOG(LogTemp,Display,TEXT("ER_RECON_CLIENT_%s sightings phase=%d seen=%d expected=%d"),Good?TEXT("PASS"):TEXT("FAIL"),Phase,Seen,Expected);
+        ClientValidated=true;
+    }
+    if(!ClientValidated && (Phase==14 || Phase==15) && Now>=ClientFireAt)
+    {
+        bool Good=false;
+        for(TActorIterator<AERReconBase> It(GetWorld());It;++It)
+            if(It->Team==PC->GetPlayerState<AERPlayerState>()->Team)
+                Good=It->Emblem->GetDecalMaterial()!=nullptr &&
+                    (Phase==14 ? FMath::Abs(It->Lid->GetRelativeRotation().Roll)>30 : It->Lid->GetRelativeRotation().IsNearlyZero(.1));
+        UE_LOG(LogTemp,Display,TEXT("ER_RECON_CLIENT_%s case_animation phase=%d"),Good?TEXT("PASS"):TEXT("FAIL"),Phase);
         ClientValidated=true;
     }
     if (Phase==10 && PC->GetPlayerState<AERPlayerState>()->Team==EERTeam::Omega)
@@ -275,6 +286,22 @@ void AERReconProbe::Tick(float DeltaSeconds)
         Advance(14,1.5); break;
     }
     case 14:
+    {
+        auto* Base=Recon->Teams[0].Base.Get();
+        Check(Base && Base->Lid->GetStaticMesh() && Base->Lock->GetStaticMesh() && Base->LidOpening.Num()==101,
+            TEXT("case_keeps_original_animated_parts_and_keys"));
+        Check(Base && FMath::Abs(Base->Lid->GetRelativeRotation().Roll)>30,
+            TEXT("case_opens_during_real_round_reset_launch"));
+        Check(Base && Base->Emblem->GetDecalMaterial()==Base->AlphaGraffiti && Base->AlphaGraffiti && Base->OmegaGraffiti,
+            TEXT("case_has_team_emblem_material"));
+        Check(Base && Recon->ActiveDrone(EERTeam::Alpha) &&
+            FMath::IsNearlyEqual(Recon->ActiveDrone(EERTeam::Alpha)->Flight.StartedAt-Base->LaunchAt,1.2,.001),
+            TEXT("drone_ascent_waits_for_case_opening"));
+        Advance(15,4); break;
+    }
+    case 15:
+        Check(Recon->Teams[0].Base.IsValid() && Recon->Teams[0].Base->Lid->GetRelativeRotation().IsNearlyZero(.1),
+            TEXT("case_closes_after_launch_animation"));
         UE_LOG(LogTemp,Display,TEXT("ER_RECON_PROBE_COMPLETE result=%s"),Failed?TEXT("FAIL"):TEXT("PASS"));
         FPlatformMisc::RequestExitWithStatus(false,Failed?1:0); break;
     }

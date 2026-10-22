@@ -6,7 +6,8 @@ TConstArrayView<FERMapCatalogEntry> All()
 {
     static const FERMapCatalogEntry Entries[]={
         {TEXT("central_building"),TEXT("Central Building · Industrial"),TEXT("/Game/EclipseRecoil/Maps/L_CentralBuilding"),true,true},
-        {TEXT("depot"),TEXT("Depot · Reference"),TEXT("/Game/EclipseRecoil/Maps/L_Depot"),false,false}};
+        {TEXT("depot"),TEXT("Depot · Reference"),TEXT("/Game/EclipseRecoil/Maps/L_Depot"),false,false},
+        {TEXT("middle_eastern_alleys"),TEXT("Middle Eastern Alleys · Desert"),TEXT("/Game/EclipseRecoil/Maps/L_MiddleEasternAlleys"),true,true}};
     return Entries;
 }
 const FERMapCatalogEntry& At(int32 Index){const auto Entries=All();return Entries[FMath::Clamp(Index,0,Entries.Num()-1)];}

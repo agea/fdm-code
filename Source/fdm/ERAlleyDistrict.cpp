@@ -1,0 +1,399 @@
+#include "ERProceduralMap.h"
+#include "Engine/StaticMesh.h"
+#include "Algo/Reverse.h"
+
+namespace
+{
+struct FPlot
+{
+    FVector2D Min,Max;
+    bool Contains(FVector2D P) const{return P.X>Min.X && P.X<Max.X && P.Y>Min.Y && P.Y<Max.Y;}
+};
+// Exact rectangular complement of the streets. Bounded coordinate compression
+// avoids random packing, disconnected slivers and seed-dependent retries.
+TArray<FPlot> Lots(const FPlot& Extent,const TArray<FPlot>& Streets)
+{
+    TArray<float> X{Extent.Min.X,Extent.Max.X},Y{Extent.Min.Y,Extent.Max.Y};
+    for(const auto& S:Streets)
+    {
+        X.AddUnique(FMath::Clamp(S.Min.X,Extent.Min.X,Extent.Max.X));X.AddUnique(FMath::Clamp(S.Max.X,Extent.Min.X,Extent.Max.X));
+        Y.AddUnique(FMath::Clamp(S.Min.Y,Extent.Min.Y,Extent.Max.Y));Y.AddUnique(FMath::Clamp(S.Max.Y,Extent.Min.Y,Extent.Max.Y));
+    }
+    X.Sort();Y.Sort();TArray<FPlot> Out;if(X.Num()>220 || Y.Num()>160)return Out;
+    const int32 NX=X.Num()-1,NY=Y.Num()-1;TArray<uint8> Grid;Grid.Init(1,NX*NY);
+    for(int32 J=0;J<NY;++J)for(int32 I=0;I<NX;++I)
+        for(const auto& S:Streets)if(S.Contains({(X[I]+X[I+1])*.5,(Y[J]+Y[J+1])*.5})){Grid[J*NX+I]=0;break;}
+    for(int32 J=0;J<NY;++J)for(int32 I=0;I<NX;++I)if(Grid[J*NX+I])
+    {
+        int32 End=I+1;while(End<NX && Grid[J*NX+End])++End;
+        int32 Top=J+1;for(;Top<NY;++Top){bool Full=true;for(int32 K=I;K<End;++K)Full&=Grid[Top*NX+K]!=0;if(!Full)break;}
+        for(int32 V=J;V<Top;++V)for(int32 U=I;U<End;++U)Grid[V*NX+U]=0;
+        if(X[End]-X[I]>=2 && Y[Top]-Y[J]>=2)Out.Add({{X[I],Y[J]},{X[End],Y[Top]}});
+    }
+    return Out;
+}
+FVector Opposite(FVector P){return {-P.X,-P.Y,P.Z};}
+FPlot Opposite(FPlot P){return {-P.Max,-P.Min};}
+}
+
+namespace ERProcedural
+{
+bool BuildAlleyDistrict(const UERMapTemplate& T,int32 Seed,TArray<FERMapTemplatePiece>& Pieces,FERProceduralLayout& L,TArray<FVector>& Patrol)
+{
+    const auto& V=T.Town;
+    if(T.Symmetry!=EERTemplateSymmetry::None || !V.TraversableTown || V.MinAccesses<2 || V.MaxAccesses>4 || V.MinAccesses>V.MaxAccesses ||
+       V.MinCentralWalls<0 || V.MaxCentralWalls>2 || V.MinCentralWalls>V.MaxCentralWalls ||
+       V.ArenaMin.ContainsNaN() || V.ArenaMax.ContainsNaN() || V.ArenaMin.X<7600 || V.ArenaMin.Y<8400 ||
+       V.ArenaMax.X>9500 || V.ArenaMax.Y>11000 || V.ArenaMin.X>V.ArenaMax.X || V.ArenaMin.Y>V.ArenaMax.Y ||
+       !FMath::IsFinite(V.AxisWarp) || V.AxisWarp<0 || V.AxisWarp>3 || V.BuildingHeight.ContainsNaN() ||
+       V.BuildingHeight.X<400 || V.BuildingHeight.Y>800 || V.BuildingHeight.X>V.BuildingHeight.Y ||
+       !V.WallSurface || !V.RoofSurface || !V.GroundSurface || !V.IronSurface || !V.ArchMesh || V.BuildingMeshes.IsEmpty() || V.BuildingMeshes.Num()>16)return false;
+    for(const auto& Mesh:V.BuildingMeshes)if(!Mesh || Mesh->GetBoundingBox().GetSize().GetMin()<1)return false;
+    FRandomStream R(Seed),Art(int32(HashCombine(uint32(Seed),0x44495354u)));
+    auto Pick=[&](float A,float B,float Grid=50.f){return R.RandRange(FMath::CeilToInt(A/Grid),FMath::FloorToInt(B/Grid))*Grid;};
+    L.SeededDistrict=true;L.GradedTerrain=true;L.GroundSurface=V.GroundSurface;
+    L.ArenaSize={Pick(V.ArenaMin.X,V.ArenaMax.X),Pick(V.ArenaMin.Y,V.ArenaMax.Y),T.ArenaSize.Z};
+    const FVector Half=L.ArenaSize*.5;
+    L.DistrictAccesses=V.MinAccesses+uint32(Seed)%uint32(V.MaxAccesses-V.MinAccesses+1);
+    L.DistrictBends=R.RandRange(0,3);
+    // Independent of lane count and art: all nine wall/access combinations
+    // occur, and changing the allowed wall range does not reroll the town.
+    L.DistrictWallCount=V.MinCentralWalls+((uint32(Seed)>>4)^uint32(Seed))%uint32(V.MaxCentralWalls-V.MinCentralWalls+1);
+    FRandomStream Center(int32(HashCombine(uint32(Seed),0x434f5245u)));
+    L.DistrictWallOffset=L.DistrictWallCount==2 ? Center.RandRange(26,32)*50.f:0;
+    L.DistrictOpenHalfDepth=L.DistrictWallCount==2 ? L.DistrictWallOffset-120:L.DistrictWallCount==0 ? Center.RandRange(14,22)*50.f:0;
+    const float DistrictEnd=L.DistrictWallCount==2 ? -L.DistrictWallOffset-180:-FMath::Max(220.f,L.DistrictOpenHalfDepth);
+    Pieces.Reset();Patrol.Reset();L.AlphaSpawns.Reset();L.OmegaSpawns.Reset();
+    auto Box=[&](FVector P,FVector S,UMaterialInterface* Surface,bool Walk=false,float Yaw=0)->FERMapTemplatePiece&
+    {
+        auto& B=Pieces.AddDefaulted_GetRef();B.Center=P;B.Size=S;B.FixedSurface=Surface;
+        B.Destructible=false;B.Material=EERBlockMaterial::Stone;B.WalkableSurface=Walk;B.RotationYaw=Yaw;return B;
+    };
+    auto PairBox=[&](FVector P,FVector S,UMaterialInterface* Surface,bool Walk=false,float Yaw=0)
+    {Box(P,S,Surface,Walk,Yaw);Box(Opposite(P),S,Surface,Walk,Yaw+180);};
+    auto Pad=[&](FPlot P,float Z)
+    {for(const auto& F:{P,Opposite(P)})L.TerrainPads.Add(FBox(FVector(F.Min,Z),FVector(F.Max,Z)));};
+    TArray<FPlot> Roads;
+    auto Space=[&](FPlot P){Roads.Add(P);Roads.Add(Opposite(P));};
+    auto Street=[&](const TArray<FVector>& Path,float W)
+    {
+        for(int32 I=1;I<Path.Num();++I)
+        {
+            const auto A=Path[I-1],B=Path[I];
+            Space({{FMath::Min(A.X,B.X)-W*.5f,FMath::Min(A.Y,B.Y)-W*.5f},
+                   {FMath::Max(A.X,B.X)+W*.5f,FMath::Max(A.Y,B.Y)+W*.5f}});
+        }
+    };
+    // Reserve the core before houses and tower sites are chosen. The twin
+    // walls sit at its edges; the exact middle remains a broad open square.
+    if(L.DistrictOpenHalfDepth>0)
+    {
+        Space({{-Half.X+30,-L.DistrictOpenHalfDepth},{Half.X-30,L.DistrictOpenHalfDepth}});
+        Pad({{-Half.X,-L.DistrictOpenHalfDepth},{Half.X,L.DistrictOpenHalfDepth}},0);
+    }
+    const FVector Base(Pick(-400,400),-Half.Y+1050,0);
+    const FVector2D SpawnSize(Pick(2000,2500),1500);
+    Space({FVector2D(Base)-SpawnSize*.5,FVector2D(Base)+SpawnSize*.5});
+    for(const auto C:{Base,Opposite(Base)})L.TownCourts.Add(FBox(C-FVector(SpawnSize*.5,0),C+FVector(SpawnSize*.5,1)));
+    TArray<TArray<FVector>> North;TArray<float> GateX,Widths;
+    const float Spread=Pick(Half.X*(L.DistrictAccesses==2 ? .35f:.59f),Half.X*(L.DistrictAccesses==2 ? .50f:.70f)),FirstY=-Half.Y*.60f,LastY=FMath::Min3(float(-Half.Y*.16f),DistrictEnd-200,V.LowCoverAndUnderpass ? -1350.f:0.f);
+    // Corresponding routes may have different silhouettes, but every ground
+    // junction, rise, plaza, roof stair and tower has an exact half-turn mate.
+    for(int32 Lane=0;Lane<L.DistrictAccesses;++Lane)
+    {
+        const float X=(float(Lane)/(L.DistrictAccesses-1)*2-1)*Spread;
+        const float W=Lane>=(L.DistrictAccesses+1)/2 ? Widths[L.DistrictAccesses-1-Lane]:Pick(340,480,20);
+        const float Band=2*Spread/(L.DistrictAccesses-1),Bend=FMath::Min(650.f,Band*.22f);
+        const float Limit=L.DistrictAccesses==2 ? Half.X-1550:Half.X-(V.LowCoverAndUnderpass ? 1050:500);
+        const float Entry=FMath::Clamp(X+Pick(-Bend,Bend),-Limit,Limit),First=FirstY-Pick(0,250);
+        TArray<FVector> Path{Base,FVector(Entry,Base.Y,0),FVector(Entry,First,0)};
+        float AtX=Entry;
+        for(int32 Turn=0;Turn<L.DistrictBends+1;++Turn)
+        {
+            const float Y=FMath::Lerp(First,LastY,float(Turn)/(L.DistrictBends+1));
+            const float Next=FMath::Clamp(X+Pick(-Bend,Bend),-Limit,Limit);
+            if(FMath::Abs(Next-AtX)>100){Path.Add({AtX,Y,0});Path.Add({Next,Y,0});AtX=Next;}
+            const float NextY=FMath::Lerp(First,LastY,float(Turn+1)/(L.DistrictBends+1));Path.Add({AtX,NextY,0});
+        }
+        Path.Add({X,LastY,0});Path.Add({X,0,0});
+        // Remove coincident waypoints before validation and actual movement.
+        for(int32 I=Path.Num()-1;I>0;--I)if(FVector::Dist2D(Path[I],Path[I-1])<1)Path.RemoveAt(I);
+        Street(Path,W);North.Add(Path);GateX.Add(X);Widths.Add(W);
+        L.TownStreetNames.Add(FName(*FString::Printf(TEXT("District_%d"),Lane)));
+        L.GroundRoutes.Add({{Entry,Base.Y-100,100},{Entry,FMath::Lerp(Base.Y,First,.4f),100},{Entry,First+100,100}});
+    }
+    L.GroundRoutes.SetNum(1);TArray<FVector> SouthGrade;for(auto P:L.GroundRoutes[0])SouthGrade.Add(Opposite(P));L.GroundRoutes.Add(SouthGrade);
+    // Cross streets create loops within each team's district.
+    const float LinkY=Pick(-Half.Y*.67f,-Half.Y*.62f);
+    Street({{GateX[0],LinkY,0},{GateX.Last(),LinkY,0}},Pick(340,440,20));
+    L.RoomAccessRoutes.Add({{GateX[0],LinkY,100},{GateX.Last(),LinkY,100}});
+    L.RoomAccessRoutes.Add({Opposite({GateX[0],LinkY,100}),Opposite({GateX.Last(),LinkY,100})});
+    // A broad, paired market square contains the raised crossing. Additional
+    // courtyards vary in size and rectangular/L/cross shape between seeds.
+    const int32 PlazaLane=L.DistrictAccesses==2 ? R.RandRange(0,1):R.RandRange(1,L.DistrictAccesses-2),PlazaPairs=R.RandRange(1,2);
+    TArray<FVector> PlazaCenters;TArray<FVector2D> PlazaSizes;
+    for(int32 I=0;I<PlazaPairs;++I)
+    {
+        const int32 Lane=(PlazaLane+I)%North.Num();const auto& Path=North[Lane];
+        float Y=I ? FirstY-100:-Pick(350,450),X=GateX[Lane];
+        if(!I)
+        {
+            // The final straight approaches have guaranteed separation for
+            // the bridge stairs; winding streets farther back stay untouched.
+            X=GateX[Lane];
+        }
+        for(int32 J=1;J<Path.Num();++J)if(FMath::IsNearlyEqual(Path[J-1].X,Path[J].X) && Y>=Path[J-1].Y && Y<=Path[J].Y){X=Path[J].X;break;}
+        const FVector2D S=I ? FVector2D(Pick(1500,2200),Pick(1500,2200)):FVector2D(2800,2300);
+        X=FMath::Clamp(X,-Half.X+S.X*.5f+100,Half.X-S.X*.5f-100);
+        FVector C(X,Y,0);PlazaCenters.Add(C);PlazaSizes.Add(S);
+        const FPlot Square{FVector2D(C)-S*.5f,FVector2D(C)+S*.5f};
+        if(I && R.RandRange(0,1))
+        {Space({Square.Min,{Square.Max.X,Square.Min.Y+S.Y*.65f}});Space({{Square.Min.X,Square.Min.Y+S.Y*.65f},{Square.Min.X+S.X*.6f,Square.Max.Y}});}
+        else Space(Square);
+        // Link the square to its intended lane even when clamped by the edge.
+        Street({{GateX[Lane],Y,0},C},Widths[Lane]);
+        const float Z=AlleyBaseHeight(L.ArenaSize,FVector2D(C),true);if(!I)Pad(Square,Z);
+        for(const auto Q:{C,Opposite(C)})L.TownCourts.Add(FBox(Q-FVector(S*.5f,0)+FVector(0,0,Z),Q+FVector(S*.5f,1)+FVector(0,0,Z)));
+    }
+    if(!PlanAlleyUnderpass(T,Seed,Base,Pieces,L))return false;
+    for(const auto& Ramp:L.UnderpassRamps)Space({FVector2D(Ramp.Bounds.Min)-FVector2D(100),FVector2D(Ramp.Bounds.Max)+FVector2D(100)});
+    for(const auto& Hole:L.UnderpassBreaches)
+    {const FPlot P{FVector2D(Hole.Min)-FVector2D(120),FVector2D(Hole.Max)+FVector2D(120)};Space(P);Pad(P,0);}
+    if(!L.UnderpassApproach.IsEmpty())Street(L.UnderpassApproach,360);
+    // Towers occupy open market corners, outside the circulation paths. A
+    // reserved apron keeps the climb approach clear of neighboring houses.
+    const int32 TowerPairs=PlazaPairs;TArray<FPlot> TowerFootprints;
+    for(int32 I=0;I<TowerPairs;++I)
+    {
+        const auto C=PlazaCenters[I];const float W=I ? 500:600,D=W,H=Pick(700,900,100);
+        FVector Origin;bool Placed=false;float BestSite=MAX_flt;
+        for(float Y=-Half.Y+550;Y< -700;Y+=300)for(float X=-Half.X+550;X<Half.X-550;X+=300)
+        {
+            const FVector Candidate(X,Y,0);const float Score=FVector::DistSquared2D(Candidate,C+FVector(800,650,0));if(Score>=BestSite)continue;
+            const FBox Bounds(Candidate-FVector(W*.5f+140,D*.5f+140,10000),Candidate+FVector(W*.5f+140,D*.5f+140,10000));
+            bool Clear=Bounds.Min.X> -Half.X+30 && Bounds.Max.X<Half.X-30 && Bounds.Min.Y> -Half.Y+30 && Bounds.Max.Y<FMath::Min(-250.f,DistrictEnd);
+            for(const auto& Path:North)for(int32 J=1;J<Path.Num();++J)Clear&=!FMath::LineBoxIntersection(Bounds,Path[J-1],Path[J],Path[J]-Path[J-1]);
+            for(const auto& Path:L.RoomAccessRoutes)for(int32 J=1;J<Path.Num();++J)Clear&=!FMath::LineBoxIntersection(Bounds,Path[J-1],Path[J],Path[J]-Path[J-1]);
+            const FBox Spawn(Base-FVector(SpawnSize*.5f,10000),Base+FVector(SpawnSize*.5f,10000));Clear&=!Bounds.Intersect(Spawn);
+            const auto BridgeCenter=PlazaCenters[0];Clear&=!Bounds.Intersect(FBox(BridgeCenter-FVector(1300,200,10000),BridgeCenter+FVector(1300,200,10000)));
+            for(const auto& Ramp:L.UnderpassRamps)Clear&=!Bounds.Intersect(FBox(FVector(Ramp.Bounds.Min.X-100,Ramp.Bounds.Min.Y-100,-10000),FVector(Ramp.Bounds.Max.X+100,Ramp.Bounds.Max.Y+100,10000)));
+            for(const auto& Hole:L.UnderpassBreaches)Clear&=!Bounds.Intersect(FBox(FVector(Hole.Min.X-120,Hole.Min.Y-120,-10000),FVector(Hole.Max.X+120,Hole.Max.Y+120,10000)));
+            if(!L.UnderpassApproach.IsEmpty())for(int32 J=1;J<L.UnderpassApproach.Num();++J)Clear&=!FMath::LineBoxIntersection(Bounds,L.UnderpassApproach[J-1],L.UnderpassApproach[J],L.UnderpassApproach[J]-L.UnderpassApproach[J-1]);
+            for(const auto& Foot:TowerFootprints)Clear&=!Bounds.Intersect(FBox(FVector(Foot.Min,-10000),FVector(Foot.Max,10000)));
+            if(Clear){Origin=Candidate;Placed=true;BestSite=Score;}
+        }
+        if(!Placed){UE_LOG(LogTemp,Warning,TEXT("ER_DISTRICT_REJECT seed=%d tower=%d"),Seed,I);return false;}
+        const float Z=AlleyBaseHeight(L.ArenaSize,FVector2D(Origin),true);
+        const FPlot Apron{FVector2D(Origin)-FVector2D(W*.5+160,D*.5+160),FVector2D(Origin)+FVector2D(W*.5+160,D*.5+160)};
+        Space(Apron);Pad(Apron,Z);TowerFootprints.Add(Apron);
+        const auto Square=PlazaSizes[I];const FVector Join=!I && L.DistrictWallCount==2 ? FVector(GateX[PlazaLane],FMath::Min(float(Origin.Y),LastY),0):FVector(FMath::Clamp(Origin.X,C.X-Square.X*.5f,C.X+Square.X*.5f),FMath::Clamp(Origin.Y,C.Y-Square.Y*.5f,C.Y+Square.Y*.5f),0);
+        Street({Join,{Origin.X,Join.Y,0},Origin},320);
+        const FTransform Frame(FRotator(0,180,0),Origin+FVector(0,0,Z));
+        auto Solid=[&](FVector P,FVector S,bool Walk=false){PairBox(Frame.TransformPosition(P),S,V.WallSurface,Walk,180);};
+        const float WallH=H-20;
+        for(float X:{-W*.5f+10,W*.5f-10})Solid({X,0,WallH*.5f},{20,D-40,WallH});
+        Solid({0,D*.5f-10,WallH*.5f},{W,20,WallH});
+        for(float Sign:{-1.f,1.f})Solid({Sign*(W+180)*.25f,-D*.5f+10,WallH*.5f},{(W-180)*.5f,20,WallH});
+        Solid({0,-D*.5f+10,(240+WallH)*.5f},{180,20,WallH-240});
+        Solid({0,0,H-10},{W+40,D+40,20},true);
+        // Notched parapet lets the existing ladder mechanic land on the deck.
+        Solid({-W*.5f-10,0,H+40},{20,D+40,80});
+        for(float Sign:{-1.f,1.f})
+        {
+            Solid({Sign*0,Sign*(D*.5f+10),H+40},{W,20,80});
+            Solid({W*.5f+10,Sign*(D+180)*.25f,H+40},{20,(D-100)*.5f,80});
+        }
+        const FTransform LadderFrame(Frame.GetRotation(),Frame.TransformPosition({W*.5f+35,0,0}));
+        auto Metal=[&](FVector P,FVector S)
+        {
+            for(int32 Copy=0;Copy<2;++Copy)
+            {
+                const auto Pair=Copy ? LadderFrame*FTransform(FRotator(0,180,0)):LadderFrame;
+                auto& B=Box(Pair.TransformPosition(P),S,nullptr,false,Pair.Rotator().Yaw);
+                B.Destructible=true;B.FixedSurface=nullptr;B.Material=EERBlockMaterial::Metal;B.Anchored=P.Z-S.Z*.5f<.01f;B.CellSurface=V.IronSurface;
+            }
+        };
+        for(float Y:{-42.f,42.f})
+        {
+            for(float X:{-3.9f,3.9f})Metal({X,Y,(H+110)*.5f},{.2f,8,H+110});
+            for(float Edge:{-3.9f,3.9f})Metal({0,Y+Edge,(H+110)*.5f},{7.6f,.2f,H+110});
+        }
+        for(float Height=25;Height<H;Height+=25)Metal({0,0,Height},{.2f,76,4});
+        for(int32 Copy=0;Copy<2;++Copy)
+        {
+            const auto Pair=Copy ? Frame*FTransform(FRotator(0,180,0)):Frame;
+            const auto Ladder=Copy ? LadderFrame*FTransform(FRotator(0,180,0)):LadderFrame;
+            L.DistrictTowers.Add(Ladder);L.DistrictTowerHeights.Add(H);L.Ladders.Add({Ladder,H+110,H});
+            L.TownBuildings.Add(FBox(FVector(-W*.5,-D*.5,0),FVector(W*.5,D*.5,H)).TransformBy(Pair));
+        }
+    }
+    auto Plots=Lots({{-Half.X+30,-Half.Y+30},{Half.X-30,DistrictEnd}},Roads);
+    if(Plots.IsEmpty() || Plots.Num()>180)return false;
+    TArray<FPlot> Houses;const float Frontage=Pick(950,1200);
+    for(const auto& P:Plots)
+    {
+        const auto S=P.Max-P.Min;const int32 NX=FMath::Max(1,FMath::CeilToInt(S.X/Frontage)),NY=FMath::Max(1,FMath::CeilToInt(S.Y/Frontage));
+        for(int32 Y=0;Y<NY;++Y)for(int32 X=0;X<NX;++X)Houses.Add({P.Min+FVector2D(S.X*X/NX,S.Y*Y/NY),P.Min+FVector2D(S.X*(X+1)/NX,S.Y*(Y+1)/NY)});
+    }
+    int32 StairPairs=0;TArray<FVector> StairCenters;
+    for(const auto& Lot:Houses)
+    {
+        const FVector2D S=Lot.Max-Lot.Min,C=(Lot.Min+Lot.Max)*.5f;const float Z=AlleyBaseHeight(L.ArenaSize,C,true);
+        Pad(Lot,Z);float Height=Pick(V.BuildingHeight.X,V.BuildingHeight.Y);
+        const bool HasHouse=S.GetMin()>=240;bool Access=false;FTransform Frame;float W=0,D=0;
+        FVector2D HouseCenter=C,HouseSize=S;float Yaw=Art.RandRange(0,3)*90;
+        bool Distant=true;for(auto P:StairCenters)Distant&=FVector::Dist2D(P,FVector(C,0))>1700;
+        if(HasHouse && StairPairs<2 && Distant)for(int32 Side=0;Side<4;++Side)
+        {
+            const bool Swap=Side%2;W=Swap ? S.Y:S.X;D=Swap ? S.X:S.Y;if(W<500 || D<620)continue;
+            Frame=FTransform(FRotator(0,Side*90,0),FVector(C,Z));
+            const auto Entry=Frame.TransformPosition({-W*.5f+70,-D*.5f-60,0}),SideEntry=Frame.TransformPosition({-W*.5f-60,-D*.5f+90,0});bool StreetSide=false;
+            for(const auto& Road:Roads)StreetSide|=Road.Contains(FVector2D(Entry)) || Road.Contains(FVector2D(SideEntry));if(!StreetSide)continue;
+            Access=true;++StairPairs;StairCenters.Add(FVector(C,0));Yaw=Side*90;
+            Height=FMath::Min3(Height,600.f,float(FMath::FloorToInt((D-320)/30))*40);
+            HouseCenter=FVector2D(Frame.TransformPosition({150,0,0}));HouseSize=Swap ? FVector2D(D,W-300):FVector2D(W-300,D);break;
+        }
+        if(HasHouse)
+        {
+            auto* Mesh=V.BuildingMeshes[Art.RandRange(0,V.BuildingMeshes.Num()-1)].Get();
+            for(int32 Copy=0;Copy<2;++Copy)
+            {
+                const FVector P(HouseCenter,Z);auto& B=Box((Copy ? Opposite(P):P)+FVector(0,0,Height*.5f),FVector(HouseSize,Height),nullptr);
+                B.FixedMesh=Mesh;B.MeshCollision=true;B.MeshRotation.Yaw=Yaw+Copy*180;
+                const bool Swap=int32(Yaw/90)%2;
+                L.Houses.Add({FTransform(FRotator(0,Yaw+Copy*180,0),Copy ? Opposite(P):P,FVector(Swap ? HouseSize.Y:HouseSize.X,Swap ? HouseSize.X:HouseSize.Y,Height)),Mesh,Access});
+            }
+        }
+        else PairBox(FVector(C,Z+Height*.5f),FVector(S,Height),V.WallSurface);
+        for(const auto& Foot:{Lot,Opposite(Lot)})L.TownBuildings.Add(FBox(FVector(Foot.Min,Z),FVector(Foot.Max,Z+Height)));
+        if(Access)
+        {
+            const int32 N=FMath::CeilToInt(Height/40);const float Rise=Height/(2*N),Run=N*30.f;
+            auto P=[&](FVector V){return Frame.TransformPosition(V+FVector(-W*.5f,-D*.5f,0));};
+            auto Solid=[&](FVector C,FVector Size){PairBox(P(C),Size,V.RoofSurface,true,Yaw);};
+            TArray<FVector> Route{P({70,90,100}),P({70,180,100})};
+            for(int32 I=0;I<N;++I){const float H=(I+1)*Rise;Solid({70,200+(I+.5f)*30,H*.5f},{120,30,H});Route.Add(P({70,200+(I+.5f)*30,H+100}));}
+            Solid({150,200+Run+60,Height*.25f},{280,120,Height*.5f});
+            Route.Add(P({70,200+Run+60,Height*.5f+100}));Route.Add(P({230,200+Run+60,Height*.5f+100}));
+            for(int32 I=0;I<N;++I){const float H=(N+I+1)*Rise;Solid({230,200+Run-(I+.5f)*30,H*.5f},{120,30,H});Route.Add(P({230,200+Run-(I+.5f)*30,H+100}));}
+            const float Far=300+(W-300)*.15f;Solid({(170+Far)*.5f,140,Height-10},{Far-170,120,20});
+            Route.Add(P({230,140,Height+100}));Route.Add(P({Far,140,Height+100}));Route.Add(P({Far+50,140,Height*.94f+100}));
+            L.RooftopRoutes.Add(Route);TArray<FVector> Mate;for(auto Q:Route)Mate.Add(Opposite(Q));L.RooftopRoutes.Add(Mate);
+        }
+    }
+    if(StairPairs<1)
+    {
+        FString Sizes;for(const auto& P:Houses)if((P.Max-P.Min).GetMin()>240)Sizes+=(P.Max-P.Min).ToString()+TEXT(";");
+        UE_LOG(LogTemp,Warning,TEXT("ER_DISTRICT_REJECT seed=%d stairs=0 lots=%s"),Seed,*Sizes);return false;
+    }
+    // Preserve a genuine 3.2m over/under crossing in the paired market squares.
+    L.TownCrossing=PlazaCenters[0];
+    const FVector Bridge=L.TownCrossing;Pad({FVector2D(Bridge)-FVector2D(1300,1100),FVector2D(Bridge)+FVector2D(1300,1100)},0);
+    for(int32 End=0;End<2;++End)
+    {
+        const float Sign=End ? -1.f:1.f;TArray<FVector> Route{Bridge+FVector(Sign*-1170,0,100)};
+        for(int32 I=0;I<16;++I)
+        {const float H=(I+1)*20;const auto P=Bridge+FVector(Sign*(-1100+(I+.5f)*35),0,0);PairBox(P+FVector(0,0,H*.5f),{35,300,H},V.RoofSurface,true);Route.Add(P+FVector(0,0,H+100));}
+        Route.Add(Bridge+FVector(Sign*-450,0,420));L.StairRoutes.Add(Route);
+    }
+    PairBox(Bridge+FVector(0,0,305),{1080,300,30},V.RoofSurface,true);
+    for(float Sign:{-1.f,1.f})PairBox(Bridge+FVector(Sign*395,0,145),{290,300,290},V.WallSurface);
+    L.LowerRoute={Bridge+FVector(0,-500,100),Bridge+FVector(0,500,100)};
+    L.UpperRoute=L.StairRoutes[0];L.UpperRoute.Add(Bridge+FVector(0,0,420));
+    for(int32 I=L.StairRoutes[1].Num()-1;I>=0;--I)L.UpperRoute.Add(L.StairRoutes[1][I]);
+    // Each existing wall has exactly the requested 2/3/4 arch openings. With
+    // no wall these are approach routes, free to connect across the open core.
+    const float WallH=1300,Depth=240;
+    for(int32 Wall=0;Wall<L.DistrictWallCount;++Wall)
+    {
+        const float Y=L.DistrictWallCount==1 ? 0:(Wall ? 1.f:-1.f)*L.DistrictWallOffset;float Edge=-Half.X;
+        for(int32 I=0;I<GateX.Num();++I)
+        {
+            const float X=GateX[I],Gap=Widths[I],Lo=X-Gap*.5f,Hi=X+Gap*.5f;
+            if(Lo>Edge)Box({(Edge+Lo)*.5f,Y,WallH*.5f},{Lo-Edge,Depth,WallH},V.WallSurface);
+            Box({X,Y,(440+WallH)*.5f},{Gap,Depth,WallH-440},V.WallSurface);
+            auto& Arch=Box({X,Y,220},{Gap+80,Depth+4,440},nullptr);Arch.FixedMesh=V.ArchMesh;Arch.VisualOnly=true;
+            const FTransform Frame(FRotator::ZeroRotator,FVector(X,Y,0));
+            L.TownGates.Add({Frame,Gap,Gap,0,{{X,Y-350,100},{X,Y,100},{X,Y+350,100}}});Edge=Hi;
+            Pad({{X-Gap*.5f-100,Y-400},{X+Gap*.5f+100,Y+400}},0);
+        }
+        if(Edge<Half.X)Box({(Edge+Half.X)*.5f,Y,WallH*.5f},{Half.X-Edge,Depth,WallH},V.WallSurface);
+    }
+    // At least one pair of small breakable cover stacks on a square's margin.
+    FVector Cover;bool CoverFound=false;
+    for(float Dy=-850;Dy<=850;Dy+=250)for(float Dx=-1100;Dx<=1100;Dx+=250)
+    {
+        if(FMath::Abs(Dy)<300)continue;
+        const auto P=PlazaCenters[0]+FVector(Dx,Dy,0);const FBox Bounds(P-FVector(100,90,0),P+FVector(100,90,120));bool Clear=true;
+        for(const auto& B:L.TownBuildings)Clear&=!Bounds.Intersect(B);
+        for(const auto& Ramp:L.UnderpassRamps)Clear&=!(P.X>Ramp.Bounds.Min.X-100 && P.X<Ramp.Bounds.Max.X+100 && P.Y>Ramp.Bounds.Min.Y-100 && P.Y<Ramp.Bounds.Max.Y+100);
+        for(const auto& Hole:L.UnderpassBreaches)Clear&=!(P.X>Hole.Min.X-100 && P.X<Hole.Max.X+100 && P.Y>Hole.Min.Y-100 && P.Y<Hole.Max.Y+100);
+        for(int32 Wall=0;Wall<L.DistrictWallCount;++Wall)
+        {const float Y=L.DistrictWallCount==1 ? 0:(Wall ? 1.f:-1.f)*L.DistrictWallOffset;Clear&=FMath::Abs(P.Y-Y)>Depth*.5f+100;}
+        for(const auto& Path:North)for(int32 J=1;J<Path.Num();++J)Clear&=!FMath::LineBoxIntersection(Bounds.ExpandBy(FVector(70,70,1000)),Path[J-1],Path[J],Path[J]-Path[J-1]);
+        for(const auto& Path:L.RoomAccessRoutes)for(int32 J=1;J<Path.Num();++J)Clear&=!FMath::LineBoxIntersection(Bounds.ExpandBy(FVector(70,70,1000)),Path[J-1],Path[J],Path[J]-Path[J-1]);
+        if(Clear && !CoverFound){Cover=P;CoverFound=true;}
+    }
+    if(!CoverFound){UE_LOG(LogTemp,Warning,TEXT("ER_DISTRICT_REJECT seed=%d cover=0"),Seed);return false;}
+    for(int32 Copy=0;Copy<2;++Copy)
+    {
+        const auto P=Copy ? Opposite(Cover):Cover;auto& B=Box(P+FVector(0,0,60),{140,120,120},nullptr);
+        B.Destructible=true;B.Material=EERBlockMaterial::Wood;B.Anchored=true;
+    }
+    Pad({FVector2D(Base)-SpawnSize*.5,FVector2D(Base)+SpawnSize*.5},180);
+    auto Elevate=[&](TArray<FVector> Path)
+    {
+        TArray<FVector> Out;
+        for(int32 I=0;I<Path.Num();++I)
+        {
+            const FVector A=I ? Path[I-1]:Path[I],B=Path[I];const int32 N=I ? FMath::Max(1,FMath::CeilToInt(FVector::Dist2D(A,B)/100)):1;
+            for(int32 J=I ? 1:0;J<=N;++J){auto P=FMath::Lerp(A,B,float(J)/N);P.Z=100+AlleyGroundHeight(L,FVector2D(P));Out.Add(P);}
+        }
+        return Out;
+    };
+    for(int32 I=0;I<North.Num();++I)
+    {
+        TArray<FVector> Path=North[I];const auto& Other=North[North.Num()-1-I];
+        for(int32 J=Other.Num()-2;J>=0;--J)Path.Add(Opposite(Other[J]));
+        Path=Elevate(Path);L.DistrictRoutes.Add(Path);L.RoomAccessRoutes.Add(Path);
+    }
+    if(!L.UnderpassApproach.IsEmpty())
+    {
+        const auto Approach=Elevate(L.UnderpassApproach);TArray<FVector> Route=Approach;Route.Pop();Route.Append(L.UnderpassRoute);
+        for(int32 I=Approach.Num()-2;I>=0;--I)Route.Add(Opposite(Approach[I]));L.UnderpassRoute=MoveTemp(Route);
+    }
+    if(!L.UnderpassRoute.IsEmpty())L.RoomAccessRoutes.Add(L.UnderpassRoute);
+    const auto Grade=Elevate(North[0]);int32 From=0,To=Grade.Num()-1;float Best=MAX_flt;
+    for(int32 I=0;I<Grade.Num();++I)
+    {
+        float Run=0;
+        for(int32 J=I+1;J<Grade.Num();++J)
+        {
+            Run+=FVector::Dist2D(Grade[J-1],Grade[J]);if(Run>=Best)break;
+            if(Grade[I].Z-Grade[J].Z>=115){From=I;To=J;Best=Run;break;}
+        }
+    }
+    TArray<FVector> Slope;Slope.Append(Grade.GetData()+From,To-From+1);L.GroundRoutes.Reset();L.GroundRoutes.Add(Slope);
+    TArray<FVector> MateSlope;for(auto P:Slope)MateSlope.Add(Opposite(P));L.GroundRoutes.Add(MateSlope);
+    for(auto& Path:L.RoomAccessRoutes)if(Path.Num()==2)Path=Elevate(Path);
+    auto BotPath=[](const TArray<FVector>& Dense)
+    {
+        TArray<FVector> Sparse;float Run=0;
+        for(int32 I=0;I<Dense.Num();++I)
+        {
+            if(I)Run+=FVector::Dist2D(Dense[I-1],Dense[I]);
+            const bool Turn=I>0 && I+1<Dense.Num() && FVector::DotProduct((Dense[I]-Dense[I-1]).GetSafeNormal2D(),(Dense[I+1]-Dense[I]).GetSafeNormal2D())<.99;
+            if(I==0 || I==Dense.Num()-1 || Turn || Run>=350){Sparse.Add(Dense[I]);Run=0;}
+        }
+        return Sparse;
+    };
+    Patrol=BotPath(L.DistrictRoutes[0]);const auto Return=BotPath(L.DistrictRoutes.Last());for(int32 I=Return.Num()-2;I>0;--I)Patrol.Add(Return[I]);
+    for(int32 I=0;I<10;++I)
+    {
+        FVector P=Base+FVector((I%5-2)*140,(I/5 ? 1:-1)*90,100);P.Z+=AlleyGroundHeight(L,FVector2D(P));
+        L.AlphaSpawns.Add(FTransform(FRotator(0,90,0),P));L.OmegaSpawns.Add(FTransform(FRotator(0,270,0),Opposite(P)));
+    }
+    if(!BuildAlleyLowCover(T,Seed,Pieces,L))return false;
+    return Pieces.Num()<1800 && L.Houses.Num()>12;
+}
+}

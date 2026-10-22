@@ -1,5 +1,9 @@
 # Industrial map archetypes
 
+22 October2026: **Middle Eastern Alleys · Desert** joins Central Building in
+the production rotation. The industrial-only scope below is historical; see
+[the new alley template](MIDDLE_EASTERN_ALLEYS.md). Depot remains a reference.
+
 20 October2026 art update: revision7 adds the owner's
 [Sketchfab texture palette](SKETCHFAB_TEXTURES.md). Concrete, masonry and timber
 finishes vary coherently by seed; exteriors choose asphalt, grass or snow. New
