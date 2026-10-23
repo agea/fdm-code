@@ -55,8 +55,8 @@ inputs={
  'Depth':node(mat,ue.MaterialExpressionSceneDepth),
  'PixelDepth':node(mat,ue.MaterialExpressionPixelDepth),
  'Face':node(mat,ue.MaterialExpressionTwoSidedSign),
- 'BMin':vector(mat,'VolumeMin',(-400,-400,0,0)),
- 'BSize':vector(mat,'VolumeSize',(800,800,400,0)),
+ 'BMin':vector(mat,'VolumeMin',(-440,-440,0,0)),
+ 'BSize':vector(mat,'VolumeSize',(880,880,400,0)),
  'Phase':vector(mat,'ShapePhase',(0,0,0,0)),
  'Tint':vector(mat,'SmokeColor',(.30,.31,.32,1)),
  'Growth':scalar(mat,'Growth',0),'Fade':scalar(mat,'Fade',0),'Age':scalar(mat,'SmokeAge',0),
@@ -96,10 +96,11 @@ float radii[4]={CR0,CR1,CR2,CR3};
  float3 q=(p-origin)/float3(sz.xy*.5,sz.z);
  float n=Texture2DSampleLevel(Noise,NoiseSampler,(p.xy+Phase.xy*37)*.004+float2(Age*.012,Age*.006),0).r;
  float n2=Texture2DSampleLevel(Noise,NoiseSampler,(p.yz+Phase.yz*37)*.008-float2(Age*.008,Age*.015),0).r;
- // Smooth asymmetric lobes, unique replicated phase per cloud. Stay within 4m.
+ // Smooth asymmetric lobes, unique replicated phase per cloud. Stay within the 4.4m horizontal / 4m vertical bounds.
  float3 dir=q/max(length(q),.001);
  float lobes=sin(dir.x*4.1+Phase.x+Age*.28)*sin(dir.y*3.7+Phase.y-Age*.22)*cos(dir.z*4.6+Phase.z+Age*.18);
- float boundary=min(1.0,.88+.11*lobes+.045*(n+n2-1));
+ float sway=sin(dir.x*3.1+Phase.x+Age*.85)*cos(dir.y*2.7+Phase.y-Age*.65);
+ float boundary=min(1.0,.88+.07*lobes+.04*sway+.045*(n+n2-1));
  // Directional delays make separate billows lead/lag, catching up at full growth.
  // The phase is fixed per cloud so growth stays smooth rather than flickering.
  float patch=.5+.5*sin(dir.x*3.1+Phase.x)*cos(dir.y*4.3+Phase.y)*sin(dir.z*2.7+Phase.z);
@@ -137,7 +138,7 @@ if not edit.connect_material_property(rgb,'',ue.MaterialProperty.MP_EMISSIVE_COL
 if not edit.connect_material_property(alpha,'',ue.MaterialProperty.MP_OPACITY):raise RuntimeError('Opacity output')
 edit.recompile_material(mat);save(mat)
 smoke=load(ROOT+'/Smoke/BP_ERSmokeCloud');d=ue.get_default_object(smoke.generated_class())
-for key,value in dict(volume_material=mat,volume_mesh=load('/Engine/BasicShapes/Cube'),system=None,sim_size=ue.Vector(800,800,400),duration=12,smoke_color=ue.LinearColor(.30,.31,.32,1)).items():d.set_editor_property(key,value)
+for key,value in dict(volume_material=mat,volume_mesh=load('/Engine/BasicShapes/Cube'),system=None,sim_size=ue.Vector(880,880,400),duration=12,smoke_color=ue.LinearColor(.30,.31,.32,1)).items():d.set_editor_property(key,value)
 d.get_editor_property('fumes').set_asset(None)
 d.get_editor_property('volume').set_static_mesh(load('/Engine/BasicShapes/Cube'))
 d.get_editor_property('volume').set_material(0,mat)
@@ -145,7 +146,7 @@ ue.BlueprintEditorLibrary.compile_blueprint(smoke);save(smoke)
 projectile=load('/Game/EclipseRecoil/Weapons/BP_ERProjectile');d=ue.get_default_object(projectile.generated_class())
 d.set_editor_property('grenade_explosion_class',he.generated_class());d.set_editor_property('smoke_cloud_class',smoke.generated_class())
 ue.BlueprintEditorLibrary.compile_blueprint(projectile);save(projectile)
-report={'he':burst.get_path_name(),'he_scale':.55,'he_duration':3,'smoke_shape':'hemisphere','smoke_size_cm':[800,800,400],'containment_grid':[16,16,8],'raymarch_steps':48,'smoke_duration':12,'max_clouds':4,'max_bursts':8,'wall_test':'whole-cell overlap and neighbour sweep','dynamic_blocks':'revision refresh every .75s','global_fog_changed':False,'launcher_impact_detonation':False,'smoke_manual_opaque_depth_clip':True,'smoke_camera_inside':True,'he_fire_enabled':False,'he_flash_seconds':.065,'he_smoke_particles':3,'he_ground_chips':[3,6],'he_ground_trace_cm':60}
+report={'he':burst.get_path_name(),'he_scale':.55,'he_duration':3,'smoke_shape':'hemisphere','smoke_size_cm':[880,880,400],'containment_grid':[16,16,8],'raymarch_steps':48,'smoke_duration':12,'max_clouds':4,'max_bursts':8,'wall_test':'whole-cell overlap and neighbour sweep','dynamic_blocks':'revision refresh every .75s','global_fog_changed':False,'launcher_impact_detonation':False,'smoke_manual_opaque_depth_clip':True,'smoke_camera_inside':True,'he_fire_enabled':False,'he_flash_seconds':.065,'he_smoke_particles':3,'he_ground_chips':[3,6],'he_ground_trace_cm':60}
 out=Path(ue.Paths.project_dir())/'Assets/weapons/SourceAssets/EpicContentExamples';out.mkdir(parents=True,exist_ok=True)
 (out/'integration.json').write_text(json.dumps(report,indent=2)+'\n')
 ue.log('ER_GRENADE_EFFECTS_READY '+json.dumps(report))

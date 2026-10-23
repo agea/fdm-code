@@ -1,4 +1,5 @@
 #include "ERBlockDebris.h"
+#include "ERPerformanceSettings.h"
 #include "Components/StaticMeshComponent.h"
 #include "TimerManager.h"
 #include "UObject/ConstructorHelpers.h"
@@ -28,7 +29,8 @@ void AERBlockDebris::BeginPlay()
     Mesh->SetSimulatePhysics(true);Mesh->WakeAllRigidBodies();
     Mesh->SetMassOverrideInKg(NAME_None,10,true);
     GetWorldTimerManager().SetTimer(SettleTimer,this,&AERBlockDebris::StopSimulation,Settle,false);
-    SetLifeSpan(Life);
+    const int32 Quality=ERPerformance::Get().Effects;
+    SetLifeSpan(FMath::Min(Life,ERPerformance::Get().Defaults ? 20.f:Quality<=1 ? 2.f:Quality==2 ? 5.f:20.f));
 }
 void AERBlockDebris::StopSimulation()
 {

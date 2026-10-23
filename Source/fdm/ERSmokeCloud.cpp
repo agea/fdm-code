@@ -42,7 +42,7 @@ AERSmokeCloud::AERSmokeCloud()
     Volume->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     Volume->SetCastShadow(false);
     Volume->bReceivesDecals=false;
-    SimSize=FVector(800,800,400);
+    SimSize=FVector(880,880,400);
 }
 
 FLinearColor AERSmokeCloud::ColorForTeam(EERTeam Team)
@@ -89,7 +89,7 @@ void AERSmokeCloud::BeginPlay()
     }
     SetActorEnableCollision(false);
     Fumes->Deactivate(); Fumes->SetComponentTickEnabled(false);
-    SimSize=SimSize.GetAbs().BoundToBox(FVector(200,200,100),FVector(800,800,400));
+    SimSize=SimSize.GetAbs().BoundToBox(FVector(200,200,100),FVector(880,880,400));
     VolumeOrigin=GetActorLocation();
     FHitResult Floor;
     FCollisionQueryParams Query(SCENE_QUERY_STAT(ERSmokeFloor),false,this);
@@ -190,7 +190,9 @@ float AERSmokeCloud::ReconDensity(const FVector& Position, float Age) const
     const FVector Q=(Position-VolumeOrigin)/FVector(SimSize.X*.5,SimSize.Y*.5,SimSize.Z);
     const float Length=Q.Size(); const FVector Dir=Q/FMath::Max(Length,.001f);
     const float Lobes=FMath::Sin(Dir.X*4.1+ShapePhase.X+Age*.28)*FMath::Sin(Dir.Y*3.7+ShapePhase.Y-Age*.22)*FMath::Cos(Dir.Z*4.6+ShapePhase.Z+Age*.18);
-    const float Boundary=.88f+.11f*Lobes;
+    // Slow travelling billows move the silhouette without moving the cloud.
+    const float Sway=FMath::Sin(Dir.X*3.1+ShapePhase.X+Age*.85)*FMath::Cos(Dir.Y*2.7+ShapePhase.Y-Age*.65);
+    const float Boundary=.88f+.07f*Lobes+.04f*Sway;
     const float Patch=.5f+.5f*FMath::Sin(Dir.X*3.1+ShapePhase.X)*FMath::Cos(Dir.Y*4.3+ShapePhase.Y)*FMath::Sin(Dir.Z*2.7+ShapePhase.Z);
     const float Delay=.22f*Patch;
     const float Growth=FMath::Clamp((FMath::Clamp(Age/2.2f,0.f,1.f)-Delay)/(1-Delay),0.f,1.f);

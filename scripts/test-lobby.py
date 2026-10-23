@@ -7,7 +7,7 @@ import subprocess
 import time
 
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument('--industrial', action='store_true', help='Vote for the generated Central Building instead of Depot')
+parser.add_argument('--industrial', action='store_true', help='Vote for the generated Central Building instead of Middle Eastern Alleys')
 parser.add_argument('--timeout', action='store_true', help='Also check the real 30-second no-server timeout')
 parser.add_argument('--settings', action='store_true', help='Check fullscreen defaults and preferences across two graphical launches')
 parser.add_argument('--focus', action='store_true', help='Graphical foreground fullscreen/menu/game mouse capture recovery probe')
@@ -80,7 +80,7 @@ try:
             assert 'ER_LOBBY_FAIL' not in output, role
             print('\n'.join(line for line in output.splitlines() if 'ER_LOBBY_' in line or 'ER_LAN_FOUND' in line), flush=True)
         assert 'one_of_three_ready_does_not_start' in log('host')
-        assert 'ER_LOBBY_START humans=3 ready=2 map=' + ('0' if args.industrial else '1') in log('host')
+        assert 'ER_LOBBY_START humans=3 ready=2 map=' + ('0' if args.industrial else '2') in log('host')
         assert all('ER_LAN_FOUND' in log('client' + str(i)) for i in (1, 2))
         if args.timeout:
             timeout = launch('timeout', ['-nullrhi', '-ERDiscoveryPort=17948', '-ERLobbyProbeTimeout'])

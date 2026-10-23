@@ -1,5 +1,16 @@
 # Industrial map archetypes
 
+23 October2026 barrier height update: all industrial fence spans now have a
+fixed1m concrete plinth topped by one original-height1.27m steel course. The
+result is2.27m above the floor, including each interior storey's separator.
+The concrete uses the current seeded concrete finish. Steel is no longer stacked
+vertically or stretched to exceed surrounding roofs; no invisible collision
+extends above the visible top. The user confirmed that only ground approaches
+must remain impassable; jumping from a higher roof may cross the low boundary.
+This supersedes the older tall-perimeter/separator dimensions below. Shared
+jump, mantle, materials and destruction calibration remain unchanged.
+
+
 22 October2026: **Middle Eastern Alleys · Desert** joins Central Building in
 the production rotation. The industrial-only scope below is historical; see
 [the new alley template](MIDDLE_EASTERN_ALLEYS.md). Depot remains a reference.

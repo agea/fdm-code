@@ -23,6 +23,8 @@ bool FERGameplayMessagesTest::RunTest(const FString&)
     GEngine->CreateNewWorldContext(EWorldType::Game).SetCurrentWorld(World);
     auto* Messages = World->GetSubsystem<UERGameplayMessages>();
     TestEqual(TEXT("All events retained"), Messages->CatalogSize(), 72);
+    TestEqual(TEXT("Ordinary notifications allow six seconds to read"), Messages->Events[TEXT("kill")].Duration, 6.f);
+    TestEqual(TEXT("Longer result notifications allow ten seconds to read"), Messages->Events[TEXT("team_victory")].Duration, 10.f);
     auto* Player = World->SpawnActor<AERPlayerState>();
     auto* PC = World->SpawnActor<AERPlayerController>();
     PC->SetAsLocalPlayerController(); Player->SetOwner(PC);

@@ -211,7 +211,7 @@ FERBlockBatchResult AERBlockRoom::ApplyCellBatch(const TMap<FERCellId, float>& D
 }
 
 AERBlockRoom::FERCellShotStep AERBlockRoom::ShootCells(const FHitResult& Hit, const FVector& Cursor, const FVector& Ray, double Range,
-    float& RemainingDamage, int32 RunsLeft)
+    float& RemainingDamage, int32 RunsLeft, bool bSpawnMaterialImpact)
 {
     FERCellShotStep Step; Step.Exit = Hit.ImpactPoint;
     FERCellId First;
@@ -252,7 +252,7 @@ AERBlockRoom::FERCellShotStep AERBlockRoom::ShootCells(const FHitResult& Hit, co
         return true;
     });
     ApplyCellBatch(Damage);
-    SpawnCellImpact(P.Material, Hit.ImpactPoint, Hit.ImpactNormal);
+    if (bSpawnMaterialImpact) SpawnCellImpact(P.Material, Hit.ImpactPoint, Hit.ImpactNormal);
     Step.bStop = bStopped;
     Step.Exit = Start + Ray * (Length * ExitT);
     if (!bStopped)

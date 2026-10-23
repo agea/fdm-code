@@ -2,6 +2,7 @@
 #include "CoreMinimal.h"
 #include "Containers/Ticker.h"
 #include "ERServerSettings.h"
+#include "ERLoadout.h"
 #include "ERGameplayMessages.h"
 #include "GameFramework/PlayerController.h"
 #include "Engine/GameInstance.h"
@@ -59,6 +60,9 @@ public:
     void SetMusicVolume(float Value);
     void SaveMusicVolume();
     int32 PrimaryWeapon = 0; // legacy primary preference
+    FName LoadoutPreset = "rifleman";
+    FName LoadoutVariant = "offense";
+    FString LoadoutOptions() const;
     int32 ReferenceStartingWeapon = 4;
     int32 AlphaSkin = 0;
     int32 OmegaSkin = 0;
@@ -128,6 +132,8 @@ public:
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
     UFUNCTION(Server, Reliable) void ServerRequestRespawn();
     UFUNCTION(Server, Reliable) void ServerSetName(const FString& Name);
+    UFUNCTION(Server, Reliable) void ServerSetLoadout(FName Preset, FName Variant);
+    UFUNCTION(Client, Reliable) void ClientLoadoutAccepted(FName Preset, FName Variant);
     UFUNCTION(Server, Reliable) void ServerSetPrimary(int32 Index);
     UFUNCTION(Server, Reliable) void ServerSetSkins(int32 Alpha, int32 Omega);
     UFUNCTION(Server, Reliable) void ServerLobbyTeam(int32 Team);
@@ -154,6 +160,14 @@ public:
 private:
     friend class UERGameInstance;
     friend class AERLobbyProbe;
+    friend class AERLoadoutProbe;
+    friend class AERGameState;
+    FName DraftPreset, DraftVariant;
+    bool bLoadoutPending = false;
+    UPROPERTY(Transient) TMap<FName,TObjectPtr<class UTextureRenderTarget2D>> LoadoutPortraits;
+    TArray<TSharedPtr<FSlateBrush>> PortraitBrushes;
+    void RefreshLoadoutPreview();
+    FERResolvedLoadout ResolveMenuLoadout(FName Preset,FName Variant) const;
     int32 SubmenuParent = 0;
     int32 MenuPage = 0; // home, offline, server, search, setup, character, loadout
     bool bShowingLobby = false;
@@ -232,6 +246,7 @@ private:
     void SelectEight() { SelectNumber(7); }
     void SelectReferenceHE() { SelectSlot(8); }
     void SelectReferenceSmoke() { SelectSlot(9); }
+    void SelectClaymore() { SelectSlot(10); }
     void NextWeapon();
     void PreviousWeapon();
     void ZoomPressed();

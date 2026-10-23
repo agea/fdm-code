@@ -17,4 +17,5 @@ namespace ERMaps
     const FERMapCatalogEntry& At(int32 Index);
     TArray<FString> Labels();
     TArray<FName> Rotation();
+    TArray<int32> LobbyLeaders(TConstArrayView<int32> Votes);
 }

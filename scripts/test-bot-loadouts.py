@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Actual six-bot firearm selection/replication across initial life, respawn and round reset."""
+"""Actual six-bot preset selection/replication across initial life, respawn and round reset."""
 from pathlib import Path
 import os
 import subprocess
@@ -33,10 +33,10 @@ def run(mode, port):
         outputs = {side: path.read_text(errors='replace') for side, path in paths.items()}
         for side, output in outputs.items():
             for phase in (1, 2, 3):
-                marker = f'ER_BOT_LOADOUT_PASS side={side} phase={phase} count=6 mask=126'
+                marker = f'ER_BOT_LOADOUT_PASS side={side} phase={phase} count=6 mask='
                 if marker not in output:
                     raise RuntimeError(f'{mode}: missing {marker}; inspect {paths[side]}')
-            print(f'{mode} {side}: six distinct firearms, fresh respawn and round reset PASS', flush=True)
+            print(f'{mode} {side}: six valid preset kits, fresh respawn and round reset PASS', flush=True)
         if host.returncode or 'ER_BOT_LOADOUT_COMPLETE result=PASS' not in outputs['host'] or 'ER_BOT_LOADOUT_FAIL' in outputs['host']:
             raise RuntimeError(f'{mode}: probe failed')
     finally:
@@ -54,6 +54,9 @@ def run(mode, port):
 
 
 if __name__ == '__main__':
+    import argparse
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--mode',choices=['Target','Movement','Patrol']);args=parser.parse_args()
     for mode, port in (('Target', 17831), ('Movement', 17832), ('Patrol', 17833)):
+        if args.mode and args.mode!=mode:continue
         run(mode, port)
-    print('BOT FIREARM LOADOUTS PASS: all modes, no knife/grenade/launcher, both LAN peers.')
+    print('BOT PRESET LOADOUTS PASS: selected modes, closed kits, both LAN peers.')

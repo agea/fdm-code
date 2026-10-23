@@ -12,7 +12,7 @@ and unattributed deaths still notify the victim. No notification changes scores,
 damage, penalties or controls. Bots participate in attribution and counters but
 have no screen of their own.
 
-Canvas shows up to three recent kill confirmations for three seconds, with the
+Canvas shows up to three recent kill confirmations for six seconds, with the
 latest catalog phrase. One separate bonus toast can add context. It has no sound,
 input focus or gameplay pause, stays at the upper-left edge away from the reticle,
 and uses the existing Teko font. Font-measured truncation bounds the text width.
@@ -20,6 +20,12 @@ No stale queue: rapid confirmations replace the oldest and recognition replaces
 one slot. The final result replaces bonus banter; the final kill remains visible
 beside the scoreboard. Menus and the manually opened scoreboard hide toasts while
 their normal expiry continues.
+
+23 October readability update: runtime display durations are doubled from the
+preserved catalog (ordinary messages3→6 seconds, longer messages5→10 seconds).
+Fallback kill/death labels also last six seconds. Server priority protection and
+owner expiry use the same longer duration; cooldowns and the three-confirmation
+limit remain unchanged. No source phrases or catalog bytes were modified.
 
 The dead owner's camera starts above/behind their death location, then smoothly
 approaches the killer while zooming from90 to60 degrees. It targets the body's

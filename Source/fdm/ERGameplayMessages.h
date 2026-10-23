@@ -23,7 +23,7 @@ struct FERMessageEvent
 {
     FString Title;
     int32 Priority = 0;
-    float Duration = 3, Cooldown = 0;
+    float Duration = 6, Cooldown = 0;
     TArray<FString> Actor, Target;
 };
 

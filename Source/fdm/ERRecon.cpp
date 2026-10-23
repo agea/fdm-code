@@ -105,6 +105,12 @@ AERReconDrone::AERReconDrone()
     ShotTarget->SetCollisionResponseToChannel(ECC_GameTraceChannel1, ECR_Block);
     Body = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Body")); Body->SetupAttachment(ShotTarget);
     Body->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+    Body->bReceivesDecals=true;
+    UndersideSymbol = CreateDefaultSubobject<UDecalComponent>(TEXT("UndersideTeamDecal")); UndersideSymbol->SetupAttachment(Body);
+    UndersideSymbol->SetRelativeLocation(FVector(0,0,-8));
+    UndersideSymbol->SetRelativeRotation(FRotator(90,0,0));
+    UndersideSymbol->DecalSize=FVector(8,15,15);
+
 }
 FVector AERReconDrone::FlightPosition(const FERDroneFlight& Route, double Time)
 {
@@ -122,6 +128,8 @@ void AERReconDrone::Tick(float DeltaSeconds)
     Super::Tick(DeltaSeconds);
     if (Flight.Team == EERTeam::None || bShotDown) return;
     const double Now = ServerTime(GetWorld());
+    auto* SymbolMaterial=Flight.Team==EERTeam::Omega ? OmegaSymbolMaterial.Get() : AlphaSymbolMaterial.Get();
+    if (UndersideSymbol->GetDecalMaterial()!=SymbolMaterial) UndersideSymbol->SetDecalMaterial(SymbolMaterial);
     const FVector Position = FlightPosition(Flight, Now);
     const FVector Direction = FlightPosition(Flight, Now+.1)-Position;
     const float Yaw = Direction.SizeSquared2D()>.001 ? Direction.Rotation().Yaw : (Flight.Team==EERTeam::Omega ? 180.f : 0.f);

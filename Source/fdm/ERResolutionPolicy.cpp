@@ -1,4 +1,5 @@
 #include "ERResolutionPolicy.h"
+#include "ERPerformanceSettings.h"
 #include "DynamicResolutionState.h"
 #include "LegacyScreenPercentageDriver.h"
 #include "Engine/Engine.h"
@@ -45,7 +46,8 @@ public:
     virtual void ProcessEvent(EDynamicResolutionStateEvent Event) override
     {
         if(!Enabled || Event!=EDynamicResolutionStateEvent::BeginFrame)return;
-        Policy.Update(FApp::GetDeltaTime(),Timing->Ms.Load(),Min,Max);
+        if(ERPerformance::Get().Automatic) Policy.Update(FApp::GetDeltaTime(),Timing->Ms.Load(),Min,Max);
+        else Policy.Fraction=ERPerformance::Get().ManualPrimary();
 #if !UE_BUILD_SHIPPING
         if(FParse::Param(FCommandLine::Get(),TEXT("ERPerformanceAudit")) && FPlatformTime::Seconds()>NextAudit)
         {

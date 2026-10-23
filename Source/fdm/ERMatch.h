@@ -1,6 +1,7 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "ERServerSettings.h"
+#include "ERLoadout.h"
 #include "GameFramework/GameMode.h"
 #include "GameFramework/GameState.h"
 #include "GameFramework/PlayerState.h"
@@ -19,6 +20,9 @@ public:
     UPROPERTY(Replicated, BlueprintReadOnly) int32 Kills = 0;
     UPROPERTY(Replicated, BlueprintReadOnly) int32 Deaths = 0;
     UPROPERTY(Replicated, BlueprintReadOnly) int32 TeamKills = 0;
+    UPROPERTY(Replicated, BlueprintReadOnly) int32 ActiveClaymores = 0;
+    UPROPERTY(Replicated, BlueprintReadOnly) FName LoadoutPreset = "rifleman";
+    UPROPERTY(Replicated, BlueprintReadOnly) FName LoadoutVariant = "offense";
     UPROPERTY(Replicated, BlueprintReadOnly) int32 PrimaryWeapon = 0;
     UPROPERTY(Replicated, BlueprintReadOnly) int32 AlphaSkin = 0;
     UPROPERTY(Replicated, BlueprintReadOnly) int32 OmegaSkin = 0;
@@ -46,6 +50,8 @@ protected:
 private:
     double AimClockReceiptTime = -1;
 public:
+    UPROPERTY(ReplicatedUsing=OnRep_LoadoutCatalog) TArray<FERResolvedLoadout> LoadoutCatalog;
+    UFUNCTION() void OnRep_LoadoutCatalog();
     UPROPERTY(Replicated, BlueprintReadOnly) int32 ServerMaxPlayers = ERServer::DefaultMaxPlayers;
     UPROPERTY(Replicated, BlueprintReadOnly) bool bOnline = false;
     UPROPERTY(Replicated, BlueprintReadOnly) bool bLobby = false;
@@ -96,6 +102,7 @@ public:
     int32 GetMaxPlayers() const { return MaxHumanPlayers; }
     bool HasOpenPlayerSlot();
     bool IsLobby() const { return bLobby; }
+    bool IsSpawningPresetPawn() const { return bSpawningPresetPawn; }
     void CheckLobby();
     static FString SanitizeName(const FString& Name);
 private:
@@ -106,6 +113,7 @@ private:
     int32 PreparedSpawnSeed = 0;
     void PrepareTeamStarts();
     class AERTeamPlayerStart* FindAdditionalStart(AController* Player, TConstArrayView<AERTeamPlayerStart*> Anchors);
+    bool bSpawningPresetPawn = false;
     bool bLobby = false;
     bool bLobbyTravelPending = false;
     EERTeam NextTieTeam = EERTeam::Alpha;

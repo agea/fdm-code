@@ -1,5 +1,6 @@
 """Apply only workbook ballistics to six owned firearm assets through Unreal."""
 import json
+import runpy
 from pathlib import Path
 import unreal as ue
 
@@ -13,5 +14,6 @@ for key, profile in profiles.items():
     for prop, value in settings.items():
         data.set_editor_property(prop, value)
         assert abs(float(data.get_editor_property(prop)) - float(value)) < .00001, (key, prop)
+    runpy.run_path(str(project/'scripts/weapon_gameplay_overrides.py'))['apply'](data,key)
     assert ue.EditorAssetLibrary.save_loaded_asset(data, only_if_is_dirty=False), key
     ue.log(f'ER_WEAPON_ZONES_READY {key} {settings}')

@@ -1,4 +1,6 @@
 #include "ERBlockRoom.h"
+#include "ERClaymore.h"
+#include "ERPerformanceSettings.h"
 #include "ERBlockDebris.h"
 #include "ERCellNetShard.h"
 #include "ERProceduralMap.h"
@@ -86,6 +88,7 @@ bool AERBlockRoom::Regenerate()
     TRACE_CPUPROFILER_EVENT_SCOPE(ERBlock_Regenerate);
     const double Start = FPlatformTime::Seconds();
     if ((!CanMutateBlocks() && !bApplyingNetwork) || !BlockMesh || !GenerateLogicalWorld()) return false;
+    if(HasAuthority())AERClaymore::RemoveFor(GetWorld());
     ClearCollapse();
     RebuildProfile={}; GenerationProfile={};
     if (HasAuthority() && Collapse.Enabled && !Support.Build(CellWorld, Collapse.GroundAnchors, Collapse.GroundZ))
@@ -305,9 +308,11 @@ void AERBlockRoom::SpawnCellDebris(const TArray<FERCellDebris>& Debris)
     if (GetNetMode()==NM_DedicatedServer || !BlockMesh) return;
     OwnedDebris.RemoveAll([](const auto& Item){return !Item.IsValid();});
     int32 Global=0; for (TActorIterator<AERBlockDebris> It(GetWorld());It;++It) ++Global;
+    const int32 Quality=ERPerformance::Get().Effects;
+    const int32 Limit=ERPerformance::Get().Defaults ? 64:Quality==0 ? 0:Quality==1 ? 8:Quality==2 ? 32:64;
     for (const auto& D : Debris)
     {
-        if (Global>=FMath::Clamp(Collapse.MaxDebris,0,64) || D.Material>uint8(EERBlockMaterial::Glass) || D.Transform.ContainsNaN()) break;
+        if (Global>=FMath::Min(Limit,FMath::Clamp(Collapse.MaxDebris,0,64)) || D.Material>uint8(EERBlockMaterial::Glass) || D.Transform.ContainsNaN()) break;
         auto* Actor=GetWorld()->SpawnActorDeferred<AERBlockDebris>(AERBlockDebris::StaticClass(),D.Transform,this,nullptr,ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
         if (!Actor) continue;
         const auto* Profile=MaterialCatalog->Find(EERBlockMaterial(D.Material));

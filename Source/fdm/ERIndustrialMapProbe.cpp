@@ -1,4 +1,5 @@
 #include "ERIndustrialMapProbe.h"
+#include "ERIndustrialFence.h"
 #include "ERIndustrialMapTestUtils.h"
 #include "ERProceduralMap.h"
 #include "ERCharacter.h"
@@ -60,10 +61,10 @@ void AERIndustrialMapProbe::Capture(AERProceduralMap* Map,int32 View)
     }
     if(View==4)
     {
-        const auto* Fence=L.FixedPieces.FindByPredicate([&](const auto& P){return P.PawnBarrier && P.Transform.GetLocation().Y<-L.ArenaSize.Y*.5+10 && P.Transform.GetLocation().Z<101;});
+        const auto* Fence=L.FixedPieces.FindByPredicate([&](const auto& P){return P.PawnBarrier && P.Transform.GetLocation().Y<-L.ArenaSize.Y*.5+10 && P.Transform.GetLocation().Z<ERIndustrialFence::PlinthHeightCm+ERIndustrialFence::ModuleHeightCm;});
         if(Fence)
         {
-            const FVector Target=Fence->Transform.GetLocation()+FVector(180,0,100);
+            const FVector Target(Fence->Transform.GetLocation().X+180,Fence->Transform.GetLocation().Y,(ERIndustrialFence::PlinthHeightCm+ERIndustrialFence::ModuleHeightCm)*.5f);
             Camera->SetActorLocation(Target+FVector(120,470,70));
             Camera->SetActorRotation((Target-Camera->GetActorLocation()).Rotation());
             Camera->GetCameraComponent()->FieldOfView=65;
@@ -96,7 +97,10 @@ void AERIndustrialMapProbe::Tick(float Delta)
             Good&=ERIndustrialTest::FactoryPaletteMatches(*Map);
             Good&=ERIndustrialTest::IntermediateCoverMatches(*Map,Phase==2 || Phase==3);
             const auto& L=Map->GetLayout();const float Edge=L.ArenaSize.X*.5;
-            Good&=GetWorld()->LineTraceSingleByChannel(Hit,{Edge-100,0,300},{Edge+100,0,300},ECC_Pawn,Q);
+            const float Plinth=ERIndustrialFence::PlinthHeightCm,Top=Plinth+ERIndustrialFence::ModuleHeightCm;
+            Good&=GetWorld()->LineTraceSingleByChannel(Hit,{Edge-100,0,Plinth*.5f},{Edge+100,0,Plinth*.5f},ECC_Pawn,Q);
+            Good&=GetWorld()->LineTraceSingleByChannel(Hit,{Edge-100,0,Plinth+ERIndustrialFence::ModuleHeightCm*.5f},{Edge+100,0,Plinth+ERIndustrialFence::ModuleHeightCm*.5f},ECC_Pawn,Q);
+            Good&=!GetWorld()->LineTraceSingleByChannel(Hit,{Edge-100,0,Top+1},{Edge+100,0,Top+1},ECC_Pawn,Q);
             Good&=ERIndustrialTest::FenceAperturesMatch(*Map,Q);
             if(!L.Containers.IsEmpty())Good&=ERIndustrialTest::ContainerBlocked(*GetWorld(),L.Containers[0],Q)==(Phase==1 || Phase==4);
             if(!L.WallBridges.IsEmpty())

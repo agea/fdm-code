@@ -1,4 +1,6 @@
+#include "ERLoadout.h"
 #include "ERPlayerController.h"
+#include "ERPerformanceSettings.h"
 #include "EROnline.h"
 #include "ERMatch.h"
 #include "ERCharacter.h"
@@ -22,6 +24,7 @@
 #include "Widgets/Layout/SScaleBox.h"
 #include "Widgets/Layout/SSafeZone.h"
 #include "Widgets/Layout/SScrollBox.h"
+#include "Widgets/Layout/SWrapBox.h"
 #include "Widgets/Input/SButton.h"
 #include "Widgets/Input/SComboButton.h"
 #include "Widgets/Input/SEditableTextBox.h"
@@ -62,6 +65,26 @@ void Add(TSharedRef<SVerticalBox> Panel, TSharedRef<SWidget> Widget)
 {
     Panel->AddSlot().AutoHeight().Padding(0, 5)[Widget];
 }
+// Reflow whole label/control groups, preserving keyboard order and keeping
+// each field together. Cached local width includes Slate DPI scaling.
+TFunction<TSharedRef<SVerticalBox>()> Columns(TSharedRef<SVerticalBox> Panel)
+{
+    auto Grid=SNew(SWrapBox).UseAllottedSize(true).InnerSlotPadding(FVector2D(24,8));
+    Add(Panel,Grid);
+    TWeakPtr<SVerticalBox> WeakPanel=Panel;
+    return [Grid,WeakPanel]()
+    {
+        auto Cell=SNew(SVerticalBox);
+        Grid->AddSlot().VAlign(VAlign_Top)
+            [SNew(SBox).WidthOverride_Lambda([WeakPanel]()
+            {
+                const auto Owner=WeakPanel.Pin();
+                const float Width=Owner.IsValid() ? Owner->GetCachedGeometry().GetLocalSize().X:0.f;
+                return Width>0 ? (Width>=900 ? (Width-24)/2:Width):440.f;
+            })[Cell]];
+        return Cell;
+    };
+}
 void Choice(TSharedRef<SVerticalBox> Panel, const FString& Title, TArray<FString> Labels,
     TFunction<int32()> Get, TFunction<void(int32)> Set)
 {
@@ -70,14 +93,20 @@ void Choice(TSharedRef<SVerticalBox> Panel, const FString& Title, TArray<FString
     for (int32 I = 0; I < Labels.Num(); ++I)
         Add(Items, Button(Labels[I], [I, Set]() { Set(I); FSlateApplication::Get().DismissAllMenus(); return FReply::Handled(); }));
     Add(Panel, SNew(SComboButton)
-        .ButtonContent()[SNew(STextBlock).Font(MenuFont(25)).Text_Lambda([Labels, Get]() { return FText::FromString(Labels[FMath::Clamp(Get(), 0, Labels.Num()-1)]); })]
+        .ButtonContent()[SNew(STextBlock).Font(MenuFont(25)).AutoWrapText(true).Text_Lambda([Labels, Get]() { return FText::FromString(Labels[FMath::Clamp(Get(), 0, Labels.Num()-1)]); })]
         .MenuContent()[SNew(SBox).MaxDesiredHeight(420)[SNew(SScrollBox) + SScrollBox::Slot()[Items]]]);
 }
 }
-void AERPlayerController::ERMenu(int32 Page) { OpenMenuPage(FMath::Clamp(Page, 0, 7)); }
+void AERPlayerController::ERMenu(int32 Page) { OpenMenuPage(FMath::Clamp(Page, 0, 8)); }
 void AERPlayerController::OpenMenuPage(int32 Page)
 {
     if ((Page == 5 || Page == 6 || Page == 7) && MenuPage != 5 && MenuPage != 6 && MenuPage != 7) SubmenuParent = MenuPage;
+    if(Page==6 && MenuPage!=6)
+    {
+        const auto* GI=GetGameInstance<UERGameInstance>();const auto* PS=(!IsMenuLevel() || IsInLobby())?GetPlayerState<AERPlayerState>():nullptr;
+        const auto Kit=ERLoadouts::Resolve(PS?PS->LoadoutPreset:GI->LoadoutPreset,PS?PS->LoadoutVariant:GI->LoadoutVariant);
+        DraftPreset=Kit.Preset;DraftVariant=Kit.Variant;
+    }
     MenuPage = Page;
     ShowMenu(true);
 }
@@ -92,7 +121,7 @@ void AERPlayerController::ShowMenu(bool bShow)
     UpdateMenuMusic();
     SetIgnoreMoveInput(false); SetIgnoreLookInput(false);
     if (MenuWidget.IsValid()) { GetWorld()->GetGameViewport()->RemoveViewportWidgetContent(MenuWidget.ToSharedRef()); MenuWidget.Reset(); }
-    if (MenuPreview) { MenuPreview->Destroy(); MenuPreview = nullptr; }
+    if (MenuPreview && (!bShow || MenuPage!=6)) { MenuPreview->Destroy(); MenuPreview = nullptr; }
     PreviewBrush.Reset();
     MenuFocusWidget.Reset();
     bPendingWindowInput = true;
@@ -106,10 +135,11 @@ void AERPlayerController::ShowMenu(bool bShow)
     TSharedPtr<SWidget> Focus;
     auto Go = [this](int32 Page) { return [this, Page]() { OpenMenuPage(Page); return FReply::Handled(); }; };
     auto* Online = GI->GetSubsystem<UEROnline>();
-    auto Back = [this, GI, Online]() { Online->Cancel(); GI->CancelLANSearch(); OpenMenuPage(MenuPage == 5 || MenuPage == 6 || MenuPage == 7 ? SubmenuParent : 0); return FReply::Handled(); };
+    auto Back = [this, GI, Online]() { Online->Cancel(); GI->CancelLANSearch(); OpenMenuPage(MenuPage == 5 || MenuPage == 6 || MenuPage == 7 ? SubmenuParent : MenuPage == 8 ? 4 : 0); return FReply::Handled(); };
     auto SaveSupplies = [this, GI]() { GI->SaveProfile(); ServerSetSupplies(GI->SpareMagazines, GI->HECount, GI->SmokeCount, GI->StunCount); };
-    auto IntChoice = [Panel](const FString& Label, TArray<FString> Labels, int32* Value)
-    { Choice(Panel, Label, Labels, [Value]() { return *Value; }, [Value](int32 I) { *Value = I; }); };
+    TFunction<TSharedRef<SVerticalBox>()> Field=[Panel]() { return Panel; };
+    auto IntChoice = [&Field](const FString& Label, TArray<FString> Labels, int32* Value)
+    { Choice(Field(), Label, Labels, [Value]() { return *Value; }, [Value](int32 I) { *Value = I; }); };
     TArray<FString> Counts; for (int32 I = 0; I <= 20; ++I) Counts.Add(FString::FromInt(I));
     const auto* Catalog = SkinCatalog ? SkinCatalog->GetDefaultObject<AERCharacter>() : nullptr;
     if (Home)
@@ -124,7 +154,7 @@ void AERPlayerController::ShowMenu(bool bShow)
         {
             Focus = Button(TEXT("Resume"), [this]() { ShowMenu(false); return FReply::Handled(); }, true); Add(Panel, Focus.ToSharedRef());
             Add(Panel, Button(TEXT("Character"), Go(5), true));
-            Add(Panel, Button(TEXT("Equipment"), Go(6), true));
+            Add(Panel, Button(TEXT("Loadout"), Go(6), true));
             Add(Panel, Button(TEXT("Main Menu"), [GI]() { GI->ReturnToMenu(); return FReply::Handled(); }, true));
         }
         Add(Panel, Button(TEXT("Setup"), Go(4), true));
@@ -133,11 +163,11 @@ void AERPlayerController::ShowMenu(bool bShow)
     }
     else
     {
-        const TCHAR* Titles[] = {TEXT("MULTIPLAYER LOBBY"), TEXT("PLAY OFFLINE"), TEXT("START SERVER"), TEXT("PLAY ONLINE"), TEXT("SETUP"), TEXT("CHARACTER"), TEXT("EQUIPMENT"), TEXT("CREDITS")};
+        const TCHAR* Titles[] = {TEXT("MULTIPLAYER LOBBY"), TEXT("PLAY OFFLINE"), TEXT("START SERVER"), TEXT("PLAY ONLINE"), TEXT("SETUP"), TEXT("CHARACTER"), TEXT("LOADOUT"), TEXT("CREDITS"), TEXT("PERFORMANCE")};
         Focus = Button(MenuPage == 0 ? TEXT("Leave Server") : TEXT("Back"), MenuPage == 0 ? TFunction<FReply()>([GI]() { GI->ReturnToMenu(); return FReply::Handled(); }) : TFunction<FReply()>(Back));
         if (MenuPage != 7)
         {
-            Add(Panel, Text(Titles[FMath::Clamp(MenuPage, 0, 7)], 36));
+            Add(Panel, Text(Titles[FMath::Clamp(MenuPage, 0, 8)], 36));
             Add(Panel, Focus.ToSharedRef());
         }
         if (MenuPage == 0 && Lobby)
@@ -156,7 +186,7 @@ void AERPlayerController::ShowMenu(bool bShow)
             for (bool Alpha : {true, false})
             {
                 Add(Teams, SNew(STextBlock).Font(MenuFont(28)).ColorAndOpacity(Alpha ? FLinearColor(.35f,.65f,1) : FLinearColor(1,.5f,.22f)).Text(FText::FromString(Alpha ? TEXT("ALPHA") : TEXT("OMEGA"))));
-                Add(Teams, SNew(SBox).MaxDesiredHeight(175)[SNew(SScrollBox) + SScrollBox::Slot()[SNew(STextBlock).Font(MenuFont(23)).AutoWrapText(true).Text_Lambda([this, Alpha]()
+                Add(Teams, SNew(SBox).MaxDesiredHeight(175)[SNew(SScrollBox) + SScrollBox::Slot()[SNew(STextBlock).Font(MenuFont(20)).AutoWrapText(true).Text_Lambda([this, Alpha]()
                 {
                     FString Roster;
                     const auto* GS = GetWorld()->GetGameState<AERGameState>();
@@ -170,11 +200,12 @@ void AERPlayerController::ShowMenu(bool bShow)
                 })]]);
             }
             auto Actions = SNew(SVerticalBox);
-            Add(Actions, Button(TEXT("Name, Team & Skin"), Go(5)));
-            Add(Actions, Button(TEXT("Equipment"), Go(6)));
+            Add(Actions, Button(TEXT("Name & Team"), Go(5)));
+            Add(Actions, Button(TEXT("Loadout"), Go(6)));
             Add(Actions, Text(TEXT("Vote for the first map"), 25));
             for (int32 I = 0; I < ERMaps::All().Num(); ++I)
             {
+                if (!ERMaps::At(I).InRotation) continue;
                 Add(Actions, SNew(SButton).ContentPadding(7).OnClicked_Lambda([this, I]() { ServerLobbyVote(I); return FReply::Handled(); })
                     [SNew(STextBlock).Font(MenuFont(25)).AutoWrapText(true).Text_Lambda([this, I]()
                     {
@@ -197,6 +228,7 @@ void AERPlayerController::ShowMenu(bool bShow)
         else if (MenuPage == 1)
         {
             GI->SessionMode = 0;
+            Field=Columns(Panel);
             IntChoice(TEXT("Map"), ERMaps::Labels(), &GI->MapChoice);
             IntChoice(TEXT("Your team"), {TEXT("Alpha"), TEXT("Omega")}, &GI->PlayerTeam);
             TArray<FString> BotCounts; for (int32 I = 0; I <= 10; ++I) BotCounts.Add(FString::FromInt(I));
@@ -204,25 +236,27 @@ void AERPlayerController::ShowMenu(bool bShow)
             IntChoice(TEXT("Omega bots"), BotCounts, &GI->OmegaBots);
             IntChoice(TEXT("Bot behavior"), {TEXT("Stationary targets"), TEXT("Movement only"), TEXT("Movement and combat")}, &GI->BotBehavior);
             Add(Panel, Button(TEXT("Character"), Go(5)));
-            Add(Panel, Button(TEXT("Equipment"), Go(6)));
+            Add(Panel, Button(TEXT("Loadout"), Go(6)));
             Add(Panel, Button(TEXT("Start Match"), [GI]() { GI->StartSession(); return FReply::Handled(); }));
         }
         else if (MenuPage == 2)
         {
+            Field=Columns(Panel);
             TArray<FString> BotCounts; for (int32 I = 0; I <= 10; ++I) BotCounts.Add(FString::FromInt(I));
             IntChoice(TEXT("Alpha bots (testing)"), BotCounts, &GI->AlphaBots);
             IntChoice(TEXT("Omega bots (testing)"), BotCounts, &GI->OmegaBots);
-            Add(Panel, Text(TEXT("Maximum human players (including you)")));
-            Add(Panel, SNew(SNumericEntryBox<int32>).Font(MenuFont(25)).MinValue(1)
+            auto Capacity=Field();
+            Add(Capacity, Text(TEXT("Maximum human players (including you)")));
+            Add(Capacity, SNew(SNumericEntryBox<int32>).Font(MenuFont(25)).MinValue(1)
                 .MinSliderValue(1).MaxSliderValue(64).AllowSpin(true)
                 .Value_Lambda([GI]() { return TOptional<int32>(GI->MaxPlayers); })
                 .OnValueChanged_Lambda([GI](int32 Value) { GI->MaxPlayers = ERServer::ValidMaxPlayers(Value); })
                 .OnValueCommitted_Lambda([GI](int32 Value, ETextCommit::Type) { GI->MaxPlayers = ERServer::ValidMaxPlayers(Value); GI->SaveServerSettings(); }));
-            Choice(Panel, TEXT("Connection"), {TEXT("Internet (Epic Online Services)"), TEXT("LAN")},
+            Choice(Field(), TEXT("Connection"), {TEXT("Internet (Epic Online Services)"), TEXT("LAN")},
                 [GI]() { return GI->bInternetMenu ? 0 : 1; },
                 [GI, Online](int32 I) { Online->Cancel(); GI->CancelLANSearch(); GI->bInternetMenu = I == 0; });
             Add(Panel, Text(TEXT("Internet: no account required. LAN: same local network. Test bots are additional."), 21));
-            Add(Panel, SNew(STextBlock).Font(MenuFont(23)).AutoWrapText(true)
+            Add(Panel, SNew(STextBlock).Font(MenuFont(20)).AutoWrapText(true)
                 .Visibility_Lambda([Online]() { return Online->Status.IsEmpty() ? EVisibility::Collapsed : EVisibility::Visible; })
                 .Text_Lambda([Online]() { return FText::FromString(Online->Status); }));
             Add(Panel, Button(TEXT("Start Server & Enter Lobby"), [GI, Online]() { if (GI->bInternetMenu) Online->Host(); else { Online->Cancel(); GI->StartLANServer(); } return FReply::Handled(); }));
@@ -257,18 +291,20 @@ void AERPlayerController::ShowMenu(bool bShow)
         }
         else if (MenuPage == 4)
         {
+            Add(Panel, Button(TEXT("Performance"), Go(8)));
+            Field=Columns(Panel);
+            auto Display=Field();
             auto Displays = SNew(SVerticalBox);
             for (int32 Percent : {50,60,70,80,90,100})
                 Add(Displays, Button(Percent == 100 ? TEXT("Fullscreen") : FString::Printf(TEXT("Windowed %d%%"), Percent), [this, Percent]() { ApplyDisplaySize(Percent); return FReply::Handled(); }));
-            Add(Panel, Text(TEXT("Display")));
-            Add(Panel, SAssignNew(DisplaySizeSelector, SComboButton)
+            Add(Display, Text(TEXT("Display")));
+            Add(Display, SAssignNew(DisplaySizeSelector, SComboButton)
                 .ButtonContent()[SNew(STextBlock).Font(MenuFont(25)).Text_Lambda([this]() { return GetDisplaySizeText(); })].MenuContent()[Displays]);
-            Add(Panel, Text(TEXT("3D resolution adapts automatically to target 60 FPS. Display settings are saved."), 21));
-            Add(Panel, Button(TEXT("Reset Automatic Resolution"), [this]() { ResetRenderResolution(); return FReply::Handled(); }));
-            auto Slider = [Panel](const FString& Label, TFunction<float()> Get, TFunction<void(float)> Set, TFunction<void()> Save)
+            auto Slider = [Field](const FString& Label, TFunction<float()> Get, TFunction<void(float)> Set, TFunction<void()> Save)
             {
-                Add(Panel, SNew(STextBlock).Font(MenuFont(24)).Text_Lambda([Label, Get]() { return FText::FromString(FString::Printf(TEXT("%s · %.0f%%"), *Label, Get() * 100)); }));
-                Add(Panel, SNew(SBox).HeightOverride(32)[SNew(SSlider).Value_Lambda([Get]() { return Get(); }).StepSize(.01f)
+                auto Cell=Field();
+                Add(Cell, SNew(STextBlock).Font(MenuFont(24)).Text_Lambda([Label, Get]() { return FText::FromString(FString::Printf(TEXT("%s · %.0f%%"), *Label, Get() * 100)); }));
+                Add(Cell, SNew(SBox).HeightOverride(32)[SNew(SSlider).Value_Lambda([Get]() { return Get(); }).StepSize(.01f)
                     .OnValueChanged_Lambda([Set, Save](float V) { Set(V); Save(); })]);
             };
             Slider(TEXT("Sound volume"), [GI]() { return GI->GetSoundVolume(); }, [GI](float V) { GI->SetSoundVolume(V); }, [GI]() { GI->SaveMusicVolume(); });
@@ -277,6 +313,37 @@ void AERPlayerController::ShowMenu(bool bShow)
             Slider(TEXT("Mouse acceleration"), [GI]() { return GI->GetMouseAcceleration(); }, [GI](float V) { GI->SetMouseAcceleration(V); }, [GI]() { GI->SaveMouseSensitivity(); });
             Add(Panel, Text(TEXT("WASD Move · Shift Walk · double W / hold E Sprint\nSpace Jump / Climb · C / Ctrl Crouch · double C Prone\nR Reload · Tab Scores · Esc Menu"), 20));
             Add(Panel, Button(TEXT("Credits"), Go(7)));
+        }
+        else if (MenuPage == 8)
+        {
+            auto* Settings=&ERPerformance::Get();
+            auto Apply=[this,Settings]() { Settings->Defaults=0; Settings->Apply(); Settings->Save(); ResetRenderResolution(); };
+            auto Action=Columns(Panel);
+            Add(Action(), Button(TEXT("Apply Performance preset"), [this,Settings]() { Settings->PerformancePreset(); ResetRenderResolution(); return FReply::Handled(); }));
+            Add(Action(), Button(TEXT("Set default"), [this,Settings]() { Settings->SetDefaults(); ResetRenderResolution(); OpenMenuPage(8); return FReply::Handled(); }));
+            Add(Panel,Text(TEXT("Default restores the original project graphics and automatic resolution."),20));
+            Field=Columns(Panel);
+            auto Option=[Field,Apply](const FString& Label,TArray<FString> Labels,int32* Value)
+            { Choice(Field(),Label,Labels,[Value]() { return *Value; },[Value,Apply](int32 I) { *Value=I; Apply(); }); };
+            Option(TEXT("Internal resolution"),{TEXT("Manual"),TEXT("Automatic · 60 FPS / max 1080p")},&Settings->Automatic);
+            auto Scale=Field();
+            Add(Scale,SNew(STextBlock).Font(MenuFont(24)).Text_Lambda([Settings]() { return FText::FromString(FString::Printf(TEXT("Manual internal scale · %d%%"),Settings->Scale)); }));
+            Add(Scale,SNew(SSlider).MinValue(1).MaxValue(100).StepSize(1)
+                .IsEnabled_Lambda([Settings]() { return !Settings->Automatic; })
+                .Value_Lambda([Settings]() { return float(Settings->Scale); })
+                .OnValueChanged_Lambda([Settings,Apply](float V) { Settings->Scale=FMath::Clamp(FMath::RoundToInt(V),1,100); Apply(); }));
+            Add(Scale,Text(TEXT("Manual scale is relative to the window; HUD stays sharp. Very low scales lose detail."),20));
+            Option(TEXT("Antialiasing / upscaling"),{TEXT("TSR"),TEXT("TAA · spatial upscale"),TEXT("TAAU · temporal upscale")},&Settings->AA);
+            Option(TEXT("Global illumination"),{TEXT("Off · no Lumen"),TEXT("Lumen")},&Settings->GI);
+            Option(TEXT("Hardware ray tracing (supported GPUs only)"),{TEXT("Off"),TEXT("Enabled when supported")},&Settings->HardwareRT);
+            Option(TEXT("Shadows · resolution and distance"),{TEXT("Off"),TEXT("Low"),TEXT("Medium"),TEXT("High")},&Settings->Shadows);
+            Option(TEXT("Reflections"),{TEXT("Off"),TEXT("Screen space · simple"),TEXT("Lumen")},&Settings->Reflections);
+            Option(TEXT("Motion blur"),{TEXT("Off"),TEXT("On")},&Settings->MotionBlur);
+            Option(TEXT("Depth of field"),{TEXT("Off"),TEXT("On")},&Settings->DepthOfField);
+            Option(TEXT("Decorative effects"),{TEXT("Minimum"),TEXT("Low"),TEXT("Medium"),TEXT("High")},&Settings->Effects);
+            Option(TEXT("Textures · choose according to GPU memory"),{TEXT("Low"),TEXT("Medium"),TEXT("High"),TEXT("Ultra")},&Settings->Textures);
+            Add(Panel,Text(TEXT("Changes apply immediately and are saved. Texture streaming uses the hardware memory budget. Gameplay smoke remains unchanged."),20));
+            Add(Panel,Button(TEXT("Reset Automatic Resolution"),[this]() { ResetRenderResolution(); return FReply::Handled(); }));
         }
         else if (MenuPage == 5)
         {
@@ -287,42 +354,77 @@ void AERPlayerController::ShowMenu(bool bShow)
                 .OnTextCommitted_Lambda([this, GI](const FText& Value, ETextCommit::Type) { GI->LocalName = Value.ToString(); GI->SaveProfile(); ServerSetName(GI->LocalName); }));
             Choice(CharacterPanel, TEXT("Team"), {TEXT("Alpha"), TEXT("Omega")}, [this, GI]() { const auto* PS = GetPlayerState<AERPlayerState>(); return IsInLobby() && PS ? int32(PS->Team == EERTeam::Omega) : GI->PlayerTeam; },
                 [this, GI](int32 I) { GI->PlayerTeam = I; GI->SaveProfile(); if (IsInLobby()) ServerLobbyTeam(I); OpenMenuPage(5); });
-            const bool Alpha = GI->PlayerTeam == 0;
-            TArray<FString> Labels;
-            for (int32 I = 0; I < ERSkins::Count; ++I)
-            {
-                const auto* Options = Catalog ? (Alpha ? &Catalog->AlphaSkins : &Catalog->OmegaSkins) : nullptr;
-                Labels.Add(Options && Options->IsValidIndex(I) ? (*Options)[I].DisplayName : FString::Printf(TEXT("Skin %d"), I + 1));
-            }
-            Choice(CharacterPanel, TEXT("Skin"), Labels, [GI, Alpha]() { return Alpha ? GI->AlphaSkin : GI->OmegaSkin; },
-                [this, GI, Alpha](int32 I) { (Alpha ? GI->AlphaSkin : GI->OmegaSkin) = I; GI->SaveSkins(); ServerSetSkins(GI->AlphaSkin, GI->OmegaSkin); OpenMenuPage(5); });
-            if (Catalog)
-            {
-                const auto& Appearance = ERSkins::Select(Alpha ? Catalog->AlphaSkins : Catalog->OmegaSkins, Alpha ? Catalog->AlphaAppearance : Catalog->OmegaAppearance, Alpha ? GI->AlphaSkin : GI->OmegaSkin);
-                MenuPreview = GetWorld()->SpawnActor<AERMenuPreview>(FVector(0,0,-100000), FRotator::ZeroRotator);
-                MenuPreview->ShowAppearance(Appearance);
-                PreviewBrush = MakeShared<FSlateBrush>(); PreviewBrush->SetResourceObject(MenuPreview->Target);
-                PreviewBrush->ImageSize = FVector2D(256,320);
-                CharacterBody->AddSlot().FillWidth(1).Padding(20,0,0,0)
-                    [SNew(SBox).HeightOverride(440)[SNew(SScaleBox).Stretch(EStretch::ScaleToFit)[SNew(SImage).Image(PreviewBrush.Get())]]];
-            }
-            CharacterBody->InsertSlot(0).FillWidth(1.1f)[CharacterPanel];
-            Add(Panel, CharacterBody);
-            Add(Panel, Text(Lobby ? TEXT("Changing team or skin clears your READY vote.") : TEXT("In a match, appearance changes apply at your next spawn."), 20));
+            Add(Panel,CharacterPanel);
+            Add(Panel,Text(TEXT("Your role determines your appearance. Choose a preset in Loadout."),20));
+            Add(Panel,Button(TEXT("Loadout"),Go(6)));
         }
         else if (MenuPage == 6)
         {
-            const auto* PawnCatalog = Catalog;
-            const bool Reference = PawnCatalog && PawnCatalog->ReferenceArsenal.Num() == 10;
-            TArray<FString> Weapons;
-            if (Reference) for (int32 I = 0; I < 10; ++I) Weapons.Add(PawnCatalog->ReferenceArsenal[I]->DisplayName);
-            else for (auto Weapon : PrimaryOptions) if (Weapon) Weapons.Add(Weapon->DisplayName);
-            if (Weapons.Num()) Choice(Panel, Reference ? TEXT("Starting weapon (all weapons available)") : TEXT("Primary weapon"), Weapons,
-                [GI, Reference]() { return Reference ? GI->ReferenceStartingWeapon : GI->PrimaryWeapon; }, [this, GI, Reference](int32 I) { (Reference ? GI->ReferenceStartingWeapon : GI->PrimaryWeapon) = I; GI->SaveLoadout(); ServerSetPrimary(I); });
-            for (auto Pair : {TPair<FString, int32*>(TEXT("Spare magazines per weapon"), &GI->SpareMagazines),
-                {TEXT("HE grenades"), &GI->HECount}, {TEXT("Smoke grenades"), &GI->SmokeCount}, {TEXT("Stun grenades"), &GI->StunCount}})
-                if (!Reference || Pair.Value != &GI->StunCount) Choice(Panel, Pair.Key, Counts, [Value=Pair.Value]() { return *Value; }, [Value=Pair.Value, SaveSupplies](int32 I) { *Value = I; SaveSupplies(); });
-            Add(Panel, Text(TEXT("Test loadout: 0–20 supplies per type, with no weight or point budget. Applied on spawn."), 20));
+            if(DraftPreset.IsNone()) { DraftPreset=GI->LoadoutPreset;DraftVariant=GI->LoadoutVariant; }
+            const auto* PS=(!Main || Lobby)?GetPlayerState<AERPlayerState>():nullptr;
+            const bool Omega=PS && PS->Team!=EERTeam::None ? PS->Team==EERTeam::Omega:GI->PlayerTeam==1;
+            auto Body=SNew(SHorizontalBox);auto Roles=SNew(SVerticalBox);auto Variants=SNew(SVerticalBox);
+            if(Catalog && !MenuPreview)MenuPreview=GetWorld()->SpawnActor<AERMenuPreview>(FVector(0,0,-100000),FRotator::ZeroRotator);
+            PortraitBrushes.Empty();
+            for(const FName Preset:ERLoadouts::Presets())
+            {
+                const auto Kit=ResolveMenuLoadout(Preset,DraftVariant);
+                auto Card=SNew(SHorizontalBox);
+                if(Catalog && MenuPreview)
+                {
+                    const FName Key(*(Preset.ToString()+(Omega?TEXT(".omega."):TEXT(".alpha."))+FString::FromInt(Kit.Skin)));
+                    auto& Portrait=LoadoutPortraits.FindOrAdd(Key);
+                    if(!Portrait)Portrait=MenuPreview->MakePortrait(ERSkins::Select(Omega?Catalog->OmegaSkins:Catalog->AlphaSkins,Omega?Catalog->OmegaAppearance:Catalog->AlphaAppearance,Kit.Skin));
+                    auto Brush=MakeShared<FSlateBrush>();Brush->SetResourceObject(Portrait);Brush->ImageSize=FVector2D(48,60);PortraitBrushes.Add(Brush);
+                    Card->AddSlot().AutoWidth().Padding(0,0,8,0)[SNew(SBox).WidthOverride(48).HeightOverride(60)[SNew(SImage).Image(&Brush.Get())]];
+                }
+                Card->AddSlot().FillWidth(1).VAlign(VAlign_Center)[SNew(STextBlock).Font(MenuFont(21)).Text_Lambda([this,Preset,Kit]() { return FText::FromString((DraftPreset==Preset?TEXT("[Selected] "):TEXT(""))+Kit.Role+TEXT(" · ")+ERLoadouts::WeaponName(Kit.Items[0].WeaponKey)); }).AutoWrapText(true)];
+                auto RoleBorder=SNew(SBorder).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
+                    .BorderBackgroundColor_Lambda([this,Preset]() { return DraftPreset==Preset?FLinearColor(.9f,.55f,.15f):FLinearColor(.12f,.14f,.17f); }).Padding(2)
+                    [SNew(SBorder).BorderBackgroundColor(FLinearColor(.06f,.07f,.09f)).Padding(4)[Card]];
+                Add(Roles,SNew(SButton).ContentPadding(4).OnClicked_Lambda([this,Preset]() { DraftPreset=Preset;RefreshLoadoutPreview();return FReply::Handled(); })[RoleBorder]);
+            }
+            Body->AddSlot().FillWidth(.8f).Padding(0,0,14,0)[Roles];
+            if(MenuPreview)
+            {
+                RefreshLoadoutPreview();
+                PreviewBrush=MakeShared<FSlateBrush>();PreviewBrush->SetResourceObject(MenuPreview->Target);PreviewBrush->ImageSize=FVector2D(512,640);
+                auto PreviewPanel=SNew(SVerticalBox);
+                Add(PreviewPanel,SNew(SBox).HeightOverride(640)[SNew(SScaleBox).Stretch(EStretch::ScaleToFit)[SNew(SImage).Image(PreviewBrush.Get())]]);
+                Add(PreviewPanel,SNew(STextBlock).Font(MenuFont(20)).Text(FText::FromString(TEXT("Preview unavailable")))
+                    .Visibility_Lambda([this]() { return MenuPreview && MenuPreview->bPreviewAvailable?EVisibility::Collapsed:EVisibility::Visible; }));
+                Body->AddSlot().FillWidth(1.2f)[SNew(SBorder)
+                    .OnMouseMove_Lambda([this](const FGeometry&,const FPointerEvent& E) { if(MenuPreview && E.IsMouseButtonDown(EKeys::LeftMouseButton)) { MenuPreview->Rotate(E.GetCursorDelta().X*.5f);return FReply::Handled(); }return FReply::Unhandled(); })
+                    [PreviewPanel]];
+            }
+            else Body->AddSlot().FillWidth(1.2f)[Text(TEXT("Preview unavailable"))];
+            for(const FName Variant:ERLoadouts::Variants())
+                Add(Variants,SNew(SButton).ContentPadding(10).OnClicked_Lambda([this,Variant]() { DraftVariant=Variant;RefreshLoadoutPreview();return FReply::Handled(); })
+                    [SNew(STextBlock).Font(MenuFont(20)).AutoWrapText(true).Text_Lambda([this,Variant,Omega]()
+                    {
+                        const auto Kit=ResolveMenuLoadout(DraftPreset,Variant);
+                        const FString Name=Variant==FName("gunner")?TEXT("Gunner"):Variant==FName("offense")?TEXT("Offense"):TEXT("Defense");
+                        const FString Recipe=Variant==FName("gunner")?(DraftPreset==FName("grenadier")?TEXT("Utility: None"):TEXT("SMG · Utility: None")):Variant==FName("offense")?TEXT("HE x2 · Smoke x1"):TEXT("Smoke x2 · Claymore x1");
+                        return FText::FromString((DraftVariant==Variant?TEXT("[Selected] "):TEXT(""))+Name+TEXT("\n")+Recipe+(DraftPreset==FName("grenadier")?FString::Printf(TEXT(" · SMG · Milkor loaded %d / reserve 0"),Kit.Items[0].Loaded):Variant!=FName("gunner")?TEXT(" · Pistol"):TEXT("")));
+                    })]);
+            Add(Variants,SNew(STextBlock).Font(MenuFont(20)).AutoWrapText(true).Text_Lambda([this,Omega]() { return FText::FromString(ResolveMenuLoadout(DraftPreset,DraftVariant).Summary()); }));
+            Add(Variants,Text(TEXT("Placed mines last 60 seconds. Drag to rotate."),19));
+            Body->AddSlot().FillWidth(1).Padding(14,0,0,0)[Variants];Add(Panel,Body);
+            Add(Panel,SNew(STextBlock).Font(MenuFont(22)).AutoWrapText(true).Text_Lambda([this,GI]()
+            {
+                const auto* State=(!IsMenuLevel() || IsInLobby())?GetPlayerState<AERPlayerState>():nullptr;const auto* C=Cast<AERCharacter>(GetPawn());
+                const auto Next=ERLoadouts::Resolve(State?State->LoadoutPreset:GI->LoadoutPreset,State?State->LoadoutVariant:GI->LoadoutVariant);
+                FString Status=TEXT("Next spawn: ")+Next.Role+TEXT(" / ")+Next.Variant.ToString();
+                if(C) { const auto Current=ERLoadouts::Resolve(C->ActivePreset,C->ActiveVariant);Status=TEXT("Current loadout: ")+Current.Role+TEXT(" / ")+Current.Variant.ToString()+TEXT(" · ")+Status; }
+                if(bLoadoutPending)Status+=TEXT(" · Waiting for server");
+                return FText::FromString(Status);
+            }));
+            Add(Panel,Button(Main && !Lobby?TEXT("Apply loadout"):TEXT("Apply for next spawn"),[this,GI,Main,Lobby]()
+            {
+                if(Main && !Lobby) { const auto Kit=ERLoadouts::Resolve(DraftPreset,DraftVariant);GI->LoadoutPreset=Kit.Preset;GI->LoadoutVariant=Kit.Variant;GI->SaveLoadout(); }
+                else { bLoadoutPending=true;ServerSetLoadout(DraftPreset,DraftVariant); }
+                return FReply::Handled();
+            }));
         }
         else if (MenuPage == 7)
         {
@@ -357,13 +459,15 @@ void AERPlayerController::ShowMenu(bool bShow)
     else
     {
         TSharedRef<SWidget> Content = SNew(SScrollBox) + SScrollBox::Slot()[Panel];
+        if(MenuPage==6)
+            Content=SNew(SScaleBox).Stretch(EStretch::ScaleToFit)[SNew(SBox).WidthOverride(1200)[Panel]];
         if (MenuPage == 7)
             Content = SNew(SVerticalBox)
                 + SVerticalBox::Slot().AutoHeight().Padding(0, 0, 0, 10)[Text(TEXT("CREDITS"), 36)]
                 + SVerticalBox::Slot().AutoHeight().Padding(0, 0, 0, 10)[Focus.ToSharedRef()]
                 + SVerticalBox::Slot().FillHeight(1)[Content];
-        Overlay->AddSlot().HAlign(HAlign_Right).VAlign(VAlign_Center).Padding(30,50,50,50)
-            [SNew(SBox).WidthOverride((Lobby && MenuPage == 0) || MenuPage == 5 || MenuPage == 7 ? 900 : 540).MaxDesiredHeight(850)
+        Overlay->AddSlot().HAlign(HAlign_Fill).VAlign(VAlign_Center).Padding(70,50)
+            [SNew(SBox).MaxDesiredHeight(850)
                 [SNew(SBorder).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush")).BorderBackgroundColor(FLinearColor(.025f,.03f,.04f,.94f)).ForegroundColor(FLinearColor::White).Padding(26)
                     [Content]]];
     }
@@ -377,4 +481,26 @@ void AERPlayerController::ShowMenu(bool bShow)
     GetWorld()->GetGameViewport()->AddViewportWidgetContent(MenuWidget.ToSharedRef(), 20);
     MenuFocusWidget = Focus;
     ApplyWindowInputMode();
+}
+
+void AERPlayerController::RefreshLoadoutPreview()
+{
+    if(!MenuPreview || !SkinCatalog)return;
+    const auto* Catalog=SkinCatalog->GetDefaultObject<AERCharacter>();
+    const auto* PS=(!IsMenuLevel() || IsInLobby())?GetPlayerState<AERPlayerState>():nullptr;const auto* GI=GetGameInstance<UERGameInstance>();
+    const bool Omega=PS && PS->Team!=EERTeam::None?PS->Team==EERTeam::Omega:GI->PlayerTeam==1;
+    const auto Kit=ResolveMenuLoadout(DraftPreset,DraftVariant);
+    MenuPreview->ShowLoadout(ERSkins::Select(Omega?Catalog->OmegaSkins:Catalog->AlphaSkins,Omega?Catalog->OmegaAppearance:Catalog->AlphaAppearance,Kit.Skin),Kit,Catalog->ReferenceArsenal);
+}
+
+FERResolvedLoadout AERPlayerController::ResolveMenuLoadout(FName Preset,FName Variant) const
+{
+    const auto* GI=GetGameInstance<UERGameInstance>();
+    const auto* PS=(!IsMenuLevel() || IsInLobby())?GetPlayerState<AERPlayerState>():nullptr;
+    const bool Omega=PS && PS->Team!=EERTeam::None?PS->Team==EERTeam::Omega:GI->PlayerTeam==1;
+    const auto* Catalog=SkinCatalog?SkinCatalog->GetDefaultObject<AERCharacter>():nullptr;
+    const auto Local=ERLoadouts::Resolve(Preset,Variant,Omega,Catalog);
+    if(!IsMenuLevel() || IsInLobby())if(const auto* State=GetWorld()->GetGameState<AERGameState>())
+        if(const auto* Server=State->LoadoutCatalog.FindByPredicate([&](const auto& Kit) { return Kit.Preset==Local.Preset && Kit.Variant==Local.Variant && Kit.bOmega==Omega; }))return *Server;
+    return Local;
 }

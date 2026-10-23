@@ -1,4 +1,5 @@
 #include "ERWeapon.h"
+#include "ERClaymore.h"
 #include "ERShotTrace.h"
 #include "Engine/DamageEvents.h"
 #include "ERShotEffects.h"
@@ -50,6 +51,7 @@ void SpawnBulletHole(UWorld* World, UMaterialInterface* Material, const FVector&
 
 AERWeapon::AERWeapon()
 {
+    PrimaryActorTick.bCanEverTick=true;PrimaryActorTick.TickInterval=.05f;
     bReplicates = true; bNetUseOwnerRelevancy = true;
     SetRootComponent(CreateDefaultSubobject<USceneComponent>(TEXT("Root")));
     ProjectileClass = AERProjectile::StaticClass();
@@ -75,7 +77,9 @@ void AERWeapon::BeginPlay()
         // after weapon defaults, so both initial travel and respawns agree.
         const auto* Character = Cast<AERCharacter>(GetOwner());
         const auto* PS = Character ? Character->GetPlayerState<AERPlayerState>() : nullptr;
-        if (PS)
+        if(InitialLoaded>=0)
+        { MagazineAmmo=FMath::Clamp(InitialLoaded,0,Data->MagazineSize);ReserveAmmo=FMath::Max(0,InitialReserve); }
+        else if (PS)
         {
             const int32 Count = Data->Payload == EERPayload::HE ? PS->HECount : Data->Payload == EERPayload::Smoke ? PS->SmokeCount : Data->Payload == EERPayload::Stun ? PS->StunCount : -1;
             if (Count >= 0) { MagazineAmmo = FMath::Min(Count, Data->MagazineSize); ReserveAmmo = FMath::Max(0, Count - MagazineAmmo); }
@@ -268,6 +272,7 @@ bool AERWeapon::IsHandGrenade(EERPayload Kind)
 { return Kind==EERPayload::HE || Kind==EERPayload::Smoke || Kind==EERPayload::Stun; }
 bool AERWeapon::IsGrenadeHandHidden() const
 {
+    if(Data && Data->Payload==EERPayload::Claymore)return MagazineAmmo<=0;
     if(!Data || !IsHandGrenade(Data->Payload)) return false;
     const auto* State=GetWorld()->GetGameState<AERGameState>();
     const double Now=State?State->GetServerWorldTimeSeconds():GetWorld()->GetTimeSeconds();
@@ -275,7 +280,24 @@ bool AERWeapon::IsGrenadeHandHidden() const
 }
 void AERWeapon::StartFire()
 {
-    if (!CanFight() || bReloading || MagazineAmmo <= 0 || bWantsFire) return;
+    if (!CanFight() || bReloading || bPlacingClaymore || MagazineAmmo <= 0 || bWantsFire) return;
+    if(Data->Payload==EERPayload::Claymore)
+    {
+        auto* C=CastChecked<AERCharacter>(GetOwner());
+        auto* Movement=CastChecked<UERMovement>(C->GetCharacterMovement());
+        FHitResult Hit;FRotator Rotation;FString Failure;
+        if(!Movement->IsMovingOnGround() || Movement->IsTraversing() || !AERClaymore::Placement(C,Hit,Rotation,&Failure))
+        {
+            if(auto* PC=Cast<AERPlayerController>(C->GetController()))PC->ClientGameplayMessage(TEXT("claymore_placement"),TEXT("Cannot place Claymore"),Failure.IsEmpty()?TEXT("Stand on a clear floor before placing a Claymore."):Failure,1,3,false);
+            return;
+        }
+        const auto* GS=GetWorld()->GetGameState<AERGameState>();
+        ClaymorePlacementStarted=GS?GS->GetServerWorldTimeSeconds():GetWorld()->GetTimeSeconds();
+        bPlacingClaymore=true;bClaymoreDeposited=false;
+        Movement->StopMovementImmediately();Movement->bProneWanted=false;C->Crouch();
+        ClearScope();ForceNetUpdate();
+        return;
+    }
     if(IsHandGrenade(Data->Payload))
     {
         if(GetWorld()->GetTimeSeconds()<NextAllowedShotTime) return;
@@ -283,6 +305,36 @@ void AERWeapon::StartFire()
     }
     bNewAccuracyBurst=true;
     bWantsFire = true; TryFire();
+}
+double AERWeapon::ClaymorePlacementElapsed() const
+{
+    const auto* GS=GetWorld()->GetGameState<AERGameState>();
+    return (GS?GS->GetServerWorldTimeSeconds():GetWorld()->GetTimeSeconds())-ClaymorePlacementStarted;
+}
+void AERWeapon::OnRep_PlacingClaymore()
+{
+    if(!bPlacingClaymore)if(auto* C=Cast<AERCharacter>(GetOwner()))C->UnCrouch();
+}
+void AERWeapon::EndClaymorePlacement()
+{
+    if(!bPlacingClaymore)return;
+    bPlacingClaymore=false;
+    if(auto* C=Cast<AERCharacter>(GetOwner()))C->UnCrouch();
+    ForceNetUpdate();
+}
+void AERWeapon::UpdateClaymorePlacement()
+{
+    if(!HasAuthority() || !bPlacingClaymore)return;
+    auto* C=Cast<AERCharacter>(GetOwner());
+    if(!CanFight() || !C || !C->GetCharacterMovement()->IsMovingOnGround()) { EndClaymorePlacement();return; }
+    const double Elapsed=ClaymorePlacementElapsed();
+    if(!bClaymoreDeposited && Elapsed>=1.3)
+    {
+        bClaymoreDeposited=true;
+        if(MagazineAmmo>0 && AERClaymore::Place(C)) { --MagazineAmmo;ForceNetUpdate(); }
+    }
+    if(Elapsed>=1.6)C->UnCrouch();
+    if(Elapsed>=2.2)EndClaymorePlacement();
 }
 void AERWeapon::StopFire()
 {
@@ -536,9 +588,9 @@ void AERWeapon::MulticastImpact_Implementation(FVector_NetQuantize Position, FVe
 }
 void AERWeapon::Reload()
 {
-    if (!CanFight() || bReloading || bCookingGrenade || MagazineAmmo >= Data->MagazineSize || Data->Payload == EERPayload::Melee) return;
+    if (!CanFight() || bPlacingClaymore || bReloading || bCookingGrenade || MagazineAmmo >= Data->MagazineSize || Data->Payload == EERPayload::Melee) return;
     // Only authority enters CanFight; labs replenish reserve, retaining reload timing.
-    if (GetWorld()->GetMapName().Contains(TEXT("Lab"))) ReserveAmmo = FMath::Max(ReserveAmmo, Data->MagazineSize);
+    if (!CastChecked<AERCharacter>(GetOwner())->bPresetInventory && GetWorld()->GetMapName().Contains(TEXT("Lab"))) ReserveAmmo = FMath::Max(ReserveAmmo, Data->MagazineSize);
     if (ReserveAmmo <= 0) return;
     StopFire(); ClearScope(); bReloading = true;
     GetWorldTimerManager().SetTimer(ReloadTimer, this, &AERWeapon::FinishReload, Data->ReloadDuration, false);
@@ -554,6 +606,7 @@ void AERWeapon::FinishReload()
 }
 void AERWeapon::Cancel()
 {
+    EndClaymorePlacement();
     ClearScope();
     bWantsFire=false;GetWorldTimerManager().ClearTimer(FireTimer);
     if(bCookingGrenade) ReleaseGrenade(false);
@@ -563,6 +616,7 @@ void AERWeapon::EndPlay(const EEndPlayReason::Type Reason) { Cancel(); Super::En
 void AERWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+    DOREPLIFETIME(AERWeapon,bPlacingClaymore);DOREPLIFETIME(AERWeapon,ClaymorePlacementStarted);
     DOREPLIFETIME_CONDITION(AERWeapon, MagazineAmmo, COND_OwnerOnly); DOREPLIFETIME_CONDITION(AERWeapon, ReserveAmmo, COND_OwnerOnly); DOREPLIFETIME(AERWeapon, bReloading);
     DOREPLIFETIME_CONDITION(AERWeapon, BloomAtLastShot, COND_OwnerOnly);
     DOREPLIFETIME_CONDITION(AERWeapon, LastSpreadShotServerTime, COND_OwnerOnly);
@@ -817,6 +871,14 @@ void AERProjectile::Detonate()
             });
         }
     }
+    if(Payload==EERPayload::HE || Payload==EERPayload::LaunchedHE || Payload==EERPayload::Rocket)
+    for(TActorIterator<AERClaymore> It(GetWorld());It;++It)
+    {
+        if(FVector::Distance(Position,It->GetActorLocation())>ExplosionRadius)continue;
+        FHitResult Cover;FCollisionQueryParams Query(SCENE_QUERY_STAT(ERClaymoreNeutralize),true,this);
+        if(!GetWorld()->LineTraceSingleByObjectType(Cover,Position+FVector::UpVector*3,It->GetActorLocation(),FCollisionObjectQueryParams(ECC_WorldStatic),Query))
+            It->TakeDamage(Damage,FDamageEvent(),GetDamageController(),this);
+    }
     for (TActorIterator<AERCharacter> It(GetWorld()); It; ++It)
     {
         AERCharacter* Target = *It;
@@ -917,4 +979,23 @@ void AERProjectile::MulticastDetonate_Implementation(FVector_NetQuantize Positio
 void AERProjectile::MulticastImpact_Implementation(FVector_NetQuantize Position, FVector_NetQuantizeNormal Normal, float Roll)
 {
     SpawnBulletHole(GetWorld(), ImpactDecalMaterial, Position, Normal, Roll);
+}
+
+void AERWeapon::Tick(float Delta)
+{
+    Super::Tick(Delta);
+    UpdateClaymorePlacement();
+    const auto* C=Cast<AERCharacter>(GetOwner());
+    const bool Show=C && C->IsLocallyControlled() && C->Weapon==this && !C->Health->bDead && Data && Data->Payload==EERPayload::Claymore && MagazineAmmo>0;
+    if(!Show) { if(PlacementGhost)PlacementGhost->SetVisibility(false);return; }
+    if(!PlacementGhost)
+    {
+        PlacementGhost=NewObject<UStaticMeshComponent>(this);AddInstanceComponent(PlacementGhost);
+        PlacementGhost->SetStaticMesh(Data->PlacedMesh?Data->PlacedMesh.Get():GetDefault<AERClaymore>()->Body->GetStaticMesh().Get());
+        PlacementGhost->SetCollisionEnabled(ECollisionEnabled::NoCollision);PlacementGhost->SetCastShadow(false);
+        PlacementGhost->RegisterComponent();PlacementGhost->SetWorldScale3D(Data->PlacedMesh?FVector(1):FVector(.15f,.30f,.18f));
+    }
+    FHitResult H;FRotator R;const bool Valid=AERClaymore::Placement(const_cast<AERCharacter*>(C),H,R);
+    PlacementGhost->SetVisibility(Valid);
+    if(Valid)PlacementGhost->SetWorldLocationAndRotation(H.ImpactPoint,R);
 }

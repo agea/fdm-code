@@ -1,5 +1,6 @@
 #include "ERMapTemplate.h"
 #include "ERProceduralMap.h"
+#include "ERIndustrialFence.h"
 #include "Engine/StaticMesh.h"
 #include "Paths/PCGExPath.h"
 #include "Data/PCGPointData.h"
@@ -66,6 +67,15 @@ bool BuildCentralBuilding(const UERMapTemplate& T,int32 Seed,TArray<FERMapTempla
             if(Fixed)B.FixedSurface=Finish;else B.CellSurface=Finish;
         }
         return B;
+    };
+    auto LowFence=[&](FVector Center,float Width,bool AlongX=true,float BaseZ=0)
+    {
+        const FVector Footprint=AlongX ? FVector(Width,12,0):FVector(12,Width,0);
+        Box(Center+FVector(0,0,BaseZ+ERIndustrialFence::PlinthHeightCm*.5),
+            Footprint+FVector(0,0,ERIndustrialFence::PlinthHeightCm),EERBlockMaterial::Concrete,true);
+        Box(Center+FVector(0,0,BaseZ+ERIndustrialFence::PlinthHeightCm+ERIndustrialFence::ModuleHeightCm*.5),
+            Footprint+FVector(0,0,ERIndustrialFence::ModuleHeightCm),EERBlockMaterial::Metal,true);
+        Pieces.Last().PawnBarrier=true;
     };
     auto Slab=[&](float X0,float X1,float Y0,float Y1,float Z,bool Pair=true)
     {Box({(X0+X1)*.5,(Y0+Y1)*.5,Z-10},{X1-X0,Y1-Y0,20},EERBlockMaterial::Metal,true,nullptr,Pair,true);};
@@ -165,8 +175,7 @@ bool BuildCentralBuilding(const UERMapTemplate& T,int32 Seed,TArray<FERMapTempla
         if(L.CrossingRule==EERCrossingRule::FencedCrossings)
         {
             const int32 N=FMath::CeilToInt((W*.5-20)/300);const float Width=(W*.5-20)/N;
-            for(int32 I=0;I<N;++I)for(int32 Row=0;Row<2;++Row)
-            {Box({-W*.5+20+(I+.5)*Width,0,Z+(Row+.5)*150},{Width,12,150},EERBlockMaterial::Metal,true,V.FenceMesh);Pieces.Last().PawnBarrier=true;}
+            for(int32 I=0;I<N;++I)LowFence({-W*.5+20+(I+.5)*Width,0,0},Width,true,Z);
         }
     }
     // Roof parapets leave the two stairs and the crossing over their landings open.
@@ -181,7 +190,6 @@ bool BuildCentralBuilding(const UERMapTemplate& T,int32 Seed,TArray<FERMapTempla
     const float SideX=Half.X-650;
     const bool SideBuildings=L.CrossingRule!=EERCrossingRule::OpenYard || R.RandRange(0,1)==1;
     const float SideW=Pick(700,800),SideD=Pick(1000,1200);
-    float HighestRoof=Roof;
     if(SideBuildings)
     {
         const int32 Floors=R.RandRange(1,3);
@@ -194,7 +202,6 @@ bool BuildCentralBuilding(const UERMapTemplate& T,int32 Seed,TArray<FERMapTempla
         // Towers always use ladders; reserve full stairwells for the broadest buildings.
         const bool LadderAccess=Tower || SW<800 || SD<1150;
         const float StairX=-SW*.5+180,StairStart=-SD*.5+220,StairEnd=StairStart+480;
-        HighestRoof=FMath::Max(HighestRoof,Floors*Stride);
         for(int32 Copy=0;Copy<2;++Copy)L.SecondaryStructures.Add({Frame*FTransform(FRotator(0,Copy ? 180:0,0)),{SW,SD,Floors*Stride},Floors,Material,Tower,LadderAccess});
         for(int32 Floor=0;Floor<Floors;++Floor)
         {
@@ -250,20 +257,18 @@ bool BuildCentralBuilding(const UERMapTemplate& T,int32 Seed,TArray<FERMapTempla
             Place(Frame,{SW*.5-1,(Interval.X+Interval.Y)*.5,Floors*Stride+50},{2,Interval.Y-Interval.X,100},EERBlockMaterial::Wood);
         for(float Y:{-SD*.5+1,SD*.5-1})Place(Frame,{0,Y,Floors*Stride+50},{SW,2,100},EERBlockMaterial::Wood);
     }
-    auto Fence=[&](float A,float B,float Y,float Height)
+    auto Fence=[&](float A,float B,float Y)
     {
         if(B<=A)return;
         const int32 N=FMath::CeilToInt((B-A)/400);const float Width=(B-A)/N;
-        const int32 Rows=FMath::CeilToInt(Height/200);const float H=Height/Rows;
-        for(int32 I=0;I<N;++I)for(int32 Row=0;Row<Rows;++Row)
-        {Box({A+(I+.5)*Width,Y,(Row+.5)*H},{Width,12,H},EERBlockMaterial::Metal,true,V.FenceMesh);Pieces.Last().PawnBarrier=true;}
+        for(int32 I=0;I<N;++I)LowFence({A+(I+.5)*Width,Y,0},Width);
     };
     if(L.CrossingRule==EERCrossingRule::FencedCrossings)
     {
-        // No ground bypass and no destroyable shortcut: only the central roof
-        // or the two side buildings cross this permanent separation.
-        Fence(-Half.X+12,-SideX-SideW*.5,0,HighestRoof+250);
-        Fence(-SideX+SideW*.5,-W*.5,0,HighestRoof+250);
+        // Ground approaches remain closed. Elevated routes may cross the low
+        // separator; the plinth and steel remain fixed through destruction.
+        Fence(-Half.X+12,-SideX-SideW*.5,0);
+        Fence(-SideX+SideW*.5,-W*.5,0);
         for(float X:{-SideX,SideX})L.CrossingRoutes.Add({{X,-SideD*.5-150,100},{X,SideD*.5+150,100}});
         L.CrossingRoutes.Add({{SX,End+110,Roof+100},{-SX,-End-110,Roof+100}});
     }
@@ -290,17 +295,14 @@ bool BuildCentralBuilding(const UERMapTemplate& T,int32 Seed,TArray<FERMapTempla
         // Ground route doglegs through the opposing offset doors.
         L.CrossingRoutes.Add({{-300,-D*.5-150,100},{-300,-200,100},{300,200,100},{300,D*.5+150,100}});
     }
-    // Perimeter fencing is fixed, high enough to exceed all traversal limits.
-    // It is independent of the crossing rule and never becomes cell geometry.
-    const float PerimeterHeight=FMath::Max(600.f,HighestRoof+350),FenceRowHeight=PerimeterHeight/FMath::CeilToInt(PerimeterHeight/200);
-    Fence(-Half.X,Half.X,-Half.Y+6,PerimeterHeight);
+    // One original-height steel course on a fixed one-metre concrete plinth.
+    // The physical boundary ends at the visible top; no taller invisible wall.
+    Fence(-Half.X,Half.X,-Half.Y+6);
     const int32 Count=FMath::CeilToInt((L.ArenaSize.Y-24)/400);
-    for(int32 I=0;I<Count;++I)for(int32 Row=0;Row<FMath::CeilToInt(PerimeterHeight/200);++Row)
+    for(int32 I=0;I<Count;++I)
     {
         const float Length=(L.ArenaSize.Y-24)/Count;
-        Box({-Half.X+6,-Half.Y+12+(I+.5)*Length,(Row+.5)*FenceRowHeight},{12,Length,FenceRowHeight},EERBlockMaterial::Metal,true,V.FenceMesh);
-        Pieces.Last().PawnBarrier=true;
-        Pieces.Last().MeshRotation=FRotator(0,90,0);
+        LowFence({-Half.X+6,-Half.Y+12+(I+.5)*Length,0},Length,false);
     }
     // Cover geometry is paired for balance; its cosmetic palette may differ.
     // Keep a clear rear spawn strip, side-building lanes and central approach.

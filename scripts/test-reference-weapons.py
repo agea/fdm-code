@@ -23,7 +23,7 @@ try:
     capture_started=time.time()
     hostlog=logs/(tag+'-host.log');clientlog=logs/(tag+'-client.log')
     handles.append(hostlog.open('w'))
-    host=subprocess.Popen(common+['/Game/EclipseRecoil/Maps/L_Depot?listen?Name=WeaponHost','-port=17795','-ERReferenceWeaponProbe'],stdout=handles[-1],stderr=subprocess.STDOUT)
+    host=subprocess.Popen(common+['/Game/EclipseRecoil/Maps/L_Depot?listen?ERFullArsenalTest?Name=WeaponHost','-port=17795','-ERReferenceWeaponProbe'],stdout=handles[-1],stderr=subprocess.STDOUT)
     processes.append(host);deadline=time.monotonic()+60
     while 'listening on port 17795' not in hostlog.read_text(errors='replace'):
         if host.poll() is not None or time.monotonic()>deadline:raise RuntimeError('Reference host did not listen')

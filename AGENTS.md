@@ -1,5 +1,57 @@
 # Respawn & Rage Unreal development
 
+Claymore lethality (latest): enemies eligible to activate the mine must die even
+with full health/armor/helmet at the 2m/60-degree sector edge. Apply lethal damage
+through the normal armor/death/kill-credit pipeline, not direct health mutation.
+Retain forward/LOS restrictions, rear zero damage, and ordinary falloff outside
+the activation sector. Preserve protected-player immunity and owner attribution.
+
+Claymore placement gesture (latest): fire runs a 2.2s crouch/deposit/rise action,
+not an instant camera ray placement. Deposit at1.3s, begin standing at1.6s. Place
+65cm ahead of the feet independent of pitch; retain safety/cover/spawn checks.
+Server consumes exactly once on valid deposit. Lock walking/jump/selection during
+the action; releasing fire does not cancel. Replicate posture/action; interruption
+before deposit consumes nothing. Keep the existing mine arm/lifetime separate.
+
+Claymore direction (23 October, latest): activation is exactly a 200cm ground-plane
+sector with 60° total opening, ±30° from the authored +X front. Two emissive,
+collision-free team-colored rays delimit this sector and stop at static cover.
+Use ERRecon team colors (Alpha blue/Omega orange). Replicate trigger range/angle.
+Keep blast direction independent: forward damage only, zero rear damage; standing
+capsule height must not create a blind spot near the mine. Preserve lifetime,
+ownership, no mine cap, and imported M18 geometry. setup_claymore_lasers.py owns
+only M_ClaymoreLaser and is called by setup_loadouts.py.
+
+Closed loadouts (23 October, latest): supersede the normal full-arsenal, free
+supplies and independent-skin selection below. Five stable preset IDs each have
+Gunner/Offense/Defense; server resolution, replicated catalog and next-spawn
+confirmation share ERLoadouts. See docs/LOADOUTS.md. Claymores survive death and
+respawn, have independent60s armed lifetimes, and never replace or cap existing
+mines. Use zhezhela's CC BY4 M18 model from the private weapons mount. Preserve
+serialized payload values, approved skins and explicit ERLegacyArsenal fixtures.
+Shotgun8x22/.35s overrides apply after immutable reference data in every generator.
+
+Industrial low barriers (23 October, latest request): supersede tall stacked
+steel barriers with a fixed100cm concrete plinth plus exactly one127cm original-
+height steel course (227cm total above the supporting floor). Apply on both
+perimeter axes, the ground separator and each central-building floor separator.
+Keep opaque steel, original triangle apertures, concrete palette and half-turn
+pairing. Collision ends at the visible top. The user explicitly limited the
+invalicability requirement to approach from the ground; roof jumps may cross.
+Validate full base collision, jump-apex/150cm mantle rejection and no invisible
+upper wall, deterministic seeds, Metal view and initial/late client regeneration.
+No global movement/destruction calibration or imported source art changes.
+
+
+Bullet decals (22 October, latest attachment): use the original owner-supplied
+FourInkImpacts.png in private weapons SourceAssets/BulletImpacts. Four existing
+material instances select its quadrants without modifying pixels/alpha.
+setup_bullet_decals.py imports/reimports only the owned decal group; the full
+hitscan setup delegates to it. Firearm cell hits use weapon multicast variants
+instead of the previous material mark, including penetrated surfaces/pellets.
+Preserve grenade contact/blast rules, pawn exclusion, 128 marks/20s and damage.
+The earlier FourBulletImpacts.png remains a historical source.
+
 Industrial wire removal (22 October, subsequent request): the user explicitly
 authorized completely removing the obsolete industrial wire assets, superseding
 the earlier reference/vendor retention rules for this retired fence family only.
@@ -1391,3 +1443,59 @@ loaded, after world net drivers have shut down. Exit Game waits briefly for
 session destruction before exit and suppresses LAN discovery while quitting.
 Keep cross-account JoinSession and two-network NAT/relay claims separate from
 this single-Mac service test. See docs/TEST_RESULTS.md for executed outcomes.
+
+Team readability (23 October): stronger blue Alpha/orange Omega upper-body cloth
+supersedes the muted clothing palette above. Preserve skin/hair and neutral lower
+gear; no emissive clothing. setup_team_readability.py updates only owned saved
+materials with a ZIP rollback and an idempotent cloth brightness lift. Recon drone
+underside lens flashes180ms every2.5s from replicated flight/server time, using
+team colours and ordinary depth testing; no collision or shadows. References stay
+in private BP_ReconDrone defaults. Preserve recon authority, flight and stock.
+
+Drone colour revision (23 October, follow-up): remove the underside beacon and
+its flashing completely. Keep the approved character palettes. Colour the upper
+white/beige drone shell with matte Alpha blue/Omega orange; preserve the original
+underside, rotors and mechanical materials. setup_drone_team_colors.py backs up
+owned recon assets, configures team arrays on BP_ReconDrone and deletes the two
+unreferenced beacon materials through Unreal. Upward-facing shell mask follows
+the existing yaw-only flight. This supersedes the beacon instructions above.
+
+Smoke radius/border (23 October): horizontal maximum radius4.4m (+10%), retaining
+4m height,12s lifetime, growth/fade, team tints and cut/dispersal rules.16x16x8
+containment now spans880x880x400cm (55cm horizontal cells). Add a small travelling
+sway to the contour using shared server age/replicated phase; keep shader and
+ReconDensity coefficients aligned. Regenerate smoke only with backed-up
+setup_smoke_shape.py; preserve HE and approved character/drone appearance.
+
+Dark drone beacon / server maps (23 October, latest): restore the original drone
+shell and underside team beacon, superseding upper-shell paint and beacon removal.
+Flash180ms every2.5s as before, with low-intensity saturated linear colours
+Alpha(.008,.065,.32), Omega(.35,.035,.003), no HDR multiplier.16cm lens. Keep
+art references in BP_ReconDrone; setup_drone_beacon.py backs up recon assets and
+removes unreferenced paint materials. The old paint setup delegates to it.
+Depot is excluded from server lobby buttons, accepted votes and random/tied
+selection; use catalog InRotation on all those paths. Keep catalog IDs stable
+and preserve Depot as an offline/reference map. Production pool: Central Building
+and Middle Eastern Alleys. Test lobby travel and excluded/stale/no-vote cases.
+
+Drone underside emblems (23 October, latest clarification): apply the supplied
+Alpha/Omega graffiti as stickers/paint directly on the drone hull underside,
+using an upward-facing bounded decal attached to Body. No floating plane,
+beacon or flashing. Reuse original graffiti textures with owned underside decal material variants
+(.2 colour floor for shadow readability, no HDR boost);
+team follows replicated Flight.Team. setup_drone_symbols.py backs up recon assets
+and retires unused beacon/plane materials after reference checks. Old beacon/
+paint entry points delegate to it. Preserve all gameplay and map exclusions.
+
+Alpha uniform refinement (23 October): tone the approved character blue down to
+(.10,.30,.72) times each skin's preserved strength, replacing the vivid
+(.055,.38,1) tint. Keep the cloth readability lift, original skin/neutral surfaces,
+Omega uniforms and team artwork. setup_team_readability.py supports a TEAMS
+selection for scoped migrations; the latest pass updates Alpha only.
+
+Phase Engineer helmet (23 October, latest): remove the rejected faceted procedural
+helmet from Omega skin9 and retain its supplied scalp/buzz-cut appearance. No suitable separate
+helmet/mask replacement was found locally; the user explicitly prefers no helmet
+in that case. Preserve other approved appearances. remove_phase_engineer_helmet.py
+backs up and updates character/target/corpse catalogs; the historical helmet-fix
+entry point delegates to removal so reruns cannot restore it.

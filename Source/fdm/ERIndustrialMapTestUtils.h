@@ -1,4 +1,5 @@
 #pragma once
+#include "ERIndustrialFence.h"
 #include "ERProceduralMap.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -52,7 +53,7 @@ inline bool FactoryPaletteMatches(AERProceduralMap& Map)
 inline bool FenceAperturesMatch(AERProceduralMap& Map,const FCollisionQueryParams& Q)
 {
     const auto& L=Map.GetLayout();
-    const auto* Fence=L.FixedPieces.FindByPredicate([&](const auto& P){return P.PawnBarrier && P.Transform.GetLocation().Y<-L.ArenaSize.Y*.5+10 && P.Transform.GetLocation().Z<101;});
+    const auto* Fence=L.FixedPieces.FindByPredicate([&](const auto& P){return P.PawnBarrier && P.Transform.GetLocation().Y<-L.ArenaSize.Y*.5+10 && P.Transform.GetLocation().Z<ERIndustrialFence::PlinthHeightCm+ERIndustrialFence::ModuleHeightCm;});
     if(!Fence)return false;
     int32 Blocked=0;FHitResult Hit;
     const FVector Center=Fence->Transform.GetLocation(),Size=Fence->Transform.GetScale3D()*100;

@@ -1,7 +1,7 @@
 """Player-facing generic weapon names; keys and asset identities stay stable."""
 WEAPON_NAMES = {
     'Knife': 'Knife', 'Pistol': 'Pistol', 'SMG': 'SMG', 'Shotgun': 'Shotgun',
-    'Assault': 'Assault Rifle', 'Carbine': 'Sniper Rifle', 'Sniper': 'Marksman Rifle',
+    'Assault': 'Assault Rifle', 'Carbine': 'Marksman Rifle', 'Sniper': 'Sniper Rifle',
     'Launcher': 'Grenade Launcher', 'HE': 'HE Grenade', 'Smoke': 'Smoke Grenade',
 }
 LEGACY_NAMES = {

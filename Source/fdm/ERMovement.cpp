@@ -74,6 +74,8 @@ UERMovement::UERMovement()
 }
 float UERMovement::GetMaxSpeed() const
 {
+    const auto* C=Cast<AERCharacter>(CharacterOwner);
+    if(C && C->Weapon && C->Weapon->bPlacingClaymore)return 0;
     if (IsOnLadder()) return LadderSpeed();
     if (IsMantling()) return 0;
     if (IsChangingPosture()) return 45.f;
@@ -143,6 +145,14 @@ bool UERMovement::FindLedge(FVector& Destination, float& Height) const
 }
 void UERMovement::UpdateCharacterStateBeforeMovement(float DeltaSeconds)
 {
+    const auto* Placer=Cast<AERCharacter>(CharacterOwner);
+    if(Placer && Placer->Weapon && Placer->Weapon->bPlacingClaymore)
+    {
+        bProneWanted=false;bWantsToCrouch=Placer->Weapon->IsClaymorePlacementLow();
+        bSprintHeld=false;Velocity=FVector::ZeroVector;Acceleration=FVector::ZeroVector;
+        UpdateSprint();
+        UpdatePosture(DeltaSeconds);return;
+    }
     if(Acceleration.IsNearlyZero())bLadderNeedsRelease=false;
     UpdatePosture(DeltaSeconds);
     UpdateSprint();
@@ -314,6 +324,8 @@ void UERMovement::SimulateMovement(float DeltaSeconds)
 }
 bool UERMovement::DoJump(bool bReplayingMoves, float DeltaTime)
 {
+    const auto* C=Cast<AERCharacter>(CharacterOwner);
+    if(C && C->Weapon && C->Weapon->bPlacingClaymore)return false;
     if(IsOnLadder())
     {
         const auto* Ladder=FindLadder();

@@ -19,13 +19,23 @@ for team,hero in [('alpha','Belica'),('omega','Phase')]:
         assert appearance.mesh.physics_asset and .5 < appearance.scale < 1.5
         assert appearance.mesh.find_socket('HandGrip_L') and appearance.mesh.find_socket('HandGrip_R')
         assert ('weapon' if hero=='Belica' else 'teddy_bear_root') in [str(b) for b in appearance.hidden_bones]
+        if hero=='Belica':
+            options = ue.AnimPoseEvaluationOptions()
+            options.optional_skeletal_mesh = appearance.mesh
+            options.should_retarget = False
+            reference = appearance.mesh.skeleton.get_reference_pose()
+            expected = ue.AnimPoseExtensions.get_bone_pose(reference, 'faceAttach', ue.AnimPoseSpaces.LOCAL).scale3d
+            for time in (0, appearance.corpse_pose.get_play_length()*.5):
+                pose = ue.AnimPoseExtensions.get_anim_pose_at_time(appearance.corpse_pose, time, options)
+                actual = ue.AnimPoseExtensions.get_bone_pose(pose, 'faceAttach', ue.AnimPoseSpaces.LOCAL).scale3d
+                assert max(abs(actual.x-expected.x), abs(actual.y-expected.y), abs(actual.z-expected.z)) < .0001, (index, 'facial scale')
         if hero=='Phase':
             assert appearance.copy_physics_pose_for_rendering
             if index==8:
-                helmet = list(appearance.attachments)[0]
-                assert helmet.mesh.get_path_name().split('.')[0].endswith('/PhaseEngineer/SM_ER_PhaseEngineer_Helmet')
-                assert helmet.material.get_path_name().split('.')[0].endswith('/PhaseEngineer/M_ER_PhaseEngineer_Helmet')
-                assert helmet.material.get_editor_property('two_sided'), 'Omega 9 helmet shell culling'
+                assert not list(appearance.attachments), 'Rejected Phase Engineer helmet'
+                for slot, section in enumerate(appearance.mesh.materials):
+                    if 'hair_short' in str(section.material_slot_name).lower():
+                        assert slot in appearance.hidden_material_slots, 'Keep stray hair cards hidden'
             for slot,section in enumerate(appearance.mesh.materials):
                 if 'hair_long' in str(section.material_slot_name).lower(): assert slot in appearance.hidden_material_slots
         dominant = neutral = 0

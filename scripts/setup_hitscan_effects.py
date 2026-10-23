@@ -46,51 +46,9 @@ def output(node, pin, prop):
         raise RuntimeError('Cannot connect material output ' + str(prop))
 
 
-# Import the original alpha atlas intact. Four material instances select quadrants.
-source = Path(ue.Paths.project_dir()) / 'SourceAssets/BulletImpacts/FourBulletImpacts.png'
-texture = ue.load_asset(ROOT + '/T_ER_BulletImpacts')
-if not texture:
-    task = ue.AssetImportTask()
-    for key, value in {'filename': str(source), 'destination_path': ROOT,
-                       'destination_name': 'T_ER_BulletImpacts', 'automated': True,
-                       'save': True, 'replace_existing': False}.items():
-        task.set_editor_property(key, value)
-    tools.import_asset_tasks([task])
-    texture = load(ROOT + '/T_ER_BulletImpacts')
-texture.set_editor_property('srgb', True)
-texture.set_editor_property('address_x', ue.TextureAddress.TA_CLAMP)
-texture.set_editor_property('address_y', ue.TextureAddress.TA_CLAMP)
-save(texture)
-
-mat = material('M_ER_BulletImpactAtlas')
-mat.set_editor_property('material_domain', ue.MaterialDomain.MD_DEFERRED_DECAL)
-mat.set_editor_property('blend_mode', ue.BlendMode.BLEND_TRANSLUCENT)
-uv = expression(mat, ue.MaterialExpressionTextureCoordinate)
-offset = expression(mat, ue.MaterialExpressionVectorParameter,
-                    parameter_name='AtlasOffset', default_value=ue.LinearColor(0, 0, 0, 0))
-mask = expression(mat, ue.MaterialExpressionComponentMask, r=True, g=True)
-connect(offset, '', mask, '')
-scale = expression(mat, ue.MaterialExpressionMultiply, const_b=.5)
-connect(uv, '', scale, 'A')
-add = expression(mat, ue.MaterialExpressionAdd)
-connect(scale, '', add, 'A')
-connect(mask, '', add, 'B')
-sample = expression(mat, ue.MaterialExpressionTextureSample, texture=texture)
-connect(add, '', sample, 'UVs')
-output(sample, 'RGB', ue.MaterialProperty.MP_BASE_COLOR)
-output(sample, 'A', ue.MaterialProperty.MP_OPACITY)
-rough = expression(mat, ue.MaterialExpressionConstant, r=.95)
-output(rough, '', ue.MaterialProperty.MP_ROUGHNESS)
-edit.recompile_material(mat)
-save(mat)
-variants = []
-for index, (x, y) in enumerate([(0, 0), (.5, 0), (0, .5), (.5, .5)]):
-    name = 'MI_ER_BulletImpact_' + str(index + 1)
-    instance = ue.load_asset(ROOT + '/' + name) or tools.create_asset(name, ROOT, ue.MaterialInstanceConstant, ue.MaterialInstanceConstantFactoryNew())
-    edit.set_material_instance_parent(instance, mat)
-    edit.set_material_instance_vector_parameter_value(instance, 'AtlasOffset', ue.LinearColor(x, y, 0, 0))
-    save(instance)
-    variants.append(instance)
+# Keep the isolated decal migration as the authoritative atlas builder.
+import runpy
+variants = runpy.run_path(str(Path(__file__).with_name('setup_bullet_decals.py')))['variants']
 
 # A camera-facing Niagara sprite stretched along User.Alignment renders the
 # whole authorized segment. SourceMode=Emitter renders the segment independently of physical bullets.

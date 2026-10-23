@@ -1,4 +1,6 @@
 #include "ERPlayerController.h"
+#include "ERLoadout.h"
+#include "ERClaymore.h"
 #include "ERAudioProbe.h"
 #include "ERAimPunchProbe.h"
 #include "EROnline.h"
@@ -40,6 +42,7 @@
 #include "UnrealClient.h"
 #include "DynamicResolutionState.h"
 #include "ERResolutionPolicy.h"
+#include "ERPerformanceSettings.h"
 #include "ERLadder.h"
 #include "HAL/IConsoleManager.h"
 #include "Misc/ConfigCacheIni.h"
@@ -99,7 +102,12 @@ void UERGameInstance::Init()
     GConfig->GetInt(TEXT("EclipseRecoil.Loadout"), TEXT("PrimaryWeapon"), PrimaryWeapon, GGameUserSettingsIni);
     PrimaryWeapon = FMath::Clamp(PrimaryWeapon, 0, 6);
     GConfig->GetInt(TEXT("EclipseRecoil.Loadout"), TEXT("ReferenceStartingWeapon"), ReferenceStartingWeapon, GGameUserSettingsIni);
-    ReferenceStartingWeapon = FMath::Clamp(ReferenceStartingWeapon, 0, 9);
+    FString SavedPreset,SavedVariant;
+    int32 Version=0;GConfig->GetInt(TEXT("EclipseRecoil.Loadout"),TEXT("Version"),Version,GGameUserSettingsIni);
+    GConfig->GetString(TEXT("EclipseRecoil.Loadout"),TEXT("Preset"),SavedPreset,GGameUserSettingsIni);
+    GConfig->GetString(TEXT("EclipseRecoil.Loadout"),TEXT("Variant"),SavedVariant,GGameUserSettingsIni);
+    const auto Kit=ERLoadouts::Resolve(Version>=1?FName(*SavedPreset):ERLoadouts::Migrate(ReferenceStartingWeapon),Version>=1?FName(*SavedVariant):FName("offense"));
+    LoadoutPreset=Kit.Preset;LoadoutVariant=Kit.Variant;
     GConfig->GetInt(TEXT("EclipseRecoil.Appearance"), TEXT("AlphaSkin"), AlphaSkin, GGameUserSettingsIni);
     GConfig->GetInt(TEXT("EclipseRecoil.Appearance"), TEXT("OmegaSkin"), OmegaSkin, GGameUserSettingsIni);
     AlphaSkin = ERSkins::ValidIndex(AlphaSkin); OmegaSkin = ERSkins::ValidIndex(OmegaSkin);
@@ -126,8 +134,13 @@ void UERGameInstance::Init()
     NetworkFailureHandle = GEngine->OnNetworkFailure().AddUObject(this, &UERGameInstance::NetworkFailure);
     TravelFailureHandle = GEngine->OnTravelFailure().AddUObject(this, &UERGameInstance::TravelFailure);
 }
+FString UERGameInstance::LoadoutOptions() const
+{ return FString::Printf(TEXT("?Preset=%s?Variant=%s"),*LoadoutPreset.ToString(),*LoadoutVariant.ToString()); }
 void UERGameInstance::SaveLoadout()
 {
+    GConfig->SetInt(TEXT("EclipseRecoil.Loadout"),TEXT("Version"),1,GGameUserSettingsIni);
+    GConfig->SetString(TEXT("EclipseRecoil.Loadout"),TEXT("Preset"),*LoadoutPreset.ToString(),GGameUserSettingsIni);
+    GConfig->SetString(TEXT("EclipseRecoil.Loadout"),TEXT("Variant"),*LoadoutVariant.ToString(),GGameUserSettingsIni);
     GConfig->SetInt(TEXT("EclipseRecoil.Loadout"), TEXT("PrimaryWeapon"), PrimaryWeapon, GGameUserSettingsIni);
     GConfig->SetInt(TEXT("EclipseRecoil.Loadout"), TEXT("ReferenceStartingWeapon"), ReferenceStartingWeapon, GGameUserSettingsIni);
     GConfig->Flush(false, GGameUserSettingsIni);
@@ -224,6 +237,7 @@ void UERGameInstance::StartSession()
     const TCHAR* Behaviors[] = {TEXT("Target"), TEXT("Movement"), TEXT("Patrol")};
     FString Options = SessionMode == 1 ? TEXT("listen?Name=") : TEXT("Name=");
     Options += AERGameMode::SanitizeName(LocalName);
+    Options += LoadoutOptions();
     Options += FString::Printf(TEXT("?Primary=%d?AlphaSkin=%d?OmegaSkin=%d?Team=%d?ERAlphaBots=%d?EROmegaBots=%d?ERBotMode=%s"),
         GetStartingWeapon(), AlphaSkin, OmegaSkin, FMath::Clamp(PlayerTeam,0,1), FMath::Clamp(AlphaBots,0,10), FMath::Clamp(OmegaBots,0,10), Behaviors[FMath::Clamp(BotBehavior,0,2)]);
     Options += FString::Printf(TEXT("?Magazines=%d?HE=%d?Smoke=%d?Stun=%d"), SpareMagazines, HECount, SmokeCount, StunCount);
@@ -235,6 +249,7 @@ void UERGameInstance::Host(int32 BotCount, bool bStationaryTarget)
     LastError.Empty();
     FString Options = TEXT("listen?Name=") + AERGameMode::SanitizeName(LocalName);
     if (BotCount > 0) Options += FString::Printf(TEXT("?ERBots=%d?ERBotMode=%s"), FMath::Clamp(BotCount,1,bStationaryTarget ? 2 * ERSkins::Count : 3), bStationaryTarget ? TEXT("Target") : TEXT("Patrol"));
+    Options += LoadoutOptions();
     Options += FString::Printf(TEXT("?Primary=%d?AlphaSkin=%d?OmegaSkin=%d"), PrimaryWeapon, AlphaSkin, OmegaSkin);
     UGameplayStatics::OpenLevel(GetWorld(), TEXT("/Game/EclipseRecoil/Maps/L_Depot"), true, Options);
 }
@@ -266,7 +281,7 @@ bool UERGameInstance::Join(const FString& RawAddress)
         SaveProfile();
         CancelLANSearch();
         LastError = TEXT("Server found. Connecting to ") + Address + TEXT("...");
-        PC->ClientTravel(Address + TEXT("?Name=") + AERGameMode::SanitizeName(LocalName) + FString::Printf(TEXT("?Primary=%d?AlphaSkin=%d?OmegaSkin=%d?Team=%d?Magazines=%d?HE=%d?Smoke=%d?Stun=%d"), GetStartingWeapon(), AlphaSkin, OmegaSkin, FMath::Clamp(PlayerTeam,0,1), SpareMagazines, HECount, SmokeCount, StunCount), TRAVEL_Absolute); return true;
+        PC->ClientTravel(Address + LoadoutOptions() + TEXT("?Name=") + AERGameMode::SanitizeName(LocalName) + FString::Printf(TEXT("?Primary=%d?AlphaSkin=%d?OmegaSkin=%d?Team=%d?Magazines=%d?HE=%d?Smoke=%d?Stun=%d"), GetStartingWeapon(), AlphaSkin, OmegaSkin, FMath::Clamp(PlayerTeam,0,1), SpareMagazines, HECount, SmokeCount, StunCount), TRAVEL_Absolute); return true;
     }
     LastError = TEXT("Local player unavailable."); return false;
 }
@@ -338,6 +353,8 @@ void AERPlayerController::BeginPlay()
         }
     }
     if (ULocalPlayer* LP = GetLocalPlayer()) if (auto* Subsystem = LP->GetSubsystem<UEnhancedInputLocalPlayerSubsystem>()) if (GameplayMapping) Subsystem->AddMappingContext(GameplayMapping, 0);
+    ERPerformance::Get().Load();
+    ERPerformance::Get().Apply();
     ShowMenu(IsMenuLevel());
     ERInstallResolutionGovernor();
     UpdateRenderResolution();
@@ -437,6 +454,7 @@ void AERPlayerController::SetupInputComponent()
     InputComponent->BindKey(EKeys::E, IE_Released, this, &AERPlayerController::SprintReleased);
     InputComponent->BindKey(EKeys::W, IE_Pressed, this, &AERPlayerController::ForwardPressed);
     InputComponent->BindKey(EKeys::W, IE_Released, this, &AERPlayerController::ForwardReleased);
+    InputComponent->BindKey(EKeys::H, IE_Pressed, this, &AERPlayerController::SelectClaymore);
     InputComponent->BindKey(EKeys::One, IE_Pressed, this, &AERPlayerController::SelectPrimary);
     InputComponent->BindKey(EKeys::Two, IE_Pressed, this, &AERPlayerController::SelectSidearm);
     InputComponent->BindKey(EKeys::Three, IE_Pressed, this, &AERPlayerController::SelectHE);
@@ -615,7 +633,7 @@ void AERPlayerController::SelectSlot(int32 Slot)
 {
     if (bMenuOpen) return;
     if (auto* C = Cast<AERCharacter>(GetPawn()); C && C->Weapon) C->Weapon->ServerClearScope();
-    if (auto* C = Cast<AERCharacter>(GetPawn())) C->ServerSelectWeapon(Slot);
+    if (auto* C = Cast<AERCharacter>(GetPawn())) C->ServerSelectWeapon(C->bPresetInventory ? C->FindCatalogSlot(Slot):Slot);
 }
 void AERPlayerController::SelectNumber(int32 Index)
 {
@@ -642,10 +660,17 @@ void AERPlayerController::ScrollWeapon(int32 Direction)
     const bool bFreshGesture = Now >= WheelQuietUntil;
     WheelQuietUntil = Now + .25;
     if (!bFreshGesture) return;
-    SelectSlot((Current + Direction + C->Inventory.Num()) % C->Inventory.Num());
+    for(int32 Step=1;Step<C->Inventory.Num();++Step)
+    {
+        const int32 Slot=(Current+Direction*Step+C->Inventory.Num())%C->Inventory.Num();
+        const auto* W=C->Inventory[Slot].Get();
+        if(W && W->Data && (W->Data->Payload==EERPayload::Bullet || W->Data->Payload==EERPayload::Melee || W->MagazineAmmo+W->ReserveAmmo>0))
+        { C->ServerSelectWeapon(Slot);break; }
+    }
 }
 void AERPlayerController::ServerSetSkins_Implementation(int32 Alpha, int32 Omega)
 {
+    if(!GetWorld()->URL.HasOption(TEXT("ERLegacyArsenal")))return;
     if (const auto* GS = GetWorld()->GetGameState<AERGameState>(); GS && GS->bLobbyStarting) return;
     if (Alpha < 0 || Alpha >= ERSkins::Count || Omega < 0 || Omega >= ERSkins::Count) return;
     if (auto* PS = GetPlayerState<AERPlayerState>())
@@ -653,6 +678,7 @@ void AERPlayerController::ServerSetSkins_Implementation(int32 Alpha, int32 Omega
 }
 void AERPlayerController::ServerSetPrimary_Implementation(int32 Index)
 {
+    if(!GetWorld()->URL.HasOption(TEXT("ERLegacyArsenal")))return;
     if (const auto* GS = GetWorld()->GetGameState<AERGameState>(); GS && GS->bLobbyStarting) return;
     const bool Reference = bReferenceArsenalMenu && !GetWorld()->URL.HasOption(TEXT("ERLegacyArsenal"));
     if (Index < 0 || Index > (Reference ? 9 : 6)) return;
@@ -679,7 +705,9 @@ void AERPlayerController::UpdateRenderResolution()
     // Cap the scene AND temporal history, then spatially upscale to the window.
     // UI keeps the actual viewport resolution. Primary dynamic scaling can reduce
     // this scene output further when the GPU exceeds the 60 FPS budget.
-    SceneOutputFraction = FMath::Min(1.f, FMath::Min(1920.f / Size.X, 1080.f / Size.Y));
+    SceneOutputFraction = ERPerformance::Get().Automatic
+        ? FMath::Min(1.f, FMath::Min(1920.f / Size.X, 1080.f / Size.Y))
+        : ERPerformance::Get().Scale / (100.f * ERPerformance::Get().ManualPrimary());
     if (IConsoleVariable* Secondary = IConsoleManager::Get().FindConsoleVariable(TEXT("r.SecondaryScreenPercentage.GameViewport")))
         Secondary->Set(SceneOutputFraction * 100.f, ECVF_SetByGameSetting);
     UE_LOG(LogTemp, Display, TEXT("ER_RENDER_OUTPUT viewport=%dx%d scene_max=%dx%d secondary=%.1f%%"),
@@ -1127,6 +1155,13 @@ void AERHUD::DrawHUD()
             }
 #endif
         }
+        if(Character->bPresetInventory)
+        {
+            int32 Carried=0;for(const auto Item:Character->Inventory)if(Item && Item->Data && Item->Data->Payload==EERPayload::Claymore)Carried+=Item->MagazineAmmo+Item->ReserveAmmo;
+            const auto* OwnerState=Character->GetPlayerState<AERPlayerState>();
+            DrawHUDText(FString::Printf(TEXT("Claymores: %d carried · %d active  [H]"),Carried,OwnerState?OwnerState->ActiveClaymores:0),Layout.Position(860,620).X,Layout.Position(860,620).Y,FLinearColor::White,.9f);
+        }
+        if(Character->Weapon && Character->Weapon->bPlacingClaymore)DrawHUDText(TEXT("PLACING CLAYMORE..."),W/2,Layout.Position(640,570).Y,FLinearColor(.4f,.8f,1),1.f,true);
         if (Character->Health->IsProtected()) DrawHUDText(TEXT("SPAWN PROTECTION"), W/2,Layout.Position(640,601).Y,FLinearColor(.4f,.8f,1),1.3f,true);
     }
     if (PC->bAwaitingRespawn)
@@ -1289,4 +1324,19 @@ void AERPlayerController::ServerAimPunchProbeReady_Implementation(AERAimPunchPro
 #if !UE_BUILD_SHIPPING
     if(FParse::Param(FCommandLine::Get(),TEXT("ERAimPunchProbe")) && Probe && Probe->GetWorld()==GetWorld())Probe->ConfirmReady(this,Stage);
 #endif
+}
+
+void AERPlayerController::ServerSetLoadout_Implementation(FName Preset,FName Variant)
+{
+    if(const auto* GS=GetWorld()->GetGameState<AERGameState>();GS && GS->bLobbyStarting)return;
+    const auto Kit=ERLoadouts::Resolve(Preset,Variant);
+    if(auto* PS=GetPlayerState<AERPlayerState>())
+    { PS->LoadoutPreset=Kit.Preset;PS->LoadoutVariant=Kit.Variant;PS->bLobbyReady=false;PS->ForceNetUpdate(); }
+    ClientLoadoutAccepted(Kit.Preset,Kit.Variant);
+}
+void AERPlayerController::ClientLoadoutAccepted_Implementation(FName Preset,FName Variant)
+{
+    auto* GI=GetGameInstance<UERGameInstance>();if(!GI)return;
+    const auto Kit=ERLoadouts::Resolve(Preset,Variant);
+    GI->LoadoutPreset=Kit.Preset;GI->LoadoutVariant=Kit.Variant;GI->SaveLoadout();bLoadoutPending=false;
 }

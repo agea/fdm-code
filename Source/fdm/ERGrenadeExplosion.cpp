@@ -1,4 +1,5 @@
 #include "ERGrenadeExplosion.h"
+#include "ERPerformanceSettings.h"
 #include "Kismet/GameplayStatics.h"
 #include "Components/AudioComponent.h"
 #include "Sound/SoundBase.h"
@@ -170,7 +171,7 @@ void AERGrenadeExplosion::BeginPlay()
     Duration = 3.f;
     Light->SetLightColor(FLinearColor(1.f,.92f,.8f));
     Light->SetIntensity(1500);
-    SpawnGroundChips();
+    if(ERPerformance::Get().Defaults || ERPerformance::Get().Effects>1) SpawnGroundChips();
     SetLifeSpan(Duration + .05f);
     UE_LOG(LogTemp, Display, TEXT("ER_GRENADE_BURST system=%s scale=%.2f duration=%.2f cosmetic_collision=none"),
         *GetNameSafe(BurstTemplate), BurstScale, Duration);

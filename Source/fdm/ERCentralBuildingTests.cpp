@@ -51,6 +51,20 @@ bool FERCentralBuildingLayoutTest::RunTest(const FString& Parameters)
         Solids.Reset();
         for(const auto& P:L.FixedPieces)Solids.Add(Key(P.Transform.GetLocation(),P.Transform.GetScale3D(),uint8(P.Material)));
         for(const auto& P:L.FixedPieces){auto V=P.Transform.GetLocation();V.X=-V.X;V.Y=-V.Y;if(!Solids.Contains(Key(V,P.Transform.GetScale3D(),uint8(P.Material)))){AddError(TEXT("unpaired fixed collision"));return false;}}
+        for(const auto& P:L.FixedPieces)if(P.PawnBarrier)
+        {
+            const FVector Size=P.Transform.GetScale3D()*100;
+            TestTrue(TEXT("one original-height steel course"),FMath::IsNearlyEqual(Size.Z,ERIndustrialFence::ModuleHeightCm));
+            const float Bottom=P.Transform.GetLocation().Z-Size.Z*.5;
+            const auto* Plinth=L.FixedPieces.FindByPredicate([&](const auto& B)
+            {
+                const auto BS=B.Transform.GetScale3D()*100;
+                return B.Material==EERBlockMaterial::Concrete && FMath::IsNearlyEqual(BS.Z,ERIndustrialFence::PlinthHeightCm)
+                    && B.Transform.GetLocation().Equals(P.Transform.GetLocation()-FVector(0,0,(Size.Z+BS.Z)*.5),.01);
+            });
+            TestNotNull(TEXT("steel rests on a concrete plinth"),Plinth);
+            TestTrue(TEXT("plinth starts on its floor"),FMath::IsNearlyZero(FMath::Fmod(Bottom-ERIndustrialFence::PlinthHeightCm,320.f),.01));
+        }
         int32 Flights=L.BuildingFloors*2+L.WallAccessFlights.Num(),Ladders=2+L.SecondaryStructures.Num();
         for(const auto& S:L.SecondaryStructures){if(S.LadderAccess)Ladders+=S.Floors;else Flights+=S.Floors;
             TestTrue(TEXT("towers and compact buildings prefer ladders"),S.LadderAccess==(S.Tower || S.Size.X<800 || S.Size.Y<1150));SecondaryFloors.Add(S.Floors);Tower|=S.Tower;Building|=!S.Tower;Materials.Add(uint8(S.Material));}
@@ -214,11 +228,30 @@ bool FERCentralBuildingCollisionTest::RunTest(const FString& Parameters)
         for(bool AlongX:{true,false})
         {
             const auto* Fence=L.FixedPieces.FindByPredicate([&](const auto& P)
-            {const auto S=P.Transform.GetScale3D();return P.PawnBarrier && (S.X>=S.Y)==AlongX && P.Transform.GetLocation().Z<101;});
+            {const auto S=P.Transform.GetScale3D();return P.PawnBarrier && (S.X>=S.Y)==AlongX && (AlongX ? P.Transform.GetLocation().Y<-L.ArenaSize.Y*.5+10:P.Transform.GetLocation().X<-L.ArenaSize.X*.5+10) && P.Transform.GetLocation().Z<ERIndustrialFence::PlinthHeightCm+ERIndustrialFence::ModuleHeightCm;});
             if(!TestNotNull(TEXT("modular fence panel"),Fence))continue;
             const FVector Center=Fence->Transform.GetLocation(),S=Fence->Transform.GetScale3D()*100;
             const FVector Across=AlongX ? FVector(1,0,0):FVector(0,1,0);
             const FVector Normal=AlongX ? FVector(0,1,0):FVector(1,0,0);
+            const float Top=ERIndustrialFence::PlinthHeightCm+ERIndustrialFence::ModuleHeightCm;
+            FHitResult BaseHit;
+            const FVector BasePoint(Center.X,Center.Y,ERIndustrialFence::PlinthHeightCm*.5);
+            TestTrue(TEXT("concrete plinth stops bullets"),World->LineTraceSingleByChannel(BaseHit,BasePoint-Normal*60,BasePoint+Normal*60,ECC_GameTraceChannel1,Q));
+            FERCellId BaseCell;TestFalse(TEXT("plinth preserves fixed boundary"),Map->ResolveCell(BaseHit,BaseCell));
+            const FVector Above(Center.X,Center.Y,Top+1);
+            TestFalse(TEXT("no invisible wall above visible barrier"),World->LineTraceSingleByChannel(BaseHit,Above-Normal*60,Above+Normal*60,ECC_Pawn,Q));
+            auto* Move=Cast<UERMovement>(Pawn->GetCharacterMovement());
+            const float JumpApex=FMath::Square(Move->JumpZVelocity)/(-2*Move->GetGravityZ());
+            TestTrue(TEXT("combined height exceeds jump plus mantle reach"),Top>JumpApex+150);
+            for(float Side:{-1.f,1.f})for(float Rise=0;Rise<=JumpApex+1;Rise+=5)
+            {
+                Pawn->SetActorLocation(FVector(Center.X,Center.Y,92.5f+Rise)+Normal*Side*42);
+                Pawn->SetActorRotation((-Normal*Side).Rotation());
+                Move->SetMovementMode(Rise>0 ? MOVE_Falling:MOVE_Walking);Move->bClimbHeld=true;
+                FVector Destination;float LedgeHeight=0;
+                TestFalse(TEXT("cannot mantle plinth or steel during jump"),Move->FindLedge(Destination,LedgeHeight));
+            }
+            Move->bClimbHeld=false;Pawn->SetActorLocation(FVector(-20000,0,100));
             int32 BlockedShots=0;
             for(int32 I=0;I<256;++I)
             {

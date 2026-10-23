@@ -816,7 +816,7 @@ destructible catalog retain their original SHA-256 hashes.
 | Destructible cover | Existing timber cells; shared material damage calibration unchanged. |
 | Additional available damage profiles | Drywall, stone, sheet metal and glass stay in the seven-profile catalog. |
 | Cargo/cover | Reinforced destructible steel containers, timber crates/stacks and brick/concrete barriers; fixed Factory tanks/barrels. Oblique placements are paired between teams. |
-| Permanent separators/perimeter | One original aluminium fence module repeated with opaque steel material and triangle collision; full movement collision is separate. Retired chain-link meshes, materials and textures have been removed. |
+| Permanent separators/perimeter | One original-height 127cm aluminium fence course on a 100cm concrete plinth (227cm total), repeated horizontally with opaque steel material and triangle collision; movement collision ends at the visible top. Retired chain-link meshes, materials and textures have been removed. |
 | Walkable floors/stairs | Fixed main slabs/stairs; destructible timber decks, posts and stair treads in the secondary buildings/towers and wall crossings. |
 | Authoring | Revision3 DA_CentralBuilding; PCG_CentralBuildingRoutes now loads DA_CentralBuilding_42_Ladders with fixed and cell volume pins. |
 
@@ -958,3 +958,54 @@ rough translucent deferred decals are in `Art/TeamGraffiti`; references belong t
 `bake_recon_case_animation.py` preserves the original case FBX angular animation
 (101 keys, 25fps), refitting the original exploded source to closed hinges. The
 original archives and CC BY4.0 attribution remain in `ReconDrones`.
+
+### Team readability / recon beacon (23 October 2026)
+
+- Existing owned team clothing: 67 Material/MaterialInstance assets updated in
+  `Characters/Teams/{Alpha,Omega}/Skins` through `setup_team_readability.py`.
+  Blue/orange upper-body colour is stronger and cloth retains source textures;
+  no original vendor asset or mesh is replaced.
+- Private maps `Art/Recon/M_ReconBeaconAlpha` and `M_ReconBeaconOmega`: owned
+  unlit emissive materials. Existing `BP_ReconDrone` references these and the
+  engine BasicShapes sphere for its small underside lens. No new external art.
+- Pre-migration ZIPs remain locally under `Saved/AssetBackups/TeamReadability-*`.
+
+Drone follow-up (23 October): the two M_ReconBeacon materials are retired and
+replaced by M_ReconUpper{Alpha,Omega}_{4,5}, stored in the private maps recon
+folder. The existing white/beige shell slots use these matte team variants;
+rotor/mechanical originals and all source meshes remain intact. No new mesh.
+See setup_drone_team_colors.py; character assets retain the approved palette.
+
+Smoke radius/border (23 October): existing private weapons
+Effects/Smoke/M_ER_ContainedSmoke and BP_ERSmokeCloud updated through
+setup_smoke_shape.py; no new art. Bounds880x880x400cm and an animated contour
+wave match native recon density. Pre-migration ZIP lives in Saved/AssetBackups.
+
+Latest drone revision (23 October): original shell restored; private maps recon
+BP_ReconDrone uses M_ReconBeaconAlpha/Omega with low-intensity unlit colours and
+the engine sphere. Retired M_ReconUpper variants are removed after reference
+checks. setup_drone_beacon.py owns this migration and creates a rollback ZIP.
+
+Drone symbol revision (23 October, clarified): BP_ReconDrone uses existing
+Art/Recon/M_DroneUndersideAlpha/Omega for decals painted onto the hull underside.
+These reuse Art/TeamGraffiti/T_GraffitiAlpha/Omega with a restrained .2 colour
+floor for readability in shade; no HDR boost.
+No new texture or mesh; original supplied PNGs remain unchanged. Unused beacon
+and separate-plane materials are removed after reference checks, with a recon
+ZIP backup. setup_drone_symbols.py owns the migration.
+
+Alpha colour refinement (23 October): existing owned Alpha skin materials updated
+via setup_team_readability.py with TEAMS=['Alpha']; muted blue tint(.10,.30,.72)
+replaces vivid azure. No new assets; pre-edit ZIP retained in Saved/AssetBackups.
+
+Claymore M18: zhezhela, Sketchfab0e44b2adeb974830804c3ec68c0920f0, CC BY4.0.
+Original ZIP/DAE/textures and normalized rigid FBX are preserved privately in
+weapons/SourceAssets/ClaymoreM18. Runtime static/skeletal meshes and materials
+belong to Weapons/Sketchfab/Claymore; credits are included in Branding/Credits.txt.
+See docs/LOADOUTS.md for import/migration boundaries.
+
+Claymore activation rays (23 October2026): `setup_claymore_lasers.py` creates
+`/Game/EclipseRecoil/Weapons/Sketchfab/Claymore/M_ClaymoreLaser`, an unlit emissive
+material with a `Color` parameter. The native actor uses two engine cylinders,
+no collision or shadows, tinted with ERRecon team colors. This adds no changes
+to zhezhela's mesh or textures. `setup_loadouts.py` also runs this targeted setup.

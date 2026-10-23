@@ -91,7 +91,7 @@ public:
     struct FERCellShotStep { bool bStop=true, bLimited=false; int32 Cells=0, Runs=0; FVector Exit=FVector::ZeroVector; };
     // Each crossed cell absorbs its current HP from the shared bullet damage budget.
     FERCellShotStep ShootCells(const FHitResult& Hit, const FVector& Cursor, const FVector& Ray, double Range,
-        float& RemainingDamage, int32 RunsLeft);
+        float& RemainingDamage, int32 RunsLeft, bool bSpawnMaterialImpact = true);
     // Pre-event snapshot only: never mutates. Query must ignore every cell chunk component.
     void CollectCellExplosion(const FVector& Origin, const FERBlockExplosionProfile& Profile, const FCollisionQueryParams& Query,
         TMap<FERCellId, float>& Out, FERBlockBatchResult& Result) const;

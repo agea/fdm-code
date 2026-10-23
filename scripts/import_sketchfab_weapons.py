@@ -271,6 +271,7 @@ for profile in sorted(profiles,key=lambda item:item['key']!='Assault'):
         for weight in [0,1,.72,.4,.18,.05,0]:
             frames.append(dict(root=[[1,0,0,-.018*weight],[0,1,0,0],[0,0,1,.003*weight],[0,0,0,1]]))
         settings['fire_animation']=retarget(settings['idle_animation'],folder+'/'+key+'/A_'+key+'_Hands_Fire',frames,60,True)
+    settings.update(runpy.run_path(str(project/'scripts/weapon_gameplay_overrides.py'))['OVERRIDES'].get(key,{}))
     for prop,value in settings.items():data.set_editor_property(prop,value)
     save(data);catalog.append(data)
     report.append(dict(key=key,model=mesh.get_path_name(),data=data.get_path_name(),row=profile.get('row'),
@@ -283,7 +284,9 @@ report.sort(key=lambda item:slots[item['key']])
 if len(catalog)!=10 and not staging:raise RuntimeError('Incomplete catalog; keeping current loadout')
 if not staging and not selected_keys:
     for path in ['/Game/EclipseRecoil/Core/BP_ERCharacter','/Game/EclipseRecoil/Core/BP_ERTrainingTarget']:
-        bp=ue.load_asset(path);ue.get_default_object(bp.generated_class()).set_editor_property('reference_arsenal',catalog)
+        bp=ue.load_asset(path)
+        claymore=ue.load_asset(folder+'/Claymore/DA_Claymore')
+        ue.get_default_object(bp.generated_class()).set_editor_property('reference_arsenal',catalog+([claymore] if claymore else []))
         ue.BlueprintEditorLibrary.compile_blueprint(bp);save(bp)
     bp=ue.load_asset('/Game/EclipseRecoil/Core/BP_ERPlayerController')
     defaults=ue.get_default_object(bp.generated_class())

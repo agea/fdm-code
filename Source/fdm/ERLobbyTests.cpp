@@ -1,4 +1,5 @@
 #include "ERLobbyRules.h"
+#include "ERMapCatalog.h"
 #include "ERMatch.h"
 #include "Misc/AutomationTest.h"
 #if WITH_DEV_AUTOMATION_TESTS
@@ -22,6 +23,9 @@ bool FERLobbyQuorum::RunTest(const FString& Parameters)
     TestEqual(TEXT("tied leaders only"), ERLobby::LeadingMaps(TArray<int32>{0,1}, 3), TArray<int32>({0,1}));
     TestEqual(TEXT("plurality without majority wins"), ERLobby::LeadingMaps(TArray<int32>{2,2,1,0,-1}, 3), TArray<int32>({2}));
     TestEqual(TEXT("out of range votes ignored"), ERLobby::LeadingMaps(TArray<int32>{-99,99,1}, 2), TArray<int32>({1}));
+    TestEqual(TEXT("unvoted lobby only draws production maps"),ERMaps::LobbyLeaders(TArray<int32>{-1,-1}),TArray<int32>({0,2}));
+    TestEqual(TEXT("stale Depot votes cannot win or enter random pool"),ERMaps::LobbyLeaders(TArray<int32>{1,1,1}),TArray<int32>({0,2}));
+    TestEqual(TEXT("valid vote beats excluded Depot votes"),ERMaps::LobbyLeaders(TArray<int32>{1,1,2}),TArray<int32>({2}));
     return true;
 }
 #endif

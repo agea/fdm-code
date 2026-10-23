@@ -74,7 +74,14 @@ FERBlockShotResult ERBlockCombat::ContinueShot(UWorld* World, const FHitResult& 
             // One shared HP budget across every cell, panel and room on this ray.
             if (Result.Penetrations >= Limit || ++CellSteps > 4 * Limit) { Result.bLimited = true; break; }
             Rooms.AddUnique(Room);
-            const auto Step = Room->ShootCells(Hit, Cursor, Ray, RemainingRange, Result.RemainingDamage, Limit - Result.Penetrations);
+            // Firearms use the same four supplied decals on fixed and cell surfaces.
+            // Keep the material fallback for direct structural probes/other causers.
+            auto* ImpactWeapon = Cast<AERWeapon>(Causer);
+            const auto Step = Room->ShootCells(Hit, Cursor, Ray, RemainingRange, Result.RemainingDamage,
+                Limit - Result.Penetrations, !ImpactWeapon);
+            if (ImpactWeapon)
+                ImpactWeapon->MulticastImpact(Hit.ImpactPoint, Hit.ImpactNormal,
+                    FMath::FRandRange(0.f, 360.f), uint8(FMath::RandRange(0, 3)));
             Result.BlockHits += Step.Cells; Result.bLimited |= Step.bLimited;
             if (Step.bStop) { Result.End = Step.Exit; break; }
             Result.Penetrations += Step.Runs;

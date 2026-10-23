@@ -1,4 +1,5 @@
 #include "ERBotLoadoutProbe.h"
+#include "ERLoadout.h"
 #include "ERBotController.h"
 #include "ERCharacter.h"
 #include "ERMatch.h"
@@ -36,14 +37,20 @@ bool AERBotLoadoutProbe::Observe(bool FreshLife)
         ++Count;
         auto* Gun = It->Weapon.Get();
         const int32 Slot = It->Inventory.IndexOfByKey(Gun);
-        Valid &= It->Inventory.Num() == 10 && Gun && Gun->Data && Gun->Data->Payload == EERPayload::Bullet && Slot >= 1 && Slot <= 6;
-        if (Slot >= 0 && Slot < 10) Mask |= 1<<Slot;
-        if (HasAuthority()) Valid &= Gun && Gun->Data && Gun->MagazineAmmo == Gun->Data->MagazineSize && PS->PrimaryWeapon == Slot;
+        const auto Kit=ERLoadouts::Resolve(It->ActivePreset,It->ActiveVariant,PS->Team==EERTeam::Omega,*It);
+        const int32 Preset=ERLoadouts::Presets().IndexOfByKey(It->ActivePreset),Variant=ERLoadouts::Variants().IndexOfByKey(It->ActiveVariant);
+        Valid &= It->bPresetInventory && It->Inventory.Num()==Kit.Items.Num() && Gun && Gun->Data==Kit.Items[0].Data && Slot==0 && PS->ActiveSkin==Kit.Skin && Preset>=0 && Variant>=0;
+        if(Preset>=0 && Variant>=0)Mask|=1<<(Preset*3+Variant);
+        for(int32 I=0;I<Kit.Items.Num() && I<It->Inventory.Num();++I)
+        {
+            const auto* Item=It->Inventory[I].Get();Valid &= Item && Item->Data==Kit.Items[I].Data;
+            if(HasAuthority())Valid &= Item && Item->MagazineAmmo==Kit.Items[I].Loaded && Item->ReserveAmmo==Kit.Items[I].Reserve;
+        }
         if (FreshLife) Valid &= PreviousPawns.Contains(PS) && PreviousPawns.FindRef(PS) != *It;
         if (Phase == 3) Valid &= PS->Deaths == 0;
         Current.Add(PS,*It);
     }
-    Valid &= Count == 6 && Mask == 126;
+    Valid &= Count == 6;
     if (Valid)
     {
         PreviousPawns = MoveTemp(Current);

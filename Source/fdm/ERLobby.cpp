@@ -1,3 +1,4 @@
+#include "ERClaymore.h"
 #include "ERMatch.h"
 #include "ERPlayerController.h"
 #include "ERMapCatalog.h"
@@ -10,6 +11,7 @@ void AERPlayerState::CopyProperties(APlayerState* Target)
     Super::CopyProperties(Target);
     if (auto* PS = Cast<AERPlayerState>(Target))
     {
+        PS->LoadoutPreset=LoadoutPreset; PS->LoadoutVariant=LoadoutVariant;
         PS->Team = Team; PS->PrimaryWeapon = PrimaryWeapon;
         PS->AlphaSkin = AlphaSkin; PS->OmegaSkin = OmegaSkin;
         PS->SpareMagazines = SpareMagazines; PS->HECount = HECount;
@@ -30,7 +32,7 @@ void AERGameMode::CheckLobby()
         ++Humans; Ready += PS->bLobbyReady; Votes.Add(PS->MapVote);
     }
     if (!ERLobby::HasQuorum(Humans, Ready)) return;
-    const auto Leaders = ERLobby::LeadingMaps(Votes, ERMaps::All().Num());
+    const auto Leaders = ERMaps::LobbyLeaders(Votes);
     if (Leaders.IsEmpty()) return;
     const int32 Map = Leaders[FMath::RandHelper(Leaders.Num())];
     bLobbyTravelPending = true;
@@ -65,13 +67,14 @@ void AERPlayerController::ServerLobbyTeam_Implementation(int32 Team)
     const auto* State = GetWorld()->GetGameState<AERGameState>();
     if (!Mode || !Mode->IsLobby() || !State || State->bLobbyStarting || Team < 0 || Team > 1) return;
     if (auto* PS = GetPlayerState<AERPlayerState>())
-    { PS->Team = Team == 0 ? EERTeam::Alpha : EERTeam::Omega; PS->bLobbyReady = false; PS->ForceNetUpdate(); }
+    { AERClaymore::RemoveFor(GetWorld(),PS); PS->Team = Team == 0 ? EERTeam::Alpha : EERTeam::Omega; PS->bLobbyReady = false; PS->ForceNetUpdate(); }
 }
 void AERPlayerController::ServerLobbyVote_Implementation(int32 Map)
 {
     const auto* Mode = GetWorld()->GetAuthGameMode<AERGameMode>();
     const auto* State = GetWorld()->GetGameState<AERGameState>();
     if (!Mode || !Mode->IsLobby() || !State || State->bLobbyStarting || Map < -1 || Map >= ERMaps::All().Num()) return;
+    if (Map >= 0 && !ERMaps::At(Map).InRotation) return;
     if (auto* PS = GetPlayerState<AERPlayerState>()) { PS->MapVote = Map; PS->ForceNetUpdate(); }
 }
 void AERPlayerController::ServerLobbyReady_Implementation(bool Ready)
@@ -84,6 +87,7 @@ void AERPlayerController::ServerLobbyReady_Implementation(bool Ready)
 }
 void AERPlayerController::ServerSetSupplies_Implementation(int32 Magazines, int32 HE, int32 Smoke, int32 Stun)
 {
+    if(!GetWorld()->URL.HasOption(TEXT("ERLegacyArsenal")))return;
     const auto* State = GetWorld()->GetGameState<AERGameState>();
     if (State && State->bLobbyStarting) return;
     if (Magazines < 0 || Magazines > 20 || HE < 0 || HE > 20 || Smoke < 0 || Smoke > 20 || Stun < 0 || Stun > 20) return;

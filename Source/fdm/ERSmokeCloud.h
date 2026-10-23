@@ -21,7 +21,7 @@ public:
     // Local playback gain: existing .65 multiplied by -10 dB. WAV/HE unchanged.
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta=(ClampMin="0")) float ReleaseVolume = .65f * .31622777f;
     UPROPERTY(Transient) TObjectPtr<class UAudioComponent> ReleaseAudio;
-    UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) FVector SimSize = FVector(800,800,400);
+    UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) FVector SimSize = FVector(880,880,400);
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) int32 GridResolution = 40;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) float Duration = 12;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, ReplicatedUsing=OnRep_SmokeColor) FLinearColor SmokeColor = FLinearColor(.33f,.33f,.33f,1);

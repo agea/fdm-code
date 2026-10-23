@@ -1,4 +1,5 @@
 #include "ERReconProbe.h"
+#include "GameFramework/HUD.h"
 #include "ERRecon.h"
 #include "ERCharacter.h"
 #include "ERWeapon.h"
@@ -112,6 +113,8 @@ void AERReconProbe::Tick(float DeltaSeconds)
             Host->SetViewTarget(Camera);
             auto* Drone=Recon->ActiveDrone(EERTeam::Alpha);
             Drone->Flight.Launch=P+FVector(0,0,140); Drone->Flight.StartedAt=Now+1000;
+            if (FParse::Param(FCommandLine::Get(),TEXT("ERReconBeaconGallery")))
+            { Drone->Flight.Center=Drone->Flight.Launch; Drone->Flight.Radius=FVector2D::ZeroVector; }
             Advance(100,5); return;
         }
         if (!Recon || !Recon->Frame.Epoch || !Host || !Enemy || !Ally) return;
@@ -158,7 +161,13 @@ void AERReconProbe::Tick(float DeltaSeconds)
     case 101:
     {
         const FVector P=Recon->Teams[0].Base->GetActorLocation();
-        GalleryCamera->SetActorLocation(P+FVector(100,-110,210));
+        const bool BeaconView=FParse::Param(FCommandLine::Get(),TEXT("ERReconBeaconGallery"));
+        if (BeaconView)
+        {
+            Recon->ActiveDrone(EERTeam::Alpha)->Flight.StartedAt=Now+1.95;
+            if (Host->GetHUD()) Host->GetHUD()->bShowHUD=false;
+        }
+        GalleryCamera->SetActorLocation(P+FVector(100,-110,BeaconView ? 95 : 210));
         GalleryCamera->SetActorRotation((P+FVector(0,0,140)-GalleryCamera->GetActorLocation()).Rotation());
         Advance(102,2); break;
     }

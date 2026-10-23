@@ -43,10 +43,12 @@ void AERGrenadeProbe::Fixture()
         M->SetCollisionResponseToAllChannels(ECR_Block);return A;
     };
     Box(FVector(0,0,-15),FVector(1400,1400,30));
-    Box(FVector(0,-350,175),FVector(20,500,350));
-    Box(FVector(0,350,175),FVector(20,500,350));
+    // Seal above the complete 4m volume: a 3.5m wall permits a legitimate
+    // connected route over its top with the wider horizontal smoke footprint.
+    Box(FVector(0,-350,225),FVector(20,500,450));
+    Box(FVector(0,350,225),FVector(20,500,450));
     Box(FVector(0,0,35),FVector(20,200,70));
-    Box(FVector(0,0,280),FVector(20,200,140));
+    Box(FVector(0,0,330),FVector(20,200,240));
     Seal=Box(FVector(0,0,140),FVector(20,200,140));
     if(FParse::Param(FCommandLine::Get(),TEXT("ERGrenadeRender")))
         if(auto* PC=GetWorld()->GetFirstPlayerController();PC && PC->IsLocalController())
@@ -170,9 +172,9 @@ void AERGrenadeProbe::Tick(float DeltaSeconds)
         Check(Cloud.IsValid() && Cloud->SmokeColor.Equals(AERSmokeCloud::ColorForTeam(EERTeam::Alpha)),TEXT("alpha_smoke_retains_thrower_team_color"));
         Check(Omega,TEXT("omega_smoke_retains_thrower_team_color_after_team_restore"));
         if(Cloud.IsValid()) Cloud->AddShot(Cloud->VolumeOrigin+FVector(-100,0,100),Cloud->VolumeOrigin+FVector(-50,0,100));
-        Check(Cloud.IsValid() && Cloud->SimSize.Equals(FVector(800,800,400)),TEXT("smoke_four_metre_radius_and_height"));
+        Check(Cloud.IsValid() && Cloud->SimSize.Equals(FVector(880,880,400)),TEXT("smoke_4_4_metre_radius_four_metre_height"));
         Check(Cloud.IsValid() && !Cloud->ShapePhase.IsNearlyZero(),TEXT("smoke_has_randomized_shape_phase"));
-        Check(Cloud.IsValid() && !Cloud->ContainsSmokeAt(Cloud->VolumeOrigin+FVector(401,0,10)),TEXT("smoke_stays_within_four_metre_radius"));
+        Check(Cloud.IsValid() && !Cloud->ContainsSmokeAt(Cloud->VolumeOrigin+FVector(441,0,10)),TEXT("smoke_stays_within_4_4_metre_radius"));
         Check(Cloud.IsValid() && Cloud->ContainsSmokeAt(FVector(-100,0,5100)),TEXT("smoke_fills_source_side"));
         Check(Cloud.IsValid() && !Cloud->ContainsSmokeAt(FVector(60,0,5140)),TEXT("closed_wall_blocks_smoke"));
         Check(Cloud.IsValid() && !Cloud->ContainsSmokeAt(FVector(-100,0,4990)),TEXT("hemisphere_stays_above_floor"));

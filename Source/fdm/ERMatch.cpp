@@ -1,4 +1,7 @@
 #include "ERMatch.h"
+#include "ERLoadoutProbe.h"
+#include "ERClaymore.h"
+#include "ERLoadout.h"
 #include "EROnline.h"
 #include "ERLobbyProbe.h"
 #include "ERCapacityProbe.h"
@@ -53,12 +56,15 @@ void AERPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
     DOREPLIFETIME(AERPlayerState, SmokeCount); DOREPLIFETIME(AERPlayerState, StunCount);
     DOREPLIFETIME(AERPlayerState, Team); DOREPLIFETIME(AERPlayerState, Kills);
     DOREPLIFETIME(AERPlayerState, Deaths); DOREPLIFETIME(AERPlayerState, TeamKills);
+    DOREPLIFETIME(AERPlayerState, ActiveClaymores);
+    DOREPLIFETIME(AERPlayerState, LoadoutPreset); DOREPLIFETIME(AERPlayerState, LoadoutVariant);
     DOREPLIFETIME(AERPlayerState, PrimaryWeapon);
     DOREPLIFETIME(AERPlayerState, AlphaSkin); DOREPLIFETIME(AERPlayerState, OmegaSkin); DOREPLIFETIME(AERPlayerState, ActiveSkin);
 }
 void AERGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+    DOREPLIFETIME(AERGameState, LoadoutCatalog);
     DOREPLIFETIME(AERGameState, ServerMaxPlayers);
     DOREPLIFETIME(AERGameState, bOnline);
     DOREPLIFETIME(AERGameState, bLobby); DOREPLIFETIME(AERGameState, bLobbyStarting);
@@ -178,12 +184,19 @@ void AERGameMode::BeginPlay()
     Super::BeginPlay();
     if (auto* State = GetGameState<AERGameState>())
     { State->bOnline = GetGameInstance()->GetSubsystem<UEROnline>()->IsOnline(); State->ServerMaxPlayers = MaxHumanPlayers; State->bLobby = bLobby; State->LobbyAlphaBots = AlphaBotCount; State->LobbyOmegaBots = OmegaBotCount; }
+    if(auto* State=GetGameState<AERGameState>())
+    {
+        const auto* Catalog=DefaultPawnClass?Cast<AERCharacter>(DefaultPawnClass->GetDefaultObject()):nullptr;
+        for(bool Omega:{false,true})for(const FName Preset:ERLoadouts::Presets())for(const FName Variant:ERLoadouts::Variants())
+            State->LoadoutCatalog.Add(ERLoadouts::Resolve(Preset,Variant,Omega,Catalog));
+    }
     if (!GetWorld()->GetMapName().Contains(TEXT("L_MainMenu")))
         GetWorld()->SpawnActor<AERReconDirector>(ReconClass ? ReconClass.Get() : AERReconDirector::StaticClass());
 #if !UE_BUILD_SHIPPING
     if (FParse::Param(FCommandLine::Get(), TEXT("ERCapacityProbe"))) GetWorld()->SpawnActor<AERCapacityProbe>();
     int32 LobbyProbeClient = 0;
     if (FParse::Param(FCommandLine::Get(), TEXT("ERWindowInputProbe")) || FParse::Param(FCommandLine::Get(), TEXT("EROnlineUnconfiguredProbe")) || FParse::Param(FCommandLine::Get(), TEXT("ERMenuGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERSettingsWrite")) || FParse::Param(FCommandLine::Get(), TEXT("ERSettingsRead")) || FParse::Param(FCommandLine::Get(), TEXT("ERLobbyProbeHost")) || FParse::Param(FCommandLine::Get(), TEXT("ERLobbyProbeTimeout")) || FParse::Value(FCommandLine::Get(), TEXT("ERLobbyProbeClient="), LobbyProbeClient)) GetWorld()->SpawnActor<AERLobbyProbe>();
+    if (FParse::Param(FCommandLine::Get(),TEXT("ERLoadoutProbe"))) GetWorld()->SpawnActor<AERLoadoutProbe>();
     if (FParse::Param(FCommandLine::Get(),TEXT("ERBotLoadoutProbe"))) GetWorld()->SpawnActor<AERBotLoadoutProbe>();
     if (FParse::Param(FCommandLine::Get(),TEXT("ERReconProbe"))) GetWorld()->SpawnActor<AERReconProbe>();
     if (GetWorld()->GetMapName().Contains(TEXT("L_CentralBuilding")) && FParse::Param(FCommandLine::Get(),TEXT("ERIndustrialMapProbe")))GetWorld()->SpawnActor<AERIndustrialMapProbe>();
@@ -242,6 +255,7 @@ void AERGameMode::PostLogin(APlayerController* Player)
 }
 void AERGameMode::Logout(AController* Player)
 {
+    if(auto* PS=Player->GetPlayerState<AERPlayerState>())AERClaymore::RemoveFor(GetWorld(),PS);
     if (auto* Character = Cast<AERCharacter>(Player->GetPawn())) if (Character->Weapon) Character->Weapon->Cancel();
     GetWorld()->GetSubsystem<UERGameplayMessages>()->Forget(Player->GetPlayerState<AERPlayerState>());
     GetGameInstance()->GetSubsystem<UEROnline>()->UnregisterPlayer(Player);
@@ -270,6 +284,8 @@ FString AERGameMode::InitNewPlayer(APlayerController* Player, const FUniqueNetId
             State->PrimaryWeapon = FMath::Clamp(UGameplayStatics::GetIntOption(Options, TEXT("Primary"), GetWorld()->URL.HasOption(TEXT("ERLegacyArsenal")) ? 0 : 4), 0, 9);
             State->AlphaSkin = ERSkins::ValidIndex(UGameplayStatics::GetIntOption(Options, TEXT("AlphaSkin"), 0));
             State->OmegaSkin = ERSkins::ValidIndex(UGameplayStatics::GetIntOption(Options, TEXT("OmegaSkin"), 0));
+            const auto Kit=ERLoadouts::Resolve(FName(*UGameplayStatics::ParseOption(Options,TEXT("Preset"))), FName(*UGameplayStatics::ParseOption(Options,TEXT("Variant"))));
+            State->LoadoutPreset=Kit.Preset;State->LoadoutVariant=Kit.Variant;
             const int32 RequestedTeam = UGameplayStatics::GetIntOption(Options, TEXT("Team"), -1);
             if (RequestedTeam == 0 || RequestedTeam == 1) State->Team = RequestedTeam == 0 ? EERTeam::Alpha : EERTeam::Omega;
             State->SetPlayerName(SanitizeName(UGameplayStatics::ParseOption(Options, TEXT("Name")))); AssignTeam(State);
@@ -315,20 +331,31 @@ void AERGameMode::RestartPlayer(AController* Player)
     if (AActor* Start = ChoosePlayerStart(Player))
     {
         if (auto* PS = Player->GetPlayerState<AERPlayerState>())
-        { PS->ActiveSkin = ERSkins::ValidIndex(PS->Team == EERTeam::Alpha ? PS->AlphaSkin : PS->OmegaSkin); PS->ForceNetUpdate(); }
+        {
+            if(!GetWorld()->URL.HasOption(TEXT("ERLegacyArsenal")))
+            {
+                if(PS->IsABot()) { PS->LoadoutPreset=ERLoadouts::Presets()[BotWeaponRandom.RandRange(0,4)];PS->LoadoutVariant=ERLoadouts::Variants()[BotWeaponRandom.RandRange(0,2)]; }
+                const auto Kit=ERLoadouts::Resolve(PS->LoadoutPreset,PS->LoadoutVariant,PS->Team==EERTeam::Omega,Cast<AERCharacter>(GetDefaultPawnClassForController(Player)->GetDefaultObject()));
+                PS->LoadoutPreset=Kit.Preset;PS->LoadoutVariant=Kit.Variant;
+                PS->AlphaSkin=ERLoadouts::Resolve(Kit.Preset,Kit.Variant,false,Cast<AERCharacter>(GetDefaultPawnClassForController(Player)->GetDefaultObject())).Skin;
+                PS->OmegaSkin=ERLoadouts::Resolve(Kit.Preset,Kit.Variant,true,Cast<AERCharacter>(GetDefaultPawnClassForController(Player)->GetDefaultObject())).Skin;
+            }
+            PS->ActiveSkin = ERSkins::ValidIndex(PS->Team == EERTeam::Alpha ? PS->AlphaSkin : PS->OmegaSkin); PS->ForceNetUpdate(); }
+        TGuardValue<bool> SpawnGuard(bSpawningPresetPawn,!GetWorld()->URL.HasOption(TEXT("ERLegacyArsenal")) && !GetWorld()->URL.HasOption(TEXT("ERFullArsenalTest")));
         RestartPlayerAtPlayerStart(Player, Start);
     }
     if (auto* Character = Cast<AERCharacter>(Player->GetPawn()))
     {
         Character->InitializeLoadout(Player->GetPlayerState<AERPlayerState>()->PrimaryWeapon);
-        if (auto* Bot = Cast<AERBotController>(Player)) SelectBotSpawnWeapon(Bot, Character);
+        if (auto* Bot = Cast<AERBotController>(Player))
+        { if(Character->bPresetInventory)Bot->SpawnWeaponSlot=0;else SelectBotSpawnWeapon(Bot,Character); }
     }
 }
 void AERGameMode::SelectBotSpawnWeapon(AERBotController* Bot, AERCharacter* Character)
 {
     // ERLegacyArsenal is a pinned regression catalog. Ordinary sessions use the
     // current ten-slot inventory and select afresh on every spawn/respawn.
-    if (!Character->UsesReferenceArsenal()) return;
+    if (!Character->UsesReferenceArsenal() || !GetWorld()->URL.HasOption(TEXT("ERFullArsenalTest"))) return;
     TArray<int32> Eligible;
     for (int32 Slot = 0; Slot < Character->Inventory.Num(); ++Slot)
     {
@@ -388,6 +415,7 @@ void AERGameMode::CheckMatch()
 }
 void AERGameMode::FinishRound()
 {
+    AERClaymore::RemoveFor(GetWorld());
     auto* State = GetGameState<AERGameState>();
     State->Winner = State->AlphaScore == State->OmegaScore ? EERTeam::None : (State->AlphaScore > State->OmegaScore ? EERTeam::Alpha : EERTeam::Omega);
     State->RestartServerTime = State->GetServerWorldTimeSeconds() + 10;
@@ -398,6 +426,7 @@ void AERGameMode::FinishRound()
 }
 void AERGameMode::ResetRound()
 {
+    AERClaymore::RemoveFor(GetWorld());
     for (TActorIterator<AERCorpse> It(GetWorld()); It; ++It) It->Destroy();
     for (TActorIterator<AERSmokeCloud> It(GetWorld()); It; ++It) It->Destroy();
     SetMatchState(MatchState::WaitingToStart);
@@ -486,4 +515,11 @@ double AERGameState::GetAimPunchServerTimeSeconds() const
 {
     if(HasAuthority() || AimClockReceiptTime<0)return GetServerWorldTimeSeconds();
     return ReplicatedWorldTimeSecondsDouble+FMath::Max(0.,GetWorld()->GetTimeSeconds()-AimClockReceiptTime);
+}
+
+void AERGameState::OnRep_LoadoutCatalog()
+{
+    for(FConstPlayerControllerIterator It=GetWorld()->GetPlayerControllerIterator();It;++It)
+        if(auto* PC=Cast<AERPlayerController>(It->Get());PC && PC->IsLocalController() && PC->bMenuOpen && PC->MenuPage==6)
+        { PC->LoadoutPortraits.Empty();PC->ShowMenu(true); }
 }

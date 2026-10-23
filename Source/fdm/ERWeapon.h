@@ -8,13 +8,14 @@
 #include "ERWeapon.generated.h"
 
 UENUM(BlueprintType)
-enum class EERPayload : uint8 { Bullet, Rocket, HE, Smoke, Stun, Melee, LaunchedHE };
+enum class EERPayload : uint8 { Bullet, Rocket, HE, Smoke, Stun, Melee, LaunchedHE, Claymore };
 
 UCLASS(BlueprintType)
 class FDM_API UERWeaponData : public UDataAsset
 {
     GENERATED_BODY()
 public:
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Claymore") TObjectPtr<class UStaticMesh> PlacedMesh;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) FString DisplayName = TEXT("Assault Rifle");
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") TObjectPtr<class USkeletalMesh> Mesh;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") TObjectPtr<class USkeletalMesh> SightMesh;
@@ -119,6 +120,11 @@ public:
     UPROPERTY() TObjectPtr<class AERProjectile> CookedGrenade;
     static bool IsHandGrenade(EERPayload Kind);
     bool IsGrenadeHandHidden() const;
+    UPROPERTY(ReplicatedUsing=OnRep_PlacingClaymore,BlueprintReadOnly) bool bPlacingClaymore = false;
+    UPROPERTY(Replicated) double ClaymorePlacementStarted = 0;
+    UFUNCTION() void OnRep_PlacingClaymore();
+    double ClaymorePlacementElapsed() const;
+    bool IsClaymorePlacementLow() const { return bPlacingClaymore && ClaymorePlacementElapsed()<1.6; }
     void OnGrenadeDetonated(AERProjectile* Projectile);
     UPROPERTY(Replicated, BlueprintReadOnly) float BloomAtLastShot = 0;
     UPROPERTY(Replicated, BlueprintReadOnly) double LastSpreadShotServerTime = -100;
@@ -164,6 +170,9 @@ public:
     FVector LastShotAimDirection = FVector::ForwardVector;
     FVector LastShotDirection = FVector::ForwardVector;
     float LastShotSpreadDegrees = 0;
+    UPROPERTY(Transient) TObjectPtr<class UStaticMeshComponent> PlacementGhost;
+    virtual void Tick(float Delta) override;
+    int32 InitialLoaded = -1, InitialReserve = -1;
     virtual void BeginPlay() override;
     virtual void EndPlay(const EEndPlayReason::Type Reason) override;
     void StartFire();
@@ -180,6 +189,9 @@ private:
     FRandomStream RecoilRandom;
     double LastRecoilShotTime = -100;
     bool CanFight() const;
+    bool bClaymoreDeposited = false;
+    void UpdateClaymorePlacement();
+    void EndClaymorePlacement();
     void TryFire();
     void FinishReload();
     void ArmGrenade();

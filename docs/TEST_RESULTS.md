@@ -1,3 +1,48 @@
+## 23 October 2026 — low industrial barriers
+
+- arm64 Development Editor build: PASS. Fence geometry version3 uses a fixed
+  100cm concrete plinth and exactly one127cm original-height steel course,
+  227cm total above its supporting floor. Applied to perimeter, midfield and
+  central floor separators with the same footprint and half-turn pairing.
+- `test-industrial-map.py`: all four native tests PASS;516 seeded layouts.
+  Every steel course has a matching concrete base. Across both perimeter axes,
+  three crossing rules and one to three floors, the base stops bullets and stays
+  fixed; bars/apertures match reverse bullet/visibility/blast queries. Real
+  FindLedge calls reject both plinth and steel from both sides at5cm increments
+  throughout the normal jump rise; combined height exceeds normal jump apex plus
+  the existing150cm mantle reach. Pawn traces clear above the visible227cm top.
+- `test-industrial-map.py --finish-gallery --offscreen`: PASS, exit0. Real Metal
+  close-up visually inspected at `Saved/Testing/Industrial-Fence-rule3-seed42.png`.
+- `test-industrial-map.py --network`: PASS, host exit0; the initial and late
+  local clients agree before damage, after damage and after regeneration.
+  Phase1/3/4 digests:898697340 /3293018068 /4129127231. Client queries check
+  the concrete base, steel band and free space above227cm. The first run's client
+  failure was an obsolete test expecting collision at300cm; that probe now
+  checks the requested dimensions. Actual map/physics logic was unchanged by
+  the probe correction. This is a local multi-process check.
+- The user explicitly accepts crossing from higher roofs; the requirement is
+  limited to approaches from ground level. Imported source assets, jump/mantle
+  calibration and the shared destruction materials are unchanged.
+
+## 22 October 2026 — supplied ink impact decals
+
+- Mac arm64 Development Editor build: PASS. `setup_bullet_decals.py` executed
+  through Unreal: PASS/exit0; reimported original RGBA atlas and saved all four
+  material instances. Original source SHA256 verified; previous atlas retained.
+- `test-destruction.py`: PASS/exit0, all15 destruction automation tests.
+  `test-network.py --accuracy`: PASS/exit0, including owner replication checks.
+  `test-arsenal.py`: PASS/exit0, host/client payload, fuse and smoke regressions.
+- `-ERHitscanGallery` on Metal with current Primary=1: supplied four marks and
+  a real pistol impact visible in fresh `Saved/Testing/Hitscan-Effects.png`,
+  visually inspected. Asset/authorized trace checks pass; no impact shader errors.
+  The unrelated casing floor assertion fails for this pistol fixture, so this
+  is not a full gallery PASS. Initial Primary=0 selected the current knife;
+  repeated with pistol for the firearm capture.
+- Historical `test-destruction.py --combat` cannot load retired L_DestructionLab;
+  no gameplay PASS claimed for that obsolete fixture. Current industrial game
+  probe used instead: `test-industrial-map.py --game` PASS/exit0, including
+  real_rifle_damages_building, blast destruction, breach traversal and regeneration.
+
 ## 22 October 2026 — remove retired industrial wire assets
 
 - `cleanup_industrial_wire.py`: PASS. Removed 12 packages through Unreal after
@@ -5673,3 +5718,362 @@ stamina82/130/154, with darker empty tracks. No gameplay or asset changes.
 - `git diff --check`: **PASS**. No network retest required for these visual
   constants/text alignment; previous successful recon/accuracy results remain
   recorded above. No packaging, upload or publication.
+
+### Team readability and drone beacon — 23 October 2026
+
+- `scripts/build-editor.command`: PASS, Editor arm64 Development. Existing
+  CountBits deprecation warnings remain outside this change.
+- `setup_team_readability.py` through the actual Mac UnrealEditor executable:
+  PASS, 67 owned material assets updated and BP_ReconDrone defaults saved;
+  rollback ZIP created. UnrealEditor-Cmd initially failed to load the installed
+  PCGExtendedToolkit module; the standard Editor executable completed normally.
+- `verify_team_skins.py`: PASS in a fresh process, twenty saved appearances and
+  matching character/training-target/corpse catalogs. This validates data, not
+  newly rendered corpse poses.
+- `test-recon.py --automation`: PASS (Flight, FogAndSight, SmokeOcclusion).
+  Engine startup also emits unrelated UnifiedErrorTest 'Condition failed' lines
+  before the requested suite; all three requested tests report Success, exit0.
+- `test-recon.py`: PASS, listen host, enemy, ally and late client, stock/replacement,
+  smoke sight rules and case animation; host complete PASS, process exit0.
+- Final fresh-process skin catalog and beacon readback: PASS
+  (`ER_SKINS_SAVED_COMPLETE`, `ER_BEACON_SAVED_PASS`); both distinct beacon
+  materials, sphere mesh and underside offset persist in BP_ReconDrone.
+- Final Metal skin galleries: PASS, both pages (twenty appearances total), exit0,
+  no material compile failure. Inspected all four Alpha/Omega page PNGs under
+  `Saved/Testing/Skins-{Alpha,Omega}-{0,1}.png`. Existing missing-usage warnings
+  remain on some unchanged catalog surfaces; team cloth renders with its final
+  colours. The beacon's timed on/off appearance was not separately captured.
+
+### Drone team paint replaces beacon — 23 October 2026
+
+- Editor arm64 Development build: PASS, `scripts/build-editor.command`.
+- `setup_drone_team_colors.py`: PASS through Unreal; four owned upper-shell
+  materials and team arrays saved in BP_ReconDrone, obsolete beacon materials
+  removed only after reference checks. ZIP rollback retained in Saved/AssetBackups.
+- `test-recon.py`: PASS, listen/initial/late peers and case/stock/smoke checks,
+  host result PASS and exit0. No character material migration was run.
+- First Metal check caught a missing Clamp input; fixed the connection and added
+  assertions for all material graph connections before saving.
+- Final Metal recon gallery: PASS, ER_RECON_GALLERY_COMPLETE, exit0, no material
+  compile failures. Inspected Recon102_Drone.png: blue upper shell and original
+  dark lower body/rotors, no underside beacon. Both team variants compile; the
+  screenshot covers Alpha, while Omega is checked through its saved material array.
+
+### Smoke radius and moving edge — 23 October 2026
+
+- Editor arm64 Development builds: PASS. setup_smoke_shape.py: PASS, smoke-only
+  material/Blueprint migration with a ZIP backup; radius440cm, height400cm.
+- test-recon.py --automation: PASS, Flight/FogAndSight/SmokeOcclusion, exit0.
+  The previously observed engine startup UnifiedErrorTest messages persist before
+  the requested tests; each requested test reports Success.
+- First grenade Metal/LAN run compiled the material and passed radius, window,
+  team colours, wakes, blast pockets, recovery and expiry, but detected smoke
+  reaching beyond the fixture's closed3.5m wall through the open space above it.
+  The wider horizontal footprint admits that connected route. Raised only the
+  test fixture's wall top to4.5m (above the entire4m cloud) to test a truly sealed
+  barrier; production containment overlap/sweep/flood rules are unchanged.
+- Final test-grenades.py --render: PASS, all eight checks true, host exit0.
+  Includes sealed-wall rejection, open-window passage on both peers,440cm bound,
+  team colours, bullet refill, moving-projectile wake, persistent blast pocket,
+  expiry and material compilation. Fresh Metal captures produced and the open
+  window cloud inspected. This is a visual spot check, not a recorded temporal
+  comparison of the contour's motion.
+
+### Dark beacon and server rotation exclusion — 23 October 2026
+
+- Editor arm64 Development build: PASS. setup_drone_beacon.py: PASS, original
+  shell restored, dark saturated beacon materials saved and unused upper paint
+  materials removed after reference checks. Recon ZIP backup retained locally.
+- EclipseRecoil.Menu.LobbyQuorumAndVotes: PASS, including no-vote selection,
+  stale Depot-only votes and excluded Depot votes against valid Alleys votes.
+  Lobby buttons and server vote validation use the same InRotation eligibility.
+- test-lobby.py: PASS, real host/two-client LAN discovery, strict-majority READY,
+  seamless travel to Middle Eastern Alleys, generation acknowledgements and
+  preserved team/skin/equipment. Default probe no longer votes for Depot.
+- Final underside Metal beacon gallery: PASS, exit0 and no material compile
+  failures. Inspected Recon102_Drone.png during the lit180ms interval with HUD
+  hidden: Alpha beacon is visibly saturated blue rather than white. The fixture
+  schedules the capture inside the replicated flight-clock flash window.
+
+### Drone underside team symbols — 23 October 2026
+
+- Editor arm64 Development build: PASS. setup_drone_symbols.py: PASS through
+  Unreal, original Alpha/Omega textures reused, both owned symbol materials and
+  BP_ReconDrone references saved, unused beacon materials removed with reference
+  checks and recon ZIP backup. No source PNG or character asset is modified.
+
+### Clarification: symbols painted onto drone hull — 23 October 2026
+
+- Replaced the separate plane with a bounded upward-facing decal attached to
+  the drone body. Reuses existing original graffiti materials; no floating
+  surface or flashing. Editor builds and asset migration PASS.
+- Initial runtime check found a null Blueprint reference after changing the old
+  symbol property's component type. Gave the decal a distinct native property
+  name and re-saved the Blueprint; migration asserts that component exists.
+- Final underside Metal gallery: PASS, exit0, ER_RECON_GALLERY_COMPLETE, no
+  material compilation failures or runtime crash. Fresh Recon102_Drone.png
+  inspected: Alpha art adheres directly to the hull geometry with no floating
+  plane. Owned decal variants use original textures and a restrained .2 colour
+  floor for visibility in shadow. Omega material compiles; screenshot is Alpha.
+
+## Performance setup — 23 October 2026
+
+Added Setup → Performance with saved local rendering preferences and a Performance
+preset. Editor Mac arm64 Development build succeeded. Native
+`EclipseRecoil.Menu.PerformancePreferences` and
+`EclipseRecoil.Player.ResolutionHysteresis` passed (2/2, process exit 0).
+The preference test used a separate temporary INI, including disk reload with
+`-MultiprocessSaveConfig`; the default `-Multiprocess` mode disables disk writes.
+Verified the live scrollable Performance panel with Metal at 1280×900; shortened
+the automatic-resolution label after visual inspection. Existing Menu IPv4 and
+LobbyQuorumAndVotes tests also passed during the initial run. No FPS benchmark,
+non-Mac hardware RT test or multiplayer gameplay regression was performed.
+Details: `docs/PERFORMANCE_SETTINGS.md`.
+
+### Performance defaults and centered panel — 23 October 2026
+
+Fresh profiles now preserve the original renderer values and cosmetic debris
+behavior instead of applying the initial medium/reduced-quality overrides.
+Set default restores the captured pre-override values, automatic resolution,
+and saves the default choice; existing custom preferences remain compatible.
+Performance now spans the center of the viewport with generous side margins.
+Mac arm64 Editor build succeeded. PerformancePreferences (including disk reload,
+AA/texture/shadow restoration and saved default mode) and ResolutionHysteresis
+passed, 2/2, exit 0. Live Metal visual inspection at 1280×900 confirmed the wide
+centered panel, visible Set default button and readable resolution selector.
+
+### Responsive menu columns — 23 October 2026
+
+Performance now groups whole label/control fields into two equal columns, with
+preset/default actions side by side. Setup, Play Offline, Start Server and
+Equipment reuse the same layout; submenus use the wide centered panel. Below
+900 local Slate units of content width, the fields reflow to a single column.
+Mac arm64 Editor build succeeded; EclipseRecoil.Menu passed 3/3 (IPv4Validation,
+LobbyQuorumAndVotes, PerformancePreferences), process exit 0. Live Metal checks
+at 1280×900 confirmed two columns; 800×900 confirmed single-column fallback,
+readable controls and stacked preset/default buttons. No settings values or
+rendering behavior were changed in this layout pass.
+
+### Alpha uniform colour refinement — 23 October 2026
+
+- setup_team_readability.py scoped with TEAMS=['Alpha']: PASS,25 owned material
+  assets saved, ZIP rollback retained. New tint(.10,.30,.72) preserves each skin's
+  strength and existing cloth texture lift; Omega and source emblem art untouched.
+- Fresh Metal Alpha page0/page1 captures inspected: all ten Alpha uniforms render
+  in the less saturated blue, retaining team contrast and natural face colours.
+- Both final gallery processes completed PASS/exit0, ten matching appearances per
+  page across both teams, no material compilation failure.
+
+## Belica facial attachment scale — 23 October 2026
+
+The supplied close-ups showed protruding eyes/lips. Raw evaluation of the owned
+rifle idle identified faceAttach scale 1 versus the skeleton's authored uniform
+0.7851459384, enlarging the facial subtree by approximately 27.4% relative to its
+reference size. fix_belica_face_scale.py restores that scale in 24 owned Belica
+animation clips, preserving sampled local translations/rotations and all other
+tracks. ZIP rollback and per-clip results: Saved/Testing/belica-face-scale.json.
+Vendor meshes, materials and shared gameplay are unchanged.
+
+- Migration: PASS, start/middle/end scale checks on all 24 clips.
+- Fresh-process verify_phase_belica.py: exit 0, zero errors/warnings; includes
+  facial scale checks for all five Belica appearances and existing Phase/FPS checks.
+- Metal ERSkinGallery, page 1/detail 5: inspected Saved/Testing/Head-Alpha-6-0.png;
+  eyes/lips no longer protrude. This is a rendered idle close-up, not an exhaustive
+  moving-pose or LAN visual test. Restart an already-running game to reload clips.
+
+## Notification reading time — 23 October 2026
+
+- UE5.8.3 Editor Development build: **PASS**,35.15s.
+- `scripts/test-gameplay-messages.py`: **PASS**,
+  EclipseRecoil.Messages.CatalogAndDelivery, exit0. Existing catalog/shuffle,
+  priority, confirmation retention and attacker-lifetime checks pass; added
+  checks confirm loaded kill duration6s and result duration10s.
+- Original72-event/720-variant JSON SHA256 remains
+  b1582b77ee393805601ac62aaf4f06f43cd299405bdc625d458adf3ae14ab004.
+  `git diff --check`: **PASS**. No asset migration, graphical run or new LAN run
+  required for this timing-only change; the existing owner RPC carries duration.
+
+Logs: `/tmp/rr-notification-duration-build.log`,
+`/tmp/rr-notification-duration-tests.log`,
+`Saved/Testing/gameplay-messages-automation.log`.
+
+## Phase Engineer helmet removal — 23 October 2026
+
+Removed only the rejected procedural helmet on Omega skin9 from all three saved
+catalogs, with ZIP backup. No suitable separate helmet/mask replacement was found
+in the local gear. Retained the scalp/buzz-cut appearance; a preliminary Metal
+close-up exposed stray short-hair cards, so those remain hidden in the final pass.
+Fresh-process verify_phase_belica.py: exit0, zero errors/warnings. Final Metal
+ERSkinGallery page1/detail8 completed; inspected Head-Omega-9-0.png with no helmet
+or stray hair cards. Other appearances and original art are preserved.
+
+
+## Closed presets, inventory, Claymore M18 and Loadout —23 October2026
+
+Implemented in the existing working tree, preserving unrelated pending edits.
+See [LOADOUTS.md](LOADOUTS.md) for behavior, tuning and generator entry points.
+
+Executed successfully:
+
+- UE5.8.3 `RespawnAndRageEditor Mac Development`, arm64: build passed.
+- `scripts/test-loadouts.py`: Catalog and ClaymoreLifecycle passed. This covers
+  all15 recipes, safe fallback/migration, both teams' saved mesh references,
+  asset identity after catalog reordering, shotgun8x22/.35s, directional/occluded
+  visibility, idempotent termination, support loss and owner/team cleanup.
+- Synthetic static-floor stress:257 simultaneously armed mines,100 full detection
+  passes, mean8.877ms per pass on the final native run on this Mac. This is CPU query cost in the native
+  fixture, not a full-map, GPU, multiplayer stress or competitive playtest result.
+- `scripts/test-loadouts.py --render --mines`: two actual local UE processes,
+  all15 kits observed by the remote peer; own ammunition, primary selection,
+  armor/helmet and team skin matched. Confirming another kit left the living
+  pawn unchanged. Legacy supply/skin/primary RPCs could not bypass the catalog.
+- The client ran with SMG Reserve=999 in its own Game config. Its menu still
+  resolved the server's60 rounds (`ER_LOADOUT_SERVER_CATALOG local_reserve=999
+  menu_reserve=60`). Invalid IDs fell back to Rifleman/Offense.
+- Three actual placements, with failed placement preserving stock, intermediate
+  deaths and Defense respawns, coexisted and expired independently after their
+  own60s armed lifetimes. A confirmed variant/preset change did not alter them.
+  The client observed the three absolute deadlines after arming.
+- A fourth armed mine killed a20HP/unarmored test victim after its owner died;
+  the owner's PlayerState received the kill and the active counter returned to0.
+  This validates attribution, not a claim of a guaranteed full-health kill.
+- The real shotgun fire path produced eight traces, one accepted shot and one
+  shell consumed. The immutable reference JSON has no changes. Targeted asset
+  setup was rerun and retained8x22.
+- `scripts/test-bot-loadouts.py --mode Patrol`: six bots had valid closed kits
+  on initial spawn, fresh respawn and round reset on both host and client.
+- Metal captured Rifleman/Gunner, Rifleman/Defense, Grenadier/Gunner and
+  Grenadier/Defense. Selection/summary remained visible with the adapted layout;
+  the Claymore material compiled successfully after correcting Masks samplers.
+  Closing the menu removed the local preview actor.
+- Python syntax checks and `git diff --check` passed. Original Claymore ZIP, DAE,
+  textures, source metadata and credit are retained privately; imports/saves
+  used Unreal and timestamped rollback ZIPs.
+
+Evidence: `Saved/Testing/loadout-automation.log`,
+`Saved/Testing/loadout-render-{host,client}.log`,
+`Saved/Testing/bot-loadouts-Patrol-{host,client}.log`, and
+`Saved/Testing/Loadouts/Loadout_0.png` through `Loadout_3.png`. Captures0/1 show
+Rifleman variants;2/3 show Grenadier variants.
+
+Not claimed: physical two-device LAN/Internet play, dedicated-server execution,
+subjective ten-minute balance/destruction playtesting, or many-mine GPU/network
+stress on production maps. The normal skin collision/eye/animation data were
+not regenerated or normalized by this change. Exhaustive grip/hitbox validation
+and structural balance on all materials remain playtest work.
+
+Additional visual validation: the Metal gallery now contains14 fresh captures.
+Files4..8 show all five Alpha presets;9..13 show all five Omega presets.
+The actual pawn mesh and ActiveSkin were checked against the resolver at each
+spawn, and the ten images were inspected for the four rig families. The initial
+inspection found the long sniper barrel outside the portrait; the preview now
+fits weapon/display bounds and reserves a larger image area. This validates
+basic pose/framing/presentation, not exhaustive support-hand contact or hitbox
+equivalence. The server catalog update invalidates cached thumbnails.
+
+The spawn path also skips the old standalone fallback weapon while GameMode is
+constructing a preset pawn, and destroys any fallback owned by raw test actors
+before inventory assignment. The network fixture counts owned weapon actors
+against the resolved kit to detect hidden leftovers. Cosmetic blast bursts keep
+the existing8-effect presentation budget; this never limits or removes mines.
+
+Implementation files: ERLoadout, ERClaymore, ERCharacter, ERWeapon, ERMatch,
+ERPlayerController, ERMenu, ERMenuPreview, EROnline, ERLobby, ERBotController and
+the map-regeneration cleanup in ERBlockRoom, under Source/fdm. Configuration is
+in Config/DefaultGame.ini; setup/import/override/test scripts are under scripts.
+Gameplay data and the new art remain in the existing private weapons/maps mounts.
+
+Final framing inspection: Rifleman/Defense, Grenadier/Defense and both Sniper
+team counterparts contain the entire barrel, character and equipment area.
+The14-capture host/client run also passed the owned-weapon-actor count check
+after removal of the BeginPlay fallback in normal preset spawns.
+
+Support validation tracks the owning surface actor and the actual contact point,
+not the lifetime of a generated collision component: replacing a component under
+an intact floor does not remove the mine or restart its deadline; removing the
+physical support still disarms it. The native lifecycle fixture covers both.
+
+Final rerun after support handling: native Catalog/ClaymoreLifecycle passed,
+including intact component replacement and real support loss. The separate
+`test-loadouts.py --network --mines` run passed all15 kits and repeated the
+staggered expiries; the fourth mine killed its test victim with the owner's
+Pawn already explicitly unpossessed and destroyed, and credited that owner's
+PlayerState. Final logs: `Saved/Testing/loadout-network-{host,client}.log`.
+
+## Claymore forward trigger and team lasers —23 October2026
+
+User-requested activation is now a 200cm ground-plane sector with a 60° full
+opening. A separate forward blast sector rejects rear targets entirely. Standing
+capsule height no longer excludes a close enemy. Two native collision-free rays
+use the same trigger angle/range, stop at WorldStatic cover, and use ERRecon's
+Alpha blue/Omega orange. They become visible when armed, including on clients.
+An owned unlit material is generated by setup_claymore_lasers.py; imported model
+geometry and source textures are unchanged.
+
+Executed verification:
+- RespawnAndRageEditor arm64 Development build: Succeeded (22.29s).
+- scripts/test-loadouts.py: Catalog and ClaymoreLifecycle Success, process0.
+  Additional checks cover 80cm/199cm/front edge acceptance, 201cm/outside-angle/
+  rear/upper-floor rejection, rear blast exclusion, intact-cover LOS, both rays'
+  ±30° directions and 200cm lengths, no collision, both team colors, and shortened
+  rays against a wall. Existing ownership/expiry/support/no-cap tests still pass.
+- Metal in-game screenshot Saved/Testing/Loadouts/ClaymoreLasers.png inspected:
+  two blue rays visibly delimit the sector in front of the imported M18.
+- Real host/client mine fixture: staggered expiry/death/respawn/variant PASS,
+  remote absolute deadlines PASS, close front detonation with posthumous kill PASS.
+- scripts/test-loadouts.py --render --mines completed with process0 and overall
+  PASS; all15 remote kit observations, all14 fresh menu captures, and Claymore
+  Metal material compilation checks passed.
+
+The laser screenshot uses the Alpha team. Omega color is checked by the native
+material-parameter assertion. Internet latency and gameplay balance remain manual
+playtest work; the test is a local two-process session.
+
+## Deliberate Claymore placement gesture —23 October2026
+
+Fire now starts a 2.2s action: smooth crouch, deposit at1.3s, rise from1.6s,
+and unlock at2.2s. The mine sits65cm ahead of the feet, independent of camera
+pitch; a180cm camera ray no longer makes normal aiming silently fail. Ground,
+cover and protected-spawn checks are retained and repeated on deposit. Invalid
+placement produces a HUD reason. Walking/jump/weapon changes are locked during
+the action, releasing fire does not cancel, and repeated clicks cannot duplicate
+or prematurely consume the item. One item is consumed only on a valid deposit.
+Death/round/weapon cleanup ends the action and restores posture; a deposited mine
+retains the existing independent arm/lifetime rules.
+
+Build: RespawnAndRageEditor arm64 Development Succeeded,25.21s.
+Native suite: Catalog and ClaymoreLifecycle Success, process0. Added placement
+regressions exercise level/up/down camera pitch, nearby ground, horizontal reach,
+front direction, a blocking wall, and spawn protection. The native protection
+fixture now includes the GameState used by production's IsProtected check.
+
+scripts/test-loadouts.py --network --mines: process0, overall PASS and all15
+remote kit observations. The fixture now waits for ground contact after each
+teleport, then verifies that protected placement is rejected with a reason, a
+normal click begins the delayed action with unchanged ammunition, repeated clicks
+do not consume early, the owner is crouched during0.6–1.2s, and the action ends
+standing with exactly one item consumed. It then passes the existing independent
+60s mine expiries, death/respawn/variant persistence, remote deadline replication
+and posthumous kill checks. This run is a local two-process null-RHI session;
+the new gesture's artistic hand motion has not been reviewed in a rendered clip.
+
+## Lethal Claymore activation sector —23 October2026
+
+Enemy targets eligible to trigger the mine now receive at least current health
+plus twice current armor plus1 raw damage, without range falloff reducing this
+minimum. The existing armor function can absorb at most twice current armor, so
+this is lethal even with full armor at the edge of the200cm/60-degree trigger
+sector. Eligibility still requires enemy affiliation, living/non-protected
+state, sector membership and intact-world LOS. This uses ApplyPointDamage and
+the existing health/death/kill-credit pipeline; collateral targets retain the
+normal forward-only blast falloff. Rear damage remains zero.
+
+RespawnAndRageEditor arm64 Development build: Succeeded,11.70s.
+The host/client mine probe now challenges the posthumous kill with100HP,100AP,
+a helmet, and a target199cm away at29.9 degrees from forward, replacing its
+previous20HP/unarmored point80cm ahead.
+
+scripts/test-loadouts.py --network --mines: process0, overall PASS. The fully
+armored target at the trigger-sector edge died and credited the owner after the
+owner's pawn was destroyed. Independent expiry/death/respawn/variant persistence,
+remote absolute deadlines and all15 remote kit observations also passed.

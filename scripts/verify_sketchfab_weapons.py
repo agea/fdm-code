@@ -37,7 +37,9 @@ for index,item in enumerate(catalog):
         if isinstance(rough,ue.MaterialExpressionOneMinus):
             inputs=ue.MaterialEditingLibrary.get_inputs_for_material_expression(mat,rough)
             check(len(inputs)==1 and inputs[0] is not None,'glossiness_inversion_connected_'+mat.get_name())
-    for name,expected in item['stats'].items():
+    effective=dict(item['stats'])
+    effective.update(runpy.run_path(str(project/'scripts/weapon_gameplay_overrides.py'))['OVERRIDES'].get(key,{}))
+    for name,expected in effective.items():
         check(abs(data.get_editor_property(name)-expected)<1e-5,'source_stat_'+key+'_'+name)
     idle=data.get_editor_property('idle_animation')
     check(idle and idle.get_editor_property('skeleton')==fitted,'existing_fps_skeleton_'+key)
@@ -151,7 +153,7 @@ check(not any('scope' in str(n).lower() for n in ue.AnimPoseExtensions.get_bone_
 for path in ['/Game/EclipseRecoil/Core/BP_ERCharacter','/Game/EclipseRecoil/Core/BP_ERTrainingTarget']:
     bp=ue.load_asset(path);defaults=ue.get_default_object(bp.generated_class())
     references=defaults.get_editor_property('reference_arsenal')
-    check([v.get_path_name() for v in references]==[v['data'] for v in catalog],'blueprint_catalog_'+path.rsplit('/',1)[1])
+    check([v.get_path_name() for v in references[:10]]==[v['data'] for v in catalog] and len(references)==11 and references[10].get_editor_property('payload')==ue.ERPayload.CLAYMORE,'blueprint_catalog_'+path.rsplit('/',1)[1])
 controller=ue.get_default_object(ue.load_asset('/Game/EclipseRecoil/Core/BP_ERPlayerController').generated_class())
 check(controller.get_editor_property('reference_arsenal_menu'),'default_menu_uses_ten_slot_controls')
 check(len(controller.get_editor_property('primary_options'))==7,'legacy_menu_and_server_loadout_choices_retained')

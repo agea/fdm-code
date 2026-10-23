@@ -1,4 +1,6 @@
 #include "ERCharacter.h"
+#include "ERClaymore.h"
+#include "ERLoadout.h"
 #include "ERFootsteps.h"
 #include "ERPostureMesh.h"
 #include "ERCorpse.h"
@@ -387,7 +389,8 @@ void AERCharacter::BeginPlay()
         Health->ProtectionEndServerTime = GetWorld()->GetTimeSeconds() + 4;
         // Direct map startup can assign the loadout before this pawn's BeginPlay.
         // Keep that weapon and its FPS pose instead of replacing it with the fallback.
-        if (!Weapon)
+        const auto* SpawnMode=GetWorld()->GetAuthGameMode<AERGameMode>();
+        if (!Weapon && (!SpawnMode || !SpawnMode->IsSpawningPresetPawn()))
         {
             FActorSpawnParameters Params; Params.Owner = this; Params.Instigator = this;
             Weapon = GetWorld()->SpawnActor<AERWeapon>(WeaponClass, GetActorTransform(), Params);
@@ -483,8 +486,8 @@ void AERCharacter::Tick(float DeltaTime)
     const bool bReadyToThrow=bGrenade && Weapon && Weapon->bCookingGrenade && !Health->bDead;
     GrenadeThrowPoseBlend=FMath::FInterpTo(GrenadeThrowPoseBlend,bReadyToThrow?1.f:0.f,DeltaTime,14.f);
     const double LocalNow=GetWorld()->GetTimeSeconds();
-    const bool bHideGrenade=bGrenade && ((Weapon && Weapon->IsGrenadeHandHidden()) ||
-        (IsLocallyControlled() && ((bLocalGrenadeInputHeld && LocalNow<LocalGrenadeCookDeadline) || LocalNow<LocalGrenadeHideUntil)));
+    const bool bHideGrenade=(Weapon && AppliedWeaponData && AppliedWeaponData->Payload==EERPayload::Claymore && Weapon->MagazineAmmo<=0) || (bGrenade && ((Weapon && Weapon->IsGrenadeHandHidden()) ||
+        (IsLocallyControlled() && ((bLocalGrenadeInputHeld && LocalNow<LocalGrenadeCookDeadline) || LocalNow<LocalGrenadeHideUntil))));
     if(Weapon)Weapon->UpdateScopeMotion();
     const bool bOptic = Weapon && Weapon->HasOpticalScope() && Weapon->ScopeLevel;
     const bool bIronSights = Weapon && Weapon->ScopeLevel && Weapon->Data && Weapon->Data->ScopeMode == 1;
@@ -818,6 +821,8 @@ float AERCharacter::TakeDamage(float Damage, const FDamageEvent& Event, AControl
     else if (const auto* Projectile = Cast<AERProjectile>(Causer); Projectile &&
         (Projectile->Payload == EERPayload::HE || Projectile->Payload == EERPayload::LaunchedHE))
             Ratio = ERWeaponBallistics::GrenadeArmorRatio(Projectile->BlastArmorRatio);
+    if(const auto* Mine=Cast<AERClaymore>(Causer))
+    { Ratio=Mine->ArmorRatio;Facts.Explosion=true; }
     if (const auto* Projectile = Cast<AERProjectile>(Causer))
     {
         Facts.HasSourceLife = true;
@@ -947,15 +952,43 @@ void AERCharacter::SetGrenadeInputHeld(bool bHeld)
     LocalGrenadeCookDeadline=GetWorld()->GetTimeSeconds()+Weapon->Data->FuseDuration;
 }
 void AERCharacter::ServerStopFire_Implementation() { if (Weapon) Weapon->StopFire(); }
-void AERCharacter::ServerReload_Implementation() { if (!Health->bDead && Weapon && !Cast<UERMovement>(GetCharacterMovement())->bHighClimb) Weapon->Reload(); }
+void AERCharacter::ServerReload_Implementation() { if (!Health->bDead && Weapon && !Weapon->bPlacingClaymore && !Cast<UERMovement>(GetCharacterMovement())->bHighClimb) Weapon->Reload(); }
 bool AERCharacter::UsesReferenceArsenal() const
 {
     // Both catalogs remain available for comparison and existing saved assets.
-    return HasAuthority() ? ReferenceArsenal.Num() == 10 && !GetWorld()->URL.HasOption(TEXT("ERLegacyArsenal")) : Inventory.Num() == 10;
+    return bPresetInventory || bReferenceInventory;
 }
 void AERCharacter::InitializeLoadout(int32 Primary)
 {
-    if (!HasAuthority() || Arsenal.Num() < 11 || !Inventory.IsEmpty()) return;
+    if (!HasAuthority() || !Inventory.IsEmpty()) return;
+    // Raw exhibition/test actors can own a fallback; never leave it hidden
+    // beside a resolved inventory. Normal GameMode spawns skip its creation.
+    if(Weapon) { Weapon->Destroy();Weapon=nullptr; }
+    bReferenceInventory=!GetWorld()->URL.HasOption(TEXT("ERLegacyArsenal"));
+    bPresetInventory=!GetWorld()->URL.HasOption(TEXT("ERLegacyArsenal")) && !GetWorld()->URL.HasOption(TEXT("ERFullArsenalTest"));
+    if(bPresetInventory)
+    {
+        const auto* PS=GetPlayerState<AERPlayerState>();
+        const auto Kit=ERLoadouts::Resolve(PS?PS->LoadoutPreset:FName(),PS?PS->LoadoutVariant:FName(),PS && PS->Team==EERTeam::Omega,this);
+        for(const auto& Entry:Kit.Items)if(!Entry.Data)
+        { UE_LOG(LogTemp,Error,TEXT("ER_LOADOUT_INVALID_CATALOG missing=%d"),Entry.WeaponKey);return; }
+        ActivePreset=Kit.Preset;ActiveVariant=Kit.Variant;
+        Health->Health=100;Health->Armor=100;Health->bHelmet=true;
+        for(const auto& Entry:Kit.Items)
+        {
+            if(!Entry.Data)
+            { UE_LOG(LogTemp,Error,TEXT("ER_LOADOUT_MISSING_ASSET index=%d"),Entry.WeaponKey);continue; }
+            auto* Item=GetWorld()->SpawnActorDeferred<AERWeapon>(WeaponClass,GetActorTransform(),this,this,ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+            if(!Item)continue;
+            Item->Data=Entry.Data;
+            Item->InitialLoaded=Entry.Loaded;Item->InitialReserve=Entry.Reserve;
+            UGameplayStatics::FinishSpawningActor(Item,Item->GetActorTransform());
+            Item->AttachToComponent(GetRootComponent(),FAttachmentTransformRules::KeepRelativeTransform);
+            Inventory.Add(Item);
+        }
+        Weapon=Inventory.IsEmpty()?nullptr:Inventory[0];ForceNetUpdate();return;
+    }
+    if(Arsenal.Num()<11)return;
     if (Weapon) Weapon->Destroy();
     const bool bReference = UsesReferenceArsenal();
     const TArray<int32> Indices = bReference ? TArray<int32>{0,1,2,3,4,5,6,7,8,9} : TArray<int32>{FMath::Clamp(Primary, 0, 6), 7, 8, 9, 10};
@@ -974,6 +1007,14 @@ void AERCharacter::InitializeLoadout(int32 Primary)
     ForceNetUpdate();
     UE_LOG(LogTemp, Display, TEXT("ER_LOADOUT_SPAWN primary=%d slots=%d"), Primary, Inventory.Num());
 }
+int32 AERCharacter::FindCatalogSlot(int32 Index) const
+{
+    if(!bPresetInventory)return Index;
+    const FName Id=ERLoadouts::WeaponAssetName(Index);
+    for(int32 I=0;I<Inventory.Num();++I)
+        if(Inventory[I] && Inventory[I]->Data && Inventory[I]->Data->GetFName()==Id)return I;
+    return INDEX_NONE;
+}
 bool AERCharacter::CanHoldWeaponOnLadder() const
 {
     const auto* D=Weapon ? Weapon->Data.Get():nullptr;
@@ -988,8 +1029,9 @@ bool AERCharacter::IsWeaponStowed() const
 void AERCharacter::ServerSelectWeapon_Implementation(int32 Slot)
 {
     auto* Movement=Cast<UERMovement>(GetCharacterMovement());
-    if(Health->bDead || (Weapon && Weapon->bCookingGrenade) || (Movement->IsMantling() && Movement->CustomMovementMode!=3))return;
+    if(Health->bDead || (Weapon && (Weapon->bCookingGrenade || Weapon->bPlacingClaymore)) || (Movement->IsMantling() && Movement->CustomMovementMode!=3))return;
     if(!Inventory.IsValidIndex(Slot) || !Inventory[Slot] || Weapon==Inventory[Slot])return;
+    if(bPresetInventory && Inventory[Slot]->Data && Inventory[Slot]->Data->Payload!=EERPayload::Bullet && Inventory[Slot]->Data->Payload!=EERPayload::Melee && Inventory[Slot]->MagazineAmmo+Inventory[Slot]->ReserveAmmo<=0)return;
     if(Weapon)Weapon->Cancel();
     Weapon=Inventory[Slot];
     if(IsWeaponStowed())Weapon->Cancel();
@@ -1183,6 +1225,8 @@ void AERCharacter::MulticastShot_Implementation(FVector_NetQuantize Start, FVect
 void AERCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps); DOREPLIFETIME(AERCharacter, Weapon);
+    DOREPLIFETIME(AERCharacter, bReferenceInventory);
+    DOREPLIFETIME(AERCharacter, bPresetInventory); DOREPLIFETIME(AERCharacter, ActivePreset); DOREPLIFETIME(AERCharacter, ActiveVariant);
     DOREPLIFETIME(AERCharacter, Inventory);
     DOREPLIFETIME_CONDITION(AERCharacter, RecoilState, COND_OwnerOnly);
     DOREPLIFETIME_CONDITION(AERCharacter, DeathFocus, COND_OwnerOnly);

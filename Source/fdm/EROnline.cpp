@@ -1,4 +1,5 @@
 #include "EROnline.h"
+#include "ERLoadout.h"
 #include "ERPlayerController.h"
 #include "ERMatch.h"
 #include "OnlineSubsystem.h"
@@ -20,7 +21,7 @@ const FName VersionKey(TEXT("RR_VERSION"));
 const FName GameKey(TEXT("RR_GAME"));
 FString PlayerOptions(UERGameInstance* GI)
 {
-    return FString::Printf(TEXT("?Name=%s?Team=%d?Primary=%d?AlphaSkin=%d?OmegaSkin=%d?Magazines=%d?HE=%d?Smoke=%d?Stun=%d"),
+    return GI->LoadoutOptions() + FString::Printf(TEXT("?Name=%s?Team=%d?Primary=%d?AlphaSkin=%d?OmegaSkin=%d?Magazines=%d?HE=%d?Smoke=%d?Stun=%d"),
         *AERGameMode::SanitizeName(GI->LocalName), FMath::Clamp(GI->PlayerTeam,0,1), GI->GetStartingWeapon(),
         GI->AlphaSkin, GI->OmegaSkin, GI->SpareMagazines, GI->HECount, GI->SmokeCount, GI->StunCount);
 }

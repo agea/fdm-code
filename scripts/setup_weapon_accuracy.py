@@ -1,5 +1,6 @@
 """Save only workbook accuracy fields on the six existing firearm data assets."""
 import json
+import runpy
 from pathlib import Path
 import unreal as ue
 
@@ -23,5 +24,6 @@ for key, profile in profiles.items():
         saved = data.get_editor_property(name + '_accuracy')
         for prop, value in spec[name].items():
             assert abs(saved.get_editor_property(prop) - value) < .0001, (key, name, prop)
+    runpy.run_path(str(Path(ue.Paths.project_dir())/'scripts/weapon_gameplay_overrides.py'))['apply'](data,key)
     assert ue.EditorAssetLibrary.save_loaded_asset(data, only_if_is_dirty=False), key
     ue.log(f'ER_WORKSHEET_ACCURACY_READY {key} hip={spec["hip"]} scoped={spec["scoped"]}')

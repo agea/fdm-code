@@ -4,6 +4,7 @@
 #include "ERPlayerController.h"
 #include "ERCharacter.h"
 #include "ERMatch.h"
+#include "ERMapCatalog.h"
 #include "ERWeapon.h"
 #include "ERBlockRoom.h"
 #include "EngineUtils.h"
@@ -165,7 +166,7 @@ void AERLobbyProbe::Tick(float DeltaTime)
     }
     const bool Host = FParse::Param(FCommandLine::Get(), TEXT("ERLobbyProbeHost"));
     const bool Timeout = FParse::Param(FCommandLine::Get(), TEXT("ERLobbyProbeTimeout"));
-    int32 VotedMap = 1; FParse::Value(FCommandLine::Get(), TEXT("ERLobbyProbeMap="), VotedMap);
+    int32 VotedMap = 2; FParse::Value(FCommandLine::Get(), TEXT("ERLobbyProbeMap="), VotedMap);
     int32 Client = 0; FParse::Value(FCommandLine::Get(), TEXT("ERLobbyProbeClient="), Client);
     const double Now = GetWorld()->GetTimeSeconds();
     auto* GS = GetWorld()->GetGameState<AERGameState>();
@@ -223,7 +224,7 @@ void AERLobbyProbe::Tick(float DeltaTime)
     if (!PC->IsMenuLevel() && Now > 4 && Phase < 90)
     {
         if (!PC->GetPawn() || GS->PlayerArray.Num() < 3) return;
-        if (VotedMap == 0)
+        if (ERMaps::At(VotedMap).Procedural)
         {
             TActorIterator<AERBlockRoom> Room(GetWorld());
             if (!Room || !Room->IsMapReady() || PC->IsBlockMapLoading()) return;
@@ -232,8 +233,8 @@ void AERLobbyProbe::Tick(float DeltaTime)
         }
         const auto* PS = PC->GetPlayerState<AERPlayerState>();
         if (!PS) return;
-        if (VotedMap == 0) Check(true, TEXT("generated_geometry_ready_on_all_peers"));
-        Check(GetWorld()->GetMapName().Contains(VotedMap == 0 ? TEXT("L_CentralBuilding") : TEXT("L_Depot")), TEXT("voted_map_loaded"));
+        if (ERMaps::At(VotedMap).Procedural) Check(true, TEXT("generated_geometry_ready_on_all_peers"));
+        Check(GetWorld()->GetMapName().Contains(VotedMap == 0 ? TEXT("L_CentralBuilding") : TEXT("L_MiddleEasternAlleys")), TEXT("voted_map_loaded"));
         Check(PS->Team == (Host ? EERTeam::Alpha : EERTeam::Omega), TEXT("team_survives_travel"));
         Check(PS->AlphaSkin == 2 && PS->OmegaSkin == 3 && PS->PrimaryWeapon == 4, TEXT("skin_and_weapon_survive_travel"));
         Check(PS->SpareMagazines == 5 && PS->HECount == 4 && PS->SmokeCount == 3 && PS->StunCount == 2, TEXT("supplies_survive_travel"));

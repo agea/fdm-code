@@ -118,6 +118,11 @@ public:
     void AddWeaponRecoil(const FVector2D& Impulse);
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Arsenal") TArray<TObjectPtr<class UERWeaponData>> Arsenal;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Arsenal") TArray<TObjectPtr<class UERWeaponData>> ReferenceArsenal;
+    UPROPERTY(Replicated) bool bReferenceInventory = false;
+    UPROPERTY(Replicated) bool bPresetInventory = false;
+    UPROPERTY(Replicated) FName ActivePreset;
+    UPROPERTY(Replicated) FName ActiveVariant;
+    int32 FindCatalogSlot(int32 CatalogIndex) const;
     bool UsesReferenceArsenal() const;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) TSubclassOf<class AERWeapon> WeaponClass;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Damage feedback") TObjectPtr<class USoundBase> HitSound;

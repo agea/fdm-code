@@ -93,6 +93,9 @@ public:
     AERReconDrone();
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly) TObjectPtr<class USphereComponent> ShotTarget;
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly) TObjectPtr<class UStaticMeshComponent> Body;
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly) TObjectPtr<class UDecalComponent> UndersideSymbol;
+    UPROPERTY(EditDefaultsOnly) TObjectPtr<class UMaterialInterface> AlphaSymbolMaterial;
+    UPROPERTY(EditDefaultsOnly) TObjectPtr<class UMaterialInterface> OmegaSymbolMaterial;
     UPROPERTY(Replicated) FERDroneFlight Flight;
     virtual void Tick(float DeltaSeconds) override;
     virtual float TakeDamage(float Amount, const FDamageEvent& Event, AController* DamageInstigator, AActor* Causer) override;

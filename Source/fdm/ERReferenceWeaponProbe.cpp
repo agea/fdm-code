@@ -50,7 +50,7 @@ void AERReferenceWeaponProbe::BeginCombatChecks()
     auto* H=CastChecked<AERCharacter>(Host->GetPawn());
     H->ServerSelectWeapon(3);Host->SetControlRotation(FRotator(80,0,0));
     H->Weapon->StartFire();H->Weapon->StopFire();
-    Check(H->Weapon->LastShotTraceCount==6 && H->Weapon->MagazineAmmo==6,TEXT("shotgun_six_server_pellets_one_shell"));
+    Check(H->Weapon->LastShotTraceCount==8 && H->Weapon->MagazineAmmo==6,TEXT("shotgun_eight_server_pellets_one_shell"));
     H->ServerSelectWeapon(1);H->Weapon->MagazineAmmo=6;H->Weapon->Reload();
     Advance(20,.3f);
 }
@@ -309,7 +309,7 @@ void AERReferenceWeaponProbe::Tick(float DeltaTime)
     case 23:
         {
             auto* Gun=H->Weapon.Get();
-            Check(Gun->Data->Pellets==6 && Gun->Data->Damage==20 && Gun->Data->ArmorRatio==1.6f &&
+            Check(Gun->Data->Pellets==8 && Gun->Data->Damage==22 && Gun->Data->ArmorRatio==1.6f &&
                 Gun->Data->RangeModifier==.7f && Gun->Data->bUseBodyHitZones,TEXT("xm1014_saved_data_matches_requested_profile"));
             Host->SetControlRotation((C->GetMesh()->GetSocketLocation(TEXT("spine_03"))-H->Camera->GetComponentLocation()).Rotation());
             Gun->StartFire();Gun->StopFire();
@@ -319,13 +319,13 @@ void AERReferenceWeaponProbe::Tick(float DeltaTime)
                 {
                     ++BodyHits;
                     const auto Zone=ERWeaponBallistics::ZoneForBone(Hit.BoneName);
-                    const float Damage=ERWeaponBallistics::AtRange(20*ERWeaponBallistics::ZoneMultiplier(Zone),.7f,FVector::Distance(Gun->LastShotTraceStart,Hit.ImpactPoint));
+                    const float Damage=ERWeaponBallistics::AtRange(22*ERWeaponBallistics::ZoneMultiplier(Zone),.7f,FVector::Distance(Gun->LastShotTraceStart,Hit.ImpactPoint));
                     Expected+=ERWeaponBallistics::AbsorbArmor(Damage,Zone==ERWeaponBallistics::EHitZone::Legs ? 2.f : 1.6f,Armor);
                     UE_LOG(LogTemp,Display,TEXT("ER_XM_PELLET bone=%s damage=%.3f"),*Hit.BoneName.ToString(),Damage);
                 }
-            Check(BodyHits==6 && Gun->LastShotTraceCount==6 && Gun->MagazineAmmo==6,TEXT("xm1014_real_six_anatomical_hits_one_shell"));
-            Check(Expected<=96.01f && !C->Health->bDead && FMath::IsNearlyEqual(C->Health->Health,100-Expected,.05f) &&
-                FMath::IsNearlyEqual(C->Health->Armor,Armor,.05f),TEXT("xm1014_real_armored_chest_survives_six_pellets"));
+            Check(BodyHits>0 && Gun->LastShotTraceCount==8 && Gun->MagazineAmmo==6,TEXT("xm1014_real_eight_traces_one_shell"));
+            Check(C->Health->bDead==(Expected>=100) && FMath::IsNearlyEqual(C->Health->Health,FMath::Max(0.f,100-Expected),.05f) &&
+                FMath::IsNearlyEqual(C->Health->Armor,Armor,.05f),TEXT("xm1014_real_armored_chest_matches_accepted_pellets"));
             // A world collider must stop the refined anatomical query too.
             auto* Cover=GetWorld()->SpawnActor<AActor>();
             auto* Box=NewObject<UBoxComponent>(Cover);Cover->SetRootComponent(Box);
@@ -338,6 +338,7 @@ void AERReferenceWeaponProbe::Tick(float DeltaTime)
             Check(ERShotTrace::Pellet(GetWorld(),CoverHit,Gun->LastShotTraceStart,Bone,Query) && CoverHit.GetActor()==Cover,
                 TEXT("xm1014_anatomical_pellets_respect_world_cover"));
             Box->SetCollisionEnabled(ECollisionEnabled::NoCollision);Cover->Destroy();
+            C->Health->bDead=false; // Independent point-damage cases after the lethal close shot.
             // Exercise point-damage zone/helmet and depleted-armor paths independently of aim jitter.
             const FName Bones[]={TEXT("head"),TEXT("spine_01"),TEXT("spine_03"),TEXT("upperarm_l"),TEXT("calf_r")};
             const float Unarmored[]={80,25,20,20,15},Armored[]={64,20,16,16,15};

@@ -124,6 +124,15 @@ void AERBotController::Tick(float DeltaTime)
         Weapon->StopFire(); BotCharacter->GetCharacterMovement()->StopMovementImmediately(); Target.Reset(); return;
     }
     if (bMovementOnly) { Weapon->StopFire(); Target.Reset(); MovementDemo(BotCharacter, DeltaTime); return; }
+    if(BotCharacter->bPresetInventory && Weapon->MagazineAmmo+Weapon->ReserveAmmo==0)
+    {
+        for(int32 Slot=0;Slot<BotCharacter->Inventory.Num();++Slot)
+        {
+            const auto* Candidate=BotCharacter->Inventory[Slot].Get();
+            if(Candidate && Candidate->Data && Candidate->Data->Payload==EERPayload::Bullet && Candidate->MagazineAmmo+Candidate->ReserveAmmo>0)
+            { BotCharacter->ServerSelectWeapon(Slot);Weapon=BotCharacter->Weapon.Get();break; }
+        }
+    }
     if (Weapon->MagazineAmmo == 0 || (!Target.IsValid() && Weapon->MagazineAmmo < 10)) BotCharacter->ServerReload();
     if (Now >= NextPerceptionAt)
     {

@@ -45,7 +45,8 @@ void UERGameplayMessages::Initialize(FSubsystemCollectionBase& Collection)
         const auto& Display = Json->GetObjectField(TEXT("display"));
         Event.Title = Display->GetStringField(TEXT("title"));
         Event.Priority = Display->GetIntegerField(TEXT("priority"));
-        Event.Duration = FMath::Clamp(float(Display->GetNumberField(TEXT("duration_seconds"))), 1.f, 5.f);
+        // Give players twice the reading time without altering the supplied catalog.
+        Event.Duration = 2.f * FMath::Clamp(float(Display->GetNumberField(TEXT("duration_seconds"))), 1.f, 5.f);
         Event.Cooldown = FMath::Max(0.f, float(Display->GetNumberField(TEXT("cooldown_seconds"))));
         const auto& Messages = Json->GetObjectField(TEXT("messages"));
         for (const auto& Variant : Messages->GetArrayField(TEXT("actor"))) Event.Actor.Add(Variant->AsObject()->GetStringField(TEXT("text")));
@@ -98,7 +99,7 @@ void UERGameplayMessages::Notify(AERPlayerState* Player, const TArray<FString>& 
     }
     FString Title, Body;
     int32 Priority = 0;
-    float Duration = 3;
+    float Duration = 6;
     if (!Best.IsEmpty())
     {
         const auto& Event = Events[Best];

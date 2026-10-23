@@ -1,5 +1,20 @@
 # Respawn & Rage — sviluppo Unreal
 
+## Decal impatti inchiostro — 22 ottobre 2026
+
+La nuova griglia fornita dal proprietario è conservata intatta come
+`Assets/weapons/SourceAssets/BulletImpacts/FourInkImpacts.png` (RGBA1254²).
+Quattro istanze del materiale selezionano i quadranti627²; nessuna modifica
+ai pixel o alla trasparenza. `setup_bullet_decals.py` aggiorna solo la texture,
+il materiale/istanze e i riferimenti del Blueprint arma; il setup completo
+degli effetti richiama questa stessa migrazione.
+
+Ogni impatto superficiale delle armi hitscan, compresi pellet e superfici
+distruttibili attraversate, sceglie una variante/rotazione sul server.
+Il percorso celle evita la vecchia decal aggiuntiva per materiale quando
+il responsabile è un’arma. Restano esclusi i corpi dei giocatori e le granate,
+con limite128 decal e durata20s. Danni e penetrazione restano invariati.
+
 ## Edifici distruttibili nei vicoli — 22 ottobre 2026
 
 La ricetta Middle Eastern Alleys è alla revisione6. Case originali, archi, muri
@@ -2800,3 +2815,112 @@ e rig FPS; ControlRotation rimane l'input compensabile dal mouse. Replica solo
 al proprietario con timestamp server; il cambio arma non annulla il residuo.
 Nessun impulso su colpi rifiutati; morte/respawn non disturbano la killcam.
 Migrazione limitata ai sei DA via setup_weapon_recoil.py, senza reimportare arte.
+
+### Team readability and drone beacon — 23 October 2026
+
+Team clothing now uses a stronger blue Alpha / orange Omega palette, including
+previously neutral upper-body cloth and sleeves. Owned grounded material graphs
+fully desaturate the source cloth colour and blend 30% toward grey before tinting,
+retaining texture detail without emissive clothing. Natural skin/hair and neutral
+lower-body gear retain their existing materials. The migration
+`scripts/setup_team_readability.py` updates saved owned materials through Unreal,
+backs them up under `Saved/AssetBackups`, and supports repeated runs.
+
+Recon drones have a small unlit emissive lens underneath the hull, coloured with
+the existing recon team palette. It flashes for 180ms every 2.5 seconds, evaluated
+against the replicated flight start and server clock. The component has no
+collision or shadow and uses normal depth testing. Mesh/material references live
+in the existing private BP_ReconDrone defaults. Flight, damage and recon stock
+remain unchanged.
+
+### Drone team paint revision — 23 October 2026
+
+The follow-up replaces the beacon entirely with matte blue/orange paint on the
+upper white/beige shell. No blinking component remains. Per-team material arrays
+in BP_ReconDrone apply from replicated Flight.Team, including late clients.
+A normal-based mask colours upward-facing shell surfaces while preserving the
+original lower surfaces and dark rotor/mechanical slots. Flight rotates only in
+yaw, so world up matches shell up. `setup_drone_team_colors.py` creates the owned
+materials through Unreal with a ZIP backup, updates the Blueprint and removes
+unreferenced obsolete beacon materials. `setup_team_readability.py` now updates
+characters only, preserving their approved appearance.
+
+### Smoke radius and moving contour — 23 October 2026
+
+Horizontal maximum radius is now4.4m (+10%); height stays4m. Both native defaults,
+BeginPlay bounds and the saved smoke Blueprint use880x880x400cm. The existing
+16x16x8 conservative connected occupancy grid uses55cm horizontal/50cm vertical
+cells. Wall overlap/sweep checks, growth2.2s, lifetime12s, fade4s, team colours,
+shot wakes and HE dispersal are retained.
+
+The contour adds a slow travelling two-axis wave (4% normalized amplitude,
+about18cm horizontally) alongside reduced irregular lobes. Its age and phase
+are shared between the shader and server recon density. This moves the outline
+without translating the cloud or changing noise/density coefficients.
+setup_smoke_shape.py backs up the two owned smoke assets before rebuilding them.
+
+### Dark drone beacon and server map pool — 23 October 2026
+
+Restored original drone shell materials and the underside beacon. The lens now
+uses saturated low-intensity linear blue(.008,.065,.32)/orange(.35,.035,.003)
+without the previous5x HDR multiplier, to avoid white-looking highlights.
+Its16cm lens flashes180ms every2.5s against replicated flight/server time.
+setup_drone_beacon.py backs up recon assets, saves Blueprint defaults and retires
+unreferenced upper-shell paint; the former paint setup delegates to it.
+
+Depot already had InRotation=false, but lobby buttons, vote validation and
+zero-vote/tied leader selection previously ignored that flag. All three now use
+the catalog's eligible pool. Catalog IDs remain stable (Central0, Depot1,
+Alleys2); excluded/stale Depot votes cannot win or enter random selection.
+Offline/reference Depot remains available. The LAN lobby probe now defaults to
+Alleys, with --industrial retaining Central Building coverage.
+
+### Drone underside emblems — 23 October 2026
+
+The original Alpha/Omega graffiti emblems are applied as decals directly onto
+the underside of the drone hull, like stickers/paint. They stay visible without
+flashing; there is no separate floating symbol surface. A bounded upward-facing
+projector attached to the body uses owned decal variants of the supplied textures,
+with a restrained .2 colour floor to retain readability in the dark underside. Team
+is selected from replicated Flight.Team. Original meshes, flight and combat are
+preserved. setup_drone_symbols.py backs up recon assets, configures Blueprint
+material references and retires unused beacon/separate-plane materials after
+reference checks. Older beacon/paint commands delegate to this migration.
+
+Alpha uniforms (23 October, colour refinement): softened the vivid azure toward
+muted blue using grounded tint(.10,.30,.72) per preserved skin strength. Texture
+lift and silhouette contrast remain; the migration is scoped to Alpha materials.
+Omega and original team emblem artwork retain their approved colours.
+
+## Belica facial proportions — 23 October 2026
+
+`fix_belica_face_scale.py` repairs the owned retargeted rifle animations' normalized
+faceAttach scale (1 -> authored 0.7851459384). It backs up all candidate packages,
+changes only that bone's scale and verifies start/middle/end samples. It compares
+bone names case-insensitively, matching Unreal FName semantics. Run this after
+regenerating Belica's rifle clips. `verify_phase_belica.py` checks the saved idle
+facial scale for every Belica skin. See TEST_RESULTS.md for the Metal close-up.
+
+## Notification reading time — 23 October 2026
+
+Gameplay message durations now double the preserved catalog timings:3→6 seconds
+for ordinary notifications and5→10 seconds for longer events/results. Required
+kill/death fallback labels also last six seconds. Server priority retention and
+owner RPC expiry share these durations. The complete source JSON is unchanged;
+three recent confirmations, separate bonus slot, cooldowns and nonblocking HUD
+presentation retain their existing behavior. No binary asset migration.
+
+## Phase Engineer without helmet — 23 October 2026
+
+The user rejected the faceted procedural helmet on Omega skin9. Local gear offers
+no suitable separate replacement; remove_phase_engineer_helmet.py removes only
+that attachment and retains the supplied scalp/buzz-cut appearance (stray hair cards hidden) in the
+character, training-target and corpse catalogs, with a ZIP rollback. The old
+fix_phase_engineer_helmet.py delegates to removal. Keep the unused gear assets
+for now; no vendor content is deleted. Saved verification now requires no helmet
+and hidden stray short-hair cards on this skin.
+
+23 October2026: normal selection uses five closed loadout roles and three variants,
+with server-resolved supplies/team appearance and next-spawn confirmation.
+See LOADOUTS.md. Claymores have independent60s armed lifetimes and no per-player
+active cap. Shotgun gameplay override is8x22, applied after immutable source data.
