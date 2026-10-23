@@ -22,6 +22,17 @@ The default builds both targets and uploads to `windows-x86_64` and
 toolchain. Use `-TargetPlatform Windows` or `-TargetPlatform Linux` for one
 platform. Run `butler login` once; add `-NoUpload` to keep packages local.
 
+## Fire Training — 23 October 2026
+
+The match menu also offers **Fire Training · Warehouse**: a Killhouse-style
+training hall built from the supplied warehouse model. Width (one to four arched naves of 16/20/24 m, up to 96 m),
+length (14–36 bays of 4.2 m, up to about 151 m) and height (two to four 3 m wall
+bands) vary by seed without stretching any piece. The hall stays one open
+volume, furnished with local catwalks and an optional bridge, closed timber
+corridors and rooms, a deck room with a lookout, stacked steel containers with
+ladders and low cover, all rotated 180° between teams. See
+[the Fire Training template](docs/FIRE_TRAINING.md).
+
 ## Middle Eastern Alleys — 22 October 2026
 
 The match menu also offers **Middle Eastern Alleys · Desert**: seeded districts

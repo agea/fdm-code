@@ -11,6 +11,11 @@ This supersedes the older tall-perimeter/separator dimensions below. Shared
 jump, mantle, materials and destruction calibration remain unchanged.
 
 
+23 October2026: **Fire Training · Warehouse** joins the production rotation:
+a single open warehouse hall assembled from the supplied kit, furnished with
+local catwalks, timber corridors/rooms and containers. See
+[the Fire Training template](FIRE_TRAINING.md).
+
 22 October2026: **Middle Eastern Alleys · Desert** joins Central Building in
 the production rotation. The industrial-only scope below is historical; see
 [the new alley template](MIDDLE_EASTERN_ALLEYS.md). Depot remains a reference.

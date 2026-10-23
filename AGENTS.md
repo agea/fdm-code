@@ -1,5 +1,26 @@
 # Respawn & Rage Unreal development
 
+Fire Training (23 October, latest map request): new production template
+DA_FireTraining/L_FireTraining, archetype FireTraining, from the owner's
+warehouse ZIP and RR_Warehouse_Killhouse_OpenSpace_Istruzioni.md (both private in
+maps SourceAssets/FireTraining; licence unknown, keep the warning). One open
+hall only: 1–4 side-by-side naves of 16/20/24m complete kits (open column
+lines + gutter between naves, never a wall), 14–36 bays of 4.2m, 1300–7000m²,
+length <=7x width, 2–4 bands (revision3; migrations setup_fire_training_length.py
+then setup_fire_training_scale.py); larger halls reserve empty plazas, 2–3 wall bands of 3m for height; never stretch modules or add an
+upper floor (ContinuousUpperFloors is rejected). Interior structures stay local:
+catwalk/bridge, timber corridor and rooms, deck room/lookout, containers and
+stacks with ladders, low cover; half-turn symmetric. Budgets on the union
+raster: elevated <=30%, overhead <=40%, open-to-roof region >=45% (narrow
+walkways do not split it). Two accesses per elevated area; 2.5m headroom
+under WarehouseRoofHeight. Bounded deterministic retries end in the verified
+reference layout (attempt in the digest). Kit modules keep unit scale, sheets
+use two-sided complex collision plus hidden backstops; roof groups are hidden
+from the minimap capture and recon flies under the eave (Frame.Indoor). Use
+bake_fire_training_kit.py then setup_fire_training.py (preserves completed
+assets, refuses a changed kit). Validate with test-fire-training.py and
+--render. See docs/FIRE_TRAINING.md.
+
 Claymore lethality (latest): enemies eligible to activate the mine must die even
 with full health/armor/helmet at the 2m/60-degree sector edge. Apply lethal damage
 through the normal armor/death/kill-credit pipeline, not direct health mutation.

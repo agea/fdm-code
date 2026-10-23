@@ -13,7 +13,7 @@ struct FPlot
 // avoids random packing, disconnected slivers and seed-dependent retries.
 TArray<FPlot> Lots(const FPlot& Extent,const TArray<FPlot>& Streets)
 {
-    TArray<float> X{Extent.Min.X,Extent.Max.X},Y{Extent.Min.Y,Extent.Max.Y};
+    TArray<double> X{Extent.Min.X,Extent.Max.X},Y{Extent.Min.Y,Extent.Max.Y};
     for(const auto& S:Streets)
     {
         X.AddUnique(FMath::Clamp(S.Min.X,Extent.Min.X,Extent.Max.X));X.AddUnique(FMath::Clamp(S.Max.X,Extent.Min.X,Extent.Max.X));
@@ -245,7 +245,7 @@ bool BuildAlleyDistrict(const UERMapTemplate& T,int32 Seed,TArray<FERMapTemplate
         bool Distant=true;for(auto P:StairCenters)Distant&=FVector::Dist2D(P,FVector(C,0))>1700;
         if(HasHouse && StairPairs<2 && Distant)for(int32 Side=0;Side<4;++Side)
         {
-            const bool Swap=Side%2;W=Swap ? S.Y:S.X;D=Swap ? S.X:S.Y;if(W<500 || D<620)continue;
+            const bool Swap=Side%2!=0;W=Swap ? S.Y:S.X;D=Swap ? S.X:S.Y;if(W<500 || D<620)continue;
             Frame=FTransform(FRotator(0,Side*90,0),FVector(C,Z));
             const auto Entry=Frame.TransformPosition({-W*.5f+70,-D*.5f-60,0}),SideEntry=Frame.TransformPosition({-W*.5f-60,-D*.5f+90,0});bool StreetSide=false;
             for(const auto& Road:Roads)StreetSide|=Road.Contains(FVector2D(Entry)) || Road.Contains(FVector2D(SideEntry));if(!StreetSide)continue;
@@ -260,7 +260,7 @@ bool BuildAlleyDistrict(const UERMapTemplate& T,int32 Seed,TArray<FERMapTemplate
             {
                 const FVector P(HouseCenter,Z);auto& B=Box((Copy ? Opposite(P):P)+FVector(0,0,Height*.5f),FVector(HouseSize,Height),nullptr);
                 B.FixedMesh=Mesh;B.MeshCollision=true;B.MeshRotation.Yaw=Yaw+Copy*180;
-                const bool Swap=int32(Yaw/90)%2;
+                const bool Swap=int32(Yaw/90)%2!=0;
                 L.Houses.Add({FTransform(FRotator(0,Yaw+Copy*180,0),Copy ? Opposite(P):P,FVector(Swap ? HouseSize.Y:HouseSize.X,Swap ? HouseSize.X:HouseSize.Y,Height)),Mesh,Access});
             }
         }

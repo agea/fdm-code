@@ -1,5 +1,18 @@
 # Respawn & Rage — sviluppo Unreal
 
+## Fire Training (capannone) — 23 ottobre 2026
+
+Nuovo template **Fire Training · Warehouse** (`DA_FireTraining`,
+`L_FireTraining`, archetipo `FireTraining`) dal warehouse fornito dal
+proprietario e dalle istruzioni `RR_Warehouse_Killhouse_OpenSpace_Istruzioni.md`.
+Il kit Blender (`bake_fire_training_kit.py`) separa campata da 4,2 m, montanti,
+archi, copertura, testate e luci; larghezze 16/20/24 m con inserti al colmo,
+nessuno stretch. Un solo open space: fasce di parete da 3 m (2–3), nessun solaio
+automatico; passerelle, corridoi e stanze di legno, deck locali, container
+impilabili con scale a pioli. Budget su raster 50 cm: sopraelevato ≤30%,
+chiusure ≤40%, regione aperta ≥45%. Vedi `FIRE_TRAINING.md`; test
+`scripts/test-fire-training.py` (nativi) e `--render` (catture Metal).
+
 ## Decal impatti inchiostro — 22 ottobre 2026
 
 La nuova griglia fornita dal proprietario è conservata intatta come

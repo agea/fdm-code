@@ -26,6 +26,13 @@ materiali delle case mostrano le facce interne. Scale esterne e terreno
 inclinato sono generati dalla ricetta; nessun nuovo modello o download.
 Backup verificato degli asset precedenti in `Saved/AlleyTraversalBackup`.
 
+23 ottobre2026 — template Fire Training: ZIP `warehouse-fbx-model-free.zip`
+fornito dal proprietario (autore e licenza non indicati nell'archivio: da
+confermare prima di una distribuzione pubblica), conservato con hash, specifica
+e crediti nel privato maps `SourceAssets/FireTraining`. Kit derivato in
+`prepared_kit` (22 FBX, manifest), import Unreal in `Art/FireTraining`.
+Dettagli in `FIRE_TRAINING.md`.
+
 22 ottobre2026 — nuovo template Middle Eastern Alleys: tre sabbie della raccolta
 RR (XY01 e CATholic) e dodici varianti del pacchetto Desert Mud Concrete House
 Lowpoly di 00amza, CC BY4.0 secondo i quattro metadati pubblici. ZIP originali,

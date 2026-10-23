@@ -113,6 +113,9 @@ struct FERReconMapFrame
     UPROPERTY() FVector Center = FVector::ZeroVector;
     UPROPERTY() float Span = 6400;
     UPROPERTY() float Top = 1400;
+    // Roofed arenas: absolute eave height and orbit radii keep the drone indoors.
+    UPROPERTY() float Indoor = 0;
+    UPROPERTY() FVector2D IndoorOrbit = FVector2D::ZeroVector;
     UPROPERTY() uint32 Epoch = 0;
     UPROPERTY() uint32 GeometryEpoch = 0;
 };

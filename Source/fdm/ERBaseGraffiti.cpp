@@ -51,7 +51,8 @@ void AERReconDirector::DecorateBases()
             const double Depth=T ? 1-Along : Along;
             if(Depth>.35 || Depth<-.25 || Random.FRand()>.62f*(1-FMath::Clamp(Depth/ .35,0.,1.))) continue;
             FHitResult Ground;
-            if(!GetWorld()->LineTraceSingleByChannel(Ground,P+FVector(0,0,Frame.Top+300-Center.Z),P-FVector(0,0,600),ECC_Visibility,Query)) continue;
+            // Roofed arenas: start below the eave, never on the hidden ceiling.
+            if(!GetWorld()->LineTraceSingleByChannel(Ground,P+FVector(0,0,(Frame.Indoor>0 ? Frame.Indoor-10 : Frame.Top+300)-Center.Z),P-FVector(0,0,600),ECC_Visibility,Query)) continue;
             P.Z=Ground.ImpactPoint.Z+145;
             for(int32 D=0;D<8;++D)
             {

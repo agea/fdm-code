@@ -13,11 +13,13 @@ bool BuildTemplate(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERP
         !FMath::IsFinite(B.ChunkSize) || B.ChunkSize<100 || T->Pieces.Num()>256 ||
         T->ArenaSize.ContainsNaN() || T->ArenaSize.X<2000 || T->ArenaSize.Y<3000 || T->ArenaSize.Z<400 ||
         T->ArenaSize.X>10000 || T->ArenaSize.Y>16000 || T->ArenaSize.Z>1600 || uint8(T->Symmetry)>1 ||
-        uint8(T->Archetype)>uint8(EERMapArchetype::MiddleEasternAlleys)) return false;
+        uint8(T->Archetype)>uint8(EERMapArchetype::FireTraining)) return false;
     const bool Central=T->Archetype==EERMapArchetype::CentralBuilding;
     const bool Alleys=T->Archetype==EERMapArchetype::MiddleEasternAlleys;
+    const bool Fire=T->Archetype==EERMapArchetype::FireTraining;
     if(Alleys && (!T->Town.Enabled || T->Variation.Enabled))return false;
-    if(!Central && !Alleys && (T->Pieces.IsEmpty() || T->AlphaSpawns.IsEmpty() || T->AlphaSpawns.Num()>32 || T->OmegaSpawns.Num()>32 || T->PatrolRoute.Num()<2 || T->PatrolRoute.Num()>128))return false;
+    if(Fire && (T->Town.Enabled || T->Variation.Enabled || T->RoofMesh || T->ShellWallMesh || C.LayoutAttempt<0 || C.LayoutAttempt>=FireTrainingAttempts))return false;
+    if(!Central && !Alleys && !Fire && (T->Pieces.IsEmpty() || T->AlphaSpawns.IsEmpty() || T->AlphaSpawns.Num()>32 || T->OmegaSpawns.Num()>32 || T->PatrolRoute.Num()<2 || T->PatrolRoute.Num()>128))return false;
     const bool Symmetric=T->Symmetry==EERTemplateSymmetry::HalfTurn;
     auto ValidMesh=[](UStaticMesh* M){return !M || (!M->GetBoundingBox().GetSize().ContainsNaN() && M->GetBoundingBox().GetSize().GetMin()>.1);};
     if(!ValidMesh(T->ShellWallMesh) || !ValidMesh(T->RoofMesh))return false;
@@ -31,6 +33,7 @@ bool BuildTemplate(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERP
         // shared data asset (another world may use it in the same process).
         if(!BuildCentralBuilding(*T,C.Seed,Pieces,L,Patrol,C.CrossingOverride))return false;
     }
+    if(Fire && !BuildFireTraining(*T,C.Seed,C.LayoutAttempt,Pieces,L,Patrol))return false;
     if(T->Town.Enabled && (T->Variation.Enabled || !BuildDustTown(*T,C.Seed,Pieces,L,Patrol)))return false;
     if(T->Variation.Enabled && !BuildTemplateVariants(*T,C.Seed,Pieces,L,Patrol))return false;
     const bool BreakArchitecture=Alleys && T->Town.DestructibleArchitecture;
@@ -50,6 +53,8 @@ bool BuildTemplate(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERP
             (Piece.WalkableSurface && (Piece.FixedMesh || Piece.VisualOnly)) ||
             (Piece.PawnBarrier && (Piece.Destructible || Piece.VisualOnly || Piece.WalkableSurface)) ||
             (Piece.MeshCollision && (!Piece.FixedMesh || Piece.Destructible || Piece.VisualOnly || Piece.PawnBarrier || Piece.WalkableSurface)) ||
+            (Piece.CollisionOnly && (Piece.Destructible || Piece.FixedMesh || Piece.VisualOnly || Piece.PawnBarrier || Piece.WalkableSurface || Piece.MeshCollision)) ||
+            (Piece.Roof && (Piece.Destructible || !Piece.FixedMesh)) ||
             (Piece.Destructible && (Piece.VisualOnly || Piece.FixedSurface)) || (!Piece.Destructible && (Piece.CellSurface || Piece.MirroredCellSurface))) return false;
         if(Symmetric && !Piece.Mirrored && (!FMath::IsNearlyZero(Piece.Center.X) || !FMath::IsNearlyZero(Piece.Center.Y) || !Piece.Jitter.IsNearlyZero()))return false;
         FRandomStream Random(int32(HashCombine(uint32(C.Seed),uint32(Piece.Group))));
@@ -107,7 +112,7 @@ bool BuildTemplate(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERP
                     else ERMeshCells::BoxSkin(P);
                     continue;
                 }
-                L.FixedPieces.Add({FTransform(R,Center,Piece.Size/100),Piece.Material,Piece.FixedMesh,Rotation,false,Piece.VisualOnly,Piece.FixedSurface,Piece.PawnBarrier,Piece.MeshCollision});continue;
+                L.FixedPieces.Add({FTransform(R,Center,Piece.Size/100),Piece.Material,Piece.FixedMesh,Rotation,Piece.Roof,Piece.VisualOnly,Piece.FixedSurface,Piece.PawnBarrier,Piece.MeshCollision,Piece.CollisionOnly});continue;
             }
             // Generate in an orthonormal local grid, then rotate the entire
             // construction. Its cells/collision/support never use a world AABB.
@@ -149,7 +154,7 @@ bool BuildTemplate(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERP
     }
     // Fixed shed panels tile at <=5m to retain vendor detail and texel scale.
     auto Fixed=[&](FVector Center,FVector Size,FRotator Rotation=FRotator::ZeroRotator){L.FixedPieces.Add({FTransform(FQuat::Identity,Center,Size/100),Alleys ? EERBlockMaterial::Stone:EERBlockMaterial::Metal,T->ShellWallMesh,Rotation,false,false,Alleys ? T->Town.WallSurface.Get():nullptr});};
-    if(Central) { /* The archetype owns its outdoor fence perimeter. */ }
+    if(Central || Fire) { /* The archetype owns its fence perimeter or warehouse envelope. */ }
     else if(T->ShellWallMesh)
     {
         const int32 Rows=FMath::CeilToInt(Size.Z/525);
@@ -222,7 +227,7 @@ bool BuildTemplate(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERP
     for(const auto& Route:L.RoomAccessRoutes)if(!ClearPath(Route,false))return false;
     for(const auto& Route:L.CrossingRoutes)if(!ClearPath(Route,false))return false;
     L.Spawn=L.AlphaSpawns[0].GetLocation();L.Routes.Add({L.Spawn,Patrol[0]});L.Routes.Add(Patrol);L.Routes.Add({L.OmegaSpawns[0].GetLocation(),Patrol.Last()});
-    if(L.Panels.IsEmpty() || L.FixedPieces.Num()>2048)return false;
+    if(L.Panels.IsEmpty() || L.FixedPieces.Num()>(Fire ? 8192:2048))return false;
     Out=MoveTemp(L);return true;
 }
 }
@@ -231,6 +236,18 @@ bool UERMapTemplate::ValidateLayout(int32 Seed) const
 {
     FERProceduralConfig C;C.Seed=Seed;C.TemplateAsset=const_cast<UERMapTemplate*>(this);
     FERBlockRoomConfig B;FERProceduralLayout L;return ERProcedural::Build(C,B,L);
+}
+
+bool UERMapTemplate::PrepareWarehouseCollision(UStaticMesh* Mesh)
+{
+#if WITH_EDITOR
+    if(!Mesh || !Mesh->GetPathName().StartsWith(TEXT("/Game/EclipseRecoil/Art/FireTraining/Meshes/SM_ER_WH_")))return false;
+    auto* Body=Mesh->GetBodySetup();if(!Body)return false;
+    Mesh->Modify();Body->Modify();Body->CollisionTraceFlag=CTF_UseComplexAsSimple;Body->bDoubleSidedGeometry=true;
+    Body->InvalidatePhysicsData();Body->CreatePhysicsMeshes();Mesh->MarkPackageDirty();return true;
+#else
+    return false;
+#endif
 }
 
 bool UERMapTemplate::PrepareAlleyHouseCollision(UStaticMesh* Mesh)

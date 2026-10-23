@@ -1,3 +1,68 @@
+## 23 October 2026 — Fire Training revision3 (naves, height, length, plazas)
+
+- Owner request: allow ×2/×3/×4 width, taller and longer halls, with empty
+  plazas in large ones. Recipe: 1–4 naves of the existing kits (16–96 m), 14–36
+  bays, 2–4 bands, 1300–7000 m², aspect ≤ 7, up to 3 plazas per half.
+- First layout runs rejected every multi-nave greybox seed: hidden column
+  volume and gutter overlapped the greybox end wall by 10 cm, then start rows
+  stood on the central column line for even nave counts. Fixed (columns/gutter
+  flush with the ends, starts mid-nave).
+- `FireTrainingLayout`: PASS, 516 seeds all at attempt0, 315 size combinations,
+  4 nave counts, 11 total widths, 3 band counts, 23 bay counts, 781 plazas,
+  max area 6955 m², max length 151 m; elevated max0.287 / mean0.096, open min0.713.
+- `setup_fire_training_scale.py`: PASS, revision2 backed up, 516 seeds, revision3 saved.
+- Full native suite `EclipseRecoil+FDM`: 40/40 PASS on revision3.
+- `test-fire-training.py --render --seeds 1,…,8` (plus seed 42): PASS. Inspected
+  96 × 71 m four-nave (seed 4), 64 m × 12 m-eave (seed 1) and 72 × 84 m (seed 42)
+  captures: open column lines with gutters, closed envelope, plazas, cargo.
+  The probe's spawn camera stands on the central column line in even-nave halls
+  (camera only; starts are mid-nave).
+
+## 23 October 2026 — Fire Training revision2 (double length)
+
+- Owner request: halls were too small. Recipe now 1360–1840 m², 14–28 bays
+  (widths unchanged); catwalk, room blocks (up to three) and cargo scale with
+  the half length. `setup_fire_training_length.py` through Unreal: PASS, exit0;
+  revision1 backed up (SHA-256 a343b3a5…), 516 seeds validated, revision2 saved.
+- `FireTrainingLayout`: PASS, 516 seeds all at attempt0, 34 size combinations,
+  14 bay counts; elevated max0.291 / mean0.180, overhead max0.291, open min0.709.
+- `FireTrainingPhysics`: first run failed on lookout ladders because the test
+  added the deck height twice to ladder-local climb heights (latent test bug,
+  exposed by more lookouts in long halls). Fixed the probe; PASS.
+- Full native suite: 39/40 before that test fix (only FireTrainingPhysics
+  failed); both Fire Training tests PASS after it (suite not rerun in full).
+- `test-fire-training.py --render`: PASS; seeds 42/73/7919 are 20 m × 88/76/88 m.
+  Plan and overview captures inspected.
+
+## 23 October 2026 — Fire Training warehouse template
+
+- Blender 3.6.5 `bake_fire_training_kit.py`: PASS, 22 modules from the 439 source
+  parts (source SHA-256 checked). A Blender assembly of W2000 × 6 bays × 2 bands
+  was rendered and inspected: joints closed, flat crown insert continuous.
+  The first in-game captures showed the plain end band invisible from inside
+  (both faces pointed the same way); the bake now orients and asserts both
+  faces, and the kit/assets were regenerated before the results below.
+- arm64 Development Editor build: PASS. `setup_fire_training.py` through the
+  Unreal Python commandlet: PASS, exit0; 516 seeds validated before saving
+  `DA_FireTraining`; `L_FireTraining` created; protected maps/catalog hashes
+  unchanged. Imported bounds match the Blender measurements (unit scale).
+- `test-fire-training.py`: `FireTrainingLayout` PASS (516 greybox seeds, all
+  accepted at attempt0; 3 widths, 2–3 bands, 5 bay counts; elevated max0.295 /
+  mean0.143, overhead max0.295, open-to-roof min0.705; every feature sampled;
+  reference fallback, determinism and rejection of continuous floors / mixed
+  kits). `FireTrainingPhysics` PASS on 8 seeds with the real asset: unit-scale
+  kit instances, closed envelope for pawns and bullets, roof hit below the ridge,
+  raised-coverage raster, ladders, spawns, routes, patrol loop, timber cells.
+- Full native suite `EclipseRecoil+FDM` on the final build: 40/40 PASS (rotation now has three
+  maps; lobby expectations updated accordingly).
+- `test-fire-training.py --render`: PASS, exit0. Recon frame indoor, both cases
+  placed under the roof, drones orbit under the eave. Twelve Metal captures
+  (`Saved/Testing/FireTraining-{42,73,7919}-{Plan,Spawn,Overview,Catwalk}.png`)
+  inspected: closed hall, catwalk with stair/ladder and bridge, timber rooms and
+  deck room, two-high containers with ladders.
+- Not executed: LAN initial/late clients on this map, bots inside the rooms,
+  cooked/packaged build, performance measurements, playtesting.
+
 ## 23 October 2026 — low industrial barriers
 
 - arm64 Development Editor build: PASS. Fence geometry version3 uses a fixed

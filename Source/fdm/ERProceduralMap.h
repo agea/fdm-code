@@ -7,7 +7,7 @@
 struct FERLayoutRect { FVector2D Min, Max; int32 Room = INDEX_NONE; float Z=0; int32 Level=0; };
 struct FERLayoutWall { FVector Start; FVector Direction; float Length = 0; EERBlockMaterial Material; };
 struct FERLayoutOpening { int32 Wall = INDEX_NONE; float Along = 0, Width = 0, Sill = 0, Height = 0; bool bWindow = false; };
-struct FERLayoutFixedPiece { FTransform Transform; EERBlockMaterial Material; class UStaticMesh* Mesh=nullptr; FRotator MeshRotation=FRotator::ZeroRotator; bool Roof=false; bool VisualOnly=false; class UMaterialInterface* Surface=nullptr; bool PawnBarrier=false; bool MeshCollision=false; };
+struct FERLayoutFixedPiece { FTransform Transform; EERBlockMaterial Material; class UStaticMesh* Mesh=nullptr; FRotator MeshRotation=FRotator::ZeroRotator; bool Roof=false; bool VisualOnly=false; class UMaterialInterface* Surface=nullptr; bool PawnBarrier=false; bool MeshCollision=false; bool CollisionOnly=false; };
 struct FERLayoutHouse { FTransform Frame; class UStaticMesh* Mesh=nullptr; bool RoofAccess=false; };
 struct FERLayoutTownGate { FTransform Frame; float Gap=110,Width=300,Angle=25; TArray<FVector> Passage; };
 struct FERLayoutLadder { FTransform Frame; float Height=430,DeckHeight=320; };
@@ -78,6 +78,15 @@ struct FERProceduralLayout
     TArray<int32> WallAccessFlights;
     TArray<float> CoverAngles;
     TArray<FVector> WallBridges;
+    // Fire Training warehouse: envelope from kit modules, local structures only.
+    int32 WarehouseBays=0,WarehouseBands=0,WarehouseNaves=0,LayoutAttempt=0;
+    float WarehouseWidth=0,WarehouseNaveWidth=0,IndoorCeiling=0; // Width is the total of all naves. // IndoorCeiling: eave height, recon flies below the roof.
+    float ElevatedRatio=0,OverheadRatio=0,OpenRegionRatio=0,SpawnCoverRatio=0;
+    TArray<FBox> ElevatedDecks;      // Walkable surfaces above the ground (both halves).
+    TArray<FBox> OverheadClosures;   // Every horizontal closure above the ground.
+    TArray<FBox> Plazas;             // Reserved empty squares (both halves).
+    TArray<int32> ElevatedAccesses;  // Independent ladders/stairs per elevated deck.
+    TArray<FName> FeatureNames;
     FVector Spawn = FVector::ZeroVector;
 };
 namespace ERProcedural
@@ -97,6 +106,11 @@ namespace ERProcedural
     void BuildAlleyTerrain(class UDynamicMeshComponent* Component,const FERProceduralLayout& Layout);
     bool FindAlleyInteriorRoute(class UWorld* World,const FERProceduralLayout& Layout,TArray<FVector>& Route);
     bool BuildCentralBuilding(const class UERMapTemplate& Template,int32 Seed,TArray<struct FERMapTemplatePiece>& Pieces,FERProceduralLayout& Layout,TArray<FVector>& Patrol,int32 CrossingOverride=0);
+    // Attempts 0..FireTrainingAttempts-1 sample the seed; the last is the verified reference layout.
+    constexpr int32 FireTrainingAttempts=8;
+    bool BuildFireTraining(const class UERMapTemplate& Template,int32 Seed,int32 Attempt,TArray<struct FERMapTemplatePiece>& Pieces,FERProceduralLayout& Layout,TArray<FVector>& Patrol);
+    // Roof underside above a point across the width (any nave), for headroom checks.
+    float WarehouseRoofHeight(float NaveWidth,int32 Naves,float Eave,float X);
 }
 
 // Reuses the lab's 5cm cells, hitscan, explosion, support and replication.
@@ -131,5 +145,7 @@ private:
     UPROPERTY() TObjectPtr<class UInstancedStaticMeshComponent> FenceCollision;
     UPROPERTY() TArray<TObjectPtr<class UDynamicMeshComponent>> FenceMetal;
     UPROPERTY() TObjectPtr<class UDynamicMeshComponent> AlleyTerrain;
+    // Cosmetic warehouse lighting under the roof lamps; never on a dedicated server.
+    UPROPERTY(Transient) TArray<TObjectPtr<class UPointLightComponent>> WarehouseLights;
     void ConfigureTemplateFloors();
 };

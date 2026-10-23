@@ -3,6 +3,7 @@
 #include "ERMapTemplate.h"
 #include "ERIndustrialFence.h"
 #include "Components/DynamicMeshComponent.h"
+#include "Components/PointLightComponent.h"
 #include "DynamicMesh/DynamicMesh3.h"
 #include "Engine/StaticMesh.h"
 #include "PhysicsEngine/BodySetup.h"
@@ -109,6 +110,19 @@ static bool BuildLevel(const FERProceduralConfig& C, const FERBlockRoomConfig& B
 }
 bool ERProcedural::Build(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProceduralLayout& Out,const FERCellSettings& Cells)
 {
+    if(C.TemplateAsset && C.TemplateAsset->Archetype==EERMapArchetype::FireTraining)
+    {
+        // Bounded deterministic retries; the final attempt is the verified
+        // reference layout, so an accepted seed never leaves the arena empty.
+        for(int32 Attempt=0;Attempt<ERProcedural::FireTrainingAttempts;++Attempt)
+        {
+            FERProceduralConfig Try=C;Try.LayoutAttempt=Attempt;
+            if(BuildTemplate(Try,B,Out,Cells))return true;
+            UE_LOG(LogTemp,Verbose,TEXT("ER_FIRE_TRAINING_RETRY seed=%d attempt=%d"),C.Seed,Attempt);
+        }
+        UE_LOG(LogTemp,Warning,TEXT("ER_FIRE_TRAINING_REJECT seed=%d"),C.Seed);
+        return false;
+    }
     if(C.TemplateAsset) return BuildTemplate(C,B,Out,Cells);
     if (C.Floors<1 || C.Floors>3 || (C.Floors>1 && C.BranchLength<250)) return false;
     FERProceduralLayout L;
@@ -222,6 +236,8 @@ void AERProceduralMap::ConfigureFloors()
 {
     for(auto Ladder:LadderActors)if(Ladder)Ladder->Destroy();
     LadderActors.Reset();
+    for(auto& Light:WarehouseLights)if(Light){RemoveInstanceComponent(Light);Light->DestroyComponent();}
+    WarehouseLights.Reset();
     if(AlleyTerrain)
     {
         RemoveInstanceComponent(AlleyTerrain);AlleyTerrain->DestroyComponent();
@@ -346,12 +362,13 @@ void AERProceduralMap::ConfigureTemplateFloors()
         Part->RegisterComponent();Part->SetMesh(MoveTemp(Metal));Part->UpdateCollision(false);FenceMetal.Add(Part);
         Metal=UE::Geometry::FDynamicMesh3();Metal.EnableAttributes();
     };
-    Ceilings->SetHiddenInGame(Template->RoofMesh!=nullptr);
+    Ceilings->SetHiddenInGame(Template->RoofMesh!=nullptr || Template->Archetype==EERMapArchetype::FireTraining);
     if(CeilingSurface)Ceilings->SetMaterial(0,CeilingSurface);
     if(bCeilings)Ceilings->AddInstance(FTransform(FQuat::Identity,FVector(0,0,Size.Z+10),FVector(Size.X+40,Size.Y+40,20)/100));
     for(const auto& Piece:Layout.FixedPieces)
     {
         if(Piece.Roof && !bCeilings)continue;
+        if(Piece.CollisionOnly){FixedCollision->AddInstance(Piece.Transform);continue;}
         if(Piece.PawnBarrier)
         {
             FenceCollision->AddInstance(Piece.Transform);
@@ -397,13 +414,25 @@ void AERProceduralMap::ConfigureTemplateFloors()
         Group->AddInstance(T);
     }
     FlushMetal();
+    if(Template->Archetype==EERMapArchetype::FireTraining && GetNetMode()!=NM_DedicatedServer)
+        for(const auto& Piece:Layout.FixedPieces)
+            if(Piece.Roof && Piece.VisualOnly && Piece.Mesh && Piece.Mesh->GetName().Contains(TEXT("RoofLamps")))
+                for(float Side:{-.25f,.25f})
+                {
+                    // Unshadowed fill: lamp art is visual, these provide the light.
+                    auto* Light=NewObject<UPointLightComponent>(this);AddInstanceComponent(Light);
+                    Light->SetupAttachment(RootComponent);Light->SetMobility(EComponentMobility::Movable);
+                    Light->SetRelativeLocation(FVector(Piece.Transform.GetLocation().X+Side*Layout.WarehouseNaveWidth,Piece.Transform.GetLocation().Y,Layout.IndoorCeiling-40));
+                    Light->SetIntensity(45);Light->SetAttenuationRadius(1600);Light->SetCastShadows(false);
+                    Light->SetLightColor(FLinearColor(1,.93,.82));Light->RegisterComponent();WarehouseLights.Add(Light);
+                }
     for(const auto& Desc:Layout.Ladders)
     {
         FActorSpawnParameters Params;Params.Owner=this;
         auto* Ladder=GetWorld()->SpawnActor<AERLadder>(AERLadder::StaticClass(),Desc.Frame*GetActorTransform(),Params);
         if(Ladder){Ladder->Height=Desc.Height;Ladder->DeckHeight=Desc.DeckHeight;LadderActors.Add(Ladder);}
     }
-    if(HasAuthority() && Layout.Routes.Num()>1 && (Template->Archetype==EERMapArchetype::CentralBuilding || Template->Archetype==EERMapArchetype::MiddleEasternAlleys))
+    if(HasAuthority() && Layout.Routes.Num()>1 && (Template->Archetype==EERMapArchetype::CentralBuilding || Template->Archetype==EERMapArchetype::MiddleEasternAlleys || Template->Archetype==EERMapArchetype::FireTraining))
     {
         // Crossing rules have different route lengths. Never leave saved
         // placeholder points at the origin or feed bots obsolete waypoints.
@@ -451,6 +480,7 @@ uint32 AERProceduralMap::GetTemplateGeometryDigest() const
     {
         H=HashCombine(H,GetTypeHash(P.PawnBarrier));
         H=HashCombine(H,GetTypeHash(P.MeshCollision));
+        H=HashCombine(H,GetTypeHash(P.CollisionOnly));
         if(P.PawnBarrier)H=HashCombine(H,ERIndustrialFence::GeometryVersion);
         MixVector(P.Transform.GetLocation());MixVector(P.Transform.GetScale3D());MixVector(FVector(P.MeshRotation.Pitch,P.MeshRotation.Yaw,P.MeshRotation.Roll));H=HashCombine(H,GetTypeHash(P.Roof));H=HashCombine(H,GetTypeHash(P.VisualOnly));H=HashCombine(H,GetTypeHash(uint8(P.Material)));
         MixVector(P.Transform.GetRotation().GetForwardVector());
@@ -460,6 +490,15 @@ uint32 AERProceduralMap::GetTemplateGeometryDigest() const
     }
     for(const auto* Starts:{&Layout.AlphaSpawns,&Layout.OmegaSpawns})for(const auto& P:*Starts){MixVector(P.GetLocation());MixVector(P.GetRotation().GetForwardVector());}
     for(const auto& Route:Layout.Routes)for(const auto& P:Route)MixVector(P);
+    if(LayoutConfig.TemplateAsset->Archetype==EERMapArchetype::FireTraining)
+    {
+        H=HashCombine(H,GetTypeHash(Layout.WarehouseBays));H=HashCombine(H,GetTypeHash(Layout.WarehouseBands));
+        H=HashCombine(H,GetTypeHash(Layout.LayoutAttempt));H=HashCombine(H,GetTypeHash(Layout.WarehouseNaves));
+        for(const auto& P:Layout.Plazas){MixVector(P.Min);MixVector(P.Max);}H=HashCombine(H,GetTypeHash(FMath::RoundToInt(Layout.WarehouseWidth)));
+        for(const auto* Boxes:{&Layout.ElevatedDecks,&Layout.OverheadClosures})for(const auto& P:*Boxes){MixVector(P.Min);MixVector(P.Max);}
+        for(const auto& Ladder:Layout.Ladders){MixVector(Ladder.Frame.GetLocation());MixVector(Ladder.Frame.GetRotation().GetForwardVector());MixVector(FVector(Ladder.Height,Ladder.DeckHeight,0));}
+        for(const auto* Paths:{&Layout.RoomAccessRoutes,&Layout.StairRoutes,&Layout.CrossingRoutes})for(const auto& Route:*Paths)for(const auto& P:Route)MixVector(P);
+    }
     if(LayoutConfig.TemplateAsset->Town.Enabled)
     {
         H=HashCombine(H,GetTypeHash(Layout.GradedTerrain));

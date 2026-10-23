@@ -19,4 +19,7 @@ struct FERProceduralConfig
     UPROPERTY(EditAnywhere, BlueprintReadWrite) int32 BranchLength=300;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) int32 DoorWidth=150;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) int32 DoorHeight=225;
+    // Local deterministic retry index (never replicated): every peer repeats
+    // the same bounded attempts from the replicated seed.
+    int32 LayoutAttempt=0;
 };

@@ -8,7 +8,7 @@ UENUM(BlueprintType)
 enum class EERTemplateSymmetry : uint8 { None, HalfTurn };
 
 UENUM(BlueprintType)
-enum class EERMapArchetype : uint8 { LegacyAssembly, CentralBuilding, MiddleEasternAlleys };
+enum class EERMapArchetype : uint8 { LegacyAssembly, CentralBuilding, MiddleEasternAlleys, FireTraining };
 
 UENUM(BlueprintType)
 enum class EERCrossingRule : uint8 { Seeded, OpenYard, ClimbableWall, FencedCrossings };
@@ -40,6 +40,60 @@ struct FERCentralBuildingRecipe
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<TObjectPtr<class UMaterialInterface>> WoodSurfaces;
     // Asphalt, grass or snow are cosmetic; ground collision/friction stay identical.
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<TObjectPtr<class UMaterialInterface>> GroundSurfaces;
+};
+
+// One complete warehouse cross-section from the prepared kit. A width is
+// selectable only when every module exists; nothing is ever stretched.
+USTRUCT(BlueprintType)
+struct FERWarehouseWidthKit
+{
+    GENERATED_BODY()
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) int32 WidthCm=1600;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UStaticMesh> RoofBay;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UStaticMesh> RoofArch;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UStaticMesh> RoofLamps;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UStaticMesh> EndGround;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UStaticMesh> EndBand;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UStaticMesh> EndCrown;
+};
+
+// Killhouse-style warehouse: one open volume whose length/width/height come
+// from repeated kit modules, furnished with local decks, corridors and cargo.
+USTRUCT(BlueprintType)
+struct FERFireTrainingRecipe
+{
+    GENERATED_BODY()
+    // Square metres: length follows the sampled width within this floor range.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) FVector2D FloorArea=FVector2D(1300,7000);
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="6",ClampMax="36")) int32 MinBays=14;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="6",ClampMax="36")) int32 MaxBays=36;
+    // Wider halls repeat the arched nave side by side on open column lines.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="1",ClampMax="4")) int32 MinNaves=1;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="1",ClampMax="4")) int32 MaxNaves=4;
+    // Longest allowed length / total width, so narrow halls never become tubes.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) float MaxAspect=7;
+    // Largest halls reserve this many empty plazas per half, scaled by floor area.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="0",ClampMax="3")) int32 MaxPlazas=3;
+    // 300cm wall bands only raise the envelope; they never add an upper floor.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="1",ClampMax="5")) int32 MinHeightBands=2;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="1",ClampMax="5")) int32 MaxHeightBands=4;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) float ElevatedTargetRatio=.2f;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) float ElevatedMaxRatio=.3f;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) float OverheadMaxRatio=.4f;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) float OpenRegionMinRatio=.45f;
+    // A mode constraint, never a menu option: validation rejects true.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) bool ContinuousUpperFloors=false;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<FERWarehouseWidthKit> Widths;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UStaticMesh> SideWallBay;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UStaticMesh> SideWallLamps;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UStaticMesh> Post;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UStaticMesh> EndPortal;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> GroundSurface;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> SteelSurface;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> DeckSurface;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<TObjectPtr<class UMaterialInterface>> WoodSurfaces;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<TObjectPtr<class UMaterialInterface>> ConcreteSurfaces;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<TObjectPtr<class UMaterialInterface>> ContainerSurfaces;
 };
 
 UENUM(BlueprintType)
@@ -156,6 +210,10 @@ struct FERMapTemplatePiece
     UPROPERTY(EditAnywhere, BlueprintReadWrite) bool PawnBarrier=false;
     // Collision follows the imported shell, including doors, rooms and roofs.
     UPROPERTY(EditAnywhere, BlueprintReadWrite) bool MeshCollision=false;
+    // Hidden fixed box: an envelope backstop behind thin kit sheets.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) bool CollisionOnly=false;
+    // Fixed roof art, hidden from the overhead minimap capture.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) bool Roof=false;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> FixedSurface;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> CellSurface;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> MirroredCellSurface;
@@ -171,12 +229,15 @@ class FDM_API UERMapTemplate : public UDataAsset
 public:
     UFUNCTION(BlueprintCallable, Category="Template") bool ValidateLayout(int32 Seed=42) const;
     UFUNCTION(BlueprintCallable, Category="Template|Maintenance") static bool PrepareAlleyHouseCollision(class UStaticMesh* Mesh);
+    // Warehouse sheets collide exactly as drawn (two-sided, complex as simple).
+    UFUNCTION(BlueprintCallable, Category="Template|Maintenance") static bool PrepareWarehouseCollision(class UStaticMesh* Mesh);
     // PCG/PCGEx authoring receives the same validated recipe as runtime collision.
     UFUNCTION(BlueprintCallable, Category="Template|PCG") class UPCGDataAsset* CreatePCGPreview(int32 Seed=42) const;
     UFUNCTION(BlueprintCallable, Category="Template|PCG") class UPCGDataAsset* SavePCGPreview(const FString& PackageName,int32 Seed=42) const;
     UFUNCTION(BlueprintCallable, Category="Template|Maintenance") static bool DeleteArchivedProceduralLab();
     UPROPERTY(EditAnywhere, BlueprintReadWrite) EERMapArchetype Archetype=EERMapArchetype::LegacyAssembly;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) FERCentralBuildingRecipe CentralBuilding;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) FERFireTrainingRecipe FireTraining;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) FString TemplateId;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) FString SourceReference;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) int32 Revision=1;

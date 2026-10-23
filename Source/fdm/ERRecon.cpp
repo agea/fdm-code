@@ -253,6 +253,14 @@ void AERReconDirector::ConfigureMap()
     // Square bird view; the corners of the playable rectangle fit inside the disc.
     Frame.Span = FMath::Max(2000., Bounds.GetSize().Size2D()*1.06);
     Frame.Top = Bounds.Max.Z;
+    Frame.Indoor = 0; Frame.IndoorOrbit = FVector2D::ZeroVector;
+    if (Procedural && Procedural->GetLayout().IndoorCeiling > 0)
+    {
+        // The warehouse roof is solid: fly, survey and launch beneath it.
+        const FVector Size = Procedural->GetLayout().ArenaSize;
+        Frame.Indoor = Bounds.Min.Z + Procedural->GetLayout().IndoorCeiling;
+        Frame.IndoorOrbit = FVector2D(Size.X*.22, Size.Y*.3);
+    }
     Frame.GeometryEpoch = SourceMapEpoch;
     ++Frame.Epoch; ForceNetUpdate();
     const auto Query = SightQuery();
@@ -261,7 +269,7 @@ void AERReconDirector::ConfigureMap()
     {
         const FVector P=CellPosition(Cell);
         FHitResult Surface;
-        SurfaceHeights[Cell]=GetWorld()->LineTraceSingleByChannel(Surface,FVector(P.X,P.Y,Frame.Top+100),FVector(P.X,P.Y,Frame.Center.Z-100),ECC_Visibility,Query)
+        SurfaceHeights[Cell]=GetWorld()->LineTraceSingleByChannel(Surface,FVector(P.X,P.Y,Frame.Indoor>0 ? Frame.Indoor-10 : Frame.Top+100),FVector(P.X,P.Y,Frame.Center.Z-100),ECC_Visibility,Query)
             ? Surface.ImpactPoint.Z+8 : P.Z;
     }
     TArray<AERBotPatrolPoint*> Patrol;
@@ -294,7 +302,7 @@ void AERReconDirector::ConfigureMap()
             if (!GetWorld()->LineTraceSingleByChannel(Ground,Spawn+Offset+FVector(0,0,120),Spawn+Offset-FVector(0,0,350),ECC_Visibility,Query) || Ground.ImpactNormal.Z < .8) continue;
             Placement = Ground.ImpactPoint+FVector(0,0,2);
             if (FMath::Abs(Placement.Z-(Spawn.Z-92.5)) > 100) continue;
-            if (GetWorld()->LineTraceTestByChannel(Placement+FVector(0,0,70),FVector(Placement.X,Placement.Y,Frame.Top+1200),ECC_Visibility,Query)) continue;
+            if (GetWorld()->LineTraceTestByChannel(Placement+FVector(0,0,70),FVector(Placement.X,Placement.Y,Frame.Indoor>0 ? Frame.Indoor-20 : Frame.Top+1200),ECC_Visibility,Query)) continue;
             Placed = !GetWorld()->OverlapBlockingTestByChannel(Placement+FVector(0,0,25),FQuat::Identity,ECC_Pawn,FCollisionShape::MakeBox(FVector(45,40,24)),Query);
             for (TActorIterator<AERTeamPlayerStart> It(GetWorld()); It && Placed; ++It)
                 if (FVector::DistSquared2D(Placement,It->GetActorLocation()) < FMath::Square(120.f)) Placed = false;
@@ -330,8 +338,8 @@ void AERReconDirector::LaunchDrone(int32 Index)
     if (!Drone) return;
     Drone->Director = this;
     Drone->Flight.Team = TeamAt(Index); Drone->Flight.Launch = Launch;
-    Drone->Flight.Center = FVector(Frame.Center.X,Frame.Center.Y,Frame.Top+900);
-    Drone->Flight.Radius = FVector2D(Frame.Span*.26);
+    Drone->Flight.Center = FVector(Frame.Center.X,Frame.Center.Y,Frame.Indoor>0 ? Frame.Indoor+50 : Frame.Top+900);
+    Drone->Flight.Radius = Frame.Indoor>0 ? Frame.IndoorOrbit : FVector2D(Frame.Span*.26);
     Team.Base->LaunchAt = ServerTime(GetWorld()); Team.Base->ForceNetUpdate();
     Drone->Flight.StartedAt = Team.Base->LaunchAt+1.2;
     Drone->FinishSpawning(Transform);
@@ -512,7 +520,13 @@ void AERReconDirector::CaptureBirdView()
     BirdCamera->OrthoWidth=Frame.Span;
     BirdCamera->SetWorldLocation(FVector(Frame.Center.X,Frame.Center.Y,Frame.Top+3000));
     BirdCamera->SetWorldRotation(FRotator(-90,0,0));
-    BirdCamera->HiddenActors.Reset();
+    BirdCamera->HiddenActors.Reset(); BirdCamera->HiddenComponents.Reset();
+    // Roofed arenas show their floor plan: hide only the roof art groups.
+    for (TActorIterator<AERProceduralMap> It(GetWorld()); It; ++It)
+    {
+        TInlineComponentArray<UPrimitiveComponent*> Parts(*It);
+        for (auto* Part : Parts) if (Part->ComponentHasTag(TEXT("ERTemplateRoof"))) BirdCamera->HideComponent(Part);
+    }
     for (TActorIterator<AActor> It(GetWorld()); It; ++It)
         if (It->IsA<APawn>() || It->IsA<AERCorpse>() || It->IsA<AERWeapon>() || It->IsA<AERReconDrone>() || It->IsA<AERProjectile>() || It->IsA<AERBlockDebris>() || It->IsA<AERSmokeCloud>()) BirdCamera->HiddenActors.Add(*It);
     BirdCamera->CaptureScene(); CapturedEpoch=Frame.Epoch; bCapturePending=false;
