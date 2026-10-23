@@ -15,6 +15,12 @@ TConstArrayView<FERMapCatalogEntry> All()
 const FERMapCatalogEntry& At(int32 Index){const auto Entries=All();return Entries[FMath::Clamp(Index,0,Entries.Num()-1)];}
 TArray<FString> Labels(){TArray<FString> Result;for(const auto& E:All())Result.Add(E.Label);return Result;}
 TArray<FName> Rotation(){TArray<FName> Result;for(const auto& E:All())if(E.InRotation)Result.Add(FName(E.Package));return Result;}
+TArray<FName> NextRoundMaps(FName CurrentPackage)
+{
+    TArray<FName> Result = Rotation();
+    Result.Remove(CurrentPackage);
+    return Result;
+}
 TArray<int32> LobbyLeaders(TConstArrayView<int32> Votes)
 {
     TArray<int32> Eligible;

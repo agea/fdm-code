@@ -4,6 +4,7 @@
 #include "ERWeapon.h"
 #include "ERBotController.h"
 #include "ERPlayerController.h"
+#include "Kismet/GameplayStatics.h"
 #include "EngineUtils.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
@@ -24,6 +25,34 @@ void AERSessionProbe::Tick(float DeltaTime)
     for (FConstPlayerControllerIterator It=GetWorld()->GetPlayerControllerIterator();It;++It)
         if (It->Get()->IsLocalController()) Human=Cast<AERCharacter>(It->Get()->GetPawn());
     if (!Human || !Human->Weapon) return;
+    if (FParse::Param(FCommandLine::Get(), TEXT("ERRoundRotationProbe")))
+    {
+        static FString PreviousLevel;
+        static int32 Rounds = 0;
+        if (Phase || Now < 3 || Mode->GetNumPlayers() != 2) return;
+        Phase = 1;
+        const FString Level = UGameplayStatics::GetCurrentLevelName(this, true);
+        Check(Level != PreviousLevel, TEXT("rotation_excludes_previous"));
+        Check(Level != TEXT("L_Depot"), TEXT("rotation_excludes_depot"));
+        Check(Human->GetPlayerState<AERPlayerState>()->Team == EERTeam::Omega, TEXT("rotation_preserves_host_team"));
+        for (FConstPlayerControllerIterator It=GetWorld()->GetPlayerControllerIterator();It;++It)
+            if (!It->Get()->IsLocalController())
+            {
+                Check(It->Get()->GetPawn() != nullptr, TEXT("rotation_remote_spawned"));
+                Check(It->Get()->GetPlayerState<AERPlayerState>()->Team == EERTeam::Alpha, TEXT("rotation_preserves_remote_team"));
+            }
+        Check(Mode->GetMaxPlayers() == 7, TEXT("rotation_preserves_capacity"));
+        UE_LOG(LogTemp, Display, TEXT("ER_ROTATION_ROUND index=%d map=%s humans=%d"), Rounds, *Level, Mode->GetNumPlayers());
+        if (Failed || ++Rounds == 4)
+        {
+            UE_LOG(LogTemp, Display, TEXT("ER_ROTATION_COMPLETE result=%s"), Failed ? TEXT("FAIL") : TEXT("PASS"));
+            FPlatformMisc::RequestExitWithStatus(false, Failed ? 1 : 0);
+            return;
+        }
+        PreviousLevel = Level;
+        GetWorld()->GetGameState<AERGameState>()->AlphaScore = Mode->ScoreLimit;
+        return;
+    }
     const bool Lab=GetWorld()->GetMapName().Contains(TEXT("Lab"));
     if (Phase==0 && Now>2)
     {

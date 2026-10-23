@@ -171,6 +171,7 @@ class MacReleaseTests(unittest.TestCase):
             root = Path(temporary)
             args = self.args(root)
             fake_helper = SimpleNamespace(ensure_idle=lambda: None,
+                build_roots=lambda *args: (args[0],), cleanup_old_builds=lambda *args, **kwargs: None,
                 resolve_credentials=lambda *args: (_ for _ in ()).throw(RuntimeError('missing Keychain profile')))
             calls = []
             with patch.object(module.platform, 'system', return_value='Darwin'), \

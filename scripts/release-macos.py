@@ -235,6 +235,11 @@ def verify_distribution(app):
 def preflight(args):
     if platform.system() != 'Darwin':
         raise RuntimeError('Run this script on macOS')
+    if not (args.resume or args.upload_only):
+        if not args.check:
+            helper('clean-project').ensure_idle()
+        cleanup = helper('build_cleanup')
+        cleanup.cleanup_old_builds(cleanup.build_roots(args.workspace, PROJECT), dry_run=args.check)
     if not args.no_upload:
         discover_butler(args)
     failures = []

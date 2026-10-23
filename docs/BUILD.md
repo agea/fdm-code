@@ -9,7 +9,17 @@ repository, container, AWS account or CI runner.
 
 ## One-command Mac release
 
-`release-macos.py` runs dependency/space checks, the isolated build, Developer ID
+New Mac builds first remove payloads from previous completed builds, then measure
+actual free disk space before checking the build requirements. Both entry points
+inspect the selected workspace, `../builds/macos` and the legacy temporary
+workspace `/private/tmp/rr-sm5-releases`. Uploaded releases and completed standalone
+packages lose their project snapshots, packaged apps and temporary diagnostics or
+Xcode archives; small logs and receipts remain. Failed/running releases and
+releases awaiting upload are preserved. `--resume` and `--upload-only` skip cleanup;
+`--check` only previews it and reports the current free space, without assuming
+that APFS shared files will free their full apparent size.
+
+`release-macos.py` runs cleanup, dependency/space checks, the isolated build, Developer ID
 signing, Apple notarization, ticket stapling, Gatekeeper assessment and Butler
 upload in that order. Run it from this repository on a Mac:
 

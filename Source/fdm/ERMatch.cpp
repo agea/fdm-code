@@ -40,6 +40,7 @@
 #include "ERBlockNetworkProbe.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
+#include "Misc/PackageName.h"
 #include "Components/CapsuleComponent.h"
 #include "EngineUtils.h"
 #include "GameFramework/GameSession.h"
@@ -428,6 +429,32 @@ void AERGameMode::FinishRound()
 }
 void AERGameMode::ResetRound()
 {
+    if (bRoundTravelPending) return;
+    if (GetNetMode() == NM_ListenServer || GetNetMode() == NM_DedicatedServer)
+    {
+        const FString CurrentLevel = UGameplayStatics::GetCurrentLevelName(this, true);
+        FName CurrentPackage;
+        for (const auto& Entry : ERMaps::All())
+            if (FPackageName::GetShortName(Entry.Package) == CurrentLevel)
+                CurrentPackage = FName(Entry.Package);
+        const auto Choices = ERMaps::NextRoundMaps(CurrentPackage);
+        if (!Choices.IsEmpty())
+        {
+            FURL NextURL = GetWorld()->URL;
+            NextURL.Map = Choices[FMath::RandHelper(Choices.Num())].ToString();
+            NextURL.RemoveOption(TEXT("MapSeed="));
+            NextURL.AddOption(*FString::Printf(TEXT("MapSeed=%d"), FMath::Rand()));
+            // Keep connected players and their team/loadout through the map change.
+            bUseSeamlessTravel = true;
+            UE_LOG(LogTemp, Display, TEXT("ER_ROUND_TRAVEL from=%s to=%s"), *CurrentLevel, *NextURL.Map);
+            if (GetWorld()->ServerTravel(NextURL.ToString(), true))
+            {
+                bRoundTravelPending = true;
+                return;
+            }
+            UE_LOG(LogTemp, Error, TEXT("ER_ROUND_TRAVEL_FAILED; resetting current arena"));
+        }
+    }
     AERClaymore::RemoveFor(GetWorld());
     for (TActorIterator<AERCorpse> It(GetWorld()); It; ++It) It->Destroy();
     for (TActorIterator<AERSmokeCloud> It(GetWorld()); It; ++It) It->Destroy();

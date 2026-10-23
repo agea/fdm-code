@@ -1,5 +1,9 @@
 # Inventario asset — primo prototipo locale
 
+23 ottobre2026 — rotazione server a fine partita: usa i tre template già presenti
+nel catalogo (Central Building, Middle Eastern Alleys, Fire Training), escludendo
+quello appena giocato e Depot. Nessun asset aggiunto o modificato.
+
 22 ottobre2026 — revisione6 vicoli:13 nuovi DataAsset derivati dalle12 case e
 dall'arco, sotto `Art/MiddleEasternAlleys/Structures`, conservano triangoli LOD0,
 UV e normali. `setup_alley_destruction.py` salva questi asset e la sola ricetta;

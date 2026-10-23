@@ -116,6 +116,7 @@ private:
     bool bSpawningPresetPawn = false;
     bool bLobby = false;
     bool bLobbyTravelPending = false;
+    bool bRoundTravelPending = false;
     EERTeam NextTieTeam = EERTeam::Alpha;
     int32 DesiredBots = 0;
     bool bStationaryBots = false;

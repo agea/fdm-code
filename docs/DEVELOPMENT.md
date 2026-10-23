@@ -2937,3 +2937,13 @@ and hidden stray short-hair cards on this skin.
 with server-resolved supplies/team appearance and next-spawn confirmation.
 See LOADOUTS.md. Claymores have independent60s armed lifetimes and no per-player
 active cap. Shotgun gameplay override is8x22, applied after immutable source data.
+# Server round rotation (23 October 2026)
+
+After the existing ten-second results interval, listen/dedicated servers choose
+uniformly from the map catalog's `InRotation` entries excluding the current map.
+Travel carries the existing URL settings and a fresh MapSeed; seamless travel
+preserves connected humans, teams and loadouts. Current pool: Central Building,
+Middle Eastern Alleys, Fire Training. Depot remains excluded. An empty candidate
+pool or an immediate travel rejection falls back to the existing arena reset.
+Standalone training keeps its existing regeneration behavior. Integration check:
+`python3 scripts/test-round-rotation.py` (two humans, three consecutive changes).

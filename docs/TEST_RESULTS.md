@@ -6142,3 +6142,17 @@ scripts/test-loadouts.py --network --mines: process0, overall PASS. The fully
 armored target at the trigger-sector edge died and credited the owner after the
 owner's pawn was destroyed. Independent expiry/death/respawn/variant persistence,
 remote absolute deadlines and all15 remote kit observations also passed.
+## 23 October 2026 — automatic server template rotation
+
+- Editor Mac Development compilation: PASS (existing deprecated API warnings).
+- `python3 scripts/test-round-rotation.py`: PASS, actual listen host plus remote
+  client, four rounds / three automatic changes: Central Building → Fire Training
+  → Central Building → Fire Training. Both humans retained their teams; the
+  configured capacity remained7. Every transition excluded the previous template
+  and Depot. Host exited0. Logs: `Saved/Testing/round-rotation-{host,client}.log`.
+- Local headless LAN evidence only; dedicated/EOS and visual loading are not
+  verified by this test. Standalone regeneration remains unchanged.
+- Final build (including the pending-travel guard): PASS. Repeated the same
+  integration test: Central Building → Middle Eastern Alleys → Central Building
+  → Middle Eastern Alleys, again two humans, preserved teams/capacity, exit0.
+  The log paths above contain this final run.

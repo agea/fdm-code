@@ -42,6 +42,14 @@ if workspace.is_relative_to(project) or project.is_relative_to(workspace):
     raise ValueError('Use a workspace outside the original project')
 if not (project / 'RespawnAndRage.uproject').is_file():
     raise ValueError('RespawnAndRage.uproject missing')
+from build_cleanup import build_roots, cleanup_old_builds
+if not a.resume:
+    if not a.check:
+        idle_spec = importlib.util.spec_from_file_location('clean_project', Path(__file__).with_name('clean-project.py'))
+        idle_module = importlib.util.module_from_spec(idle_spec)
+        idle_spec.loader.exec_module(idle_module)
+        idle_module.ensure_idle()
+    cleanup_old_builds(build_roots(workspace, project), dry_run=a.check)
 v = json.loads((engine / 'Engine/Build/Build.version').read_text())
 if tuple(v[k] for k in ('MajorVersion', 'MinorVersion', 'PatchVersion')) != (5, 8, 3):
     raise ValueError('UE 5.8.3 required')
