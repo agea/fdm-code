@@ -1157,7 +1157,7 @@ void AERHUD::DrawHUD()
         }
         if(Character->bPresetInventory)
         {
-            int32 Carried=0;for(const auto Item:Character->Inventory)if(Item && Item->Data && Item->Data->Payload==EERPayload::Claymore)Carried+=Item->MagazineAmmo+Item->ReserveAmmo;
+            int32 Carried=0;for(const auto& Item:Character->Inventory)if(Item && Item->Data && Item->Data->Payload==EERPayload::Claymore)Carried+=Item->MagazineAmmo+Item->ReserveAmmo;
             const auto* OwnerState=Character->GetPlayerState<AERPlayerState>();
             DrawHUDText(FString::Printf(TEXT("Claymores: %d carried · %d active  [H]"),Carried,OwnerState?OwnerState->ActiveClaymores:0),Layout.Position(860,620).X,Layout.Position(860,620).Y,FLinearColor::White,.9f);
         }

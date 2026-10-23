@@ -27,7 +27,9 @@ report_name = ('metal-' + args.shader_model if args.shader_model else 'metal') i
 log = out / (report_name + '.log')
 with tempfile.TemporaryDirectory(prefix='rr-package-user-') as user:
     command = [str(args.executable.resolve()),
-               '/Game/EclipseRecoil/Maps/L_Depot?Primary=1?ERAlphaBots=3?EROmegaBots=3?ERBotMode=Target',
+               # Pin the reference arsenal so closed presets cannot override the
+               # pistol selection used to catch cooked animation regressions.
+               '/Game/EclipseRecoil/Maps/L_Depot?ERFullArsenalTest=1?Primary=1?ERAlphaBots=3?EROmegaBots=3?ERBotMode=Target',
                '-unattended', '-nosound', '-NoSplash', '-stdout', '-FullStdOutLogOutput',
                '-UserDir=' + user, '-Seconds=' + str(args.seconds), '-ERPerformanceAudit']
     command += ['-RenderOffscreen', '-windowed', '-ResX=' + str(args.width), '-ResY=' + str(args.height)] if args.render else ['-nullrhi']
