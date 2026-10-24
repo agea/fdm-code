@@ -9,6 +9,16 @@ repository, container, AWS account or CI runner.
 
 ## One-command Mac release
 
+After every successful Butler upload, `release-macos.py` automatically deletes
+that release's entire directory: isolated project, app, Xcode archive, scratch
+files, test output, logs and receipts. This also applies to `--resume` and
+`--upload-only`. Cleanup starts only after Butler exits successfully and its
+log handle is closed. Failed builds/uploads, `--check` and `--no-upload` keep
+their files for diagnosis or retry. The source project and sibling runs are
+preserved. Upload success means Butler accepted the build; itch may still be
+processing it. A cleanup error is reported without changing the upload result
+stored in any remaining receipt.
+
 New Mac builds first remove payloads from previous completed builds, then measure
 actual free disk space before checking the build requirements. Both entry points
 inspect the selected workspace, `../builds/macos` and the legacy temporary
@@ -81,7 +91,7 @@ guaranteed peaks. After packaging, the script requires the app's uncompressed
 size plus 1 GiB free for notarytool, or twice the app size plus 1 GiB for the
 Xcode archive/export route. Temporary notarization files stay on the selected
 workspace disk, including when using an external SSD. Xcode archives are retained
-beside the build receipt for diagnosis; the final upload still contains only the
+beside the build receipt for diagnosis until a successful itch upload; the final upload still contains only the
 verified `.app`.
 
 ```sh
@@ -125,6 +135,7 @@ as command arguments or written to receipts.
 
 ```text
 ../builds/macos/release-TIMESTAMP-ID/
+  # This whole directory is removed after a successful itch upload.
   release.json                 # current stage, version, channel, errors
   release.log                  # package helper output
   notarization.log
@@ -323,6 +334,10 @@ with valid stdin on that combination, without patching the installed engine.
 `--xcode-stdin-workaround` requests the same route explicitly on other versions.
 
 ## Reclaim space after success
+
+Successful itch uploads now delete the entire release directory automatically,
+including all logs and receipts. The following manual instructions apply to
+standalone packages that have not been uploaded.
 
 Keep `dist/RespawnAndRage.app`, `build.log` and `receipt.json`. Once the build has
 finished and the packaged app has been checked, the generated directories under

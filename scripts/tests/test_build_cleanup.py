@@ -55,6 +55,43 @@ class CleanupTests(unittest.TestCase):
             self.assertTrue((outside / 'important').exists())
             self.assertTrue(payload.is_symlink())
 
+    def test_uploaded_run_removed_completely_with_link_targets_preserved(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            project = root / 'source'
+            project.mkdir()
+            (project / 'important').write_text('keep')
+            for receipt in ('release.json', 'summary.json', 'receipt.json'):
+                run = root / receipt.replace('.json', '')
+                run.mkdir()
+                (run / receipt).write_text(json.dumps({'status': 'uploaded'}))
+                (run / 'log').write_text('remove')
+                (run / 'project').symlink_to(project, target_is_directory=True)
+                module.remove_uploaded_build(run, project)
+                self.assertFalse(run.exists())
+                self.assertTrue((project / 'important').exists())
+
+    def test_unpublished_and_source_paths_cannot_be_removed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            project = root / 'source'
+            project.mkdir()
+            for status in ('ready', 'packaged', 'failed', 'uploading'):
+                run, _ = self.fixture(root, status, status)
+                with self.assertRaisesRegex(ValueError, 'successfully uploaded'):
+                    module.remove_uploaded_build(run, project)
+                self.assertTrue(run.exists())
+            for path in (root, project, project / 'build'):
+                path.mkdir(exist_ok=True)
+                (path / 'release.json').write_text('{"status":"uploaded"}')
+                with self.assertRaisesRegex(ValueError, 'outside the source'):
+                    module.remove_uploaded_build(path, project)
+            linked = root / 'linked'
+            linked.symlink_to(project, target_is_directory=True)
+            with self.assertRaisesRegex(ValueError, 'symlinked'):
+                module.remove_uploaded_build(linked, project)
+            self.assertTrue(project.exists())
+
 
 if __name__ == '__main__':
     unittest.main()

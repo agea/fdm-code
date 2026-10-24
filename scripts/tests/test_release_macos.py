@@ -77,12 +77,17 @@ class MacReleaseTests(unittest.TestCase):
                         module.release(args)
                 else:
                     module.release(args)
-            receipt = json.loads(next(args.workspace.glob('*/release.json')).read_text())
+            receipts = list(args.workspace.glob('*/release.json'))
+            if not fail and not no_upload:
+                self.assertFalse(list(args.workspace.iterdir()), 'Successful release must leave no build files, logs or receipts')
+                receipt = None
+            else:
+                receipt = json.loads(receipts[0].read_text())
             return calls, receipt
 
     def test_success_requires_signing_and_ticket_before_push_and_keeps_dist_clean(self):
         calls, receipt = self.exercise()
-        self.assertEqual(receipt['status'], 'uploaded')
+        self.assertIsNone(receipt)
         push = calls[-1]
         self.assertIn(module.GAME + ':mac-universal', push)
         self.assertEqual(push[push.index('--userversion') + 1], VERSION)
@@ -153,6 +158,61 @@ class MacReleaseTests(unittest.TestCase):
             self.assertEqual(json.loads((root / 'release.json').read_text())['failed_at'], 'uploading')
             self.assertFalse(any(c[1].endswith('.py') for c in calls if len(c) > 1))
             self.assertTrue((app / 'Contents/Info.plist').exists())
+
+    def test_successful_upload_only_removes_entire_run_and_preserves_siblings(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            run_dir = root / 'release'
+            self.fixture(run_dir, signed=True)
+            (run_dir / 'diagnostic.log').write_text('remove')
+            sibling = root / 'another-build'
+            sibling.mkdir()
+            (sibling / 'keep').write_text('keep')
+            calls = []
+            args = self.args(root, upload_only=run_dir)
+            with patch.object(module, 'preflight'), patch.object(module, 'run', side_effect=self.runner(calls)):
+                module.release(args)
+            self.assertFalse(run_dir.exists())
+            self.assertTrue((sibling / 'keep').exists())
+            self.assertTrue(any('push' in command for command in calls))
+            self.assertFalse(any(any(arg.endswith('/package-macos.py') or arg.endswith('/notarize-macos.py')
+                                     for arg in command) for command in calls))
+
+    def test_resume_success_cleans_and_check_preserves_existing_build(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            run_dir = root / 'release'
+            self.fixture(run_dir)
+            args = self.args(root, resume=run_dir, check=True, notarization_method='xcode')
+            with patch.object(module, 'preflight'), patch.object(module, 'run') as run:
+                module.release(args)
+                run.assert_not_called()
+            self.assertTrue((run_dir / 'build/receipt.json').exists())
+            args.check = False
+            calls = []
+            with patch.object(module, 'preflight'), patch.object(module, 'run', side_effect=self.runner(calls)):
+                module.release(args)
+            self.assertFalse(run_dir.exists())
+            self.assertTrue(any(any(arg.endswith('/notarize-macos.py') for arg in command) for command in calls))
+            self.assertFalse(any(any(arg.endswith('/package-macos.py') for arg in command) for command in calls))
+
+    def test_cleanup_failure_reports_error_without_recreating_receipts(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self.fixture(root, signed=True)
+            args = self.args(root, upload_only=root)
+            # Simulate a partially completed filesystem deletion.
+            def failed_cleanup(run, project):
+                import shutil
+                shutil.rmtree(run / 'build')
+                raise OSError('cleanup interrupted')
+            cleanup = SimpleNamespace(remove_uploaded_build=failed_cleanup)
+            with patch.object(module, 'preflight'), patch.object(module, 'run', side_effect=self.runner([])), \
+                    patch.object(module, 'helper', return_value=cleanup):
+                with self.assertRaisesRegex(OSError, 'cleanup interrupted'):
+                    module.release(args)
+            self.assertEqual(json.loads((root / 'release.json').read_text())['status'], 'uploaded')
+            self.assertFalse((root / 'build').exists())
 
     def test_missing_or_unsigned_receipt_and_wrong_version_block_upload(self):
         with tempfile.TemporaryDirectory() as temporary:

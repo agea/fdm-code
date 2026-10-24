@@ -209,14 +209,21 @@ the fixed channels `aaggeeaa/respawn-and-rage:windows-x86_64` and
 A failed shared Editor build stops both targets. A failed platform package or
 upload is recorded separately; the other platform can still complete and
 upload. Any failure returns exit code 1, while complete success returns 0.
-Completed packages are retained. `receipt.json` is authoritative for each
-platform: `packaged`, `uploaded`, `failed`, or `upload_failed`.
+After a successful Butler upload, that platform's entire attempt directory is
+removed, including package, logs and receipts. Once all selected platforms have
+uploaded, the whole run directory is deleted too, including the shared project,
+Editor log and summary. Failed/pending attempts and the shared workspace needed
+to retry them remain; `-NoUpload` and `-Check` do not trigger cleanup. Deletion
+uses Python's junction-safe `rmtree` so source Content mounts are preserved.
+Until cleanup, `receipt.json` records each platform's state: `packaged`,
+`uploaded`, `failed`, or `upload_failed`.
 
 ## Retry uploads without recompiling
 
 Pass the **run directory** to retry pending packaged/upload_failed targets,
-skipping those already uploaded, or a **platform directory** to explicitly
-re-upload that package. No Unreal, Python, compiler or asset setup is required:
+skipping successful attempts already removed, or a **platform directory** to
+retry that package. Python is required for automatic cleanup; no Unreal, compiler
+or asset setup is required:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\package-windows.ps1 -UploadOnly 'D:\RR Builds\20261020-150000-12345678'
@@ -227,8 +234,8 @@ Use `-TargetPlatform Linux`/`Windows` to filter a run-directory retry. Add `-Che
 to validate pending packages/authentication without pushing. `-UploadOnly`
 cannot be combined with `-NoUpload`/`-InitAssets`. Legacy Windows-only attempt
 directories are supported; receipts without a platform are treated as Windows.
-Retries update platform/upload receipts; the original `summary.json` remains a
-record of the initial run. Butler success does not verify runtime startup or
+Retries update platform/upload receipts, then remove successful attempts. When
+all original platforms have completed, the parent run and summary are removed too. Butler success does not verify runtime startup or
 completion of itch.io processing. Existing page access settings are retained.
 
 Test launch, menus, maps and LAN on each target OS before treating a package as

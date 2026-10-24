@@ -354,6 +354,30 @@ try {
     [IO.File]::WriteAllBytes($linuxBinary, $elf)
     [IO.File]::WriteAllText((Join-Path $linuxStage 'RespawnAndRage.sh'), "#!/bin/sh`r`nexit 0`r`n")
     Assert-Throws { Invoke-ItchUpload $linuxArchive $null 'Linux' } 'LF line endings'
+    # Upload retries clean only after a successful push and receipt write.
+    $retry = Join-Path $temporary 'retry attempt'
+    $retryArchive = Join-Path $retry 'dist'
+    New-Item -ItemType Directory -Path $retry -Force | Out-Null
+    # Reuse the known-valid Windows package after restoring its container.
+    Set-Content -LiteralPath (Join-Path $paks 'RespawnAndRage-Windows.utoc') -Value 'fixture'
+    Copy-Item -LiteralPath $archiveFolder -Destination $retryArchive -Recurse
+    $retryReceipt = Join-Path $retry 'receipt.json'
+    @{status='packaged'; platform='Windows'; game_version='26.10.20.abcdef12'; finished=''} |
+        ConvertTo-Json | Set-Content -LiteralPath $retryReceipt
+    $invocations.Clear()
+    Invoke-AttemptUpload $retry -ValidateOnly
+    Assert-True ($invocations.Count -eq 0 -and (Test-Path $retryReceipt)) 'Validation must not upload or clean'
+    $failOnCall = 1
+    Assert-Throws { Invoke-AttemptUpload $retry } 'compiler failure'
+    Assert-True ($invocations.Count -eq 1) 'Failed upload must not invoke cleanup'
+    Assert-True ((Get-Content $retryReceipt -Raw | ConvertFrom-Json).status -eq 'upload_failed') 'Failed retry must retain its state'
+    $failOnCall = 0
+    $invocations.Clear()
+    Invoke-AttemptUpload $retry
+    Assert-True ($invocations.Count -eq 2) 'Successful retry must push then clean'
+    Assert-True ($invocations[1].path -eq 'python.exe' -and $invocations[1].arguments -contains '--uploaded-run' -and $invocations[1].arguments -contains $retry) 'Cleanup must target exactly the uploaded attempt'
+    Assert-True ((Get-Content $retryReceipt -Raw | ConvertFrom-Json).status -eq 'uploaded') 'Cleanup starts after the success receipt is written'
+    Assert-True ($null -eq $script:logFile) 'Cleanup must not write back into deleted logs'
     Write-Host 'WINDOWS_HELPER_TESTS_PASS'
 } finally {
     $env:ProgramFiles = $savedProgramFiles

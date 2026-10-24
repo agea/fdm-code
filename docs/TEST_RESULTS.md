@@ -6178,3 +6178,50 @@ missing listen drivers, and aggregation of every map/mode including failures.
 These tests use mocked processes. No new Unreal cook, packaged gameplay run,
 notarization or itch upload was performed for this correction; an existing
 distribution must be rebuilt and replaced to include the missing maps.
+
+
+## 24 October 2026 — Automatic cleanup after itch uploads
+
+Successful Mac release uploads now remove their whole run directory after
+Butler returns successfully and log handles close, including snapshots,
+packages, notarization archives, test output, logs and receipts. This also
+applies to resume and upload-only. Failed uploads, check-only and no-upload
+retain their artifacts. Cleanup errors leave any surviving success receipt
+marked uploaded rather than reporting a false upload failure.
+
+Windows/Linux uploads remove each successful platform attempt; the shared
+workspace and summary are removed after all selected platforms upload,
+including retries. Failed/pending platforms retain their workspace. Python
+rmtree preserves junction targets; the common helper rejects source/ancestor
+paths, symlinked run roots and receipts without uploaded status.
+
+Validation: 18 Mac release tests and 4 cleanup tests passed using temporary
+fixtures and mocked external tools. Coverage includes ordinary release,
+resume, upload-only, check/no-upload, upload failure, partial cleanup failure,
+source/sibling preservation and linked asset targets. Extended the PowerShell
+fixture tests for upload/cleanup ordering and failure preservation; PowerShell
+is unavailable on this host, so those tests were not executed. No real build
+or upload was performed for this script change.
+
+
+## 24 October 2026 — User-authorized local cleanup, preserving Intermediate
+
+Removed Saved/Testing, Saved/Screenshots and old FactoryMigration, MapRefactor,
+AssetBackups, AlleyTraversal, AssetCleanup, Loadout, FireTraining and grenade
+migration backup folders. Intermediate, source code, source art, settings and
+autosaves were preserved. The main six folders recovered approximately
+1.38 GiB; additional small backups were removed afterwards.
+
+Fresh read-only Unreal audit found 122 candidate template packages (about
+22 MiB). A stricter referencer closure retained 118 because external actors
+and other packages outside the batch still refer to their dependency islands.
+Verified the candidates against committed Git hashes and an independent
+temporary rollback ZIP. Unreal removed three isolated LevelPrototyping assets
+(106735 bytes). MI_PrototypeGrid_Gray_02 remained on disk despite Unreal
+reporting deletion, so it was preserved rather than force-deleted.
+
+Final Unreal commandlet exited 0; the refreshed audit contains 119 candidates,
+and all 2150 previously runtime/authoring-reachable packages remain present.
+Only three deletions appear in the maps submodule; characters and weapons
+are unchanged. The temporary archive, scripts and logs were removed after
+verification. No new cook or gameplay test was run for this cleanup.

@@ -387,6 +387,25 @@ function Invoke-ItchUpload([string]$ArchivePath, [string]$ExpectedVersion,
     }
 }
 
+function Remove-UploadedBuild([string]$Directory, [switch]$CompletedRetry) {
+    if ($CompletedRetry) {
+        $summaryPath = Join-Path $Directory 'summary.json'
+        $summary = Get-Content -LiteralPath $summaryPath -Raw | ConvertFrom-Json
+        if (-not $summary.platforms -or @($summary.platforms | Where-Object { $_ -notin 'Windows', 'Linux' }).Count) {
+            throw 'Invalid desktop build summary; refusing cleanup.'
+        }
+        # Successful attempts were removed; any remaining attempt still needs attention.
+        foreach ($platform in $summary.platforms) {
+            if (Test-Path -LiteralPath (Join-Path $Directory $platform.ToLowerInvariant())) { return }
+        }
+        $summary.status = 'uploaded'
+        $summary | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $summaryPath -Encoding UTF8
+    }
+    # Python rmtree preserves junction targets, including shared Content mounts.
+    $script:logFile = $null
+    Invoke-Native 'python.exe' @((Join-Path $PSScriptRoot 'build_cleanup.py'), '--uploaded-run', $Directory)
+}
+
 function Invoke-AttemptUpload([string]$Attempt, [switch]$ValidateOnly) {
     $receiptFile = Join-Path $Attempt 'receipt.json'
     $receipt = Get-Content -LiteralPath $receiptFile -Raw | ConvertFrom-Json
@@ -412,6 +431,7 @@ function Invoke-AttemptUpload([string]$Attempt, [switch]$ValidateOnly) {
         $receipt.finished = (Get-Date).ToString('o')
         $receipt | ConvertTo-Json | Set-Content -LiteralPath $receiptFile -Encoding UTF8
     }
+    Remove-UploadedBuild $Attempt
 }
 
 try {
@@ -440,12 +460,19 @@ try {
         if (-not $attempts.Count) { throw 'No pending packaged builds found. Pass a platform attempt directory to re-upload an already uploaded build.' }
         foreach ($attempt in $attempts) { Invoke-AttemptUpload $attempt -ValidateOnly }
         Assert-Butler
+        Get-Command 'python.exe' -CommandType Application -ErrorAction Stop | Out-Null
         if ($Check) { Write-Host 'DESKTOP_UPLOAD_PREFLIGHT_PASS'; exit 0 }
         $failed = $false
         foreach ($attempt in $attempts) {
             try { Invoke-AttemptUpload $attempt } catch { Write-Host "ERROR: $($_.Exception.Message)" -ForegroundColor Red; $failed = $true }
         }
         if ($failed) { exit 1 }
+        # A whole-run retry can now remove the shared workspace and summary too.
+        if (Test-Path -LiteralPath (Join-Path $runDirectory 'summary.json')) {
+            Remove-UploadedBuild $runDirectory -CompletedRetry
+        } elseif (Test-Path -LiteralPath (Join-Path (Split-Path $runDirectory -Parent) 'summary.json')) {
+            Remove-UploadedBuild (Split-Path $runDirectory -Parent) -CompletedRetry
+        }
         exit 0
     }
     if (-not (Test-Path -LiteralPath $uproject)) { throw "Project missing: $uproject" }
@@ -622,6 +649,7 @@ try {
         $summary['finished'] = (Get-Date).ToString('o')
         $summary | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $summaryFile -Encoding UTF8
     }
+    if ($summary.status -eq 'uploaded') { Remove-UploadedBuild $runDirectory }
 } catch {
     Write-Host "ERROR: $($_.Exception.Message)" -ForegroundColor Red
     if ($logFile) { Write-Host "Build log: $logFile" }

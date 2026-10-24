@@ -346,6 +346,8 @@ def release(args):
         save(receipt_path, receipt)
         print('Release receipt:', receipt_path, flush=True)
     print('Release ' + receipt['status'] + ': ' + version, flush=True)
+    if receipt['status'] == 'uploaded':
+        helper('build_cleanup').remove_uploaded_build(run_dir, PROJECT)
 
 
 def main(argv=None):
