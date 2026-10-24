@@ -6156,3 +6156,25 @@ remote absolute deadlines and all15 remote kit observations also passed.
   integration test: Central Building → Middle Eastern Alleys → Central Building
   → Middle Eastern Alleys, again two humans, preserved teams/capacity, exit0.
   The log paths above contain this final run.
+
+
+## 24 October 2026 — Missing packaged menu maps
+
+The Mac and Windows/Linux packaging commands passed an obsolete explicit
+MainMenu/Depot/CentralBuilding map list. UE 5.8.3 CookOnTheFlyServer ignores
+ProjectPackagingSettings.MapsToCook when command-line maps are supplied, so
+Fire Training and Middle Eastern Alleys were omitted despite correct config
+and existing source maps. Removed both command-line overrides; the configured
+five-map list now controls cooking.
+
+Development Mac package acceptance now checks all four gameplay maps offline
+and as listen servers, requiring the requested world, bots/pistol evaluation,
+no travel errors and a real game listen driver. The existing Depot Metal
+SM5/SM6 checks remain.
+
+Validation: three offline regression tests passed, covering catalog/config
+coverage, packaging overrides, rejection of missing worlds/travel failures/
+missing listen drivers, and aggregation of every map/mode including failures.
+These tests use mocked processes. No new Unreal cook, packaged gameplay run,
+notarization or itch upload was performed for this correction; an existing
+distribution must be rebuilt and replaced to include the missing maps.

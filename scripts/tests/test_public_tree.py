@@ -147,6 +147,93 @@ class PublicTreeTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, 'forbidden path'):
                 module.verify(root)
 
+    def test_shared_blobs_are_read_once_across_paths_and_commits(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.fixture(root)
+            (root / 'docs').mkdir()
+            (root / 'docs/copy.md').write_bytes((root / 'README.md').read_bytes())
+            self.git(root, 'add', '.')
+            self.git(root, 'commit', '-m', 'Same content under another allowed path')
+            self.git(root, 'commit', '--allow-empty', '-m', 'Unchanged tree')
+            with patch.object(module, 'read_blob_facts', wraps=module.read_blob_facts) as reader, \
+                 patch.object(module.subprocess, 'Popen', wraps=subprocess.Popen) as processes:
+                self.assertEqual(module.verify(root), (3, 8))
+            self.assertEqual(reader.call_count, 2)
+            batches = [call for call in processes.call_args_list
+                       if call.args[0] == ['git', 'cat-file', '--batch']]
+            self.assertEqual(len(batches), 1)
+
+    def test_cached_content_does_not_approve_a_forbidden_path(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.fixture(root)
+            (root / 'Content').mkdir()
+            (root / 'Content/private.uasset').write_bytes((root / 'README.md').read_bytes())
+            self.git(root, 'add', '.')
+            self.git(root, 'commit', '-m', 'Same blob at forbidden path')
+            with self.assertRaisesRegex(RuntimeError, 'forbidden path/mode Content/private.uasset'):
+                module.verify(root)
+
+    def test_asset_on_another_branch_still_blocks_publication(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.fixture(root)
+            self.git(root, 'checkout', '-b', 'private-branch')
+            (root / 'Content').mkdir()
+            (root / 'Content/private.uasset').write_bytes(b'private asset')
+            self.git(root, 'add', '.')
+            self.git(root, 'commit', '-m', 'Asset on another branch')
+            self.git(root, 'checkout', 'main')
+            with self.assertRaisesRegex(RuntimeError, 'forbidden path/mode Content/private.uasset'):
+                module.verify(root)
+
+    def test_cached_branding_hash_is_checked_against_each_path(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.fixture(root)
+            content = b'approved for one path only'
+            for name in ('Branding/icon.png', 'Branding/logo.png'):
+                target = root / name
+                target.parent.mkdir(exist_ok=True)
+                target.write_bytes(content)
+            self.git(root, 'add', '.')
+            self.git(root, 'commit', '-m', 'Same content under two branding paths')
+            with patch.dict(module.PUBLIC_BRANDING, {
+                    'Branding/icon.png': hashlib.sha256(content).hexdigest(),
+                    'Branding/logo.png': hashlib.sha256(b'different approved logo').hexdigest()}):
+                with self.assertRaisesRegex(RuntimeError, 'unapproved branding content Branding/logo.png'):
+                    module.verify(root)
+
+    def test_branding_approval_does_not_approve_same_blob_as_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.fixture(root)
+            name = 'Branding/icon.png'
+            content = b'approved\0image'
+            for path in (name, 'Source/disguised.cpp'):
+                target = root / path
+                target.parent.mkdir(parents=True)
+                target.write_bytes(content)
+            self.git(root, 'add', '.')
+            self.git(root, 'commit', '-m', 'Approved branding reused as source')
+            with patch.dict(module.PUBLIC_BRANDING, {name: hashlib.sha256(content).hexdigest()}):
+                with self.assertRaisesRegex(RuntimeError, 'binary/LFS blob Source/disguised.cpp'):
+                    module.verify(root)
+
+    def test_batch_reads_empty_and_large_blobs_without_losing_framing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.fixture(root)
+            (root / 'docs').mkdir()
+            (root / 'docs/empty.md').write_bytes(b'')
+            target = root / 'docs/large.md'
+            target.write_bytes(b'a' * (1024 * 1024) + b'\0tail')
+            self.git(root, 'add', '.')
+            self.git(root, 'commit', '-m', 'Large binary disguised as text')
+            with self.assertRaisesRegex(RuntimeError, 'binary/LFS blob docs/large.md'):
+                module.verify(root)
+
     def test_binary_blob_disguised_as_source_is_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

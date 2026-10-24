@@ -83,38 +83,76 @@ PUBLIC_BRANDING_HISTORY = {
 }
 
 
+def read_blob_facts(batch, oid):
+    """Read one framed batch response; retain only its hash and text classification."""
+    batch.stdin.write(oid.encode('ascii') + b'\n')
+    batch.stdin.flush()
+    header = batch.stdout.readline().split()
+    if len(header) != 3 or header[0] != oid.encode('ascii') or header[1] != b'blob':
+        raise RuntimeError('Cannot read Git blob ' + oid)
+    remaining = int(header[2])
+    digest = hashlib.sha256()
+    is_binary = False
+    first = True
+    while remaining:
+        chunk = batch.stdout.read(min(remaining, 1024 * 1024))
+        if not chunk:
+            raise RuntimeError('Truncated Git blob ' + oid)
+        digest.update(chunk)
+        is_binary |= b'\0' in chunk or (first and chunk.startswith(b'version https://git-lfs.github.com/spec/v1'))
+        first = False
+        remaining -= len(chunk)
+    if batch.stdout.read(1) != b'\n':
+        raise RuntimeError('Invalid Git batch response for ' + oid)
+    return digest.hexdigest(), is_binary
+
+
 def verify(root):
     revisions = subprocess.check_output(['git', 'rev-list', '--all'], cwd=root, text=True).splitlines()
     failures = []
     count = 0
-    for revision in revisions:
-        tree = subprocess.check_output(['git', 'ls-tree', '-rz', revision], cwd=root).split(b'\0')
-        for item in tree:
-            if not item:
-                continue
-            info, raw_path = item.split(b'\t', 1)
-            mode, kind, oid = info.decode().split()
-            name = raw_path.decode()
-            path = Path(name)
-            if mode == '160000' and name in SUBMODULES:
-                continue
-            if name in PUBLIC_BRANDING and kind == 'blob' and mode == '100644':
-                blob = subprocess.check_output(['git', 'cat-file', 'blob', oid], cwd=root)
-                approved_hashes = {PUBLIC_BRANDING[name]} | PUBLIC_BRANDING_HISTORY.get(name, set())
-                if hashlib.sha256(blob).hexdigest() not in approved_hashes:
-                    failures.append(revision[:8] + ': unapproved branding content ' + name)
-                count += 1
-                continue
-            allowed = (name in ROOT_FILES or name in PUBLIC_BRANDING_TEXT or name in PUBLIC_GAMEPLAY_TEXT or
-                       name in PUBLIC_EOS_GUEST_TEXT or
-                       (path.parts[0] in EXTENSIONS and path.suffix in EXTENSIONS[path.parts[0]]))
-            if kind != 'blob' or mode not in ('100644', '100755') or not allowed:
-                failures.append(revision[:8] + ': forbidden path/mode ' + name)
-                continue
-            blob = subprocess.check_output(['git', 'cat-file', 'blob', oid], cwd=root)
-            if b'\0' in blob or blob.startswith(b'version https://git-lfs.github.com/spec/v1'):
-                failures.append(revision[:8] + ': binary/LFS blob ' + name)
-            count += 1
+    # Cache content facts only: path/mode approval still applies to every entry.
+    facts = {}
+    with subprocess.Popen(['git', 'cat-file', '--batch'], cwd=root,
+                          stdin=subprocess.PIPE, stdout=subprocess.PIPE) as batch:
+        try:
+            for revision in revisions:
+                tree = subprocess.check_output(['git', 'ls-tree', '-rz', revision], cwd=root).split(b'\0')
+                for item in tree:
+                    if not item:
+                        continue
+                    info, raw_path = item.split(b'\t', 1)
+                    mode, kind, oid = info.decode().split()
+                    name = raw_path.decode()
+                    path = Path(name)
+                    if mode == '160000' and name in SUBMODULES:
+                        continue
+                    if name in PUBLIC_BRANDING and kind == 'blob' and mode == '100644':
+                        if oid not in facts:
+                            facts[oid] = read_blob_facts(batch, oid)
+                        digest, is_binary = facts[oid]
+                        approved_hashes = {PUBLIC_BRANDING[name]} | PUBLIC_BRANDING_HISTORY.get(name, set())
+                        if digest not in approved_hashes:
+                            failures.append(revision[:8] + ': unapproved branding content ' + name)
+                        count += 1
+                        continue
+                    allowed = (name in ROOT_FILES or name in PUBLIC_BRANDING_TEXT or name in PUBLIC_GAMEPLAY_TEXT or
+                               name in PUBLIC_EOS_GUEST_TEXT or
+                               (path.parts[0] in EXTENSIONS and path.suffix in EXTENSIONS[path.parts[0]]))
+                    if kind != 'blob' or mode not in ('100644', '100755') or not allowed:
+                        failures.append(revision[:8] + ': forbidden path/mode ' + name)
+                        continue
+                    if oid not in facts:
+                        facts[oid] = read_blob_facts(batch, oid)
+                    digest, is_binary = facts[oid]
+                    if is_binary:
+                        failures.append(revision[:8] + ': binary/LFS blob ' + name)
+                    count += 1
+        finally:
+            batch.stdin.close()
+        code = batch.wait()
+        if code:
+            raise subprocess.CalledProcessError(code, batch.args)
     if not revisions:
         failures.append('No committed history to verify')
     if failures:

@@ -188,8 +188,14 @@ Compilation and cooking take place in that copy, preserving the live checkout.
 Only the runtime background and icon are included from Branding; source artwork
 under Branding/Originals is not shipped.
 
-Development packages also boot a real cooked Depot session with six bots,
-including the pistol, before the package is accepted. This checks the native
+Packaging uses the single `MapsToCook` list in `Config/DefaultGame.ini`; do not
+pass a separate `-map` list, which overrides those settings and can silently omit
+new menu maps. This applies to the Mac and Windows/Linux packaging helpers.
+
+Development Mac packages boot every configured gameplay map offline and as a
+listen server with six bots, including the pistol, before accepting the package.
+Each launch must load the requested world without travel failures; listen cases
+must also start the game net driver. Results are recorded in `runtime-smoke/maps.json`. This checks the native
 rendering profile and animation evaluation; starting the main menu alone misses
 these failures. Both SM5 and SM6 also run with real offscreen Metal rendering.
 These checks require an SM6-capable build Mac (M2+ with macOS 15+), and verify
@@ -199,6 +205,8 @@ directory. To repeat it, run:
 
 ```sh
 python3 scripts/test-packaged-runtime.py --executable /path/to/RespawnAndRage.app/Contents/MacOS/RespawnAndRage
+# Check every gameplay map offline and as a listen server:
+python3 scripts/test-packaged-runtime.py --executable /path/to/RespawnAndRage.app/Contents/MacOS/RespawnAndRage --all-maps
 # Optional real Metal rendering and FPS samples:
 python3 scripts/test-packaged-runtime.py --executable /path/to/RespawnAndRage.app/Contents/MacOS/RespawnAndRage --render
 # Force the compatibility path (use sm6 for the other shader path):

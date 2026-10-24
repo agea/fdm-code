@@ -239,7 +239,7 @@ function Invoke-PackageBuild([string]$EngineRoot, [string]$ProjectPath, [string]
         'BuildCookRun', "-project=$ProjectPath", '-target=RespawnAndRage', "-platform=$unrealPlatform",
         "-clientconfig=$BuildConfiguration", '-nop4', '-unattended', '-utf8output', '-installed',
         '-build', '-cook', '-stage', '-package', '-pak', '-iostore', '-skipbuildeditor',
-        '-map=/Game/EclipseRecoil/Maps/L_MainMenu+/Game/EclipseRecoil/Maps/L_Depot+/Game/EclipseRecoil/Maps/L_CentralBuilding',
+        # Use ProjectPackagingSettings.MapsToCook; -map overrides that list.
         '-archive', "-archivedirectory=$ArchivePath") + $extra)
 }
 

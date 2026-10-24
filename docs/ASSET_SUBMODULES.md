@@ -91,6 +91,10 @@ paths `Config/GameplayMessages/respawn-and-rage-gameplay-messages.en-US.json`
 and `Config/GameplayMessages/README.md`. This exception retains the ordinary
 binary/LFS and file-mode checks; other JSON/Markdown paths under `Config` remain
 forbidden. The pre-push hook uses this same history verifier.
+Each run still checks every reachable commit and every path/mode. Blob contents
+are streamed through one `git cat-file --batch` process, with hashes and
+binary/LFS classifications reused by object ID within that run. No persistent
+cache skips checks on later pushes.
 
 The user-supplied game branding is an explicit exception: approved original and
 derived images/icons under exact `Branding`, `Build` and `Content/Splash` paths

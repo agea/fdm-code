@@ -147,8 +147,8 @@ commands = [
     [str(engine / 'Engine/Build/BatchFiles/RunUAT.sh'), 'BuildCookRun', f'-project={uproject}',
      '-target=RespawnAndRage', '-platform=Mac', f'-clientconfig={a.configuration}',
      f'-clientarchitecture={arches}', '-nop4', '-unattended', '-utf8output', '-installed',
-     '-allmaps', '-build', '-cook', '-stage', '-package', '-pak', '-iostore',
-     '-map=/Game/EclipseRecoil/Maps/L_MainMenu+/Game/EclipseRecoil/Maps/L_Depot+/Game/EclipseRecoil/Maps/L_CentralBuilding',
+     # Use ProjectPackagingSettings.MapsToCook; -map overrides that list.
+     '-build', '-cook', '-stage', '-package', '-pak', '-iostore',
      '-skipbuildeditor', '-archive', f'-archivedirectory={archive}'],
 ]
 if a.resume:
@@ -251,8 +251,8 @@ try:
             # Menu startup misses animation failures that only appear after
             # spawning pistol-equipped players/bots in a cooked executable.
             subprocess.run([sys.executable, str(Path(__file__).with_name('test-packaged-runtime.py')),
-                            '--executable', str(binary), '--output', str(run_dir / 'runtime-smoke')], check=True)
-            receipt['packaged_runtime_smoke'] = str(run_dir / 'runtime-smoke/null.json')
+                            '--executable', str(binary), '--all-maps', '--output', str(run_dir / 'runtime-smoke')], check=True)
+            receipt['packaged_runtime_smoke'] = str(run_dir / 'runtime-smoke/maps.json')
             for shader_model in ('sm5', 'sm6'):
                 subprocess.run([sys.executable, str(Path(__file__).with_name('test-packaged-runtime.py')),
                                 '--executable', str(binary), '--render', '--shader-model', shader_model,
