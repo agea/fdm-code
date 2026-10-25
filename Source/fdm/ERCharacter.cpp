@@ -347,6 +347,7 @@ void AERCharacter::OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdj
 }
 void AERCharacter::BeginPlay()
 {
+    if(HasAuthority()) SpawnFacingYaw=GetActorRotation().Yaw;
     Super::BeginPlay();
     FirstPersonBodyBaseLocation = FirstPersonBody->GetRelativeLocation();
     FirstPersonBodyBaseRotation = FirstPersonBody->GetRelativeRotation();
@@ -1228,6 +1229,7 @@ void AERCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLife
     DOREPLIFETIME(AERCharacter, bReferenceInventory);
     DOREPLIFETIME(AERCharacter, bPresetInventory); DOREPLIFETIME(AERCharacter, ActivePreset); DOREPLIFETIME(AERCharacter, ActiveVariant);
     DOREPLIFETIME(AERCharacter, Inventory);
+    DOREPLIFETIME_CONDITION(AERCharacter, SpawnFacingYaw, COND_InitialOnly);
     DOREPLIFETIME_CONDITION(AERCharacter, RecoilState, COND_OwnerOnly);
     DOREPLIFETIME_CONDITION(AERCharacter, DeathFocus, COND_OwnerOnly);
     DOREPLIFETIME_CONDITION(AERCharacter, DeathFocusPosition, COND_OwnerOnly);

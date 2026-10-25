@@ -15,5 +15,14 @@ struct FERHUDLayout
     FVector2D Position(float X, float Y) const { return Viewport * FVector2D(X / 1280.f, Y / 720.f); }
     FVector2D Edge() const { return Position(40, 40); }
     float MinimapRadius() const { return 97.92f * Scale; }
-    FVector2D MinimapCenter() const { return Position(1250, 64) + FVector2D(-MinimapRadius(), MinimapRadius()); }
+    FVector2D MinimapCenter() const
+    {
+        const float Inset=30.f*Scale;
+        return FVector2D(Viewport.X-Inset-MinimapRadius(),Inset+MinimapRadius());
+    }
+    static FVector2D SpawnBearing(float SpawnYaw,float ViewYaw)
+    {
+        const float Angle=FMath::DegreesToRadians(SpawnYaw-ViewYaw);
+        return FVector2D(FMath::Sin(Angle),-FMath::Cos(Angle));
+    }
 };

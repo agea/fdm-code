@@ -14,16 +14,18 @@ bool FERLoadoutCatalogTests::RunTest(const FString&)
         const auto R=ERLoadouts::Resolve(ERLoadouts::Presets()[P],ERLoadouts::Variants()[V]);
         TestEqual(TEXT("Primary identity"),R.Items[0].WeaponKey,P+3);
         TestEqual(TEXT("Initial loaded"),R.Items[0].Loaded,P==4 && V>0?4:Loaded[P]);
-        TestEqual(TEXT("Initial reserve"),R.Items[0].Reserve,Reserve[P]);
+        TestEqual(TEXT("Initial reserve"),R.Items[0].Reserve,R.Items[0].Loaded+2*Reserve[P]);
         TestEqual(TEXT("Secondary identity"),R.Items[1].WeaponKey,P==4 || V==0?2:1);
+        TestEqual(TEXT("Secondary total doubled"),R.Items[1].Loaded+R.Items[1].Reserve,(P==4 || V==0)?180:42);
         TestEqual(TEXT("Knife common"),R.Items[2].WeaponKey,0);
+        TestEqual(TEXT("Knife unchanged"),R.Items[2].Loaded+R.Items[2].Reserve,1);
         TestEqual(TEXT("No hidden utility"),R.Items.Num(),V==0?3:5);
         if(V>0)
         {
             TestEqual(TEXT("Utility 1 identity"),R.Items[3].WeaponKey,V==1?8:9);
-            TestEqual(TEXT("Utility 1 quantity"),R.Items[3].Loaded+R.Items[3].Reserve,2);
+            TestEqual(TEXT("Utility 1 quantity"),R.Items[3].Loaded+R.Items[3].Reserve,4);
             TestEqual(TEXT("Utility 2 identity"),R.Items[4].WeaponKey,V==1?9:10);
-            TestEqual(TEXT("Utility 2 quantity"),R.Items[4].Loaded+R.Items[4].Reserve,1);
+            TestEqual(TEXT("Utility 2 quantity"),R.Items[4].Loaded+R.Items[4].Reserve,2);
         }
         Alpha.Add(R.Skin);Omega.Add(ERLoadouts::Resolve(R.Preset,R.Variant,true).Skin);
         TestEqual(TEXT("Variants share skin"),R.Skin,ERLoadouts::Resolve(R.Preset,"offense").Skin);
@@ -47,7 +49,11 @@ bool FERLoadoutCatalogTests::RunTest(const FString&)
             TestTrue(TEXT("Item present"),I.Data!=nullptr);
             if(!I.Data)continue;
             const auto* D=I.Data.Get();
-            TestTrue(TEXT("Magazine fits physical capacity"),I.Loaded<=D->MagazineSize);
+            if(I.WeaponKey>0 && I.WeaponKey<8)
+                TestTrue(TEXT("Magazine fits physical capacity"),I.Loaded<=D->MagazineSize);
+            const auto Base=ERLoadouts::Resolve(P,V,Team);
+            const auto* Expected=Base.Items.FindByPredicate([&](const auto& Entry){return Entry.WeaponKey==I.WeaponKey;});
+            TestTrue(TEXT("Catalog preserves complete carried supply"),Expected && I.Loaded+I.Reserve==Expected->Loaded+Expected->Reserve);
             TestTrue(TEXT("No stun"),D->Payload!=EERPayload::Stun);
             if(I.WeaponKey==10)TestTrue(TEXT("Claymore art is bound"),D->Mesh && D->PlacedMesh && D->Payload==EERPayload::Claymore);
         }

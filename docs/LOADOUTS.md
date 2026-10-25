@@ -3,7 +3,15 @@
 Five stable preset IDs (`breacher`, `rifleman`, `marksman`, `sniper`, `grenadier`)
 and three variants (`gunner`, `offense`, `defense`) resolve through ERLoadouts.
 Rifleman/Offense is the safe default. Config/DefaultGame.ini exposes initial
-primary/secondary ammunition and stable team skin names. Quantities are rounds.
+primary/secondary base ammunition and stable team skin names. Quantities are rounds.
+The resolver doubles total carried ammunition for every preset/variant: firearm
+loaded counts stay unchanged and the extra rounds go into reserve. For example,
+rifleman 30+90 becomes 30+210, pistol 7+14 becomes 7+35, and SMG 30+60 becomes
+30+150. Grenadier carries 6+6 (gunner) or 4+4 (offense/defense).
+Utility stacks double directly: offense gets 4 HE + 2 smoke; defense gets
+4 smoke + 2 claymores. Gunner still has no utility and the knife is unchanged.
+Both menu/server resolution and spawned inventory use these same totals.
+Existing config values are base quantities, not pre-multiplied supplies.
 These defaults and Claymore tuning are initial implementation choices, not playtest findings.
 
 The server resolves inventory and skin together on spawn. GameState replicates
@@ -67,3 +75,13 @@ weapon_gameplay_overrides.py reapplies Shotgun8x22/0.35s after reference imports
 Validation entry points: scripts/test-loadouts.py, --network, --render and
 --network --mines (real staggered60s deadlines and a posthumous kill).
 See TEST_RESULTS.md for executed outcomes and remaining visual/network checks.
+
+The selection menu uses the supplied HUD weapon icons for role choices and a
+single equipment list. Variant buttons contain names only: obsolete hardcoded
+recipes and the duplicate Loaded/Reserve summary have been removed. Every item
+and quantity is read from ResolveMenuLoadout (the server catalog when online).
+Firearms use the same magazine / total convention as the HUD, utility shows
+carried quantities and melee has no ammunition count. Selection highlights,
+confirmed next-spawn selection and the apply action are presented separately;
+a different equipped kit is shown only while waiting for the next spawn.
+The rotatable character preview remains available in a more compact panel.

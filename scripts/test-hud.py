@@ -9,6 +9,7 @@ import time
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--render', action='store_true')
+parser.add_argument('--weapons', action='store_true', help='Cycle selected items and empty ammunition during the render gallery')
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[1]
 output = root / 'Saved/Testing/HUD'
@@ -18,6 +19,9 @@ common = [str(editor), str(root / 'RespawnAndRage.uproject'), '-unattended', '-n
 log = output / ('render.log' if args.render else 'automation.log')
 extra = (['/Game/EclipseRecoil/Maps/L_Depot?Name=HUD?Team=0', '-game', '-windowed', '-RenderOffscreen', '-ForceRes', '-ResX=3840', '-ResY=2160', '-ERHUDGallery', '-ExecCmds=t.MaxFPS 60'] if args.render else
          ['-nullrhi', '-ExecCmds=Automation RunTests EclipseRecoil.Player.HUDViewportLayout', '-TestExit=Automation Test Queue Empty'])
+if args.weapons:
+    assert args.render, '--weapons requires --render'
+    extra.append('-ERWeaponHUDGallery')
 started = time.time()
 with log.open('w') as handle:
     result = subprocess.run(common + extra, stdout=handle, stderr=subprocess.STDOUT, timeout=180)
@@ -36,6 +40,9 @@ if args.render:
         passed &= capture.exists() and capture.stat().st_mtime >= started
         print(f'{index} scoreboard={scoreboard} {w}x{h} scale={scale} radius={radius}')
     passed &= len(sizes) == 7
+    if args.weapons:
+        passed &= len(re.findall(r'ER_WEAPON_HUD_GALLERY index=', text)) == 7
+        passed &= bool(re.search(r'ER_WEAPON_HUD_GALLERY index=6 .*loaded=0 reserve=0', text))
 else:
     passed = 'Result={Success} Name={HUDViewportLayout}' in text and 'Result={Fail}' not in text
     print('\n'.join(line for line in text.splitlines() if 'Result={' in line or 'Error:' in line))

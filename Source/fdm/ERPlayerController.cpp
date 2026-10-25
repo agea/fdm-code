@@ -364,10 +364,10 @@ void AERPlayerController::BeginPlay()
         return FERHUDLayout(FrameRateWidget.IsValid() ? FrameRateWidget->GetCachedGeometry().GetLocalSize() : FVector2D(1280,720));
     };
     FrameRateWidget = SNew(SOverlay)
-        + SOverlay::Slot().HAlign(HAlign_Right).VAlign(VAlign_Top)
-            .Padding(TAttribute<FMargin>::CreateLambda([PerformanceLayout]() { const auto P=PerformanceLayout().Position(16,16); return FMargin(P.X,P.Y); }))
+        + SOverlay::Slot().HAlign(HAlign_Center).VAlign(VAlign_Top)
+            .Padding(TAttribute<FMargin>::CreateLambda([PerformanceLayout]() { return FMargin(0,PerformanceLayout().Position(0,2).Y,0,0); }))
         [SNew(STextBlock)
-            .Font_Lambda([PerformanceLayout]() { return ERInterface::Font(FMath::Max(1,FMath::RoundToInt(11*PerformanceLayout().Scale))); })
+            .Font_Lambda([PerformanceLayout]() { return ERInterface::Font(FMath::Max(1,FMath::RoundToInt(9*PerformanceLayout().Scale))); })
             .ShadowOffset_Lambda([PerformanceLayout]() { return FVector2D(1,1)*PerformanceLayout().Scale; })
             .ShadowColorAndOpacity(FLinearColor::Black).Text_Lambda([this]() { return GetFrameRateText(); })];
     FrameRateWidget->SetVisibility(EVisibility::HitTestInvisible);
@@ -1003,7 +1003,8 @@ FVector2D AERHUD::DrawHUDTextAnchored(const FString& Value, FVector2D Position, 
     const FVector2D Size=FSlateApplication::Get().GetRenderer()->GetFontMeasureService()->Measure(Value,Font,DPI)/DPI;
     Position-=Size*Anchor;
     FCanvasTextItem Item(FVector2D(FMath::RoundToFloat(Position.X),FMath::RoundToFloat(Position.Y)),FText::FromString(Value),Font,Color);
-    Item.EnableShadow(FLinearColor(0,0,0,.9f), FVector2D(2,2)*ViewScale);
+    // Keep the shadow close to the glyphs at every viewport resolution.
+    Item.EnableShadow(FLinearColor(0,0,0,.9f), FVector2D(2,2));
     Canvas->DrawItem(Item);
     return Size;
 }
@@ -1090,8 +1091,6 @@ void AERHUD::DrawHUD()
         }
         if (const auto* Weapon = Character->Weapon.Get())
         {
-            DrawHUDTextAnchored(Weapon->bReloading ? TEXT("RELOADING...") : FString::Printf(TEXT("%02d / %02d    %s"),Weapon->MagazineAmmo,Weapon->ReserveAmmo,
-                Weapon->Data ? *Weapon->Data->DisplayName : TEXT("Assault Rifle")),FVector2D(W,H)-EdgeMargin,FLinearColor::White,1.1f,FVector2D(1,1));
             const int32 Capacity = Weapon->Data ? FMath::Clamp(Weapon->Data->MagazineSize, 1, 120) : 30;
             const int32 Remaining = FMath::Clamp(Weapon->MagazineAmmo, 0, Capacity);
             const float Scale = HUDScale;
@@ -1155,12 +1154,7 @@ void AERHUD::DrawHUD()
             }
 #endif
         }
-        if(Character->bPresetInventory)
-        {
-            int32 Carried=0;for(const auto& Item:Character->Inventory)if(Item && Item->Data && Item->Data->Payload==EERPayload::Claymore)Carried+=Item->MagazineAmmo+Item->ReserveAmmo;
-            const auto* OwnerState=Character->GetPlayerState<AERPlayerState>();
-            DrawHUDText(FString::Printf(TEXT("Claymores: %d carried · %d active  [H]"),Carried,OwnerState?OwnerState->ActiveClaymores:0),Layout.Position(860,620).X,Layout.Position(860,620).Y,FLinearColor::White,.9f);
-        }
+        DrawWeaponInventory(Character);
         if(Character->Weapon && Character->Weapon->bPlacingClaymore)DrawHUDText(TEXT("PLACING CLAYMORE..."),W/2,Layout.Position(640,570).Y,FLinearColor(.4f,.8f,1),1.f,true);
         if (Character->Health->IsProtected()) DrawHUDText(TEXT("SPAWN PROTECTION"), W/2,Layout.Position(640,601).Y,FLinearColor(.4f,.8f,1),1.3f,true);
     }

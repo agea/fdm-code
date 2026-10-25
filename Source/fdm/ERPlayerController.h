@@ -166,6 +166,8 @@ private:
     bool bLoadoutPending = false;
     UPROPERTY(Transient) TMap<FName,TObjectPtr<class UTextureRenderTarget2D>> LoadoutPortraits;
     TArray<TSharedPtr<FSlateBrush>> PortraitBrushes;
+    UPROPERTY(Transient) TArray<TObjectPtr<class UTexture2D>> LoadoutIconTextures;
+    TArray<TSharedPtr<FSlateBrush>> LoadoutIconBrushes;
     void RefreshLoadoutPreview();
     FERResolvedLoadout ResolveMenuLoadout(FName Preset,FName Variant) const;
     int32 SubmenuParent = 0;
@@ -259,17 +261,22 @@ class FDM_API AERHUD : public AHUD
     GENERATED_BODY()
     friend class AERReconDirector;
 public:
+    AERHUD();
     virtual void DrawHUD() override;
     void DrawHUDText(const FString& Value, float X, float Y, FLinearColor Color = FLinearColor::White,
         float Scale = 1.3f, bool Centered = false);
 private:
     void DrawDamageFeedback(const class AERCharacter* Character);
     void DrawVitals(const class AERCharacter* Character);
+    void DrawWeaponInventory(const class AERCharacter* Character);
+    UPROPERTY() TArray<TObjectPtr<class UTexture2D>> WeaponIcons;
+    UPROPERTY() TObjectPtr<class UTexture2D> DroneIcon;
     void TickHUDLayoutGallery();
     int32 HUDGalleryStep = 0;
     double HUDGalleryNextAt = 6;
     FVector2D DrawHUDTextAnchored(const FString& Value, FVector2D Position, FLinearColor Color,
         float Scale, FVector2D Anchor);
+    UPROPERTY() TArray<TObjectPtr<class UTexture2D>> VitalsTextures;
     UPROPERTY(Transient) TObjectPtr<class UFont> HUDTypeface;
     TWeakObjectPtr<class AERWeapon> ReticleWeapon;
     float ReticleRadius = 0; // Fraction of viewport width, so resizing has no pixel lag.

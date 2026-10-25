@@ -78,7 +78,12 @@ void AERWeapon::BeginPlay()
         const auto* Character = Cast<AERCharacter>(GetOwner());
         const auto* PS = Character ? Character->GetPlayerState<AERPlayerState>() : nullptr;
         if(InitialLoaded>=0)
-        { MagazineAmmo=FMath::Clamp(InitialLoaded,0,Data->MagazineSize);ReserveAmmo=FMath::Max(0,InitialReserve); }
+        {
+            // Grenades/mines are carried stacks, not firearm magazines.
+            const bool Utility=IsHandGrenade(Data->Payload) || Data->Payload==EERPayload::Claymore;
+            MagazineAmmo=Utility?FMath::Max(0,InitialLoaded):FMath::Clamp(InitialLoaded,0,Data->MagazineSize);
+            ReserveAmmo=FMath::Max(0,InitialReserve);
+        }
         else if (PS)
         {
             const int32 Count = Data->Payload == EERPayload::HE ? PS->HECount : Data->Payload == EERPayload::Smoke ? PS->SmokeCount : Data->Payload == EERPayload::Stun ? PS->StunCount : -1;

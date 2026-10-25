@@ -1,6 +1,8 @@
 #include "ERHUDLayout.h"
 #include "ERPlayerController.h"
 #include "ERRecon.h"
+#include "ERCharacter.h"
+#include "ERWeapon.h"
 #include "Engine/Canvas.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/CommandLine.h"
@@ -25,6 +27,18 @@ void AERHUD::TickHUDLayoutGallery()
     }
     if (Phase==0)
     {
+        if(FParse::Param(FCommandLine::Get(),TEXT("ERWeaponHUDGallery")))
+        {
+            if(auto* C=Cast<AERCharacter>(PC->GetPawn());C && C->HasAuthority() && !C->Inventory.IsEmpty())
+            {
+                const int32 Slot=Index%C->Inventory.Num();
+                C->ServerSelectWeapon(Slot);
+                if(Index>=5 && C->Weapon && C->Weapon->Data->Payload!=EERPayload::Melee)
+                { C->Weapon->MagazineAmmo=0;C->Weapon->ReserveAmmo=0; }
+                UE_LOG(LogTemp,Display,TEXT("ER_WEAPON_HUD_GALLERY index=%d slot=%d item=%s loaded=%d reserve=%d"),
+                    Index,Slot,*GetNameSafe(C->Weapon?C->Weapon->Data.Get():nullptr),C->Weapon?C->Weapon->MagazineAmmo:-1,C->Weapon?C->Weapon->ReserveAmmo:-1);
+            }
+        }
         PC->bShowScoreboard=false;
         PC->ConsoleCommand(FString::Printf(TEXT("r.SetRes %dx%dw"),Sizes[Index].X,Sizes[Index].Y));
     }
@@ -45,6 +59,12 @@ void AERHUD::TickHUDLayoutGallery()
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FERHUDLayoutTest,"EclipseRecoil.Player.HUDViewportLayout",EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
 bool FERHUDLayoutTest::RunTest(const FString&)
 {
+    for(float SpawnYaw : {0.f,90.f,180.f,-90.f})
+    {
+        TestTrue(TEXT("Enemy base bearing is up at respawn for either team"),FERHUDLayout::SpawnBearing(SpawnYaw,SpawnYaw).Equals(FVector2D(0,-1),.001));
+        TestTrue(TEXT("Fixed bearing rotates right when looking left"),FERHUDLayout::SpawnBearing(SpawnYaw,SpawnYaw-90).Equals(FVector2D(1,0),.001));
+        TestTrue(TEXT("Fixed bearing is behind when looking back"),FERHUDLayout::SpawnBearing(SpawnYaw,SpawnYaw+180).Equals(FVector2D(0,1),.001));
+    }
     const FERHUDLayout Base(FVector2D(1280,720));
     for (const float Factor : {.5f,1.f,1.5f,2.f,3.f,4.f})
     {
@@ -59,6 +79,7 @@ bool FERHUDLayoutTest::RunTest(const FString&)
         TestTrue(TEXT("Horizontal inset is a fraction of width"),FMath::IsNearlyEqual(L.Edge().X/Size.X,40./1280));
         TestTrue(TEXT("Vertical inset is a fraction of height"),FMath::IsNearlyEqual(L.Edge().Y/Size.Y,40./720));
         const auto C=L.MinimapCenter(); const float R=L.MinimapRadius()+28*L.Scale;
+        TestTrue(TEXT("Minimap top and right margins match at every aspect ratio"),FMath::IsNearlyEqual(C.Y-L.MinimapRadius(),Size.X-C.X-L.MinimapRadius(),.001));
         TestTrue(TEXT("Minimap, north marker and shadow fit every tested aspect ratio"),C.X-R>0 && C.Y-R>0 && C.X+R<Size.X && C.Y+R+80*L.Scale<Size.Y);
         TestTrue(TEXT("Vitals fit beside bottom-right ammo"),L.Edge().X+206*L.Scale<Size.X*.5);
     }

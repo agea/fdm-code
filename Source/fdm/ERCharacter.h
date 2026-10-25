@@ -103,6 +103,8 @@ public:
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="First person") TArray<int32> FirstPersonVisibleMaterialSlots;
     UPROPERTY(Replicated, BlueprintReadOnly) TObjectPtr<class AERWeapon> Weapon;
     UPROPERTY(Replicated) TArray<TObjectPtr<class AERWeapon>> Inventory;
+    // Fixed server-authored initial facing for the minimap enemy-base bearing.
+    UPROPERTY(Replicated) float SpawnFacingYaw = 0;
     UPROPERTY(Replicated) FERWeaponRecoilState RecoilState;
     FRotator GetRecoilRotation() const;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Damage feedback") FERAimPunchTuning AimPunchTuning;

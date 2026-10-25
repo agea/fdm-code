@@ -54,12 +54,20 @@ FERResolvedLoadout ERLoadouts::Resolve(FName Preset,FName Variant,bool Omega,con
     if(V==2) { R.Items.Add({9,2,0});R.Items.Add({10,1,0}); }
     for(auto& Item:R.Items)
     {
+        // Double carried supplies, preserving firearm magazine capacities and melee.
+        if(Item.WeaponKey>=8) { Item.Loaded*=2;Item.Reserve*=2; }
+        else if(Item.WeaponKey!=0) Item.Reserve=Item.Loaded+2*Item.Reserve;
         Item.WeaponId=WeaponAssetName(Item.WeaponKey);
         if(Catalog)
         {
             const auto* Found=Catalog->ReferenceArsenal.FindByPredicate([&](const auto D){return D && D->GetFName()==Item.WeaponId;});
             Item.Data=Found?Found->Get():nullptr;
-            if(Item.Data)Item.Loaded=FMath::Min(Item.Loaded,Item.Data->MagazineSize);
+            if(Item.Data && Item.WeaponKey>0 && Item.WeaponKey<8)
+            {
+                const int32 Total=Item.Loaded+Item.Reserve;
+                Item.Loaded=FMath::Min(Item.Loaded,Item.Data->MagazineSize);
+                Item.Reserve=Total-Item.Loaded;
+            }
         }
     }
     return R;

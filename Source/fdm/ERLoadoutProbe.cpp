@@ -56,7 +56,7 @@ bool AERLoadoutProbe::Observe()
     {
         auto* PC=Cast<AERPlayerController>(GetOwner());if(!PC)return false;
         const auto Kit=PC->ResolveMenuLoadout(ERLoadouts::Presets()[(Phase-1)/3],ERLoadouts::Variants()[(Phase-1)%3]);
-        if(Kit.Items.Num()<2 || Kit.Items[1].Reserve!=(Kit.Items[1].WeaponKey==2?60:14))return false;
+        if(Kit.Items.Num()<2 || Kit.Items[1].Reserve!=(Kit.Items[1].WeaponKey==2?150:35))return false;
         if(Phase==15)
         {
             int32 LocalReserve=0;GConfig->GetInt(TEXT("RespawnAndRage.Loadout.smg"),TEXT("Reserve"),LocalReserve,GGameIni);

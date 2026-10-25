@@ -11,6 +11,7 @@
 #include "Engine/GameViewportClient.h"
 #include "Engine/Engine.h"
 #include "Engine/TextureRenderTarget2D.h"
+#include "Engine/Texture2D.h"
 #include "GameFramework/GameUserSettings.h"
 #include "Misc/Paths.h"
 #include "Misc/FileHelper.h"
@@ -35,6 +36,10 @@
 
 namespace
 {
+FString LoadoutVariantName(FName Variant)
+{
+    return Variant==FName("gunner")?TEXT("Gunner"):Variant==FName("offense")?TEXT("Offense"):TEXT("Defense");
+}
 FSlateFontInfo MenuFont(int32 Size)
 {
     return ERInterface::Font(Size);
@@ -168,7 +173,7 @@ void AERPlayerController::ShowMenu(bool bShow)
         if (MenuPage != 7)
         {
             Add(Panel, Text(Titles[FMath::Clamp(MenuPage, 0, 8)], 36));
-            Add(Panel, Focus.ToSharedRef());
+            if(MenuPage!=6)Add(Panel, Focus.ToSharedRef());
         }
         if (MenuPage == 0 && Lobby)
         {
@@ -365,20 +370,29 @@ void AERPlayerController::ShowMenu(bool bShow)
             const bool Omega=PS && PS->Team!=EERTeam::None ? PS->Team==EERTeam::Omega:GI->PlayerTeam==1;
             auto Body=SNew(SHorizontalBox);auto Roles=SNew(SVerticalBox);auto Variants=SNew(SVerticalBox);
             if(Catalog && !MenuPreview)MenuPreview=GetWorld()->SpawnActor<AERMenuPreview>(FVector(0,0,-100000),FRotator::ZeroRotator);
-            PortraitBrushes.Empty();
+            if(LoadoutIconBrushes.IsEmpty())
+            {
+                const TCHAR* Names[]={TEXT("01_knife"),TEXT("02_pistol"),TEXT("03_smg_mp9"),TEXT("04_shotgun_xm1014"),TEXT("05_assault_rifle"),TEXT("06_carbine_marksman"),TEXT("07_sniper_rifle"),TEXT("08_grenade_launcher_m32"),TEXT("09_he_grenade"),TEXT("10_smoke_grenade"),TEXT("11_claymore")};
+                const FIntRect Bounds[]={{131,159,893,353},{216,86,808,425},{121,93,903,418},{58,152,965,359},{61,108,963,403},{66,116,957,396},{41,132,983,379},{76,121,947,391},{357,72,667,439},{420,72,603,439},{436,100,1338,806}};
+                for(int32 I=0;I<11;++I)
+                {
+                    auto* Texture=LoadObject<UTexture2D>(nullptr,*FString::Printf(TEXT("/Game/EclipseRecoil/Art/HUDWeapons/T_%s.T_%s"),Names[I],Names[I]));
+                    LoadoutIconTextures.Add(Texture);
+                    auto Brush=MakeShared<FSlateBrush>();Brush->SetResourceObject(Texture);
+                    const auto B=Bounds[I];Brush->ImageSize=FVector2D(B.Width(),B.Height());
+                    if(Texture)Brush->SetUVRegion(FBox2f(FVector2f(float(B.Min.X)/Texture->GetSizeX(),float(B.Min.Y)/Texture->GetSizeY()),FVector2f(float(B.Max.X)/Texture->GetSizeX(),float(B.Max.Y)/Texture->GetSizeY())));
+                    LoadoutIconBrushes.Add(Brush);
+                }
+            }
+            Add(Roles,Text(TEXT("Role"),23));
             for(const FName Preset:ERLoadouts::Presets())
             {
                 const auto Kit=ResolveMenuLoadout(Preset,DraftVariant);
                 auto Card=SNew(SHorizontalBox);
-                if(Catalog && MenuPreview)
-                {
-                    const FName Key(*(Preset.ToString()+(Omega?TEXT(".omega."):TEXT(".alpha."))+FString::FromInt(Kit.Skin)));
-                    auto& Portrait=LoadoutPortraits.FindOrAdd(Key);
-                    if(!Portrait)Portrait=MenuPreview->MakePortrait(ERSkins::Select(Omega?Catalog->OmegaSkins:Catalog->AlphaSkins,Omega?Catalog->OmegaAppearance:Catalog->AlphaAppearance,Kit.Skin));
-                    auto Brush=MakeShared<FSlateBrush>();Brush->SetResourceObject(Portrait);Brush->ImageSize=FVector2D(48,60);PortraitBrushes.Add(Brush);
-                    Card->AddSlot().AutoWidth().Padding(0,0,8,0)[SNew(SBox).WidthOverride(48).HeightOverride(60)[SNew(SImage).Image(&Brush.Get())]];
-                }
-                Card->AddSlot().FillWidth(1).VAlign(VAlign_Center)[SNew(STextBlock).Font(MenuFont(21)).Text_Lambda([this,Preset,Kit]() { return FText::FromString((DraftPreset==Preset?TEXT("[Selected] "):TEXT(""))+Kit.Role+TEXT(" · ")+ERLoadouts::WeaponName(Kit.Items[0].WeaponKey)); }).AutoWrapText(true)];
+                Card->AddSlot().AutoWidth().Padding(0,0,12,0)
+                    [SNew(SBox).WidthOverride(116).HeightOverride(48)
+                        [SNew(SScaleBox).Stretch(EStretch::ScaleToFit)[SNew(SImage).Image(LoadoutIconBrushes[Kit.Items[0].WeaponKey].Get())]]];
+                Card->AddSlot().FillWidth(1).VAlign(VAlign_Center)[Text(Kit.Role,23)];
                 auto RoleBorder=SNew(SBorder).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
                     .BorderBackgroundColor_Lambda([this,Preset]() { return DraftPreset==Preset?FLinearColor(.9f,.55f,.15f):FLinearColor(.12f,.14f,.17f); }).Padding(2)
                     [SNew(SBorder).BorderBackgroundColor(FLinearColor(.06f,.07f,.09f)).Padding(4)[Card]];
@@ -390,7 +404,7 @@ void AERPlayerController::ShowMenu(bool bShow)
                 RefreshLoadoutPreview();
                 PreviewBrush=MakeShared<FSlateBrush>();PreviewBrush->SetResourceObject(MenuPreview->Target);PreviewBrush->ImageSize=FVector2D(512,640);
                 auto PreviewPanel=SNew(SVerticalBox);
-                Add(PreviewPanel,SNew(SBox).HeightOverride(640)[SNew(SScaleBox).Stretch(EStretch::ScaleToFit)[SNew(SImage).Image(PreviewBrush.Get())]]);
+                Add(PreviewPanel,SNew(SBox).HeightOverride(420)[SNew(SScaleBox).Stretch(EStretch::ScaleToFit)[SNew(SImage).Image(PreviewBrush.Get())]]);
                 Add(PreviewPanel,SNew(STextBlock).Font(MenuFont(20)).Text(FText::FromString(TEXT("Preview unavailable")))
                     .Visibility_Lambda([this]() { return MenuPreview && MenuPreview->bPreviewAvailable?EVisibility::Collapsed:EVisibility::Visible; }));
                 Body->AddSlot().FillWidth(1.2f)[SNew(SBorder)
@@ -398,33 +412,72 @@ void AERPlayerController::ShowMenu(bool bShow)
                     [PreviewPanel]];
             }
             else Body->AddSlot().FillWidth(1.2f)[Text(TEXT("Preview unavailable"))];
+            Add(Variants,Text(TEXT("Variant"),23));
+            auto VariantButtons=SNew(SHorizontalBox);
             for(const FName Variant:ERLoadouts::Variants())
-                Add(Variants,SNew(SButton).ContentPadding(10).OnClicked_Lambda([this,Variant]() { DraftVariant=Variant;RefreshLoadoutPreview();return FReply::Handled(); })
-                    [SNew(STextBlock).Font(MenuFont(20)).AutoWrapText(true).Text_Lambda([this,Variant,Omega]()
+            {
+                const FString Name=LoadoutVariantName(Variant);
+                VariantButtons->AddSlot().FillWidth(1).Padding(0,0,4,0)
+                    [SNew(SButton).ContentPadding(FMargin(6,8)).OnClicked_Lambda([this,Variant]() { DraftVariant=Variant;RefreshLoadoutPreview();return FReply::Handled(); })
+                        [SNew(SBorder).BorderImage(FCoreStyle::Get().GetBrush("WhiteBrush"))
+                            .BorderBackgroundColor_Lambda([this,Variant]() {return DraftVariant==Variant?FLinearColor(.35f,.22f,.07f):FLinearColor(.06f,.07f,.09f);})
+                            .Padding(4)[Text(Name,20)]]];
+            }
+            Add(Variants,VariantButtons);
+            Add(Variants,Text(TEXT("Selected equipment"),23));
+            Add(Variants,Text(TEXT("Ammo: magazine / total"),17));
+            for(int32 Slot=0;Slot<5;++Slot)
+            {
+                auto Row=SNew(SHorizontalBox);
+                Row->AddSlot().AutoWidth().Padding(0,0,12,0).VAlign(VAlign_Center)
+                    [SNew(SBox).WidthOverride(104).HeightOverride(42)
+                        [SNew(SScaleBox).Stretch(EStretch::ScaleToFit)[SNew(SImage).Image_Lambda([this,Slot]() -> const FSlateBrush*
+                        {
+                            const auto Kit=ResolveMenuLoadout(DraftPreset,DraftVariant);
+                            return Kit.Items.IsValidIndex(Slot)?LoadoutIconBrushes[Kit.Items[Slot].WeaponKey].Get():nullptr;
+                        })]]];
+                Row->AddSlot().FillWidth(1).VAlign(VAlign_Center)
+                    [SNew(STextBlock).Font(MenuFont(20)).AutoWrapText(true).Text_Lambda([this,Slot]()
                     {
-                        const auto Kit=ResolveMenuLoadout(DraftPreset,Variant);
-                        const FString Name=Variant==FName("gunner")?TEXT("Gunner"):Variant==FName("offense")?TEXT("Offense"):TEXT("Defense");
-                        const FString Recipe=Variant==FName("gunner")?(DraftPreset==FName("grenadier")?TEXT("Utility: None"):TEXT("SMG · Utility: None")):Variant==FName("offense")?TEXT("HE x2 · Smoke x1"):TEXT("Smoke x2 · Claymore x1");
-                        return FText::FromString((DraftVariant==Variant?TEXT("[Selected] "):TEXT(""))+Name+TEXT("\n")+Recipe+(DraftPreset==FName("grenadier")?FString::Printf(TEXT(" · SMG · Milkor loaded %d / reserve 0"),Kit.Items[0].Loaded):Variant!=FName("gunner")?TEXT(" · Pistol"):TEXT("")));
-                    })]);
-            Add(Variants,SNew(STextBlock).Font(MenuFont(20)).AutoWrapText(true).Text_Lambda([this,Omega]() { return FText::FromString(ResolveMenuLoadout(DraftPreset,DraftVariant).Summary()); }));
-            Add(Variants,Text(TEXT("Placed mines last 60 seconds. Drag to rotate."),19));
+                        const auto Kit=ResolveMenuLoadout(DraftPreset,DraftVariant);
+                        if(!Kit.Items.IsValidIndex(Slot))return FText::GetEmpty();
+                        const auto& Item=Kit.Items[Slot];
+                        FString Label=ERLoadouts::WeaponName(Item.WeaponKey);
+                        if(Item.WeaponKey>=8)Label+=FString::Printf(TEXT("  x%d"),Item.Loaded+Item.Reserve);
+                        else if(Item.WeaponKey!=0)Label+=FString::Printf(TEXT("\n%d / %d rounds"),Item.Loaded,Item.Loaded+Item.Reserve);
+                        return FText::FromString(Label);
+                    })];
+                Variants->AddSlot().AutoHeight().Padding(0,5)
+                    [SNew(SBox).Visibility_Lambda([this,Slot]() {return ResolveMenuLoadout(DraftPreset,DraftVariant).Items.IsValidIndex(Slot)?EVisibility::Visible:EVisibility::Collapsed;})[Row]];
+            }
+            Add(Variants,Text(TEXT("100 HP  ·  100 armor  ·  Helmet"),17));
+            Add(Variants,Text(TEXT("Drag the preview to rotate."),17));
             Body->AddSlot().FillWidth(1).Padding(14,0,0,0)[Variants];Add(Panel,Body);
             Add(Panel,SNew(STextBlock).Font(MenuFont(22)).AutoWrapText(true).Text_Lambda([this,GI]()
             {
                 const auto* State=(!IsMenuLevel() || IsInLobby())?GetPlayerState<AERPlayerState>():nullptr;const auto* C=Cast<AERCharacter>(GetPawn());
-                const auto Next=ERLoadouts::Resolve(State?State->LoadoutPreset:GI->LoadoutPreset,State?State->LoadoutVariant:GI->LoadoutVariant);
-                FString Status=TEXT("Next spawn: ")+Next.Role+TEXT(" / ")+Next.Variant.ToString();
-                if(C) { const auto Current=ERLoadouts::Resolve(C->ActivePreset,C->ActiveVariant);Status=TEXT("Current loadout: ")+Current.Role+TEXT(" / ")+Current.Variant.ToString()+TEXT(" · ")+Status; }
+                const auto Next=ResolveMenuLoadout(State?State->LoadoutPreset:GI->LoadoutPreset,State?State->LoadoutVariant:GI->LoadoutVariant);
+                FString Status=TEXT("Confirmed for next spawn: ")+Next.Role+TEXT(" / ")+LoadoutVariantName(Next.Variant);
+                if(DraftPreset!=Next.Preset || DraftVariant!=Next.Variant)
+                    Status=TEXT("Not applied. Next spawn is still ")+Next.Role+TEXT(" / ")+LoadoutVariantName(Next.Variant);
+                if(C && !C->Health->bDead && (C->ActivePreset!=Next.Preset || C->ActiveVariant!=Next.Variant))
+                {
+                    const auto Current=ResolveMenuLoadout(C->ActivePreset,C->ActiveVariant);
+                    Status=TEXT("Equipped: ")+Current.Role+TEXT(" / ")+LoadoutVariantName(Current.Variant)+TEXT("  ·  ")+Status;
+                }
                 if(bLoadoutPending)Status+=TEXT(" · Waiting for server");
                 return FText::FromString(Status);
             }));
-            Add(Panel,Button(Main && !Lobby?TEXT("Apply loadout"):TEXT("Apply for next spawn"),[this,GI,Main,Lobby]()
+            Add(Panel,Text(TEXT("Changes take effect on your next spawn."),18));
+            auto Actions=SNew(SHorizontalBox);
+            Actions->AddSlot().AutoWidth()[Focus.ToSharedRef()];
+            Actions->AddSlot().FillWidth(1).Padding(12,0,0,0)[Button(Main && !Lobby?TEXT("Save loadout"):TEXT("Apply for next spawn"),[this,GI,Main,Lobby]()
             {
                 if(Main && !Lobby) { const auto Kit=ERLoadouts::Resolve(DraftPreset,DraftVariant);GI->LoadoutPreset=Kit.Preset;GI->LoadoutVariant=Kit.Variant;GI->SaveLoadout(); }
                 else { bLoadoutPending=true;ServerSetLoadout(DraftPreset,DraftVariant); }
                 return FReply::Handled();
-            }));
+            })];
+            Add(Panel,Actions);
         }
         else if (MenuPage == 7)
         {

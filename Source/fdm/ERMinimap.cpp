@@ -1,9 +1,11 @@
 #include "ERRecon.h"
 #include "ERHUDLayout.h"
 #include "ERPlayerController.h"
+#include "ERCharacter.h"
 #include "ERBlockRoom.h"
 #include "EngineUtils.h"
 #include "Engine/Canvas.h"
+#include "Engine/Texture2D.h"
 #include "Engine/TextureRenderTarget2D.h"
 #include "CanvasItem.h"
 #include "GlobalRenderResources.h"
@@ -174,12 +176,40 @@ void AERReconDirector::DrawMinimap(AERHUD* HUD, AERPlayerController* PC)
         }
     }
     FCanvasTriangleItem RimItem(Rim,GWhiteTexture); RimItem.BlendMode=SE_BLEND_Translucent; Canvas->DrawItem(RimItem);
-    const FVector2D North=Center+Orient(FVector2D(0,-1))*(Radius+18*Scale);
-    HUD->DrawHUDTextAnchored(TEXT("N"),North,FLinearColor::White,.85f,FVector2D(.5f,.5f));
-    FString Status=FString::Printf(TEXT("RECON  %d / 5"),Data.Remaining);
-    if (Data.Airborne) Status+=TEXT("  •  LIVE");
-    else if (Data.NextLaunch>0) Status+=FString::Printf(TEXT("  •  %ds"),FMath::Max(0,FMath::CeilToInt(Data.NextLaunch-Now)));
-    else Status+=TEXT("  •  OFFLINE");
-    // Keep longer OFFLINE/countdown labels inside the same right screen inset.
-    HUD->DrawHUDTextAnchored(Status,FVector2D(Layout.Position(1250,0).X,Center.Y+Radius+50*Scale),Color,.9f,FVector2D(1,0));
+    // Fixed respawn-facing bearing, never a tracker of enemy pawns or current player position.
+    const auto* Character=Cast<AERCharacter>(PC->GetPawn());
+    const float SpawnYaw=Character?Character->SpawnFacingYaw:(Data.Team==EERTeam::Alpha?0.f:180.f);
+    const FVector2D BearingDirection=FERHUDLayout::SpawnBearing(SpawnYaw,ViewYaw);
+    const auto EnemyColor=ERRecon::TeamColor(Data.Team==EERTeam::Alpha?EERTeam::Omega:EERTeam::Alpha);
+    const FVector2D BearingTangent(-BearingDirection.Y,BearingDirection.X);
+    FCanvasUVTri BearingTriangle;
+    BearingTriangle.V0_Pos=Center+BearingDirection*(Radius+23*Scale);
+    BearingTriangle.V1_Pos=Center+BearingDirection*(Radius+13*Scale)+BearingTangent*5*Scale;
+    BearingTriangle.V2_Pos=Center+BearingDirection*(Radius+13*Scale)-BearingTangent*5*Scale;
+    BearingTriangle.V0_UV=BearingTriangle.V1_UV=BearingTriangle.V2_UV=FVector2D::ZeroVector;
+    BearingTriangle.V0_Color=BearingTriangle.V1_Color=BearingTriangle.V2_Color=EnemyColor.CopyWithNewOpacity(.95f);
+    TArray<FCanvasUVTri> BearingTriangles;BearingTriangles.Add(BearingTriangle);
+    // Mirror across the disc center to mark the player's own spawn side.
+    FCanvasUVTri HomeTriangle=BearingTriangle;
+    HomeTriangle.V0_Pos=2*Center-BearingTriangle.V0_Pos;
+    HomeTriangle.V1_Pos=2*Center-BearingTriangle.V1_Pos;
+    HomeTriangle.V2_Pos=2*Center-BearingTriangle.V2_Pos;
+    HomeTriangle.V0_Color=HomeTriangle.V1_Color=HomeTriangle.V2_Color=Color.CopyWithNewOpacity(.95f);
+    BearingTriangles.Add(HomeTriangle);
+    FCanvasTriangleItem BearingItem(BearingTriangles,GWhiteTexture);
+    BearingItem.BlendMode=SE_BLEND_Translucent;Canvas->DrawItem(BearingItem);
+    if(HUD->DroneIcon && HUD->DroneIcon->GetResource())
+    {
+        const float Height=24*Scale,Width=Height*(1008.f/913.f),Gap=6*Scale;
+        const float Left=Center.X-(ERRecon::Stock*Width+(ERRecon::Stock-1)*Gap)*.5f;
+        const int32 Remaining=FMath::Clamp(Data.Remaining,0,ERRecon::Stock);
+        for(int32 I=0;I<ERRecon::Stock;++I)
+        {
+            FCanvasTileItem Icon(FVector2D(Left+I*(Width+Gap),Center.Y+Radius+34*Scale),
+                HUD->DroneIcon->GetResource(),FVector2D(Width,Height),
+                FVector2D(113.f/1254.f,168.f/1254.f),FVector2D(1121.f/1254.f,1081.f/1254.f),
+                Color.CopyWithNewOpacity(I<Remaining?.9f:.33f));
+            Icon.BlendMode=SE_BLEND_Translucent;Canvas->DrawItem(Icon);
+        }
+    }
 }
