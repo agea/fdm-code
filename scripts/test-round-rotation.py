@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Exercise three automatic map changes with a real connected LAN client."""
+"""Exercise two complete random template cycles with a real connected LAN client."""
 import os
 from pathlib import Path
 import re
@@ -24,13 +24,24 @@ with host_log.open('w') as host_out, (logs / 'round-rotation-client.log').open('
             time.sleep(.2)
         client = subprocess.Popen(common + ['127.0.0.1:17948?Name=Client?Team=0'], stdout=client_out, stderr=subprocess.STDOUT)
         processes.append(client)
-        host.wait(timeout=240)
+        host.wait(timeout=480)
         output = host_log.read_text(errors='replace')
         rounds = re.findall(r'ER_ROTATION_ROUND index=\d+ map=(\w+) humans=2', output)
         assert host.returncode == 0 and 'ER_ROTATION_COMPLETE result=PASS' in output and 'ER_SESSION_FAIL' not in output, str(host_log)
-        assert len(rounds) == 4 and all(a != b for a, b in zip(rounds, rounds[1:])), rounds
-        assert all(level in {'L_CentralBuilding', 'L_MiddleEasternAlleys', 'L_FireTraining'} for level in rounds), rounds
-        print('PASS: two humans, preserved teams/capacity, three map changes: ' + ' -> '.join(rounds))
+        catalog = (root/'Source/fdm/ERMapCatalog.cpp').read_text()
+        pool = {package.rsplit('/', 1)[-1] for package in re.findall(r'TEXT\("(/Game/[^\"]+)"\),\s*(?:true|false),\s*true', catalog)}
+        assert pool and len(rounds) == len(pool)*2 and all(a != b for a, b in zip(rounds, rounds[1:])), rounds
+        for start in range(0, len(rounds), len(pool)):
+            assert set(rounds[start:start+len(pool)]) == pool, rounds
+        client_text = (logs/'round-rotation-client.log').read_text(errors='replace')
+        pattern = r'ER_BLOCK_GENERATED template=(\S+) rev=\d+ seed=(-?\d+) theme=(\w+)'
+        host_themes = set(re.findall(pattern, output))
+        client_themes = set(re.findall(pattern, client_text))
+        assert len(client_themes) >= len(pool), (host_themes, client_themes)
+        assert client_themes <= host_themes and all(t[2] in {'Industrial', 'Desert', 'Warehouse'} for t in host_themes), (host_themes, client_themes)
+        assert 'ER_BLOCK_NET_INCOMPATIBLE' not in client_text, str(logs/'round-rotation-client.log')
+        print('PASS: shared themes match on host/client across all four templates: ' + str(sorted(client_themes)))
+        print('PASS: two full cycles, no repeated templates within a cycle; teams/capacity retained: ' + ' -> '.join(rounds))
     finally:
         for process in processes:
             if process.poll() is None:

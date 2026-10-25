@@ -38,6 +38,8 @@ public:
     int32 StunCount = 2;
     bool bInternetMenu = true;
     int32 SessionMode = 0; // local, listen server, client
+    // Server-only session history; survives seamless map travel, never saved.
+    TArray<FName> RoundMapHistory;
     int32 MapChoice = 0;
     int32 PlayerTeam = 0;
     int32 AlphaBots = 0;

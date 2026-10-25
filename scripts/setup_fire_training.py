@@ -156,6 +156,7 @@ else:
     recipe.set_editor_property('widths',widths)
     for key,name in shared.items():recipe.set_editor_property(key,modules[name])
     recipe.set_editor_property('ground_surface',ground)
+    recipe.set_editor_property('parapet_module',central.get_editor_property('fence_module'))
     for key in ['steel_surface','deck_surface','wood_surfaces','concrete_surfaces','container_surfaces']:
         recipe.set_editor_property(key,central.get_editor_property(key))
     candidate.set_editor_property('fire_training',recipe)

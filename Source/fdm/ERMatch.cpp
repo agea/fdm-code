@@ -35,6 +35,7 @@
 #include "ERMapTemplateProbe.h"
 #include "ERDustTemplateProbe.h"
 #include "ERFireTrainingProbe.h"
+#include "ERRoomsProbe.h"
 #include "ERBlockStressProbe.h"
 #include "ERBlockCollapseProbe.h"
 #include "ERBlockNetworkProbe.h"
@@ -184,6 +185,14 @@ void AERGameMode::FillBots()
 void AERGameMode::BeginPlay()
 {
     Super::BeginPlay();
+    if(auto* GI=GetGameInstance<UERGameInstance>())
+    {
+        const FString Level=UGameplayStatics::GetCurrentLevelName(this,true);
+        if(Level==TEXT("L_MainMenu"))GI->RoundMapHistory.Reset();
+        else if(GetNetMode()==NM_ListenServer || GetNetMode()==NM_DedicatedServer)
+            for(const auto& Entry:ERMaps::All())if(FPackageName::GetShortName(Entry.Package)==Level)
+                ERMaps::RecordRoundMap(FName(Entry.Package),GI->RoundMapHistory);
+    }
     if (auto* State = GetGameState<AERGameState>())
     { State->bOnline = GetGameInstance()->GetSubsystem<UEROnline>()->IsOnline(); State->ServerMaxPlayers = MaxHumanPlayers; State->bLobby = bLobby; State->LobbyAlphaBots = AlphaBotCount; State->LobbyOmegaBots = OmegaBotCount; }
     if(auto* State=GetGameState<AERGameState>())
@@ -210,6 +219,7 @@ void AERGameMode::BeginPlay()
     if (GetWorld()->GetMapName().Contains(TEXT("L_Killhouse")) && FParse::Param(FCommandLine::Get(),TEXT("ERMapTemplateProbe"))) GetWorld()->SpawnActor<AERMapTemplateProbe>();
     if ((GetWorld()->GetMapName().Contains(TEXT("L_DustMirror")) || GetWorld()->GetMapName().Contains(TEXT("L_MiddleEasternAlleys"))) && FParse::Param(FCommandLine::Get(),TEXT("ERDustTemplateProbe"))) GetWorld()->SpawnActor<AERDustTemplateProbe>();
     if (GetWorld()->GetMapName().Contains(TEXT("L_FireTraining")) && FParse::Param(FCommandLine::Get(),TEXT("ERFireTrainingProbe"))) GetWorld()->SpawnActor<AERFireTrainingProbe>();
+    if (GetWorld()->GetMapName().Contains(TEXT("L_Rooms")) && FParse::Param(FCommandLine::Get(),TEXT("ERRoomsProbe"))) GetWorld()->SpawnActor<AERRoomsProbe>();
     if (GetNetMode() == NM_Standalone && GetWorld()->GetMapName().Contains(TEXT("L_DestructionLab")) && FParse::Param(FCommandLine::Get(), TEXT("ERCellLabProbe"))) GetWorld()->SpawnActor<AERCellLabProbe>();
     if (GetNetMode() == NM_Standalone && GetWorld()->GetMapName().Contains(TEXT("L_ProceduralLab")) && FParse::Param(FCommandLine::Get(), TEXT("ERProceduralProbe"))) GetWorld()->SpawnActor<AERProceduralProbe>();
     if (GetNetMode() == NM_Standalone && GetWorld()->GetMapName().Contains(TEXT("L_ProceduralLab")) && FParse::Param(FCommandLine::Get(), TEXT("ERBlockStressProbe"))) GetWorld()->SpawnActor<AERBlockStressProbe>();
@@ -430,14 +440,15 @@ void AERGameMode::FinishRound()
 void AERGameMode::ResetRound()
 {
     if (bRoundTravelPending) return;
-    if (GetNetMode() == NM_ListenServer || GetNetMode() == NM_DedicatedServer)
+    auto* GI=GetGameInstance<UERGameInstance>();
+    if (GI && (GetNetMode() == NM_ListenServer || GetNetMode() == NM_DedicatedServer))
     {
         const FString CurrentLevel = UGameplayStatics::GetCurrentLevelName(this, true);
         FName CurrentPackage;
         for (const auto& Entry : ERMaps::All())
             if (FPackageName::GetShortName(Entry.Package) == CurrentLevel)
                 CurrentPackage = FName(Entry.Package);
-        const auto Choices = ERMaps::NextRoundMaps(CurrentPackage);
+        const auto Choices = ERMaps::NextRoundMaps(CurrentPackage,GI->RoundMapHistory);
         if (!Choices.IsEmpty())
         {
             FURL NextURL = GetWorld()->URL;
@@ -473,7 +484,7 @@ void AERGameMode::ResetRound()
     // Production archetypes start the next round with a fresh deterministic
     // seed. Publish the new epoch before spawning anyone into its collision.
     for(TActorIterator<AERProceduralMap> It(GetWorld());It;++It)
-        if(It->LayoutConfig.TemplateAsset && (It->LayoutConfig.TemplateAsset->Archetype==EERMapArchetype::CentralBuilding || It->LayoutConfig.TemplateAsset->Archetype==EERMapArchetype::MiddleEasternAlleys || It->LayoutConfig.TemplateAsset->Archetype==EERMapArchetype::FireTraining))
+        if(It->LayoutConfig.TemplateAsset && (It->LayoutConfig.TemplateAsset->Archetype==EERMapArchetype::CentralBuilding || It->LayoutConfig.TemplateAsset->Archetype==EERMapArchetype::MiddleEasternAlleys || It->LayoutConfig.TemplateAsset->Archetype==EERMapArchetype::FireTraining || It->LayoutConfig.TemplateAsset->Archetype==EERMapArchetype::Rooms))
         {
             // Stationary targets keep a start across deaths, but that start
             // belongs to the old arena. Choose a fresh clear start this round.

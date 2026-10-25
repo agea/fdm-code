@@ -1,5 +1,60 @@
 # Respawn & Rage Unreal development
 
+Rooms timber screens (25 October, latest): replace crates with destructible wood
+panels, 240cm high and one calibrated 2cm wood depth. Corridors use three
+alternating baffles (four in the self-symmetric cross-link), blocking standing
+sightlines while keeping a standing zigzag passage. Ordinary rooms have four
+L pockets; bases/gallery rooms have two, preserving spawns and ramps. Preserve
+half-turn geometry, existing wood materials/damage and shared themes. Validate
+screen clearance on actual detour routes, corridor sightlines, live pawn travel
+and LAN damage/regeneration. setup_rooms_screens.py saves DA_Rooms revision3
+with a revision2 backup and protected-asset hashes.
+
+Warehouse steel variety (25 October, latest): the shared Warehouse theme must
+separate shell sheets, plated court/room walls, dark structural frames, light
+galvanized ladders/parapets, dark riveted decks and the roof. Reuse the installed
+warehouse, PixelatoR steel, Iron Plates2K and Factory beam textures. Owned
+WarehouseTheme parents/instances adapt broad tint and roughness for the game's
+low-reflection profile; keep original materials/textures unchanged. Optional
+ShellSteel/LadderSteel/DeckSteel theme fields enable these roles only for
+Warehouse; Physical EERBlockMaterial, HP, support and collision stay unchanged.
+Use authored ladder frames for their panel finish, preserve reinforced cargo's
+original paint, and apply the detail finish to actual fence render components.
+setup_warehouse_steel.py backs up DA_MapThemes and updates only Warehouse/library
+revision2 after candidate checks; preserve all four recipe packages and the
+other theme palettes. Validate SharedMapThemes/physical regressions, real Metal
+near/far shots and Warehouse LAN seeds7919/1001.
+
+Fire Training high walkways (25 October, follow-up): put the connected steel
+routes as high as standing movement permits, immediately below the lighting.
+WarehouseCatwalkHeight uses the real roof/lamp bounds, 200cm clearance and5cm
+rounding (about4/7/10m for2/3/4 bands). Multi-nave crossings also respect the
+low roof valleys. Flanks start120cm from the outer walls, past85cm knee braces.
+Keep base roofs at3m. Four end ladders step through notched cap rails at deck+5cm
+instead of the ordinary110cm parapet overshoot, retaining real upper handles
+and the shared movement implementation. Native tests check full ascent/top
+transition; the Metal probe climbs a real ladder with ordinary movement before
+capturing the gallery. Route migration marker2 backs up and advances only the
+current Fire Training recipe; retain the themes, kit, base/cover rules and
+all earlier layout budgets. The old250cm headroom rule below remains for local
+base/cargo decks; high walkways use200cm below the limiting roof/lamp surface.
+
+Fire Training bases/routes (25 October, latest): supersedes optional local
+catwalks, stair access and upper timber deck rooms below. Always generate two
+concrete-walled courts with offset gates and an enterable one-storey barracks,
+all ten starts inside, a walkable3m roof and two exterior ladders per base.
+Two2.2m steel flank walkways run most of the hall length, joined by mandatory
+cross-map bridges. Multi-nave even-bay halls put paired crossbars at+/-210cm,
+avoiding column rows; otherwise cross at0. Four ground ladders reach the network.
+Use FireTraining.ParapetModule (original industrial barrier) at127cm with no
+plinth, physical pawn collision and original triangle shot apertures. Notch only
+ladder mouths and junctions. Preserve half-turn pairing, size/theme tuning,
+open-volume budgets, ground timber rooms/corridors, cargo/cover and shared combat.
+setup_fire_training_routes.py uses a feature marker, backs up the current recipe
+and advances its revision after516-seed validation (shared themes already raised
+it to4). Validate native geometry/physics, Metal gallery and --network initial,
+late and regenerated geometry through test-fire-training.py.
+
 Fire Training (23 October, latest map request): new production template
 DA_FireTraining/L_FireTraining, archetype FireTraining, from the owner's
 warehouse ZIP and RR_Warehouse_Killhouse_OpenSpace_Istruzioni.md (both private in

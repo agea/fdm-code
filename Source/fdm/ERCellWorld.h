@@ -33,6 +33,7 @@ struct FERCellPanelDesc
     float Strength = 1;
     // Owned by the template palette; affects rendering/identity, never cell physics.
     class UMaterialInterface* Surface = nullptr;
+    class UMaterialInterface* InteriorSurface = nullptr;
     bool bPane = false, bIndestructible = false;
     // Openings (doors, windows) as panel-local X/Z rectangles: cells whose centre
     // lies inside are absent from generation, never counted as destroyed.

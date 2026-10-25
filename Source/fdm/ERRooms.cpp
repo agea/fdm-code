@@ -1,0 +1,337 @@
+#include "ERProceduralMap.h"
+#include "Components/DynamicMeshComponent.h"
+#include "DynamicMesh/DynamicMesh3.h"
+#include "DynamicMesh/DynamicMeshAttributeSet.h"
+#include "Materials/MaterialInterface.h"
+#include "Algo/Reverse.h"
+
+namespace ERProcedural
+{
+float RoomsFloorHeight(const FERProceduralLayout& L,FVector2D P)
+{
+    for(const auto& V:L.RoomNodes)
+    {
+        const FVector2D Local=P-FVector2D(V.Center);bool Inside=true;
+        for(int32 I=0;I<V.Polygon.Num();++I)
+        {
+            const auto A=V.Polygon[I],B=V.Polygon[(I+1)%V.Polygon.Num()];
+            if(FVector2D::CrossProduct(B-A,Local-A)<-.01){Inside=false;break;}
+        }
+        if(Inside)return V.Center.Z;
+    }
+    for(const auto& E:L.RoomLinks)
+    {
+        const FVector2D A(E.Start),D=FVector2D(E.End)-A;const double T=FVector2D::DotProduct(P-A,D)/D.SizeSquared();
+        if(T>=0 && T<=1 && FVector2D::DistSquared(P,A+D*T)<=FMath::Square(E.Width*.5f))return FMath::Lerp(E.Start.Z,E.End.Z,T);
+    }
+    return 0;
+}
+bool BuildRooms(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProceduralLayout& Out,const FERCellSettings& Cells)
+{
+    const auto* T=C.TemplateAsset.Get();if(!T)return false;
+    const auto& R=T->Rooms;
+    if(T->TemplateId.IsEmpty() || T->Revision<1 || T->Symmetry!=EERTemplateSymmetry::HalfTurn || C.Floors!=1 ||
+       B.BlockSize!=FVector(50,20,25) || !FMath::IsFinite(B.ChunkSize) || B.ChunkSize<100 ||
+       R.MinLaneRooms<2 || R.MaxLaneRooms>4 || R.MinLaneRooms>R.MaxLaneRooms ||
+       !FMath::IsFinite(R.CorridorWidth) || R.CorridorWidth<320 || R.CorridorWidth>400 ||
+       !FMath::IsFinite(R.CorridorHeight) || R.CorridorHeight<300 || R.CorridorHeight>360 ||
+       !FMath::IsFinite(R.CornerCut) || R.CornerCut<30 || R.CornerCut>65 || R.Themes.Num()!=3 ||
+       T->Town.Enabled || T->Variation.Enabled || !T->Pieces.IsEmpty() || T->RoofMesh || T->ShellWallMesh)return false;
+    for(const auto& Theme:R.Themes)if(Theme.Name.IsNone() || !Theme.Wall || !Theme.Floor || !Theme.Ceiling || !Theme.Wood)return false;
+    FRandomStream Geometry(C.Seed),Cosmetic(int32(HashCombine(uint32(C.Seed),0x524f4f4du)));
+    FERProceduralLayout L;L.RoomsTheme=Cosmetic.RandRange(0,2);
+    const auto& Theme=R.Themes[L.RoomsTheme];L.GroundSurface=Theme.Floor;
+    const int32 N=Geometry.RandRange(R.MinLaneRooms,R.MaxLaneRooms);
+    const float S=N==2 ? 1600.f:N==3 ? 1300.f:1100.f;
+    const float X=S+1200,Y=(N-1)*(S+1100)*.5f,H=R.CorridorHeight;
+    auto Turn=[](FVector P){return FVector(-P.X,-P.Y,P.Z);};
+    auto Node=[&](FVector Center,FVector2D Size,float Cut,bool Base=false,bool Junction=false,bool Upper=false)
+    {
+        FERRoomsNode V;V.Center=Center;V.Size=Size;V.Base=Base;V.Junction=Junction;V.Upper=Upper;V.Height=Upper ? 700:H;
+        const float A=Size.X*.5f,D=Size.Y*.5f;
+        if(Cut>0)V.Polygon={{-A+Cut,-D},{A-Cut,-D},{A,-D+Cut},{A,D-Cut},{A-Cut,D},{-A+Cut,D},{-A,D-Cut},{-A,-D+Cut}};
+        else V.Polygon={{-A,-D},{A,-D},{A,D},{-A,D}};
+        return L.RoomNodes.Add(MoveTemp(V));
+    };
+    Node({0,-Y,0},{S+200,S},150,true);Node({0,Y,0},{S+200,S},150,true);
+    for(int32 Row=0;Row<N;++Row)
+        Node({-X,-Y+Row*(S+1100),float(Geometry.RandRange(0,2)*160)},
+            {S+Geometry.RandRange(-1,1)*50,S+Geometry.RandRange(-1,1)*50},Geometry.RandRange(0,2)==0 ? 0:float(Geometry.RandRange(2,4)*40),false,false,Row==0);
+    // Copy a complete half, including polygon shape, elevation and upper gallery.
+    for(int32 Row=0;Row<N;++Row)
+    {
+        auto V=L.RoomNodes[2+N-1-Row];V.Center=Turn(V.Center);
+        for(auto& P:V.Polygon)P=-P;
+        L.RoomNodes.Add(MoveTemp(V));
+    }
+    int32 LeftMid=2+N/2,RightMid=2+N+N/2;
+    if(N%2==0)
+    {
+        LeftMid=Node({-X,0,160},{400,400},0,false,true);
+        RightMid=Node({X,0,160},{400,400},0,false,true);
+    }
+    auto Mirror=[&](int32 I){if(I<2)return 1-I;if(I<2+N)return 2+N+(N-1-(I-2));if(I<2+2*N)return 2+(N-1-(I-2-N));return I==LeftMid ? RightMid:LeftMid;};
+    auto Link=[&](int32 A,int32 D)
+    {
+        const auto& NA=L.RoomNodes[A];const auto& ND=L.RoomNodes[D];
+        const FVector Dir=(ND.Center-NA.Center).GetSafeNormal2D();const bool Across=FMath::Abs(Dir.X)>.5;
+        const float RA=(Across ? NA.Size.X:NA.Size.Y)*.5f,RD=(Across ? ND.Size.X:ND.Size.Y)*.5f;
+        L.RoomLinks.Add({A,D,NA.Center+Dir*RA,ND.Center-Dir*RD,R.CorridorWidth,H,R.CornerCut});
+    };
+    TArray<int32> Lane{0};
+    for(int32 Row=0;Row<N;++Row){Lane.Add(2+Row);if(N%2==0 && Row==N/2-1)Lane.Add(LeftMid);}
+    Lane.Add(1);
+    for(int32 I=1;I<Lane.Num();++I){Link(Lane[I-1],Lane[I]);Link(Mirror(Lane[I-1]),Mirror(Lane[I]));}
+    if(N==4 && Geometry.RandRange(0,1))
+    {
+        Link(3,2+N+1);Link(Mirror(3),Mirror(2+N+1));
+    }
+    Link(LeftMid,RightMid);
+    auto Face=[&](FVector A,FVector D,FVector E,FVector F,UMaterialInterface* Surface,FVector Normal,bool Roof=false)
+    {
+        if(FVector::DotProduct(FVector::CrossProduct(D-A,E-A),Normal)<0)
+        {
+            if(E.Equals(F,.001)){Swap(D,E);F=E;}else Swap(D,F);
+        }
+        L.RoomShell.Add({A,D,E,F,Surface,Roof});
+    };
+    auto Slab=[&](const FERRoomsNode& V,float Z,bool Roof)
+    {
+        const FVector Center=V.Center+FVector(0,0,Z);
+        for(int32 I=0;I<V.Polygon.Num();++I)
+        {
+            const FVector A=Center+FVector(V.Polygon[I],0),D=Center+FVector(V.Polygon[(I+1)%V.Polygon.Num()],0);
+            Face(Center,A,D,D,Roof ? Theme.Ceiling.Get():Theme.Floor.Get(),Roof ? -FVector::UpVector:FVector::UpVector,Roof);
+        }
+    };
+    auto Box=[&](FVector Center,FVector Size,UMaterialInterface* Surface,FRotator Rotation=FRotator::ZeroRotator,bool Visual=false)
+    {L.FixedPieces.Add({FTransform(Rotation,Center,Size/100),EERBlockMaterial::Concrete,nullptr,FRotator::ZeroRotator,false,Visual,Surface});};
+    auto Ramp=[&](FVector A,FVector D,float Width)
+    {
+        const FVector Side=FVector::CrossProduct(FVector::UpVector,(D-A).GetSafeNormal2D())*Width*.5;
+        Face(A-Side,D-Side,D+Side,A+Side,Theme.Floor,FVector::UpVector);
+    };
+    for(int32 Index=0;Index<L.RoomNodes.Num();++Index)
+    {
+        const auto& V=L.RoomNodes[Index];Slab(V,0,false);Slab(V,V.Height,true);
+        if(!V.Junction)L.Rooms.Add({FVector2D(V.Center)-V.Size*.5,FVector2D(V.Center)+V.Size*.5,Index,float(V.Center.Z),0});
+        if(V.Junction)L.RoomLightPoints.Add(V.Center+FVector(0,0,H-60));
+        else for(float SX:{-1.f,1.f})for(float SY:{-1.f,1.f})
+        {
+            const FVector XY(SX*V.Size.X*.22f,SY*V.Size.Y*.22f,0);
+            L.RoomLightPoints.Add(V.Center+XY+FVector(0,0,V.Upper ? 250:H-60));
+            if(V.Upper)L.RoomLightPoints.Add(V.Center+XY+FVector(0,0,620));
+            if(R.LampSurface)Box(V.Center+XY+FVector(0,0,V.Height-12),{90,18,8},R.LampSurface,FRotator::ZeroRotator,true);
+        }
+        for(int32 I=0;I<V.Polygon.Num();++I)
+        {
+            const FVector A=V.Center+FVector(V.Polygon[I],0),D=V.Center+FVector(V.Polygon[(I+1)%V.Polygon.Num()],0),Along=(D-A).GetSafeNormal();
+            const FVector Normal=FVector::CrossProduct(FVector::UpVector,Along);const float Length=(D-A).Size();
+            bool Door=false;
+            for(const auto& E:L.RoomLinks)if(E.A==Index || E.B==Index)
+            {
+                const FVector P=E.A==Index ? E.Start:E.End;
+                if(FVector::DistSquared(P,FMath::ClosestPointOnSegment(P,A,D))<.01)Door=true;
+            }
+            auto Wall=[&](float From,float To,float Bottom,float Top)
+            {if(To-From>.1f && Top-Bottom>.1f)Face(A+Along*From+FVector(0,0,Bottom),A+Along*To+FVector(0,0,Bottom),A+Along*To+FVector(0,0,Top),A+Along*From+FVector(0,0,Top),Theme.Wall,Normal);};
+            if(Door)
+            {
+                Wall(0,(Length-R.CorridorWidth)*.5f,0,V.Height);Wall((Length+R.CorridorWidth)*.5f,Length,0,V.Height);Wall((Length-R.CorridorWidth)*.5f,(Length+R.CorridorWidth)*.5f,H,V.Height);
+                // Match the octagonal mouth exactly. A rectangular opening
+                // would expose four triangular gaps outside the corridor shell.
+                for(float Side:{-1.f,1.f})for(float Top:{0.f,1.f})
+                {
+                    const FVector Corner=(A+D)*.5f+Along*(Side*R.CorridorWidth*.5f)+FVector(0,0,Top*H);
+                    const FVector B0=Corner-Along*(Side*R.CornerCut),C0=Corner+FVector(0,0,(Top ? -1:1)*R.CornerCut);
+                    // The corridor prism also has an end cap at this plane.
+                    // A 2mm reveal keeps the visible infill clear of that cap.
+                    const FVector Reveal=Normal*.2f;
+                    Face(Corner+Reveal,B0+Reveal,C0+Reveal,C0+Reveal,Theme.Wall,Normal);
+                }
+            }
+            else Wall(0,Length,0,V.Height);
+        }
+        if(V.Upper)
+        {
+            // A switchback of two smooth 160cm rises beside the unused outer
+            // wall. Ground doors and the central crossing retain full headroom.
+            const float Sign=Index<2+N ? 1.f:-1.f,A=V.Size.X*.5f-230;
+            auto P=[&](float PX,float PY,float Z){return V.Center+FVector(PX*Sign,PY*Sign,Z);};
+            const float Y1=-V.Size.Y*.5f+160,Y2=Y1+200;
+            Ramp(P(-A,Y1,0),P(A,Y1,160),160);Ramp(P(A,Y2,160),P(-A,Y2,320),160);
+            Box(P(A+80,(Y1+Y2)*.5f,150),{160,360,20},Theme.Floor);
+            const float MinX=-V.Size.X*.5f+40,MaxX=-A,MinY=Y2-95,MaxY=V.Size.Y*.5f-180;
+            Box(P((MinX+MaxX)*.5f,(MinY+MaxY)*.5f,310),{MaxX-MinX,MaxY-MinY,20},Theme.Floor);
+            // A short solid rail protects the gallery while leaving its entry open.
+            Box(P(MaxX-5,(Y2+100+MaxY)*.5f,370),{10,MaxY-Y2-100,100},Theme.Wood);
+            TArray<FVector> Route{P(-A-100,Y1,100),P(-A,Y1,100),P(A,Y1,260),P(A+80,Y1,260),P(A+80,Y2,260),P(A,Y2,260),P(-A,Y2,420),P(-A-60,Y2,420),P(-A-60,MaxY-80,420)};
+            L.StairRoutes.Add(MoveTemp(Route));
+            FBox Deck(ForceInit);Deck+=P(MinX,MinY,300);Deck+=P(MaxX,MaxY,320);L.ElevatedDecks.Add(Deck);
+        }
+    }
+    for(const auto& E:L.RoomLinks)
+    {
+        const FVector Dir=(E.End-E.Start).GetSafeNormal2D(),Side=FVector::CrossProduct(FVector::UpVector,Dir);
+        const float W=E.Width*.5f,K=E.Cut;
+        // The octagon is a rectangular section with four clipped corners.
+        // Elevation is sheared along the run, preserving vertical clearance.
+        const FVector2D Section[]={{-W+K,0},{W-K,0},{W,K},{W,H-K},{W-K,H},{-W+K,H},{-W,H-K},{-W,K}};
+        for(int32 I=0;I<8;++I)
+        {
+            const auto A=Section[I],D=Section[(I+1)%8];
+            const FVector P=Side*A.X+FVector(0,0,A.Y),Q=Side*D.X+FVector(0,0,D.Y);
+            const FVector Inward=-Side*((A.X+D.X)*.5f)+FVector(0,0,H*.5f-(A.Y+D.Y)*.5f);
+            const bool Roof=I>=3 && I<=5;
+            Face(E.Start+P,E.End+P,E.End+Q,E.Start+Q,I==0 ? Theme.Floor.Get():Roof ? Theme.Ceiling.Get():Theme.Wall.Get(),Inward,Roof);
+        }
+        const int32 Lamps=FMath::Max(1,FMath::CeilToInt(FVector::Dist2D(E.Start,E.End)/600));
+        for(int32 I=0;I<Lamps;++I)
+        {
+            const FVector P=FMath::Lerp(E.Start,E.End,(I+.5f)/Lamps);
+            L.RoomLightPoints.Add(P+FVector(0,0,H-65));
+            if(R.LampSurface)Box(P+FVector(0,0,H-12),{80,18,8},R.LampSurface,Dir.Rotation(),true);
+        }
+    }
+    int32 CoverId=0;
+    auto AddScreen=[&](FVector Center,float Yaw,FVector Size,int32 Link,int32 Room)
+    {
+        const int32 First=L.Panels.Num();const FTransform Frame(FRotator(0,Yaw,0),Center);
+        AddPieceCells(CoverId++,EERBlockMaterial::Wood,FBox(-Size*.5,Size*.5),true,Cells,L.Panels);
+        for(int32 I=First;I<L.Panels.Num();++I){L.Panels[I].Transform=L.Panels[I].Transform*Frame;L.Panels[I].Surface=Theme.Wood;}
+        L.LowCovers.Add(FBox(-Size*.5,Size*.5).TransformBy(Frame));
+        L.RoomScreens.Add({Frame,Size,Link,Room});
+    };
+    // Three alternating solid screens prevent every straight eye-height line
+    // through a corridor, including diagonal lines through opposite side gaps.
+    // The self-symmetric transverse link uses four screens so the reverse order
+    // and reversed side are exactly its own half-turn image.
+    L.RoomAccessRoutes.SetNum(L.RoomLinks.Num());
+    auto FurnishLink=[&](int32 Index,int32 Count,float FirstGap)
+    {
+        const auto& E=L.RoomLinks[Index];const float Length=FVector::Dist2D(E.Start,E.End);
+        const FVector Dir=(E.End-E.Start).GetSafeNormal2D(),Side=FVector::CrossProduct(FVector::UpVector,Dir);
+        const float Offset=E.Width*.5f-E.Cut-20,Margin=FMath::Min(60.f,FMath::Max(42.f,Length*.12f));
+        const float Slope=FMath::Abs(E.End.Z-E.Start.Z)/Length;
+        auto Point=[&](float Along,float Across,float Z=100){return FMath::Lerp(E.Start,E.End,Along/Length)+Side*Across+FVector(0,0,Z);};
+        auto& Path=L.RoomAccessRoutes[Index];Path={L.RoomNodes[E.A].Center+FVector(0,0,100),E.Start+FVector(0,0,100)};
+        for(int32 I=0;I<Count;++I)
+        {
+            const float Along=Length*(.15f+.7f*I/(Count-1)),Gap=(I%2 ? -FirstGap:FirstGap);
+            const float A=Gap>0 ? -E.Width*.5f:-10,B=Gap>0 ? 10:E.Width*.5f;
+            const float Height=240+Slope*Cells.WoodDepth;
+            const FVector Center=Point(Along,(A+B)*.5f,120);
+            AddScreen(Center,Side.Rotation().Yaw+(Count==4 && I>=2 ? 180:0),{B-A,Cells.WoodDepth,Height},Index,INDEX_NONE);
+            Path.Add(Point(Along-Margin,Gap*Offset));Path.Add(Point(Along+Margin,Gap*Offset));
+        }
+        Path.Add(E.End+FVector(0,0,100));Path.Add(L.RoomNodes[E.B].Center+FVector(0,0,100));
+    };
+    for(int32 I=0;I<L.RoomLinks.Num()-1;I+=2)
+    {
+        const float Gap=(HashCombineFast(uint32(C.Seed),uint32(I))&1) ? 1.f:-1.f;
+        FurnishLink(I,3,Gap);FurnishLink(I+1,3,Gap);
+    }
+    FurnishLink(L.RoomLinks.Num()-1,4,(uint32(C.Seed)&1) ? 1.f:-1.f);
+    // Four L-shaped pockets in ordinary rooms. Bases and the two gallery rooms
+    // keep their rear half clear for spawn rows and both switchback flights.
+    auto FurnishRoom=[&](int32 Index)
+    {
+        const auto& V=L.RoomNodes[Index];const int32 Paired=Mirror(Index);
+        const float Span=FMath::Clamp(float(FMath::Min(V.Size.X,V.Size.Y)*.3),280.f,450.f),Leg=Span*.65f;
+        auto Pair=[&](FVector P,float Yaw,FVector Size)
+        {AddScreen(P,Yaw,Size,INDEX_NONE,Index);AddScreen(Turn(P),Yaw+180,Size,INDEX_NONE,Paired);};
+        for(float SX:{-1.f,1.f})for(float SY:{-1.f,1.f})
+        {
+            if((V.Base || V.Upper) && SY<0)continue;
+            const float X=SX*V.Size.X*.25f,Y=SY*V.Size.Y*.25f;
+            Pair(V.Center+FVector(X,Y,120),0,{Span,Cells.WoodDepth,240});
+            Pair(V.Center+FVector(X-SX*(Span-Cells.WoodDepth)*.5f,Y+SY*(Leg+Cells.WoodDepth)*.5f,120),90,{Leg,Cells.WoodDepth,240});
+        }
+    };
+    FurnishRoom(0);
+    for(int32 Row=0;Row<N;++Row)FurnishRoom(2+Row);
+    // Eight starts per base, all away from the two lateral door axes.
+    for(int32 Row=0;Row<2;++Row)for(int32 Col=0;Col<4;++Col)
+    {
+        const FVector P((Col-1.5f)*140,-Y-S*.5f+200+Row*160,100);
+        L.AlphaSpawns.Emplace(FRotator(0,90,0),P);L.OmegaSpawns.Emplace(FRotator(0,270,0),Turn(P));
+    }
+    auto LaneRoute=[&](bool Mirrored)
+    {
+        TArray<FVector> Path;
+        for(int32 I=1;I<Lane.Num();++I)
+        {
+            const int32 A=Mirrored ? Mirror(Lane[I-1]):Lane[I-1],D=Mirrored ? Mirror(Lane[I]):Lane[I];
+            for(const auto& E:L.RoomLinks)if(E.A==A && E.B==D)
+            {
+                const int32 Index=int32(&E-L.RoomLinks.GetData());const auto& Access=L.RoomAccessRoutes[Index];
+                for(int32 J=Path.IsEmpty() ? 0:1;J<Access.Num();++J)Path.Add(Access[J]);break;
+            }
+        }
+        return Path;
+    };
+    L.CrossingRoutes.Add(LaneRoute(false));L.CrossingRoutes.Add(LaneRoute(true));
+    TArray<FVector> Patrol=L.CrossingRoutes[0];const auto& Other=L.CrossingRoutes[1];
+    for(int32 I=1;I<Other.Num()-1;++I)Patrol.Add(Other[I]);
+    L.Spawn=L.AlphaSpawns[0].GetLocation();
+    L.Routes={{L.Spawn,L.RoomNodes[0].Center+FVector(0,0,100)},Patrol,{L.OmegaSpawns[0].GetLocation(),L.RoomNodes[1].Center+FVector(0,0,100)}};
+    L.ArenaSize={2*(X+S*.5f+100),2*Y+S+200,1100};
+    // This sealed complex uses ground-level player sight; aerial recon remains
+    // above the roof. No warehouse orbit may pass through these separate rooms.
+    L.FeatureNames={Theme.Name,TEXT("OctagonalCorridors"),TEXT("SwitchbackRamps"),TEXT("TimberScreens"),TEXT("BlockedCorridorSightlines")};
+    // Validate whole swept standing routes against every oriented screen before
+    // publishing; all paths follow the real sloped supporting floor.
+    for(const auto* Paths:{&L.RoomAccessRoutes,&L.StairRoutes,&L.CrossingRoutes})for(const auto& Path:*Paths)
+        for(int32 I=1;I<Path.Num();++I)for(const auto& Screen:L.RoomScreens)
+        {
+            const FBox Bounds=FBox(-Screen.Size*.5,Screen.Size*.5).ExpandBy(FVector(35,35,93));
+            const FVector A=Screen.Frame.InverseTransformPosition(Path[I-1]),D=Screen.Frame.InverseTransformPosition(Path[I]);
+            if(FMath::LineBoxIntersection(Bounds,A,D,D-A))
+            {UE_LOG(LogTemp,Warning,TEXT("ER_ROOMS_SCREEN_ROUTE_REJECT seed=%d link=%d room=%d from=%s to=%s"),C.Seed,Screen.Link,Screen.Room,*Path[I-1].ToString(),*Path[I].ToString());return false;}
+        }
+    Out=MoveTemp(L);return true;
+}
+
+void BuildRoomsShell(AERProceduralMap* Map,const FERProceduralLayout& L,TArray<TObjectPtr<UDynamicMeshComponent>>& Components)
+{
+    using namespace UE::Geometry;
+    struct FGroup { UMaterialInterface* Surface; bool Roof; FDynamicMesh3 Mesh; };
+    TArray<FGroup> Groups;
+    for(const auto& F:L.RoomShell)
+    {
+        int32 G=Groups.IndexOfByPredicate([&](const FGroup& V){return V.Surface==F.Surface && V.Roof==F.Roof;});
+        if(G==INDEX_NONE){G=Groups.Add({F.Surface,F.Roof,FDynamicMesh3()});Groups[G].Mesh.EnableAttributes();}
+        auto& Mesh=Groups[G].Mesh;auto* Normals=Mesh.Attributes()->PrimaryNormals();auto* UVs=Mesh.Attributes()->PrimaryUV();
+        TArray<FVector> Front{F.A,F.B,F.C};if(!F.D.Equals(F.C,.001) && !F.D.Equals(F.A,.001))Front.Add(F.D);
+        const FVector N=FVector::CrossProduct(Front[1]-Front[0],Front[2]-Front[0]).GetSafeNormal();
+        TArray<FVector> Back;for(const auto P:Front)Back.Add(P-N*20);
+        auto Polygon=[&](const TArray<FVector>& Points,FVector Normal)
+        {
+            TArray<int32> V,NE,UV;const FVector U=(Points[1]-Points[0]).GetSafeNormal(),D=FVector::CrossProduct(Normal,U);
+            for(const auto P:Points){V.Add(Mesh.AppendVertex(P));NE.Add(Normals->AppendElement(FVector3f(Normal)));UV.Add(UVs->AppendElement(FVector2f(FVector::DotProduct(P,U),FVector::DotProduct(P,D))/100));}
+            for(int32 I=1;I<Points.Num()-1;++I)
+            {
+                // Unreal's visible winding is edge2 x edge1.
+                const int32 Tri=Mesh.AppendTriangle(V[0],V[I+1],V[I]);
+                if(Tri>=0){Normals->SetTriangle(Tri,FIndex3i(NE[0],NE[I+1],NE[I]));UVs->SetTriangle(Tri,FIndex3i(UV[0],UV[I+1],UV[I]));}
+            }
+        };
+        Polygon(Front,N);Algo::Reverse(Back);Polygon(Back,-N);Algo::Reverse(Back);
+        for(int32 I=0;I<Front.Num();++I)
+        {
+            const int32 J=(I+1)%Front.Num();const TArray<FVector> Side{Front[J],Front[I],Back[I],Back[J]};
+            Polygon(Side,FVector::CrossProduct(Side[1]-Side[0],Side[2]-Side[0]).GetSafeNormal());
+        }
+    }
+    for(auto& G:Groups)
+    {
+        auto* Part=NewObject<UDynamicMeshComponent>(Map,*FString::Printf(TEXT("RoomsShell_%d"),Components.Num()));
+        Map->AddInstanceComponent(Part);Part->SetMobility(EComponentMobility::Movable);Part->SetNetAddressable();
+        Part->SetupAttachment(Map->GetRootComponent());Part->SetCanEverAffectNavigation(false);
+        Part->SetDeferredCollisionUpdatesEnabled(true,false);Part->SetComplexAsSimpleCollisionEnabled(true,false);
+        Part->SetCollisionProfileName(TEXT("BlockAll"));Part->SetTangentsType(EDynamicMeshComponentTangentsMode::AutoCalculated);
+        Part->SetMaterial(0,G.Surface);if(G.Roof)Part->ComponentTags.Add(TEXT("ERTemplateRoof"));
+        Part->RegisterComponent();Part->SetMesh(MoveTemp(G.Mesh));Part->UpdateCollision(false);Components.Add(Part);
+    }
+}
+}

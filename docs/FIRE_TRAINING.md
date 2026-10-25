@@ -1,6 +1,6 @@
 # Fire Training
 
-23 October 2026. Select **Fire Training · Warehouse** in the match menu.
+Updated25 October 2026. Select **Fire Training · Warehouse** in the match menu.
 Template `Art/MapTemplates/DA_FireTraining`, level `Maps/L_FireTraining`,
 archetype `FireTraining`. It joins Central Building and Middle Eastern Alleys
 in the production rotation; Depot remains a reference.
@@ -37,23 +37,48 @@ share drops to a few percent in the largest ones. `setup_fire_training_scale.py`
 is the revision 3 migration (backup in `Saved/FireTrainingBackup/revision2`).
 
 Bands only raise walls, posts and end walls (`EndBand`); the roof sits on the
-last band. Interior structures are local: a perimeter catwalk at 3 m (open
-steel rail or timber screen with slots), an optional 2.2 m bridge across the
-middle linking both teams' catwalks, a closed timber corridor under the
-catwalk, killhouse timber rooms (one or two, doors and windows), an optional
-3 m deck room on top with a 1.6 m walkway, a 6 m lookout above it when the
-hall has three bands, steel containers in the middle, stacked two high under a
-9 m eave, with ladders, and low cover (crates, crate stacks, concrete
-barriers, timber screens). Each half is sampled once and rotated 180°.
+last band. The 25 October route update adds two concrete-walled base courts
+(12 × 11.1 m, 2.8 m walls) with two offset 1.8 m gates. Each contains an
+enterable one-storey timber barracks, a 3 m steel roof and two exterior ladders.
+All ten starts per team are inside the barracks. Roof parapets have openings
+only at the ladder landings; the court has clear dogleg routes to both gates.
+
+Two 2.2 m steel walkways run along both sides of the hall, starting 15 m
+from either end. Their walking plane is now as high as possible below the
+lighting: `WarehouseCatwalkHeight` leaves 2 m for a standing player below the
+lowest lamp (and roof valleys in multi-nave halls), rounded down to 5 cm.
+For 6/9/12 m eaves, the decks sit at about 4/7/10 m. Flanks start 1.2 m from
+the outer wall, beyond the original 85 cm knee braces. Base roofs stay at 3 m. A central cross-map bridge joins the high walkways.
+Multi-nave halls with
+an even number of bays use two crossbars at ±2.1 m, between column rows;
+other layouts use one crossbar at the middle. Every route is mandatory,
+including the deterministic fallback. Four ground ladders reach the walkway
+network through notched end rails.
+These ladders retain their full-height handles but begin the existing horizontal
+exit at deck+5 cm, avoiding the ordinary 1.1 m climb above a parapet and keeping
+the player's head below the lighting. Other ladder exits retain their behavior.
+The existing original industrial steel barrier supplies the fixed
+1.27 m parapets, without a concrete plinth on the decks. Openings occur only
+at ladders and walkway junctions. This supersedes the earlier local optional
+catwalk, stair access, timber upper screens and deck-room/lookout variants.
+Ground timber rooms/corridors, steel containers/stacks with ladders, low cover
+and empty plazas remain. Each half is sampled once and rotated 180°.
+
+`setup_fire_training_routes.py` backs up the current recipe, validates 516
+candidate seeds and binds only the parapet reference plus a migration marker;
+size tuning and the shared theme library remain intact. The current saved
+recipe advanced from revision 4 (shared themes) to revision 5 for the bases;
+route marker2 advances it to revision6 for the high walkways.
 
 Budgets, measured on a 50 cm raster of the union of projections (overlaps
 count once): walkable surfaces above the ground ≤ 30% (target 20%), every
 horizontal closure ≤ 40%, and the largest region open to the roof ≥ 45%.
 Narrow walkways (≤ 3 m wide) do not split that region because the volume above
 them stays joined; wide decks do. `ContinuousUpperFloors` exists only to be
-rejected. Every elevated area has two independent accesses (stair + ladder,
-or two ladders); decks keep 2.5 m below the arched roof
-(`ERProcedural::WarehouseRoofHeight`). Most direct start-to-start lines must
+rejected. Every elevated area has at least two independent ladder accesses. Local
+base/cargo decks keep 2.5 m below the arched roof; the high walkways use 2 m
+below their limiting roof/lamp surface. Physical standing and ladder-exit
+sweeps check the actual kit geometry. Most direct start-to-start lines must
 meet a solid ≥ 1.5 m (front timber screens, containers, rooms).
 
 Revision 2 (same day, owner request: the hall was too small) doubled the
@@ -67,7 +92,7 @@ recipe size fields and the revision.
 
 Generation is server-side and deterministic. `ERProcedural::Build` retries up
 to seven seeded attempts and then uses a verified reference layout (16 m,
-22 bays, two bands, catwalk + corridor, deck room, one container); every peer
+22 bays, two bands, fortified bases, connected catwalks + corridor, ground rooms and cargo); every peer
 repeats the same attempts from the replicated seed. The attempt index is part
 of the layout digest.
 
@@ -109,9 +134,33 @@ grey and partial metalness for the game's no-reflection profile;
 container finishes reuse the Central Building palette. Unshadowed point lights
 are added under each roof-lamp bay on clients only.
 
+The shared **Warehouse** theme now separates steel by use, so different
+structures retain distinct tones when their fine texture detail fades at distance:
+
+| Element | Installed finish reused |
+| --- | --- |
+| Warehouse wall sheets and end portals | Original corrugated `M_ER_WH_Metal`, light gray |
+| Court walls and internal masonry | Iron Plates2K, medium blue-gray, 3 m tiles |
+| Posts and arched frames | Existing dark Factory beam steel |
+| Ladders and parapets | Steel texture with irregularities, light galvanized gray |
+| Steel platforms and roof decks | Iron Plates2K, darker charcoal, 2 m tiles |
+| Warehouse roof | Separate dark Factory steel instance |
+| Reinforced cargo | Original Factory paint palette |
+
+`setup_warehouse_steel.py` creates two owned parent derivatives and four material
+instances in `Art/FireTraining/WarehouseTheme` and updates only Warehouse in
+`DA_MapThemes` revision2. Its verified rollback is in `Saved/WarehouseSteelBackup`.
+Original texture pixels, parent materials, all four template recipes and damage
+catalog are preserved. Owned derived parents use partial metalness and a
+roughness floor for the game's low-reflection lighting profile. Industrial and
+Desert retain their existing assignments. Geometry, physical material IDs, HP,
+penetration, support and collision are unchanged. The optional theme steel
+roles also apply wherever Warehouse is selected on the other templates.
+
 Destruction: timber walls, screens, crates, containers (Strength 8) and
 ladders use the shared 5 cm cells, damage profiles and replication. The
-envelope, steel decks, columns, stair blocks and rails are fixed.
+envelope, steel decks, columns and parapets are fixed. Court walls use the
+existing concrete cells; barracks walls use timber cells.
 
 ## Provenance and licence
 
@@ -130,16 +179,18 @@ scripts/build-editor.command
   -nullrhi -nosound -unattended -NoSplash
 python3 scripts/test-fire-training.py           # native layout + physics
 python3 scripts/test-fire-training.py --render  # Metal captures in Saved/Testing
+python3 scripts/test-fire-training.py --network # initial/late clients and regeneration
 ```
 
 The setup validates 516 seeds before saving the template and refuses a
 changed kit on an existing template (write a versioned migration instead).
-Native `FireTrainingLayout` builds 516 greybox seeds (budgets, symmetry,
+Native `FireTrainingLayout` builds 516 greybox seeds (mandatory bases/network, budgets, symmetry,
 accesses, headroom, determinism, fallback, rejection of mixed kits and
 continuous floors). `FireTrainingPhysics` generates eight seeds from the real
 asset: unit-scale kit instances, closed envelope for pawns and bullets, roof
 collision, raster check for raised coverage, ladders (rungs, climbing capsule,
-landing floor), spawns, routes, patrol loop and destructible timber.
+landing floor), protected courts, continuous catwalk/roof floors, parapet
+collision/height, spawns, routes, patrol loop and destructible timber.
 
 Reproducible travel URL:
 
@@ -147,6 +198,7 @@ Reproducible travel URL:
 /Game/EclipseRecoil/Maps/L_FireTraining?MapSeed=42
 ```
 
-Not yet verified: LAN initial/late clients on this map, bot behaviour inside
-the rooms, packaged/cooked builds and performance measurements. Geometric
+Bot behaviour inside the rooms, packaged/cooked builds and performance
+measurements require separate validation. Executed local checks are recorded in
+`TEST_RESULTS.md`. Geometric
 symmetry is not a claim of competitive balance; it needs playtesting.

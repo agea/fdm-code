@@ -11,9 +11,16 @@ class FDM_API AERFireTrainingProbe : public AActor
 public:
     AERFireTrainingProbe();
     virtual void Tick(float Delta) override;
+    virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 private:
+    UPROPERTY(Replicated) int32 NetworkStage=0;
+    UPROPERTY(Replicated) uint32 ExpectedDigest=0;
+    int32 SeenNetworkStage=0;
     float Elapsed=0,StageTime=0;
     int32 Phase=0,Shot=0,Seed=INDEX_NONE;
     bool Failed=false;
+    FTransform HighLadder;
+    float HighLadderRise=0;
+    bool SawLadder=false,SawLadderExit=false;
     void Check(bool Good,const TCHAR* Label);
 };

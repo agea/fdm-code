@@ -1,5 +1,68 @@
 # Respawn & Rage — sviluppo Unreal
 
+## Pannelli Rooms — 25 ottobre 2026
+
+Scatole sostituite da 60–110 pannelli di legno distruttibili: tasche aperte a L
+nelle stanze e 3 schermi alternati per corridoio (4 nel collegamento centrale).
+Altezza 2,4m; passaggi laterali liberi e visuali dirette interrotte. Percorsi bot
+e sonde seguono lo zig-zag. Ricetta Rooms revision3, backup revision2; verificati
+516 semi, sei mappe fisiche, cammino reale, 18 immagini Metal e LAN con danni e
+rigenerazione.
+
+## Acciai del tema Warehouse — 25 ottobre 2026
+
+Il tema condiviso distingue lamiera chiara del capannone, piastre grigio-blu
+per mura/pareti interne, telai scuri, acciaio zincato chiaro per scale e parapetti,
+pavimenti a piastre scuri e copertura. Riuso delle texture Warehouse, Steel with
+irregularities, Iron Plates2K e atlante Factory già presenti; due parent e quattro
+istanze propri, con toni leggibili anche a distanza nel profilo senza riflessi.
+I container conservano la vernice originale. Ruoli puramente visivi: stessi
+materiali fisici, HP, collisioni e disposizione. `setup_warehouse_steel.py`
+aggiorna la sola palette Warehouse in `DA_MapThemes` (revision2), con backup e
+hash protetti di ricette, originali e catalogo. Industrial e Desert conservano
+le loro assegnazioni. Dettagli in `FIRE_TRAINING.md`, verifiche in `TEST_RESULTS.md`.
+
+## Fire Training: basi e passerelle — 25 ottobre 2026
+
+Due cortili con mura in cemento da2,8m e due ingressi laterali sfalsati proteggono
+le basi. Dieci spawn per squadra dentro una stanza a un piano, tetto praticabile
+a3m e due scale a pioli esterne. Due passerelle d'acciaio larghe2,2m, alla quota massima sotto
+l'illuminazione (circa4/7/10m per capannoni da6/9/12m), percorrono i lati e si collegano attraverso ponti centrali tra le file di colonne; quattro
+scale a pioli e parapetti con la barriera industriale originale alta1,27m.
+Le passerelle rientrano1,2m dalle pareti per evitare le mensole; sbarchi a quota
+pianerottolo attraverso intagli terminali, senza alzare la testa nelle luci.
+La rete è obbligatoria anche nel fallback e conserva i budget dell'open space.
+Restano stanze/corridoi al piano terra, container, coperture basse e piazze.
+Migrazione limitata alla ricetta con backup, mantenendo dimensioni e temi già
+presenti. Dettagli in `FIRE_TRAINING.md`; verifiche in `TEST_RESULTS.md`.
+
+## Rotazione server a giri completi — 25 ottobre 2026
+
+La rotazione standard listen/dedicated estrae casualmente soltanto i template
+non ancora giocati nel giro. Il template iniziale conta come primo: Central
+Building, Middle Eastern Alleys, Fire Training e Rooms compaiono ciascuno una
+volta prima del giro successivo. Si evita anche di ripetere l'ultimo template
+come primo del nuovo giro. La cronologia vive nella GameInstance del server,
+sopravvive al seamless travel e riparte vuota al ritorno al menu/nuova sessione.
+Un tentativo di travel fallito non consuma il template. Il catalogo InRotation
+rimane l'unica sorgente del pool; Depot resta un riferimento offline.
+Verifiche: `EclipseRecoil.Menu.RoundRotationCycle` (128 semi, quattro giri ciascuno)
+e `scripts/test-round-rotation.py` (due giri completi con un client LAN).
+Verificato su questo Mac: build Editor, quattro test Menu (inclusi512 giri
+simulati) e otto partite consecutive con host/client LAN, mantenendo squadre
+e capacità. Entrambi i giri contengono tutti e quattro i template una sola volta.
+
+## Rooms — 25 ottobre 2026
+
+Nuovo template `DA_Rooms` / `L_Rooms`, voce **Rooms · Indoor** nel catalogo e
+nella rotazione. Due basi,6/8/10 stanze di dimensioni inversamente proporzionali
+al numero, due percorsi laterali e collegamenti trasversali; simmetria180°.
+Sezioni ottagonali vere, pavimenti e soffitti inclinati, gallerie su due rampe
+continue, casse di legno con distruzione e replica esistenti. I tre temi già
+presenti (Industrial, Desert, Warehouse) sono scelti da RNG cosmetico separato.
+Geometria originale generata, nessun import o modifica ai materiali condivisi.
+Dettagli e comandi di verifica in `ROOMS.md`.
+
 ## Fire Training (capannone) — 23 ottobre 2026
 
 Nuovo template **Fire Training · Warehouse** (`DA_FireTraining`,
@@ -2939,11 +3002,28 @@ See LOADOUTS.md. Claymores have independent60s armed lifetimes and no per-player
 active cap. Shotgun gameplay override is8x22, applied after immutable source data.
 # Server round rotation (23 October 2026)
 
-After the existing ten-second results interval, listen/dedicated servers choose
-uniformly from the map catalog's `InRotation` entries excluding the current map.
+Updated25 October2026: after the existing ten-second results interval,
+listen/dedicated servers choose uniformly from unplayed `InRotation` entries.
+Every template must be played before the pool is refilled; the current template
+also remains excluded at the boundary between cycles. The initial selected map
+counts toward the first cycle. Server GameInstance history survives map travel
+and resets for a new session; only actual map arrivals consume a slot.
 Travel carries the existing URL settings and a fresh MapSeed; seamless travel
 preserves connected humans, teams and loadouts. Current pool: Central Building,
-Middle Eastern Alleys, Fire Training. Depot remains excluded. An empty candidate
+Middle Eastern Alleys, Fire Training, Rooms. Depot remains excluded. An empty candidate
 pool or an immediate travel rejection falls back to the existing arena reset.
 Standalone training keeps its existing regeneration behavior. Integration check:
-`python3 scripts/test-round-rotation.py` (two humans, three consecutive changes).
+`python3 scripts/test-round-rotation.py` (two humans, two complete four-map cycles).
+
+Shared map themes (25 October): `DA_MapThemes` now supplies Industrial, Desert
+and Warehouse independently to every production template. The selection uses a
+separate cosmetic RNG from the replicated round seed. SharedMapThemes compares
+128 layouts against unthemed recipes, checks all three selections, identical
+choices across archetypes and atomic rejection of invalid palettes. Build and
+all 21 destruction automation tests passed. A real LAN client matched host themes
+through two complete four-template cycles, including industrial geometry with
+Desert/Warehouse and alley geometry with Industrial/Warehouse. The shared damage
+catalog is unchanged; recipes were backed up before the Unreal migration.
+Metal finish gallery also passed on Central Building seed42 with Desert, with
+five inspected captures and actual rendered material bindings checked against
+the selected shared palette.

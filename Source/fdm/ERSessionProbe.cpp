@@ -4,6 +4,7 @@
 #include "ERWeapon.h"
 #include "ERBotController.h"
 #include "ERPlayerController.h"
+#include "ERMapCatalog.h"
 #include "Kismet/GameplayStatics.h"
 #include "EngineUtils.h"
 #include "Misc/CommandLine.h"
@@ -29,9 +30,17 @@ void AERSessionProbe::Tick(float DeltaTime)
     {
         static FString PreviousLevel;
         static int32 Rounds = 0;
+        static TSet<FString> Cycle;
         if (Phase || Now < 3 || Mode->GetNumPlayers() != 2) return;
+        for(FConstPlayerControllerIterator It=GetWorld()->GetPlayerControllerIterator();It;++It)
+            if(!It->Get()->GetPawn() || CastChecked<AERPlayerController>(It->Get())->IsBlockMapLoading())return;
         Phase = 1;
         const FString Level = UGameplayStatics::GetCurrentLevelName(this, true);
+        const int32 Count=ERMaps::Rotation().Num();
+        if(Rounds%Count==0)Cycle.Reset();
+        Check(!Cycle.Contains(Level),TEXT("rotation_exhausts_all_templates"));Cycle.Add(Level);
+        auto* GI=GetGameInstance<UERGameInstance>();
+        Check(GI && GI->RoundMapHistory.Num()==Rounds%Count+1,TEXT("rotation_history_survives_travel"));
         Check(Level != PreviousLevel, TEXT("rotation_excludes_previous"));
         Check(Level != TEXT("L_Depot"), TEXT("rotation_excludes_depot"));
         Check(Human->GetPlayerState<AERPlayerState>()->Team == EERTeam::Omega, TEXT("rotation_preserves_host_team"));
@@ -43,7 +52,7 @@ void AERSessionProbe::Tick(float DeltaTime)
             }
         Check(Mode->GetMaxPlayers() == 7, TEXT("rotation_preserves_capacity"));
         UE_LOG(LogTemp, Display, TEXT("ER_ROTATION_ROUND index=%d map=%s humans=%d"), Rounds, *Level, Mode->GetNumPlayers());
-        if (Failed || ++Rounds == 4)
+        if (Failed || ++Rounds == Count*2)
         {
             UE_LOG(LogTemp, Display, TEXT("ER_ROTATION_COMPLETE result=%s"), Failed ? TEXT("FAIL") : TEXT("PASS"));
             FPlatformMisc::RequestExitWithStatus(false, Failed ? 1 : 0);

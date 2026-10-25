@@ -96,7 +96,7 @@ bool FERCentralBuildingLayoutTest::RunTest(const FString& Parameters)
     const int32 Count=L.Panels.Num();T->CentralBuilding.MaxFloors=4;
     TestFalse(TEXT("invalid recipe rejected"),ERProcedural::Build(C,B,L));TestEqual(TEXT("rejection is atomic"),L.Panels.Num(),Count);
     T->CentralBuilding.MaxFloors=3;C.CrossingOverride=4;TestFalse(TEXT("invalid descriptor rule rejected"),ERProcedural::Build(C,B,L));
-    TestEqual(TEXT("three production archetypes in rotation"),ERMaps::Rotation().Num(),3);
+    TestEqual(TEXT("four production archetypes in rotation"),ERMaps::Rotation().Num(),4);
     TestTrue(TEXT("depot excluded from rotation"),!ERMaps::At(1).InRotation);
     auto* Preview=T->CreatePCGPreview(42);TestNotNull(TEXT("PCGEx authoring data"),Preview);
     if(Preview)TestTrue(TEXT("spawns, crossings and fixed volumes exported"),Preview->Data.TaggedData.Num()>=4);

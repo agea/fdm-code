@@ -132,7 +132,7 @@ void AERBlockRoom::FlushSkinMeshes()
             Mesh->SetDeferredCollisionUpdatesEnabled(true,false);Mesh->SetTangentsType(EDynamicMeshComponentTangentsMode::AutoCalculated);
             Mesh->bEnableComplexCollision=!P.bSolidSkin;Mesh->CollisionType=P.bSolidSkin ? CTF_UseSimpleAsComplex:CTF_UseComplexAsSimple;Mesh->SetCollisionProfileName(TEXT("BlockAll"));Mesh->SetCanEverAffectNavigation(false);
             Mesh->ComponentTags.Add(TEXT("ERDestructibleShell"));Mesh->ComponentTags.Add(P.SkinName);
-            Mesh->SetMaterial(0,P.Surface ? P.Surface:MaterialCatalog->Find(P.Material)->Surface.Get());Mesh->SetMaterial(1,MaterialCatalog->Find(P.Material)->Surface);
+            Mesh->SetMaterial(0,P.Surface ? P.Surface:MaterialCatalog->Find(P.Material)->Surface.Get());Mesh->SetMaterial(1,P.InteriorSurface ? P.InteriorSurface:MaterialCatalog->Find(P.Material)->Surface.Get());
             Mesh->RegisterComponent();SkinMeshes.Add(SkinPanelIndex,Mesh);SkinComponentPanels.Add(Mesh,SkinPanelIndex);
         }
         const double Start=FPlatformTime::Seconds();FDynamicMesh3 Geometry;ERMeshCells::Build(CellWorld,SkinPanelIndex,Geometry);

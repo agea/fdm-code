@@ -6225,3 +6225,138 @@ and all 2150 previously runtime/authoring-reachable packages remain present.
 Only three deletions appear in the maps submodule; characters and weapons
 are unchanged. The temporary archive, scripts and logs were removed after
 verification. No new cook or gameplay test was run for this cleanup.
+
+## 25 October 2026 — Fire Training fortified bases and elevated steel routes
+
+Implemented concrete-walled courts with offset gates, an enterable one-storey
+barracks per team and a walkable3m roof with two exterior ladders. Two2.2m
+flank walkways connect through one central bridge or paired mid-bay crossbars,
+with four ground ladders. The original industrial steel barrier is used as a
+127cm parapet on roofs and walkways; no deck plinth. Existing size/theme tuning,
+half-turn geometry and shared destruction calibration are preserved.
+
+Validation on this Mac:
+
+- Editor Development build succeeded. `setup_fire_training_routes.py` backed up
+  the current themed revision4 and validated516 candidate seeds before saving
+  only `DA_FireTraining` as revision5. Receipt/rollback:
+  `Saved/FireTrainingBackup/before-routes-revision4/`.
+- `python3 scripts/test-fire-training.py`: exit0, FireTrainingLayout and
+  FireTrainingPhysics passed.516 layouts,315 size combinations, all three kit
+  widths/four nave counts/three height bands. Both protected bases, roofs and
+  connected catwalks are present in every seed. Maximum elevated/overhead share
+  .299, minimum open region .701. The explicit reference fallback also passed.
+- Eight real-asset physical seeds (3,42,73,511,7919,1001,2024,90210): court walls
+  block eye-height shots and standing approaches; gate/room routes clear;
+  continuous floors on roofs, flanks and complete crossings; real parapet
+  collision ending at visible height; all ladder rungs, climbing capsules and
+  supported landings clear. Existing envelope, unit-scale kit, spawns, patrol
+  and timber cell checks passed. A first parapet-height probe intersected a
+  nearby nave column; shortening its cross-rail sweep excluded the column and
+  the complete suite passed with unchanged geometry.
+- `python3 scripts/test-fire-training.py --render --offscreen`: exit0, PASS,
+  seeds42/73/7919,18 Metal captures (Plan/Base/Overview/Catwalk/Roof/Bridge).
+  Inspected base enclosure/door/ladder/roof, long guarded walkway, clear bridge
+  and full plan. Recon cases and drone flight remain indoors; no map material
+  shader compilation failures found.
+- `python3 scripts/test-fire-training.py --network`: exit0, PASS. Host and two
+  real localhost LAN clients match state digest1395031102 at seed42/epoch1.
+  The initial client passes phases1/2/3; the late client passes2/3. Both rebuild
+  seed73/epoch2 with digest1045262200, clear standing crossing sweeps and real
+  continuous walkway floors. No incompatible descriptor reported.
+- Python syntax checks and `git diff --check` passed.
+
+Logs, galleries and JSON reports are in `Saved/Testing/fire-training-*` and
+`Saved/Testing/FireTraining-*.png`. These are local geometry/replication and
+render checks; no new packaged build, two-device network test, performance
+benchmark or competitive playtest was performed.
+
+## 25 October 2026 — Fire Training walkways immediately below the lighting
+
+Raised the connected walkway network from3m to the highest common plane below
+the actual lamp bounds and, for multiple naves, the low roof valleys. Preserve
+200cm standing clearance, rounded down to5cm: about4/7/10m for6/9/12m eaves.
+Flanks now start120cm from the walls, clear of the original85cm knee braces.
+Four end ladders retain their physical handles but use the existing traversal
+at deck+5cm through notched cap rails, avoiding the old110cm overshoot into the
+lights. Base roofs remain3m; shared character movement was not changed.
+
+Validation on this Mac:
+
+- Editor build succeeded. Route migration marker2 validated516 seeds and saved
+  only Fire Training revision6, with verified revision5 rollback/receipt in
+  `Saved/FireTrainingBackup/before-routes-revision5/`.
+- Native FireTrainingLayout and FireTrainingPhysics passed, exit0.516 layouts,
+  all width/nave/height classes; maximum elevated/overhead union .298, minimum
+  open region .702. Eight real-asset physical seeds passed continuous floors,
+  standing routes, parapets, full ladder ascent capsules through the authored
+  top, horizontal ladder-exit sweeps, supported landings, bases and patrol.
+  Added assertions for the maximum permitted walking plane and15–40cm from a
+  standing head to the lowest light.
+- Metal gallery passed, exit0:18 refreshed captures for42/73/7919; walkway
+  heights695/395/695cm respectively. The normal live character climbed the
+  actual seed42 ladder and completed its custom roof transition onto the695cm
+  walkway (`actual_high_ladder_climb_and_deck_exit=PASS`). Inspected the high
+  Catwalk view immediately under the fixtures, clear of the side knee braces.
+- Initial and late real LAN clients passed all expected phases and
+  regeneration, exit0. Seed42/epoch1 digest2644922776 and seed73/epoch2
+  digest3953731053 matched on host and both clients. Standing crossing sweeps
+  and continuous high floor support passed; no incompatible descriptor.
+- Python syntax checks and `git diff --check` passed. No new packaged build,
+  performance benchmark or two-device test was performed.
+
+## 25 October 2026 — Warehouse steel variety
+
+Separated the shared Warehouse theme into light original corrugated shell,
+blue-gray Iron Plates walls, dark Factory structural steel, light galvanized
+ladder/parapet steel, charcoal Iron Plates decks and a separate roof finish.
+Reinforced cargo retains its authored Factory paints. Two owned material
+parents and four instances reuse installed texture references; broad tint and
+roughness differences keep roles legible when fine detail fades at distance.
+The physical material IDs and all gameplay geometry remain unchanged.
+
+Editor build succeeded. `setup_warehouse_steel.py` backed up `DA_MapThemes`
+revision1 and saved revision2 after40 candidate layouts across the four maps.
+All four template packages, original material parents and shared damage catalog
+still match their protected hashes. Rollback and receipt:
+`Saved/WarehouseSteelBackup/before-library-revision1/`.
+
+`python3 scripts/test-destruction.py` passed all21 native tests, exit0. This
+includes SharedMapThemes (128 before/after layouts: unchanged geometry, cell
+calibration/support, deterministic roles and cargo paints), physical Central
+Building/Fire Training/Alleys/Rooms checks, destruction, network transactions
+and rejection of partial steel palettes.
+
+`python3 scripts/test-fire-training.py --render --offscreen --seed 7919
+--seeds 7919,1001` passed, exit0. Both seeds selected Warehouse.16 fresh Metal
+captures include Base/Overview/Catwalk/SteelDetail/Distant; inspected the plated
+court walls against the corrugated shell, bright ladders, dark deck and frame
+separation, and original cargo colors across wide views. The real character
+also climbed and exited the high map ladder successfully. No map-material
+shader compilation failures were reported. Previous Warehouse seed7919 images
+are retained in `Saved/Testing/WarehouseSteelBefore` for comparison.
+
+`python3 scripts/test-fire-training.py --network --seed 7919 --next-seed 1001`
+also passed, exit0: the initial client passed phases1/2/3 and the late client
+passed2/3. Both Warehouse layouts matched the host (digests2328392244 and
+4046372634), including regeneration and standing/floor collision checks.
+Python syntax and `git diff --check` passed. No new packaged build or performance
+benchmark was performed for this visual change.
+
+## Rooms timber panels — 25 October 2026
+
+Editor build passed. `python3 scripts/test-rooms.py` passed RoomsLayout (516
+seeds, 6/8/10 rooms) and RoomsPhysics (six seeds). Physical checks cover actual
+zigzag route capsule/floor clearance and 25 blocked eye-height rays per corridor.
+`EclipseRecoil.Destruction.SharedMapThemes` also passed for four templates and
+32 seeds. This follow-up did not rerun the entire destruction suite.
+
+`python3 scripts/test-rooms.py --render --offscreen --network` passed, exit0.
+The live pawn crossed the sloping corridor's zigzag and the upper switchback;
+wood damage and regeneration passed. Separate host, initial client (phases1/2/3)
+and late client (phases2/3) agreed: intact seed42 digest2816951903, damaged
+3485336754, regenerated seed73 digest2185469446. All 18 Metal captures were
+produced across seeds42/73/13 (60/76/110 panels). Room pockets and alternating
+corridor screens were visually inspected. Logs/report: `Saved/Testing/rooms-*`,
+including `rooms-network-metal-report.json`. No distinct-device, packaged-build,
+performance or competitive balance test was performed for this change.

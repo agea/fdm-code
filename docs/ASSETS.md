@@ -1,5 +1,40 @@
 # Inventario asset — primo prototipo locale
 
+25 ottobre2026 — pannelli Rooms: geometria originale generata a runtime con
+legno e materiali già presenti, senza nuovi modelli o texture. Solo DA_Rooms
+passa a revision3; backup revision2 e ricevuta privata
+`Assets/maps/SourceAssets/Rooms/timber-screens.json`. Hash degli altri asset
+protetti invariati.
+
+25 ottobre2026 — varietà acciai Warehouse: due materiali parent derivati e
+quattro istanze sotto `Art/FireTraining/WarehouseTheme`, riusando le texture
+Steel with irregularities, Iron Plates2K e Factory già installate. Lamiera
+originale Warehouse per il guscio, telai Factory scuri, scale/parapetti chiari,
+piastre blu-grigio per mura e scure per i deck, copertura distinta e vernici
+originali dei container. Sola `DA_MapThemes` aggiornata a revision2; ricette,
+mesh, texture/materiali originali e catalogo danni verificati identici. Backup
+in `Saved/WarehouseSteelBackup`, migrazione `setup_warehouse_steel.py`.
+
+25 ottobre2026 — Fire Training: riuso della barriera industriale originale come
+parapetto da127cm sulle passerelle e sui tetti delle basi. Le passerelle sono
+ora a circa4/7/10m, immediatamente sotto luci/copertura; quota ricavata dai bounds
+del kit originale, con scale allungate e sbarchi terminali alla quota del deck. Geometria propria a
+runtime per mura in cemento, stanza, tetti e rete di passerelle. Migrazione
+`setup_fire_training_routes.py` della sola ricetta `DA_FireTraining`, con backup
+verificato e conservazione della libreria temi. Nessun import o modifica alle
+mesh originali, ai materiali condivisi o agli altri template.
+
+25 ottobre2026 — rotazione server a giri completi: scelta casuale senza ripetere
+i quattro template attivi finché il giro è completo; memoria di sessione nel
+codice. Nessun asset binario aggiunto o modificato per questa variazione.
+
+25 ottobre2026 — template Rooms: nuovi `Art/MapTemplates/DA_Rooms` e
+`Maps/L_Rooms` nel privato maps; ricetta/provenienza in `SourceAssets/Rooms`.
+Stanze, gusci ottagonali e rampe sono geometria propria generata a runtime;
+riuso dei materiali Industrial, Desert e Warehouse e delle celle di legno.
+Nessuna nuova mesh/texture importata e nessuna modifica agli altri template,
+alle sorgenti artistiche o al catalogo danni. Vedi `ROOMS.md`.
+
 23 ottobre2026 — rotazione server a fine partita: usa i tre template già presenti
 nel catalogo (Central Building, Middle Eastern Alleys, Fire Training), escludendo
 quello appena giocato e Depot. Nessun asset aggiunto o modificato.

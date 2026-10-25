@@ -18,19 +18,26 @@ inline bool FactoryPaletteMatches(AERProceduralMap& Map)
     const auto* T=Map.LayoutConfig.TemplateAsset.Get();
     if(!T || !T->CentralBuilding.SteelSurface || T->CentralBuilding.ContainerSurfaces.IsEmpty())return false;
     const auto& V=T->CentralBuilding;
+    const auto& L=Map.GetLayout();const bool Themed=L.ThemeIndex!=INDEX_NONE;
+    auto* Steel=L.ThemeMetalDetails ? L.ThemeMetalDetails:Themed ? L.ThemeMaterials[uint8(EERBlockMaterial::Metal)]:V.SteelSurface.Get();
     if(V.FenceModule)
     {
         TInlineComponentArray<UInstancedStaticMeshComponent*> Instances(&Map);bool Found=false;
         for(const auto* Mesh:Instances)if(Mesh->GetName()==TEXT("IndustrialFenceModules"))
-        {Found=true;if(Mesh->GetStaticMesh()!=V.FenceModule || Mesh->GetMaterial(0)!=V.SteelSurface || Mesh->GetInstanceCount()==0)return false;}
+        {Found=true;if(Mesh->GetStaticMesh()!=V.FenceModule || Mesh->GetMaterial(0)!=Steel || Mesh->GetInstanceCount()==0)return false;}
         if(!Found)return false;
     }
     TMap<FString,UMaterialInterface*> Expected;
     for(const auto& P:Map.GetCellWorld().GetPanels())
     {
-        if(P.Material==EERBlockMaterial::Metal && (P.Strength==8 ? !V.ContainerSurfaces.Contains(P.Surface):P.Surface!=V.SteelSurface))return false;
+        if(Themed)
+        {
+            const auto* Authored=L.Panels.FindByPredicate([&](const auto& D){return D.Id==P.Id;});
+            if(!Authored || P.Surface!=Authored->Surface)return false;
+        }
+        if(!Themed && P.Material==EERBlockMaterial::Metal && (P.Strength==8 ? !V.ContainerSurfaces.Contains(P.Surface):P.Surface!=V.SteelSurface))return false;
         const auto* Palette=P.Material==EERBlockMaterial::Concrete ? &V.ConcreteSurfaces:P.Material==EERBlockMaterial::Brick ? &V.BrickSurfaces:P.Material==EERBlockMaterial::Wood ? &V.WoodSurfaces:nullptr;
-        if(Palette && !Palette->IsEmpty() && !Palette->Contains(P.Surface))return false;
+        if(!Themed && Palette && !Palette->IsEmpty() && !Palette->Contains(P.Surface))return false;
         if(P.Surface)Expected.Add(FString::Printf(TEXT("Cells_P%d"),P.Id),P.Surface);
     }
     if(Map.GetLayout().GroundSurface)
@@ -46,7 +53,7 @@ inline bool FactoryPaletteMatches(AERProceduralMap& Map)
         FString Key,Chunk;
         if(Mesh->GetName().Split(TEXT("_C"),&Key,&Chunk))
             if(auto* Surface=Expected.Find(Key)){if(Mesh->GetMaterial(0)!=*Surface)return false;++Matched;}
-        if(Mesh->GetName().StartsWith(TEXT("IndustrialFenceMetal_")) && Mesh->GetMaterial(0)!=V.SteelSurface)return false;
+        if(Mesh->GetName().StartsWith(TEXT("IndustrialFenceMetal_")) && Mesh->GetMaterial(0)!=Steel)return false;
     }
     return Matched>0;
 }

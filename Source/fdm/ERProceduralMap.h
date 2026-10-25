@@ -12,6 +12,19 @@ struct FERLayoutHouse { FTransform Frame; class UStaticMesh* Mesh=nullptr; bool 
 struct FERLayoutTownGate { FTransform Frame; float Gap=110,Width=300,Angle=25; TArray<FVector> Passage; };
 struct FERLayoutLadder { FTransform Frame; float Height=430,DeckHeight=320; };
 struct FERAlleyRamp { FBox Bounds; FVector Entry,Exit; };
+// Convex interior polygons and graph edges, in map-local centimetres.
+struct FERRoomsNode
+{
+    FVector Center;
+    FVector2D Size;
+    TArray<FVector2D> Polygon;
+    float Height=340;
+    bool Base=false,Junction=false,Upper=false;
+};
+struct FERRoomsLink { int32 A=0,B=0; FVector Start,End; float Width=360,Height=340,Cut=55; };
+struct FERRoomsScreen { FTransform Frame; FVector Size; int32 Link=INDEX_NONE,Room=INDEX_NONE; };
+// Solid prism behind a visible quad. Front normal points into the room.
+struct FERRoomsFace { FVector A,B,C,D; class UMaterialInterface* Surface=nullptr; bool Roof=false; };
 struct FERLayoutCover
 {
     FTransform Frame;
@@ -78,7 +91,7 @@ struct FERProceduralLayout
     TArray<int32> WallAccessFlights;
     TArray<float> CoverAngles;
     TArray<FVector> WallBridges;
-    // Fire Training warehouse: envelope from kit modules, local structures only.
+    // Fire Training warehouse: narrow connected walkways, protected base courts.
     int32 WarehouseBays=0,WarehouseBands=0,WarehouseNaves=0,LayoutAttempt=0;
     float WarehouseWidth=0,WarehouseNaveWidth=0,IndoorCeiling=0; // Width is the total of all naves. // IndoorCeiling: eave height, recon flies below the roof.
     float ElevatedRatio=0,OverheadRatio=0,OpenRegionRatio=0,SpawnCoverRatio=0;
@@ -87,10 +100,23 @@ struct FERProceduralLayout
     TArray<FBox> Plazas;             // Reserved empty squares (both halves).
     TArray<int32> ElevatedAccesses;  // Independent ladders/stairs per elevated deck.
     TArray<FName> FeatureNames;
+    TArray<FBox> WarehouseBaseCourts,WarehouseCatwalks;
+    int32 RoomsTheme=0;
+    int32 ThemeIndex=INDEX_NONE,ThemeRevision=0;
+    FName ThemeName;
+    TArray<class UMaterialInterface*> ThemeMaterials;
+    class UMaterialInterface* ThemeCeiling=nullptr;
+    class UMaterialInterface* ThemeMetalDetails=nullptr;
+    TArray<FERRoomsNode> RoomNodes;
+    TArray<FERRoomsLink> RoomLinks;
+    TArray<FERRoomsScreen> RoomScreens;
+    TArray<FERRoomsFace> RoomShell;
+    TArray<FVector> RoomLightPoints;
     FVector Spawn = FVector::ZeroVector;
 };
 namespace ERProcedural
 {
+    bool ApplyMapTheme(const FERProceduralConfig& Config,FERProceduralLayout& Layout);
     bool Build(const FERProceduralConfig& Config, const FERBlockRoomConfig& Blocks, FERProceduralLayout& Out, const FERCellSettings& Cells = FERCellSettings());
     // Axis-aligned destructible box as cell panels: massive slabs, boards in thin
     // slots, 2cm shells (four sides and a top) for volumetric thin-material pieces.
@@ -106,11 +132,16 @@ namespace ERProcedural
     void BuildAlleyTerrain(class UDynamicMeshComponent* Component,const FERProceduralLayout& Layout);
     bool FindAlleyInteriorRoute(class UWorld* World,const FERProceduralLayout& Layout,TArray<FVector>& Route);
     bool BuildCentralBuilding(const class UERMapTemplate& Template,int32 Seed,TArray<struct FERMapTemplatePiece>& Pieces,FERProceduralLayout& Layout,TArray<FVector>& Patrol,int32 CrossingOverride=0);
+    bool BuildRooms(const FERProceduralConfig& Config,const FERBlockRoomConfig& Blocks,FERProceduralLayout& Out,const FERCellSettings& Cells);
+    float RoomsFloorHeight(const FERProceduralLayout& Layout,FVector2D Position);
+    void BuildRoomsShell(class AERProceduralMap* Map,const FERProceduralLayout& Layout,TArray<TObjectPtr<class UDynamicMeshComponent>>& Components);
     // Attempts 0..FireTrainingAttempts-1 sample the seed; the last is the verified reference layout.
     constexpr int32 FireTrainingAttempts=8;
     bool BuildFireTraining(const class UERMapTemplate& Template,int32 Seed,int32 Attempt,TArray<struct FERMapTemplatePiece>& Pieces,FERProceduralLayout& Layout,TArray<FVector>& Patrol);
     // Roof underside above a point across the width (any nave), for headroom checks.
     float WarehouseRoofHeight(float NaveWidth,int32 Naves,float Eave,float X);
+    // Highest common walking plane below the kit lights/roof, with 2m clearance.
+    float WarehouseCatwalkHeight(const FERWarehouseWidthKit& Kit,int32 Naves,float Eave);
 }
 
 // Reuses the lab's 5cm cells, hitscan, explosion, support and replication.
@@ -145,6 +176,7 @@ private:
     UPROPERTY() TObjectPtr<class UInstancedStaticMeshComponent> FenceCollision;
     UPROPERTY() TArray<TObjectPtr<class UDynamicMeshComponent>> FenceMetal;
     UPROPERTY() TObjectPtr<class UDynamicMeshComponent> AlleyTerrain;
+    UPROPERTY() TArray<TObjectPtr<class UDynamicMeshComponent>> RoomsShell;
     // Cosmetic warehouse lighting under the roof lamps; never on a dedicated server.
     UPROPERTY(Transient) TArray<TObjectPtr<class UPointLightComponent>> WarehouseLights;
     void ConfigureTemplateFloors();

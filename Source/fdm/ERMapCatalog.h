@@ -17,6 +17,8 @@ namespace ERMaps
     const FERMapCatalogEntry& At(int32 Index);
     TArray<FString> Labels();
     TArray<FName> Rotation();
-    TArray<FName> NextRoundMaps(FName CurrentPackage);
+    // Record only actual arrivals: failed travel must not consume a template.
+    void RecordRoundMap(FName CurrentPackage,TArray<FName>& Played);
+    TArray<FName> NextRoundMaps(FName CurrentPackage,TConstArrayView<FName> Played);
     TArray<int32> LobbyLeaders(TConstArrayView<int32> Votes);
 }

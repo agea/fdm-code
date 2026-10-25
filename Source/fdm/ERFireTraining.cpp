@@ -1,5 +1,6 @@
 #include "ERMapTemplate.h"
 #include "ERProceduralMap.h"
+#include "ERIndustrialFence.h"
 #include "Engine/StaticMesh.h"
 
 namespace
@@ -69,6 +70,18 @@ float WarehouseRoofHeight(float NaveWidth,int32 Naves,float Eave,float X)
     return Eave+FMath::Sqrt(1700.f*1700.f-A*A)-1500.f;
 }
 
+float WarehouseCatwalkHeight(const FERWarehouseWidthKit& Kit,int32 Naves,float Eave)
+{
+    // Source lamps hang 14.21cm above the eave at their lowest point. Greybox
+    // tests use those measured kit offsets; production reads the actual meshes.
+    const float Lamps=Kit.RoofLamps ? Kit.RoofLamps->GetBoundingBox().Min.Z:14.21f;
+    // Crossings between naves also pass under the low roof valleys. Flanks sit
+    // 1.2m from the wall, beyond the 85cm knee brackets below the outer ribs.
+    const float Roof=Kit.RoofBay ? Kit.RoofBay->GetBoundingBox().Min.Z:-2.39f;
+    const float Soffit=Eave+(Naves>1 ? FMath::Min(Lamps,Roof):Lamps);
+    return FMath::FloorToFloat((Soffit-200.f)/5.f)*5.f;
+}
+
 bool BuildFireTraining(const UERMapTemplate& T,int32 Seed,int32 Attempt,TArray<FERMapTemplatePiece>& Pieces,FERProceduralLayout& L,TArray<FVector>& Patrol)
 {
     const auto& V=T.FireTraining;
@@ -78,6 +91,7 @@ bool BuildFireTraining(const UERMapTemplate& T,int32 Seed,int32 Attempt,TArray<F
         V.MinNaves<1 || V.MaxNaves>4 || V.MinNaves>V.MaxNaves || !FMath::IsFinite(V.MaxAspect) || V.MaxAspect<1.5f || V.MaxPlazas<0 || V.MaxPlazas>3 || V.MinHeightBands>V.MaxHeightBands ||
         !Ratio(V.ElevatedTargetRatio) || !Ratio(V.ElevatedMaxRatio) || !Ratio(V.OverheadMaxRatio) || !Ratio(V.OpenRegionMinRatio) ||
         V.ElevatedTargetRatio>V.ElevatedMaxRatio || V.ElevatedMaxRatio>V.OverheadMaxRatio || V.Widths.IsEmpty() || V.Widths.Num()>3)return false;
+    if(V.ParapetModule && (V.ParapetModule->GetBoundingBox().GetSize().ContainsNaN() || V.ParapetModule->GetBoundingBox().GetSize().GetMin()<.1f))return false;
     for(const auto* Palette:{&V.WoodSurfaces,&V.ConcreteSurfaces,&V.ContainerSurfaces})if(Palette->Num()>8 || Palette->Contains(nullptr))return false;
     // Either the complete prepared kit or a pure greybox (tests); never a mix.
     const TArray<UStaticMesh*> Shared={V.SideWallBay,V.SideWallLamps,V.Post,V.EndPortal};
@@ -237,10 +251,11 @@ bool BuildFireTraining(const UERMapTemplate& T,int32 Seed,int32 Attempt,TArray<F
     Backstop({0,-HL-25,L.ArenaSize.Z*.5f},{W,30,L.ArenaSize.Z});
 
     // ---- Plan: west catwalk band, two lanes around central cargo, east rooms.
-    const float Dw=220,DeckZ=300;
+    const float Dw=220,DeckZ=300,CatwalkX=XI0+100;
+    const float CatwalkZ=WarehouseCatwalkHeight(*Width,Naves,Eave);
     const float Dr=W<=1600 ? 400:W<=2000 ? Pick(450,500):Pick(500,600);
     const float XR0=XI1-Dr,XWL=XI0+Dw+170,XEL=XR0-170,CB0=XWL+150,CB1=XEL-150;
-    const float YFront=-HL+520,YShield=-HL+700;
+    const float YFront=-HL+1350;
     const bool Elevated=Bands>=2 && WarehouseRoofHeight(NaveW,Naves,Eave,XI0)>=DeckZ+250;
     FERPlanGrid Grid;Grid.Init({XI0,-HL},{XI1,HL});
     FERPlanGrid Trial;
@@ -258,8 +273,15 @@ bool BuildFireTraining(const UERMapTemplate& T,int32 Seed,int32 Attempt,TArray<F
         for(const FBox& Copy:{B,HalfTurn(B)}){L.ElevatedDecks.Add(Copy);L.OverheadClosures.Add(Copy);L.ElevatedAccesses.Add(Accesses);}
         Grid.Add(B,Mask(B));Grid.Add(HalfTurn(B),Mask(B));
     };
-    auto Headroom=[&](float X0,float X1,float Top){return FMath::Min(WarehouseRoofHeight(NaveW,Naves,Eave,X0),WarehouseRoofHeight(NaveW,Naves,Eave,X1))>=Top+250;};
-    auto Rail=[&](float X0,float X1,float Y0,float Y1,float Z){if(X1-X0>1 && Y1-Y0>1)Box({(X0+X1)*.5f,(Y0+Y1)*.5f,Z+55},{X1-X0,Y1-Y0,110},EERBlockMaterial::Metal,true);};
+    auto Headroom=[&](float X0,float X1,float Top,float Clearance=250){return FMath::Min(WarehouseRoofHeight(NaveW,Naves,Eave,X0),WarehouseRoofHeight(NaveW,Naves,Eave,X1))>=Top+Clearance;};
+    auto Rail=[&](float X0,float X1,float Y0,float Y1,float Z)
+    {
+        if(X1-X0>1 && Y1-Y0>1)
+        {
+            const float H=ERIndustrialFence::ModuleHeightCm;
+            Box({(X0+X1)*.5f,(Y0+Y1)*.5f,Z+H*.5f},{X1-X0,Y1-Y0,H},EERBlockMaterial::Metal,true).PawnBarrier=true;
+        }
+    };
     auto Slab=[&](float X0,float X1,float Y0,float Y1,float Z){Box({(X0+X1)*.5f,(Y0+Y1)*.5f,Z-10},{X1-X0,Y1-Y0,20},EERBlockMaterial::Metal,true,true);};
     // Destructible timber with door/window gaps; headers depend on their jambs.
     struct FOpening{float Center,Width,Sill,Top;};
@@ -282,7 +304,7 @@ bool BuildFireTraining(const UERMapTemplate& T,int32 Seed,int32 Attempt,TArray<F
         Part(Cursor,Span,0,Height);
     };
     // Calibrated 2mm destructible steel, exactly as the industrial ladders.
-    auto Ladder=[&](FVector Base,float Yaw,float Rise,bool Anchored)
+    auto Ladder=[&](FVector Base,float Yaw,float Rise,bool Anchored,bool LevelExit=false)
     {
         const FTransform Frame(FRotator(0,Yaw,0),Base);const float Height=Rise+110;
         auto Part=[&](FVector P,FVector Size,bool Root){auto& B=Box(Frame.TransformPosition(P),Size,EERBlockMaterial::Metal,false);B.RotationYaw=Yaw;B.Anchored=Root && Anchored;};
@@ -292,7 +314,10 @@ bool BuildFireTraining(const UERMapTemplate& T,int32 Seed,int32 Attempt,TArray<F
             for(float Edge:{-3.9f,3.9f})Part({0,Y+Edge,Height*.5f},{7.6f,.2f,Height},true);
         }
         for(float Z=25;Z<Rise;Z+=25)Part({0,0,Z},{.2f,76,4},false);
-        L.Ladders.Add({Frame,Height,Rise});L.Ladders.Add({Frame*FTransform(FRotator(0,180,0)),Height,Rise});
+        // Notched high walkway ends allow stepping off at deck level instead of
+        // climbing 110cm over a parapet into the lights. Keep the real handles.
+        const float ExitHeight=LevelExit ? Rise+5:Height;
+        L.Ladders.Add({Frame,ExitHeight,Rise});L.Ladders.Add({Frame*FTransform(FRotator(0,180,0)),ExitHeight,Rise});
     };
     TArray<FTransform> Reserved;
     auto Reserve=[&](FVector Center,FVector Size){Reserved.Add(FTransform(FQuat::Identity,Center,Size));};
@@ -305,164 +330,120 @@ bool BuildFireTraining(const UERMapTemplate& T,int32 Seed,int32 Attempt,TArray<F
     };
     Reserve({0,-HL+300,150},{W,620,300}); // Spawn strip and front crossing.
 
-    // ---- West catwalk with a closed timber corridor beneath it.
-    if(Elevated)
+    // ---- Protected bases. The warehouse wall is never the base's only cover.
+    // A concrete court with two offset gates surrounds an enterable one-storey
+    // barracks. Its steel roof always has two independent exterior ladders.
+    const float SpawnX=Naves%2 ? 0:-NaveW*.5f;
+    const float BX0=SpawnX-300,BX1=SpawnX+300,BY0=-HL+70,BY1=-HL+650;
+    const float CX0=SpawnX-600,CX1=SpawnX+600,CY0=-HL+40,CY1=-HL+1150;
+    if(!Elevated || !Headroom(BX0,BX1,DeckZ))return false;
+    auto ConcreteWall=[&](float X0,float X1,float Y0,float Y1)
+    {Box({(X0+X1)*.5f,(Y0+Y1)*.5f,140},{X1-X0,Y1-Y0,280},EERBlockMaterial::Concrete,false);};
+    ConcreteWall(CX0,CX1,CY0,CY0+20);
+    ConcreteWall(CX0,CX0+20,CY0+20,CY1-20);
+    ConcreteWall(CX1-20,CX1,CY0+20,CY1-20);
+    // Wide side gates avoid a straight firing lane into the central spawn room.
+    ConcreteWall(CX0,CX0+100,CY1-20,CY1);
+    ConcreteWall(CX0+280,CX1-280,CY1-20,CY1);
+    ConcreteWall(CX1-100,CX1,CY1-20,CY1);
+    Timber(BX0,BY0,true,BY1-BY0,0,280,{});
+    Timber(BX1-12,BY0,true,BY1-BY0,0,280,{});
+    Timber(BX0+12,BY0,false,BX1-BX0-24,0,280,{});
+    Timber(BX0+12,BY1-12,false,BX1-BX0-24,0,280,{{SpawnX-BX0-12,140,0,220}});
+    Slab(BX0,BX1,BY0,BY1,DeckZ);
+    const float BaseLadderY=BY1-150;
+    for(float Side:{-1.f,1.f})
     {
-        // A bridge only spans a single nave; multi-nave halls keep column lines clear.
-        const bool Bridge=Naves==1 && Chance(.45f);
-        // Long halls keep the catwalk local: it never runs the whole half.
-        const float Start=-HL+1200+(Reference ? 0:Pick(0,200));
-        const float YA=Bridge ? FMath::Max(Start,-110-Pick(1680,2940)):Start;
-        const float YB=Bridge ? 110:FMath::Min(-150.f,YA+(Reference ? 1260:Pick(840,FMath::Max(1680.f,(-150-YA)*.6f))));
-        const float YEnd=Bridge ? -110:YB;
-        if(YEnd-YA>=420)
-        {
-            TArray<FBox> Boxes{FBox(FVector(XI0,YA,DeckZ-20),FVector(XI0+Dw,YB,DeckZ))};
-            if(Bridge)Boxes.Add(FBox(FVector(XI0+Dw,-110,DeckZ-20),FVector(0,110,DeckZ)));
-            if(Fits(Boxes) && Headroom(XI0,XI0+Dw,DeckZ))
-            {
-                L.FeatureNames.Add(Bridge ? TEXT("CatwalkBridge"):TEXT("Catwalk"));
-                Slab(XI0,XI0+Dw,YA,YB,DeckZ);
-                // Solid 20cm risers / 30cm treads climbing north onto the deck.
-                const int32 Steps=FMath::RoundToInt(DeckZ/20);const float Y0=YA-Steps*30;
-                TArray<FVector> Stair{{XI0+80,Y0-100,100}};
-                for(int32 I=1;I<=Steps;++I)
-                {
-                    Box({XI0+80,Y0+30*I-15,10.f*I},{160,30,20.f*I},EERBlockMaterial::Metal,true,true);
-                    Stair.Add({XI0+80,Y0+30*I-15,20.f*I+120});
-                }
-                Stair.Add({XI0+80,YA+120,DeckZ+100});
-                // Tread samples are physical probes, not swept capsule segments.
-                L.StairRoutes.Add(Stair);
-                Reserve({XI0+80,Y0-150,100},{220,300,200});
-                const float LadderY=Bridge ? -260:YB-100;
-                Ladder({XI0+Dw+35,LadderY,0},0,DeckZ,true);ReserveLadder({XI0+Dw+35,LadderY,0},0,DeckZ);
-                // Inner edge: open steel rail or a timber screen with firing slots.
-                const bool Screen=Chance(.4f);
-                if(Screen)
-                {
-                    L.FeatureNames.Add(TEXT("ScreenedCatwalk"));
-                    TArray<FOpening> Slots{{LadderY-YA,170,0,240}};
-                    for(float Y=200;Y<YEnd-YA-150;Y+=Pick(250,400))if(FMath::Abs(Y-(LadderY-YA))>220)Slots.Add({Y,100,100,180});
-                    Timber(XI0+Dw-12,YA,true,YEnd-YA,DeckZ,220,Slots);
-                }
-                else
-                {
-                    Rail(XI0+Dw-5,XI0+Dw,YA,LadderY-85,DeckZ);Rail(XI0+Dw-5,XI0+Dw,LadderY+85,YEnd,DeckZ);
-                }
-                Rail(XI0+160,XI0+Dw-(Screen ? 12:5),YA,YA+5,DeckZ);
-                if(Bridge)
-                {
-                    Slab(XI0+Dw,0,-110,110,DeckZ);
-                    Rail(XI0+Dw,0,-110,-105,DeckZ);Rail(XI0+Dw,0,105,110,DeckZ);Rail(XI0,XI0+Dw,105,110,DeckZ);
-                    L.CrossingRoutes.Add({{XI0+110,YA+120,DeckZ+100},{XI0+110,0,DeckZ+100},{0,0,DeckZ+100}});
-                }
-                else
-                {
-                    Rail(XI0,XI0+Dw-(Screen ? 12:5),YB-5,YB,DeckZ);
-                    L.CrossingRoutes.Add({{XI0+110,YA+120,DeckZ+100},{XI0+110,YB-120,DeckZ+100}});
-                }
-                for(const auto& B:Boxes)Elevate(B,Bridge ? 4:2);
-                // Ground corridor: deck columns, then an optional closed timber side.
-                const float CorridorEnd=FMath::Min(YEnd,LadderY-60);
-                TArray<float> Doors;
-                const bool Closed=Reference || Chance(.75f);
-                if(Closed && CorridorEnd-YA>=420)
-                {
-                    L.FeatureNames.Add(TEXT("Corridor"));
-                    Doors={Pick(150,FMath::Max(150.f,(CorridorEnd-YA)*.5f-100)),0};
-                    Doors[1]=Pick(Doors[0]+300,FMath::Max(Doors[0]+300,CorridorEnd-YA-150));
-                    if(Doors[1]>CorridorEnd-YA-90)Doors.SetNum(1);
-                    TArray<FOpening> Openings;for(float D:Doors)Openings.Add({D,120,0,220});
-                    for(float Y=Doors[0]+200;Doors.Num()>1 && Y<Doors[1]-200;Y+=350)Openings.Add({Y,100,100,190});
-                    Timber(XI0+Dw,YA,true,CorridorEnd-YA,0,DeckZ-20,Openings);
-                    TArray<FVector> Route;
-                    for(int32 I=0;I<Doors.Num();++I)
-                    {
-                        const float Y=YA+Doors[I];
-                        if(I==0)Route.Append({{XWL,Y,100},{XI0+100,Y,100}});
-                        else Route.Append({{XI0+100,Y,100},{XWL,Y,100}});
-                        Reserve({XI0+Dw+90,Y,110},{150,180,220});
-                    }
-                    if(Doors.Num()==1)Route.Add({XI0+100,YA+Doors[0]+FMath::Min(250.f,CorridorEnd-YA-Doors[0]-80),100});
-                    L.RoomAccessRoutes.Add(Route);
-                }
-                for(float Y=YA+10;Y<YB-10;Y+=FMath::Min(420.f,FMath::Max(200.f,(YB-YA)/3)))
-                {
-                    if(Doors.ContainsByPredicate([&](float D){return FMath::Abs(YA+D-Y)<100;}))continue;
-                    if(FMath::Abs(Y-LadderY)<70)continue;
-                    Box({XI0+Dw-10,Y,(DeckZ-20)*.5f},{20,20,DeckZ-20},EERBlockMaterial::Metal,true);
-                }
-            }
-        }
+        const float X=Side<0 ? BX0:BX1,Yaw=Side<0 ? 180:0;
+        const FVector Base(X+Side*35,BaseLadderY,0);
+        Ladder(Base,Yaw,DeckZ,true);ReserveLadder(Base,Yaw,DeckZ);
+        Rail(X-5,X,BY0+5,BaseLadderY-85,DeckZ);
+        Rail(X-5,X,BaseLadderY+85,BY1-5,DeckZ);
+        // Walk out of the room, dogleg through either protected court gate.
+        const float GateX=SpawnX+Side*410;
+        L.RoomAccessRoutes.Add({{SpawnX,BY1-120,100},{SpawnX,BY1+120,100},
+            {GateX,BY1+120,100},{GateX,YFront,100}});
     }
-    // ---- East room blocks: killhouse rooms, optional deck room and lookout.
-    // Longer halls repeat the block along the wall with open passages between.
-    float NextRoom=-HL+800+(Reference ? 0:Pick(0,200));
+    Rail(BX0,BX1,BY0,BY0+5,DeckZ);Rail(BX0,BX1,BY1-5,BY1,DeckZ);
+    Elevate(FBox(FVector(BX0,BY0,DeckZ-20),FVector(BX1,BY1,DeckZ)),2);
+    for(int32 Copy=0;Copy<2;++Copy)
+    {
+        FERTemplateBase Base;Base.Frame=FTransform(FRotator(0,Copy ? 180:0,0),Copy ? FVector(-SpawnX,-(BY0+BY1)*.5f,0):FVector(SpawnX,(BY0+BY1)*.5f,0));
+        Base.Size={BX1-BX0,BY1-BY0,DeckZ};Base.RoofZ=DeckZ;L.Bases.Add(Base);
+        const FBox Court(FVector(CX0,CY0,0),FVector(CX1,CY1,280));L.WarehouseBaseCourts.Add(Copy ? HalfTurn(Court):Court);
+        L.RooftopRoutes.Add({Base.Point({-220,140,DeckZ+100}),Base.Point({0,140,DeckZ+100}),Base.Point({220,140,DeckZ+100})});
+    }
+    Reserve({SpawnX,(CY0+CY1)*.5f,300},{1200,CY1-CY0,600});
+    L.FeatureNames.Append({TEXT("FortifiedBase"),TEXT("BaseRoof")});
+    for(int32 I=0;I<10;++I)L.AlphaSpawns.Add(FTransform(FRotator(0,90,0),FVector(SpawnX+(I%4-1.5f)*90.f,-HL+150+(I/4)*110.f,100)));
+
+    // ---- Mandatory steel H-route: two full-length flank walkways joined by
+    // a cross-map bridge. Only the ladder mouths and bridge junctions are open.
+    const float YA=-HL+1500,YB=HL-1500;
+    const FBox Flank(FVector(CatwalkX,YA,CatwalkZ-20),FVector(CatwalkX+Dw,YB,CatwalkZ));
+    // Mid-bay crossings avoid full-height columns on every nave line. With
+    // even bay counts, paired crossbars at +/-210cm pass either side of the rib.
+    const bool DoubleBridge=Naves>1 && Bays%2==0;
+    const float BridgeY=DoubleBridge ? 210:0;
+    const FBox Bridge(FVector(CatwalkX+Dw,BridgeY-110,CatwalkZ-20),FVector(DoubleBridge ? -CatwalkX-Dw:0,BridgeY+110,CatwalkZ));
+    if(YB-YA<600 || !Fits({Flank,Bridge}) || !Headroom(CatwalkX,CatwalkX+Dw,CatwalkZ,200))return false;
+    Slab(CatwalkX,CatwalkX+Dw,YA,YB,CatwalkZ);Slab(Bridge.Min.X,Bridge.Max.X,Bridge.Min.Y,Bridge.Max.Y,CatwalkZ);
+    Elevate(Flank,2);Elevate(Bridge,4);
+    L.WarehouseCatwalks={Flank,HalfTurn(Flank),Bridge,HalfTurn(Bridge)};
+    const float LadderX=CatwalkX+Dw*.5f;
+    // End ladders avoid the ground patrol lanes and room walls. Their notched
+    // mouths let the player step horizontally onto the deck below the lights.
+    for(const FVector2D End:{FVector2D(YA,-90),FVector2D(YB,90)})
+    {
+        const FVector Base(LadderX,End.X+(End.Y<0 ? -35:35),0);
+        Ladder(Base,End.Y,CatwalkZ,true,true);ReserveLadder(Base,End.Y,CatwalkZ);
+        Rail(CatwalkX+5,LadderX-85,End.X<0 ? YA:YB-5,End.X<0 ? YA+5:YB,CatwalkZ);
+        Rail(LadderX+85,CatwalkX+Dw-5,End.X<0 ? YA:YB-5,End.X<0 ? YA+5:YB,CatwalkZ);
+    }
+    Rail(CatwalkX,CatwalkX+5,YA,YB,CatwalkZ);
+    TArray<FVector2D> Mouths{{BridgeY-110,BridgeY+110}};
+    if(DoubleBridge)Mouths.Add({-BridgeY-110,-BridgeY+110});
+    Mouths.Sort([](const FVector2D& A,const FVector2D& B){return A.X<B.X;});
+    float Cursor=YA;
+    for(const auto& Mouth:Mouths){Rail(CatwalkX+Dw-5,CatwalkX+Dw,Cursor,Mouth.X,CatwalkZ);Cursor=Mouth.Y;}
+    Rail(CatwalkX+Dw-5,CatwalkX+Dw,Cursor,YB,CatwalkZ);
+    Rail(Bridge.Min.X,Bridge.Max.X,Bridge.Min.Y,Bridge.Min.Y+5,CatwalkZ);
+    Rail(Bridge.Min.X,Bridge.Max.X,Bridge.Max.Y-5,Bridge.Max.Y,CatwalkZ);
+    // Metadata includes the entire continuous route, not only a half-bridge.
+    L.CrossingRoutes.Add({{LadderX,YA+100,CatwalkZ+100},{LadderX,YB-100,CatwalkZ+100}});
+    L.CrossingRoutes.Add({{-LadderX,YA+100,CatwalkZ+100},{-LadderX,YB-100,CatwalkZ+100}});
+    L.CrossingRoutes.Add({{LadderX,BridgeY,CatwalkZ+100},{-LadderX,BridgeY,CatwalkZ+100}});
+    if(DoubleBridge)L.CrossingRoutes.Add({{LadderX,-BridgeY,CatwalkZ+100},{-LadderX,-BridgeY,CatwalkZ+100}});
+    L.FeatureNames.Append({TEXT("Catwalk"),TEXT("CatwalkBridge"),TEXT("SteelParapets")});
+    // Keep the narrow high decks clear of the original wall knee brackets.
+    // Local timber corridor beneath the south-west walkway, with two real doors.
+    const float CorridorEnd=FMath::Min(-450.f,YA+1260);
+    if(CorridorEnd-YA>=600)
+    {
+        const float DoorA=YA+540,DoorB=CorridorEnd-180;
+        Timber(XI0+Dw,YA,true,CorridorEnd-YA,0,280,{{DoorA-YA,120,0,220},{DoorB-YA,120,0,220}});
+        L.RoomAccessRoutes.Add({{XWL,DoorA,100},{XI0+100,DoorA,100},{XI0+100,DoorB,100},{XWL,DoorB,100}});
+        Reserve({XI0+Dw+90,DoorA,110},{150,180,220});Reserve({XI0+Dw+90,DoorB,110},{150,180,220});
+        L.FeatureNames.Add(TEXT("Corridor"));
+    }
+    // Ground rooms remain local below the opposite walkway; their walls stop
+    // at its underside, so the connected upper route is never obstructed.
+    float NextRoom=-HL+1700+(Reference ? 0:Pick(0,200));
     for(int32 Block=0;Block<(Reference ? 1:3);++Block)
     {
-        const float YR0=NextRoom;
-        const float YR1=FMath::Min(-450.f,YR0+(Reference ? 800:Bands>=3 ? Pick(800,1150):Pick(600,950)));
-        const float Lr=YR1-YR0;
+        const float YR0=NextRoom,YR1=FMath::Min(-450.f,YR0+(Reference ? 800:Pick(600,1100))),Lr=YR1-YR0;
         NextRoom=YR1+Pick(600,1100);
         if(Lr<500 || (Block>0 && !Chance(.75f)))break;
-        {
-            const bool Upper=Elevated && (Reference || Wanted(.9f,.45f)) && Headroom(XR0,XI1,DeckZ);
-            const bool Lookout=Upper && Bands>=3 && Lr>=800 && Wanted(.75f,.4f) && Headroom(XR0+160,XI1,600);
-            TArray<FBox> Boxes;
-            if(Upper)Boxes.Add(FBox(FVector(XR0,YR0,DeckZ-20),FVector(XI1,YR1,DeckZ)));
-            const bool Raised=Upper && Fits(Boxes);
-            L.FeatureNames.Add(Raised ? TEXT("RoomDeck"):TEXT("Rooms"));
-            const float H=Raised ? DeckZ-20:Pick(250,280);
-            const bool Split=Lr>=800 && Chance(.5f);
-            const float Door=Split ? Pick(250,FMath::Max(250.f,Lr*.5f-150)):Pick(250,FMath::Max(250.f,Lr-250)),Mid=(XR0+XI1)*.5f;
-            TArray<FOpening> West{{Door,120,0,220}};
-            for(float Y=150;Y<Lr-120;Y+=260)if(FMath::Abs(Y-Door)>200)West.Add({Y,100,100,190});
-            Timber(XR0,YR0,true,Lr,0,H,West);
-            const bool NorthDoor=R.RandBool();
-            Timber(XR0+12,YR0,false,XI1-XR0-12,0,H,NorthDoor ? TArray<FOpening>{}:TArray<FOpening>{{Mid-XR0-12,120,0,220}});
-            Timber(XR0+12,YR1-12,false,XI1-XR0-12,0,H,NorthDoor ? TArray<FOpening>{{Mid-XR0-12,120,0,220}}:TArray<FOpening>{});
-            if(Split)Timber(XR0+12,YR0+FMath::RoundToFloat(Lr*.5f/50)*50,false,XI1-XR0-12,0,H,{{(XI1-XR0-12)*.5f,110,0,220}});
-            L.RoomAccessRoutes.Add({{XEL,YR0+Door,100},{XR0-60,YR0+Door,100},{XR0+150,YR0+Door,100},{Mid,YR0+Door,100}});
-            const float OuterY=NorthDoor ? YR1+90:YR0-90;
-            L.RoomAccessRoutes.Add({{Mid,OuterY,100},{Mid,NorthDoor ? YR1-150:YR0+150,100}});
-            Reserve({XR0-90,YR0+Door,110},{180,200,220});Reserve({Mid,OuterY,110},{200,160,220});
-            if(Raised)
-            {
-                Slab(XR0,XI1,YR0,YR1,DeckZ);
-                // Two independent ground ladders onto the 160cm walkway.
-                for(float Y:{YR0+90,YR1-90}){Ladder({XR0-35,Y,0},180,DeckZ,true);ReserveLadder({XR0-35,Y,0},180,DeckZ);}
-                Rail(XR0,XR0+5,YR0+175,YR1-175,DeckZ);
-                Rail(XR0,XR0+160,YR0,YR0+5,DeckZ);Rail(XR0,XR0+160,YR1-5,YR1,DeckZ);
-                const float UpperDoor=Lr*.5f,UpperH=Lookout ? 280:220;
-                // Lookout ladders lean on this wall, so it keeps only its door.
-                TArray<FOpening> UpperWest{{UpperDoor,120,0,220}};
-                if(!Lookout)for(float Y:{150.f,Lr-150})if(FMath::Abs(Y-UpperDoor)>180)UpperWest.Add({Y,100,100,180});
-                Timber(XR0+160,YR0,true,Lr,DeckZ,UpperH,UpperWest);
-                Timber(XR0+172,YR0,false,XI1-XR0-172,DeckZ,UpperH,{{(XI1-XR0-172)*.5f,100,100,180}});
-                Timber(XR0+172,YR1-12,false,XI1-XR0-172,DeckZ,UpperH,{{(XI1-XR0-172)*.5f,100,100,180}});
-                L.RoomAccessRoutes.Add({{XR0+70,YR0+90,DeckZ+100},{XR0+70,YR0+UpperDoor,DeckZ+100},{XR0+260,YR0+UpperDoor,DeckZ+100}});
-                Elevate(Boxes[0],2);
-                if(Lookout && Fits({FBox(FVector(XR0+160,YR0,580),FVector(XI1,YR1,600))}))
-                {
-                    L.FeatureNames.Add(TEXT("Lookout"));
-                    Slab(XR0+160,XI1,YR0,YR1,600);
-                    for(float Y:{YR0+260,YR1-260})Ladder({XR0+125,Y,DeckZ},180,300,true);
-                    Rail(XR0+160,XR0+165,YR0+5,YR0+175,600);Rail(XR0+160,XR0+165,YR0+345,YR1-345,600);Rail(XR0+160,XR0+165,YR1-175,YR1-5,600);
-                    Rail(XR0+160,XI1,YR0,YR0+5,600);Rail(XR0+160,XI1,YR1-5,YR1,600);
-                    Elevate(FBox(FVector(XR0+160,YR0,580),FVector(XI1,YR1,600)),2);
-                }
-            }
-        }
+        const float Door=Lr*.5f,Mid=(XR0+XI1)*.5f;
+        Timber(XR0,YR0,true,Lr,0,280,{{Door,120,0,220}});
+        Timber(XR0+12,YR0,false,XI1-XR0-12,0,280,{});
+        Timber(XR0+12,YR1-12,false,XI1-XR0-12,0,280,{{Mid-XR0-12,120,0,220}});
+        L.RoomAccessRoutes.Add({{XEL,YR0+Door,100},{XR0-60,YR0+Door,100},{XR0+150,YR0+Door,100},{Mid,YR0+Door,100}});
+        L.RoomAccessRoutes.Add({{Mid,YR1+90,100},{Mid,YR1-150,100}});
+        Reserve({XR0-90,YR0+Door,110},{180,200,220});Reserve({Mid,YR1+90,110},{200,160,220});
+        L.FeatureNames.Add(TEXT("Rooms"));
     }
-    // ---- Spawns, front screen and the half-turn patrol loop.
-    // Three compact rows behind the front screen; Omega derives by half-turn.
-    // With an even nave count the hall axis is a column line: start mid-nave.
-    const float SpawnX=Naves%2 ? 0:-NaveW*.5f;
-    for(int32 I=0;I<10;++I)L.AlphaSpawns.Add(FTransform(FRotator(0,90,0),FVector(SpawnX+(I%4-1.5f)*90.f,-HL+150+(I/4)*110.f,100)));
-    // The front screen covers the start rows, never the whole width of a large hall.
-    const float Shield0=FMath::Max(CB0-30,SpawnX-600),Shield1=FMath::Min(CB1+30,SpawnX+600);
-    Timber(Shield0,YShield,false,Shield1-Shield0,0,230,{});
+    // Patrol stays outside the court walls, with free cross-map ground lanes.
     const TArray<FVector> South{{XEL,-250,100},{XEL,YFront,100},{XWL,YFront,100},{XWL,-250,100}};
     for(const auto& P:South)Patrol.Add(P);
     for(const auto& P:South)Patrol.Add({-P.X,-P.Y,P.Z});
@@ -473,7 +454,7 @@ bool BuildFireTraining(const UERMapTemplate& T,int32 Seed,int32 Attempt,TArray<F
     for(int32 Try=0;Try<12 && L.Plazas.Num()<PlazaCount*2;++Try)
     {
         const float SX=FMath::Min(Pick(1000,1800),CB1-CB0),SY=Pick(1000,1800);
-        const float YMin=-HL+1000+SY*.5f,YMax=-300-SY*.5f;
+        const float YMin=-HL+1550+SY*.5f,YMax=-300-SY*.5f;
         if(SX<800 || YMax<YMin)break;
         const FVector C(FMath::Clamp(Pick(CB0,CB1),CB0+SX*.5f,CB1-SX*.5f),FMath::Clamp(Pick(YMin,YMax),YMin,YMax),300);
         const FBox Plaza(C-FVector(SX*.5f,SY*.5f,300),C+FVector(SX*.5f,SY*.5f,300));
@@ -623,7 +604,7 @@ bool BuildFireTraining(const UERMapTemplate& T,int32 Seed,int32 Attempt,TArray<F
     auto Reject=[&](const TCHAR* Reason){UE_LOG(LogTemp,Log,TEXT("ER_FIRE_TRAINING_ATTEMPT seed=%d attempt=%d reject=%s"),Seed,Attempt,Reason);return false;};
     if(L.ElevatedRatio>V.ElevatedMaxRatio+1e-4f || L.OverheadRatio>V.OverheadMaxRatio+1e-4f || L.OpenRegionRatio<V.OpenRegionMinRatio)return Reject(TEXT("budget"));
     for(int32 A:L.ElevatedAccesses)if(A<2)return Reject(TEXT("access"));
-    for(const auto& D:L.ElevatedDecks)if(!Headroom(D.Min.X,D.Max.X,D.Max.Z))return Reject(TEXT("headroom"));
+    for(const auto& D:L.ElevatedDecks)if(!Headroom(D.Min.X,D.Max.X,D.Max.Z,FMath::IsNearlyEqual(D.Max.Z,CatwalkZ) ? 200:250))return Reject(TEXT("headroom"));
     // Initial spawns: most direct start-to-start lines must meet real cover.
     TArray<FTransform> Solids;Frames(0,Solids);int32 Hidden=0,Lines=0;
     for(const auto& A:L.AlphaSpawns)for(const auto& B:L.AlphaSpawns)

@@ -40,6 +40,17 @@ directory; historical attribution for removed sources stays with that archive.
 See `Saved/AssetAudit/unused-map-textures-cleanup.json` and
 [TEXTURE_CLEANUP_RESULTS.json](TEXTURE_CLEANUP_RESULTS.json).
 
+## Warehouse visual roles (25 October)
+
+The Warehouse shared theme now reuses Steel texture with irregularities for
+light ladders/parapets and Iron Plates2K for blue-gray walls and darker decks.
+The original warehouse corrugation and Factory beam atlas supply shell/frame
+contrast. Six owned derivative packages live in `Art/FireTraining/WarehouseTheme`;
+original parent materials and images remain intact, with their existing credits.
+Broad tint/roughness differences remain visible after small texture features
+mip out. Original cargo paints are retained. See `FIRE_TRAINING.md` and
+`setup_warehouse_steel.py`; the active Industrial recipe above is unchanged.
+
 ## Determinism and physical behavior
 
 `ConcreteSurfaces`, `BrickSurfaces`, `WoodSurfaces` and `GroundSurfaces` are optional

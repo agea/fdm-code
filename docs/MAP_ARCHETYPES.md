@@ -1,5 +1,10 @@
 # Industrial map archetypes
 
+25 October2026: **Rooms · Indoor** joins Central Building, Middle Eastern
+Alleys and Fire Training in the production rotation. It generates a sealed,
+half-turn symmetric graph for3v3/4v4, using the three existing material themes.
+See [the Rooms template](ROOMS.md).
+
 23 October2026 barrier height update: all industrial fence spans now have a
 fixed1m concrete plinth topped by one original-height1.27m steel course. The
 result is2.27m above the floor, including each interior storey's separator.
@@ -201,3 +206,25 @@ and deterministic on all peers. Factory atlas regions are adapted by dedicated
 private materials; vendor originals and the shared destruction catalog stay
 unchanged. Cell surfaces affect appearance/layout identity, not physical profiles.
 Run setup_factory_finishes.py to save this palette and its PCG snapshot.
+
+All four production templates now bind `DA_MapThemes` through `ThemeLibrary`.
+Industrial, Desert and Warehouse are chosen uniformly with a cosmetic stream
+from each round's replicated map seed, independently of template identity and
+geometry RNG. Repeated seeds reproduce the same theme on every peer; consecutive
+rounds may legitimately select the same theme. Template rotation still consumes
+all templates before refilling its shuffled pool.
+
+The final cosmetic pass changes surface references only, including damaged skin
+interiors, terrain, roofs and industrial barriers. Physical material IDs, HP,
+reinforcement, mesh triangles, apertures, collision and support remain original.
+Emissive light fixture materials retain their authored slots. Legacy recipes
+without a library retain their existing finishes. Invalid libraries reject the
+whole generated layout before publication. Theme identity/material paths enter
+the existing geometry digest; no new client-selected network state is accepted.
+
+Run `setup_map_themes.py` through Unreal to create the library and migrate the
+four owned recipes once. It keeps a verified ZIP in `Saved/MapThemesBackup`,
+preserves existing library tuning on reruns and leaves source art and the shared
+damage catalog untouched. `SharedMapThemes` automation compares original and
+themed geometry across all templates and verifies deterministic selection;
+`test-round-rotation.py` checks theme agreement with a real LAN client.

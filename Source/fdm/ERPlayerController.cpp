@@ -231,6 +231,7 @@ int32 UERGameInstance::GetStartingWeapon() const
 void UERGameInstance::StartSession()
 {
     if (SessionMode == 2) { Join(ServerAddress); return; }
+    RoundMapHistory.Reset();
     SaveProfile();
     LastError.Empty();
     const auto& Map=ERMaps::At(MapChoice);

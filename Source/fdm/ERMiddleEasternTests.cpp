@@ -1,5 +1,6 @@
 #include "ERProceduralMap.h"
 #include "ERMapCatalog.h"
+#include "ERMapTheme.h"
 #include "Misc/AutomationTest.h"
 #include "Engine/World.h"
 #include "Components/InstancedStaticMeshComponent.h"
@@ -49,7 +50,7 @@ bool FERAlleysLayoutTest::RunTest(const FString& Parameters)
         TestTrue(TEXT("graded terrain and multiple roof accesses"),L.GradedTerrain && L.RooftopRoutes.Num()>=2 && L.GroundRoutes.Num()==2);
         int32 Houses=L.Houses.Num();
         TestTrue(TEXT("requested house variants form actual parcels"),Houses>12);
-        TestTrue(TEXT("three-sand ground material bound"),L.GroundSurface==T->Town.GroundSurface && L.GroundSurface);
+        TestTrue(TEXT("three-sand ground material bound"),L.GroundSurface && (T->ThemeLibrary ? T->ThemeLibrary->Themes[L.ThemeIndex].Grounds.Contains(L.GroundSurface):L.GroundSurface==T->Town.GroundSurface));
         if(T->Town.LowCoverAndUnderpass)
         {
             UnderpassAxes.Add(L.UnderpassAxis);

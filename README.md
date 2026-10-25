@@ -22,15 +22,29 @@ The default builds both targets and uploads to `windows-x86_64` and
 toolchain. Use `-TargetPlatform Windows` or `-TargetPlatform Linux` for one
 platform. Run `butler login` once; add `-NoUpload` to keep packages local.
 
-## Fire Training — 23 October 2026
+## Rooms — 25 October 2026
+
+Servers rotate randomly through all four production templates once per cycle,
+then start a fresh random cycle, avoiding consecutive repeats at the boundary.
+
+**Rooms · Indoor** adds an enclosed 3v3 / 4v4 template: two symmetric bases,
+6–10 rooms, interconnected octagonal corridors with smooth ramps, paired upper
+galleries and destructible wooden L panels. Alternating corridor panels block
+sightlines while preserving a zigzag passage. More rooms means smaller rooms. Each
+seed chooses one of the existing Industrial, Desert and Warehouse material
+themes. See [the Rooms template](docs/ROOMS.md).
+
+## Fire Training — 25 October 2026
 
 The match menu also offers **Fire Training · Warehouse**: a Killhouse-style
 training hall built from the supplied warehouse model. Width (one to four arched naves of 16/20/24 m, up to 96 m),
 length (14–36 bays of 4.2 m, up to about 151 m) and height (two to four 3 m wall
 bands) vary by seed without stretching any piece. The hall stays one open
-volume, furnished with local catwalks and an optional bridge, closed timber
-corridors and rooms, a deck room with a lookout, stacked steel containers with
-ladders and low cover, all rotated 180° between teams. See
+volume, with concrete-walled bases and accessible barracks roofs. Steel
+walkways just below the ceiling lights connect both flanks through central
+bridges, with industrial
+barrier parapets and ladder access. Timber corridors/rooms, stacked steel
+containers and low cover remain paired by a 180° rotation. See
 [the Fire Training template](docs/FIRE_TRAINING.md).
 
 ## Middle Eastern Alleys — 22 October 2026

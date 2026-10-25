@@ -50,7 +50,22 @@ bool FERFireTrainingLayoutTest::RunTest(const FString& Parameters)
         TestEqual(TEXT("eave follows wall bands"),L.IndoorCeiling,300.f*L.WarehouseBands);
         TestEqual(TEXT("10 starts per team"),L.AlphaSpawns.Num(),10);
         for(int32 I=0;I<L.AlphaSpawns.Num();++I){auto P=L.AlphaSpawns[I].GetLocation();P.X=-P.X;P.Y=-P.Y;TestTrue(TEXT("half-turn starts"),P.Equals(L.OmegaSpawns[I].GetLocation()));}
-        // One open volume: local decks only, inside every budget, never a mezzanine.
+        TestEqual(TEXT("two fortified base courts"),L.WarehouseBaseCourts.Num(),2);
+        TestEqual(TEXT("each base has an accessible building roof"),L.Bases.Num(),2);
+        TestEqual(TEXT("two flanks and both halves of the cross-map bridge"),L.WarehouseCatwalks.Num(),4);
+        TestTrue(TEXT("catwalk network always has complete traversal paths"),L.CrossingRoutes.Num()>=3);
+        for(const auto& Base:L.Bases)
+        {
+            TestTrue(TEXT("base building has one or two storeys"),Base.RoofZ==300 || Base.RoofZ==600);
+            TestTrue(TEXT("all starts remain in their protected court"),L.WarehouseBaseCourts.ContainsByPredicate([&](const FBox& Court){return Court.IsInside(Base.Frame.GetLocation()+FVector(0,0,100));}));
+        }
+        const float HalfLength=210.f*L.WarehouseBays;
+        TestTrue(TEXT("flank walkway bypasses most of the hall length"),L.WarehouseCatwalks[0].GetSize().Y>=2*HalfLength-3001);
+        TestTrue(TEXT("bridge connects the two flanks"),L.CrossingRoutes[2][0].X<0 && L.CrossingRoutes[2].Last().X>0);
+        const float CatwalkZ=L.WarehouseCatwalks[0].Max.Z;
+        TestTrue(TEXT("walkways are raised near the lighting"),CatwalkZ>=L.IndoorCeiling-205 && CatwalkZ<=L.IndoorCeiling-185);
+        for(const auto& D:L.WarehouseCatwalks)TestEqual(TEXT("all connected walkways share the high walking plane"),D.Max.Z,double(CatwalkZ));
+        // One open volume: narrow routes stay inside the floor-area budgets.
         TestTrue(TEXT("elevated projection within budget"),L.ElevatedRatio<=T->FireTraining.ElevatedMaxRatio+1e-3f);
         TestTrue(TEXT("overhead closure within budget"),L.OverheadRatio<=T->FireTraining.OverheadMaxRatio+1e-3f);
         TestTrue(TEXT("large connected region open to the roof"),L.OpenRegionRatio>=T->FireTraining.OpenRegionMinRatio);
@@ -59,7 +74,8 @@ bool FERFireTrainingLayoutTest::RunTest(const FString& Parameters)
         for(const auto& D:L.ElevatedDecks)
         {
             TestTrue(TEXT("decks are local, not a continuous floor"),D.GetSize().X<L.WarehouseWidth*.5f || D.GetSize().Y<Length*.15f);
-            TestTrue(TEXT("deck headroom under the arched roof"),ERProcedural::WarehouseRoofHeight(L.WarehouseNaveWidth,L.WarehouseNaves,L.IndoorCeiling,D.Min.X)>=D.Max.Z+250 && ERProcedural::WarehouseRoofHeight(L.WarehouseNaveWidth,L.WarehouseNaves,L.IndoorCeiling,D.Max.X)>=D.Max.Z+250);
+            const float Clearance=FMath::IsNearlyEqual(D.Max.Z,CatwalkZ) ? 200:250;
+            TestTrue(TEXT("deck headroom under the arched roof"),ERProcedural::WarehouseRoofHeight(L.WarehouseNaveWidth,L.WarehouseNaves,L.IndoorCeiling,D.Min.X)>=D.Max.Z+Clearance && ERProcedural::WarehouseRoofHeight(L.WarehouseNaveWidth,L.WarehouseNaves,L.IndoorCeiling,D.Max.X)>=D.Max.Z+Clearance);
         }
         for(int32 A:L.ElevatedAccesses)TestTrue(TEXT("two independent accesses per elevated area"),A>=2);
         for(int32 I=0;I<L.Ladders.Num();I+=2)TestTrue(TEXT("ladders are half-turn pairs"),(L.Ladders[I].Frame*FTransform(FRotator(0,180,0))).Equals(L.Ladders[I+1].Frame));
@@ -84,7 +100,7 @@ bool FERFireTrainingLayoutTest::RunTest(const FString& Parameters)
     TestEqual(TEXT("one to four naves sampled"),Naves.Num(),4);
     TestTrue(TEXT("large halls reserve empty plazas"),Plazas>50);
     TestTrue(TEXT("lengths vary with the width"),Bays.Num()>=5);
-    for(const TCHAR* Name:{TEXT("Catwalk"),TEXT("CatwalkBridge"),TEXT("Corridor"),TEXT("ScreenedCatwalk"),TEXT("RoomDeck"),TEXT("Lookout"),TEXT("Container"),TEXT("ContainerStack")})
+    for(const TCHAR* Name:{TEXT("Catwalk"),TEXT("CatwalkBridge"),TEXT("Corridor"),TEXT("FortifiedBase"),TEXT("BaseRoof"),TEXT("SteelParapets"),TEXT("Container"),TEXT("ContainerStack")})
         TestTrue(FString::Printf(TEXT("feature sampled: %s"),Name),Features.Contains(FName(Name)));
     C.Seed=42;TestTrue(TEXT("first deterministic build"),ERProcedural::Build(C,B,L));TestTrue(TEXT("repeat"),ERProcedural::Build(C,B,Again));
     TestEqual(TEXT("panel count stable"),L.Panels.Num(),Again.Panels.Num());TestEqual(TEXT("attempt stable"),L.LayoutAttempt,Again.LayoutAttempt);
@@ -140,6 +156,46 @@ bool FERFireTrainingPhysicsTest::RunTest(const FString& Parameters)
         }
         TestTrue(TEXT("end wall blocks pawns"),World->SweepSingleByChannel(Hit,{0,-HL+100,150},{0,-HL-100,150},FQuat::Identity,ECC_Pawn,FCollisionShape::MakeSphere(20),Q));
         TestTrue(TEXT("roof stops shots below the ridge"),World->LineTraceSingleByChannel(Hit,{0,0,L.IndoorCeiling-50},{0,0,L.IndoorCeiling+400},ECC_GameTraceChannel1,Q) && Hit.ImpactPoint.Z<L.IndoorCeiling+230);
+        TestNotNull(TEXT("original steel barrier is bound to the recipe"),Asset->FireTraining.ParapetModule.Get());
+        // The protected court blocks ground approaches on all four sides.
+        for(const auto& Court:L.WarehouseBaseCourts)
+        {
+            const FVector Center=Court.GetCenter();
+            for(const FVector Axis:{FVector(1,0,0),FVector(-1,0,0),FVector(0,1,0),FVector(0,-1,0)})
+            {
+                const FVector Edge=Center+Axis*Court.GetExtent();
+                TestTrue(TEXT("base walls stop eye-height shots"),World->LineTraceSingleByChannel(Hit,Edge+Axis*80,Edge-Axis*80,ECC_GameTraceChannel1,Q));
+                TestTrue(TEXT("base walls stop standing approaches"),World->SweepSingleByChannel(Hit,Edge+Axis*100,Edge-Axis*100,FQuat::Identity,ECC_Pawn,Capsule,Q));
+            }
+        }
+        // Every metre of every elevated route has a continuous real steel floor.
+        for(const auto* Paths:{&L.CrossingRoutes,&L.RooftopRoutes})for(const auto& Route:*Paths)for(int32 I=1;I<Route.Num();++I)
+        {
+            const int32 Samples=FMath::CeilToInt(FVector::Distance(Route[I-1],Route[I])/50);
+            for(int32 J=0;J<=Samples;++J)
+            {
+                const FVector P=FMath::Lerp(Route[I-1],Route[I],float(J)/Samples);
+                TestTrue(TEXT("roof and catwalk have uninterrupted walkable support"),World->LineTraceSingleByChannel(Hit,P,P-FVector(0,0,120),ECC_WorldStatic,Q) && FMath::IsNearlyEqual(Hit.ImpactPoint.Z,P.Z-100,1));
+            }
+        }
+        const float CatwalkZ=L.WarehouseCatwalks[0].Max.Z;
+        const auto* Kit=Asset->FireTraining.Widths.FindByPredicate([&](const auto& K){return K.WidthCm==FMath::RoundToInt(L.WarehouseNaveWidth);});
+        if(TestNotNull(TEXT("selected warehouse kit"),Kit))
+        {
+            const float LampBottom=L.IndoorCeiling+Kit->RoofLamps->GetBoundingBox().Min.Z;
+            TestTrue(TEXT("standing head passes just below the lowest lighting"),LampBottom-(CatwalkZ+185)>=15 && LampBottom-(CatwalkZ+185)<40);
+            TestEqual(TEXT("walkway uses the maximum permitted height"),CatwalkZ,ERProcedural::WarehouseCatwalkHeight(*Kit,L.WarehouseNaves,L.IndoorCeiling));
+        }
+        // Both flanks have real parapets; ladder access is through the end caps.
+        const float YA=-HL+1500,YB=HL-1500,Inner=-HalfW+340;
+        for(float Y=YA+40;Y<YB-40;Y+=100)
+        {
+            if(FMath::Abs(Y)<360)continue;
+            TestTrue(TEXT("inner steel parapet blocks walking off the flank"),World->SweepSingleByChannel(Hit,{Inner-70,Y,CatwalkZ+100},{Inner+70,Y,CatwalkZ+100},FQuat::Identity,ECC_Pawn,FCollisionShape::MakeSphere(20),Q));
+        }
+        const float BridgeY=L.CrossingRoutes[2][0].Y;
+        TestTrue(TEXT("bridge parapet blocks a side step"),World->SweepSingleByChannel(Hit,{0,BridgeY,CatwalkZ+100},{0,BridgeY+150,CatwalkZ+100},FQuat::Identity,ECC_Pawn,FCollisionShape::MakeSphere(20),Q));
+        TestFalse(TEXT("bridge has no invisible tall barrier"),World->SweepSingleByChannel(Hit,{0,BridgeY,CatwalkZ+160},{0,BridgeY+150,CatwalkZ+160},FQuat::Identity,ECC_Pawn,FCollisionShape::MakeSphere(20),Q));
         // No mezzanine: probe the plan for walkable surfaces above the floor.
         int32 Raised=0,Samples=0;
         for(float X=-HalfW+50;X<HalfW;X+=100)for(float Y=-HL+50;Y<HL;Y+=100)
@@ -153,19 +209,25 @@ bool FERFireTrainingPhysicsTest::RunTest(const FString& Parameters)
             auto* Ladder=World->SpawnActor<AERLadder>(AERLadder::StaticClass(),Desc.Frame);
             Ladder->Height=Desc.Height;Ladder->DeckHeight=Desc.DeckHeight;
             // Ladder heights are local to the actor, whose base may be a deck.
-            for(float Z=0;Z<=Desc.DeckHeight;Z+=25)
+            for(float Z=0;Z<=Desc.Height;Z+=25)
             {
                 TestTrue(TEXT("real destructible rungs cover climb"),Ladder->HasRung(Z));
                 TestFalse(FString::Printf(TEXT("climbing capsule clear seed=%d ladder=%s z=%.0f"),Seed,*Desc.Frame.GetLocation().ToString(),Z),World->OverlapBlockingTestByChannel(Ladder->ClimbPosition(Z+2.5f,92.5f),FQuat::Identity,ECC_Pawn,Capsule,Q));
             }
             const FVector Exit=Ladder->Landing(92.5f);
+            // Exercise the actual swept roof transition at the authored top,
+            // including the horizontal move before the character settles.
+            const FVector Top=Ladder->ClimbPosition(Desc.Height+2.5f,92.5f);
+            const FVector Across(Exit.X,Exit.Y,Top.Z);
+            TestFalse(TEXT("ladder top transition clears overhead structure"),World->SweepSingleByChannel(Hit,Top,Across,FQuat::Identity,ECC_Pawn,Capsule,Q));
+            if(FMath::IsNearlyEqual(Desc.DeckHeight,CatwalkZ))TestEqual(TEXT("high ladders step onto the notched deck without overshoot"),Desc.Height,CatwalkZ+5);
             TestFalse(TEXT("ladder landing clears standing capsule"),World->OverlapBlockingTestByChannel(Exit,FQuat::Identity,ECC_Pawn,Capsule,Q));
             TestTrue(TEXT("ladder landing has a real floor"),World->LineTraceSingleByChannel(Hit,Exit,Exit-FVector(0,0,120),ECC_WorldStatic,Q));
             Ladder->Destroy();
         }
         for(const auto* Starts:{&L.AlphaSpawns,&L.OmegaSpawns})for(const auto& S:*Starts)
         {TestFalse(TEXT("spawn capsule clear"),World->OverlapBlockingTestByChannel(S.GetLocation(),FQuat::Identity,ECC_Pawn,Capsule,Q));TestTrue(TEXT("spawn supported"),World->LineTraceSingleByChannel(Hit,S.GetLocation(),S.GetLocation()-FVector(0,0,120),ECC_WorldStatic,Q));}
-        for(const auto* Paths:{&L.CrossingRoutes,&L.RoomAccessRoutes})for(const auto& Route:*Paths)for(int32 I=1;I<Route.Num();++I)
+        for(const auto* Paths:{&L.CrossingRoutes,&L.RoomAccessRoutes,&L.RooftopRoutes})for(const auto& Route:*Paths)for(int32 I=1;I<Route.Num();++I)
             TestFalse(FString::Printf(TEXT("route standing clearance seed=%d %s->%s"),Seed,*Route[I-1].ToString(),*Route[I].ToString()),World->SweepSingleByChannel(Hit,Route[I-1],Route[I],FQuat::Identity,ECC_Pawn,Capsule,Q));
         for(const auto& Route:L.StairRoutes)for(int32 I=1;I<Route.Num();++I)
             TestTrue(TEXT("every stair tread has solid support"),World->LineTraceSingleByChannel(Hit,Route[I],Route[I]-FVector(0,0,145),ECC_WorldStatic,Q));

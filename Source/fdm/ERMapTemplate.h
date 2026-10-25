@@ -8,7 +8,33 @@ UENUM(BlueprintType)
 enum class EERTemplateSymmetry : uint8 { None, HalfTurn };
 
 UENUM(BlueprintType)
-enum class EERMapArchetype : uint8 { LegacyAssembly, CentralBuilding, MiddleEasternAlleys, FireTraining };
+enum class EERMapArchetype : uint8 { LegacyAssembly, CentralBuilding, MiddleEasternAlleys, FireTraining, Rooms };
+
+// Existing art only. A complete theme is sampled independently of the room graph.
+USTRUCT(BlueprintType)
+struct FERRoomsTheme
+{
+    GENERATED_BODY()
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) FName Name;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> Wall;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> Floor;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> Ceiling;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> Wood;
+};
+
+USTRUCT(BlueprintType)
+struct FERRoomsRecipe
+{
+    GENERATED_BODY()
+    // Two bases plus two lanes of 2..4 rooms: 6, 8 or 10 rooms in all.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="2",ClampMax="4")) int32 MinLaneRooms=2;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="2",ClampMax="4")) int32 MaxLaneRooms=4;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) float CorridorWidth=360;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) float CorridorHeight=340;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) float CornerCut=55;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<FERRoomsTheme> Themes;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> LampSurface;
+};
 
 UENUM(BlueprintType)
 enum class EERCrossingRule : uint8 { Seeded, OpenYard, ClimbableWall, FencedCrossings };
@@ -91,6 +117,8 @@ struct FERFireTrainingRecipe
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> GroundSurface;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> SteelSurface;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> DeckSurface;
+    // Original industrial steel barrier, used at its 127cm height on walkways.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UStaticMesh> ParapetModule;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<TObjectPtr<class UMaterialInterface>> WoodSurfaces;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<TObjectPtr<class UMaterialInterface>> ConcreteSurfaces;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<TObjectPtr<class UMaterialInterface>> ContainerSurfaces;
@@ -238,6 +266,8 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite) EERMapArchetype Archetype=EERMapArchetype::LegacyAssembly;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) FERCentralBuildingRecipe CentralBuilding;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) FERFireTrainingRecipe FireTraining;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UERMapThemeLibrary> ThemeLibrary;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) FERRoomsRecipe Rooms;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) FString TemplateId;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) FString SourceReference;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) int32 Revision=1;

@@ -264,10 +264,16 @@ void AERReconDirector::ConfigureMap()
     Frame.GeometryEpoch = SourceMapEpoch;
     ++Frame.Epoch; ForceNetUpdate();
     const auto Query = SightQuery();
+    const bool ClosedRooms=Procedural && Procedural->LayoutConfig.TemplateAsset && Procedural->LayoutConfig.TemplateAsset->Archetype==EERMapArchetype::Rooms;
     SurfaceHeights.SetNum(ERRecon::Grid*ERRecon::Grid);
     for (int32 Cell=0; Cell<SurfaceHeights.Num(); ++Cell)
     {
         const FVector P=CellPosition(Cell);
+        if(ClosedRooms)
+        {
+            SurfaceHeights[Cell]=Bounds.Min.Z+ERProcedural::RoomsFloorHeight(Procedural->GetLayout(),FVector2D(Procedural->GetActorTransform().InverseTransformPosition(P)))+8;
+            continue;
+        }
         FHitResult Surface;
         SurfaceHeights[Cell]=GetWorld()->LineTraceSingleByChannel(Surface,FVector(P.X,P.Y,Frame.Indoor>0 ? Frame.Indoor-10 : Frame.Top+100),FVector(P.X,P.Y,Frame.Center.Z-100),ECC_Visibility,Query)
             ? Surface.ImpactPoint.Z+8 : P.Z;
@@ -302,7 +308,8 @@ void AERReconDirector::ConfigureMap()
             if (!GetWorld()->LineTraceSingleByChannel(Ground,Spawn+Offset+FVector(0,0,120),Spawn+Offset-FVector(0,0,350),ECC_Visibility,Query) || Ground.ImpactNormal.Z < .8) continue;
             Placement = Ground.ImpactPoint+FVector(0,0,2);
             if (FMath::Abs(Placement.Z-(Spawn.Z-92.5)) > 100) continue;
-            if (GetWorld()->LineTraceTestByChannel(Placement+FVector(0,0,70),FVector(Placement.X,Placement.Y,Frame.Indoor>0 ? Frame.Indoor-20 : Frame.Top+1200),ECC_Visibility,Query)) continue;
+            const float LaunchTop=ClosedRooms ? Spawn.Z+Procedural->LayoutConfig.TemplateAsset->Rooms.CorridorHeight-120:Frame.Indoor>0 ? Frame.Indoor-20:Frame.Top+1200;
+            if (GetWorld()->LineTraceTestByChannel(Placement+FVector(0,0,70),FVector(Placement.X,Placement.Y,LaunchTop),ECC_Visibility,Query)) continue;
             Placed = !GetWorld()->OverlapBlockingTestByChannel(Placement+FVector(0,0,25),FQuat::Identity,ECC_Pawn,FCollisionShape::MakeBox(FVector(45,40,24)),Query);
             for (TActorIterator<AERTeamPlayerStart> It(GetWorld()); It && Placed; ++It)
                 if (FVector::DistSquared2D(Placement,It->GetActorLocation()) < FMath::Square(120.f)) Placed = false;
@@ -340,6 +347,16 @@ void AERReconDirector::LaunchDrone(int32 Index)
     Drone->Flight.Team = TeamAt(Index); Drone->Flight.Launch = Launch;
     Drone->Flight.Center = FVector(Frame.Center.X,Frame.Center.Y,Frame.Indoor>0 ? Frame.Indoor+50 : Frame.Top+900);
     Drone->Flight.Radius = Frame.Indoor>0 ? Frame.IndoorOrbit : FVector2D(Frame.Span*.26);
+    for(TActorIterator<AERProceduralMap> It(GetWorld());It;++It)
+        if(It->LayoutConfig.TemplateAsset && It->LayoutConfig.TemplateAsset->Archetype==EERMapArchetype::Rooms && It->GetLayout().RoomNodes.Num()>=2)
+        {
+            // Separate sealed rooms cannot use a warehouse-wide orbit. Keep
+            // each drone within its base; contacts still require real LOS.
+            const auto& Node=It->GetLayout().RoomNodes[Index];
+            Drone->Flight.Center=It->GetActorTransform().TransformPosition(Node.Center+FVector(0,0,Node.Height-80));
+            Drone->Flight.Radius=Node.Size*.18f;
+            break;
+        }
     Team.Base->LaunchAt = ServerTime(GetWorld()); Team.Base->ForceNetUpdate();
     Drone->Flight.StartedAt = Team.Base->LaunchAt+1.2;
     Drone->FinishSpawning(Transform);
