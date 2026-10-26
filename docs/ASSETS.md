@@ -1,5 +1,15 @@
 # Inventario asset — primo prototipo locale
 
+26 ottobre2026 — pose world delle armi: aggiornati tramite Unreal i sette DataAsset
+Pistol/SMG/Shotgun/Assault/Carbine/Sniper/Launcher con soli contatti, rotazioni e
+scale di presentazione in terza persona. Nessuna mesh, texture o animazione è
+stata sostituita; pose e trasformazioni FPS restano invariate. Le dieci immagini
+fornite dall'utente sono conservate privatamente in
+`Assets/characters/SourceAssets/WeaponPoseReferences/2026-10-26`, con ricevuta e
+SHA-256. Profili/receipt in
+`Assets/weapons/SourceAssets/SketchfabWeapons/world-pose-profiles.json`; backup
+dei package precedenti in `Saved/WorldWeaponPoseBackup/2026-10-26`.
+
 26 ottobre2026 — varietà mappe: nessun nuovo modello, texture o materiale.
 Aggiornati tramite Unreal solo DA_Rooms, DA_CentralBuilding, DA_MapThemes e
 DA_ER_BlockMaterials. Riuso dei materiali esistenti; Warehouse fuso in Industrial,
@@ -371,7 +381,9 @@ materiali e ragdoll propri. Alpha usa ActionHero, ShadowOps, TwinBlast base e
 Wasteland; Omega usa Drongo_GDC e Scavenger. Nessuna acquisizione aggiuntiva.
 Cinque combinazioni per squadra, con differenze di abbigliamento e accessori;
 riutilizzo del rig/animazioni retargettate di ciascun team. Il campo
-Attachments contiene casco/zaino agganciati a head/spine_03 e materiali neutri.
+Attachments contiene soltanto gli accessori approvati, inclusi alcuni caschi;
+gli zaini/field-pack agganciati a spine_03 sono stati rimossi dalle varianti
+selezionabili e dai corpi.
 Characters/Teams/Gear/SM_ER_FieldHelmet e SM_ER_FieldPack sono geometrie proprie,
 generate e salvate attraverso Unreal con MeshDescription. Collisione disattivata.
 Dominanti blu/fredde per Alpha e arancio/calde per Omega, dettagli neutri e
@@ -681,6 +693,14 @@ source files and provenance remain. At that checkpoint Belica and Phase were exp
 for future character imports and must not be pruned. See REPOSITORY_CLEANUP.md.
 
 ### Phase / Lt. Belica — 15 October 2026
+
+26 October world-grip refinement: only the five Phase appearances in the
+character/corpse Blueprint catalogs have WorldSupportPalmOffsetCm=(0,2,0),
+in weapon axes / world cm. Other appearances retain zero; the 11 shared
+weapon profiles remain byte-identical. setup_phase_world_support.py verifies
+protected appearance fields and keeps rollback packages under
+Saved/PhaseWorldSupportBackup/2026-10-26. Original meshes, materials and FPS
+assets are unchanged.
 
 User-supplied Epic Paragon packages, previously reserved locally in Content,
 are mounted unchanged into private Assets/characters/Content/ParagonPhase and

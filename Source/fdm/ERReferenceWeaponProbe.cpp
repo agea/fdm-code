@@ -5,6 +5,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "ERCharacter.h"
 #include "ERWeapon.h"
+#include "ERWorldWeaponPose.h"
 #include "ERWeaponBallistics.h"
 #include "ERPlayerController.h"
 #include "ERMatch.h"
@@ -198,7 +199,19 @@ void AERReferenceWeaponProbe::Tick(float DeltaTime)
             else Check(PistolTipCamera.X<TipCamera.X,
                 TEXT("runtime_pistol_closer_than_assault"));
         }
-        if(H->Weapon->Data->bFitSupportHand)
+        if(H->Weapon->Data->bWorldReferencePose)
+        {
+            const auto* Data=H->Weapon->Data.Get();
+            const FVector Contact=H->WorldRifle->GetComponentTransform().TransformPosition(
+                ERWorldWeaponPose::SupportContact(*Data,H->GetTeamAppearance()));
+            const FVector Palm=H->GetMesh()->GetSocketLocation(TEXT("ER_Palm_L"));
+            const float Error=FVector::Distance(Palm,Contact);
+            UE_LOG(LogTemp,Display,TEXT("ER_WORLD_GRIP slot=%d error=%.3f contact=%s palm=%s gun=%s class=%s"),Phase-1,
+                Error,*Contact.ToString(),*Palm.ToString(),*H->WorldRifle->GetComponentLocation().ToString(),
+                *H->GetMesh()->GetClass()->GetName());
+            Check(Error<1.5f,FString::Printf(TEXT("world_reference_support_palm_contact_%d"),Phase-1));
+        }
+        else if(H->Weapon->Data->bFitSupportHand)
         {
             const FVector Contact=H->WorldRifle->GetComponentTransform().TransformPosition(H->Weapon->Data->SupportHandOffset);
             const FVector RearContact=H->WorldRifle->GetComponentTransform().TransformPosition(H->Weapon->Data->SupportHandOffset-FVector(10,0,0));
@@ -363,7 +376,9 @@ void AERReferenceWeaponProbe::Tick(float DeltaTime)
             for(int32 I=0;I<3;++I)UGameplayStatics::ApplyPointDamage(C,20,FVector::ForwardVector,Chest,Host,Gun,UDamageType::StaticClass());
             Check(C->Health->bDead,TEXT("xm1014_six_unarmored_chest_pellets_kill"));
         }
-        Advance(24,5.f); break;
+        // Let the previous multikill toast leave the six-second combat channel;
+        // otherwise a lower-priority headshot is correctly suppressed.
+        Advance(24,7.f); break;
     case 24:
         GetWorld()->GetAuthGameMode<AERGameMode>()->RequestRespawn(Client);
         Check(Client->GetPawn() && !CastChecked<AERCharacter>(Client->GetPawn())->Health->bDead,TEXT("headshot_notification_fresh_target"));

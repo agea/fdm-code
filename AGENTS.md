@@ -1,5 +1,48 @@
 # Respawn & Rage Unreal development
 
+World weapon poses (26 October, latest): third-person firearms use geometry-
+derived right/left palm contacts and absolute per-weapon scale, independent of
+the fitted FPS rig. Neutral rifles sit at right-elbow height, with the stock
+passing below the upper arm outside the chest; scope raises the weapon to the
+eye through a smooth blend. Pistols use
+a dedicated two-hand cup contact. Fit both arms with bounded two-bone IK on every
+one of the 20 selectable skins. For long guns, turn the chest 30 degrees in
+neutral / 15 degrees in ADS plus clavicles 25 / 30 degrees (55 / 45 total).
+Counterturn the neck so the face keeps the aim direction. Keep the neutral
+stock line in the arm/torso opening at half the original shoulder span minus 1 cm
+(4 cm inward from the earlier outer-arm line);
+it must pass between the body and right upper arm. Pistols retain their prior
+clavicle-only pose. The stock shoulder stays behind the support shoulder;
+the right wrist-to-knuckles axis points forward with a slight downward rake,
+and the left palm supports the underside with fingers across the handguard.
+Its measured contact is inset toward the body by up to 1.5 world cm, reduced
+for narrow guards and rejected if it leaves the guard's actual underside.
+Revision 6 advances this support station 4 world cm toward the muzzle from
+revision 5, remeasuring the underside and retaining the lateral inset.
+Revision 7 advances it by another 2 cm (6 total from revision 5) and seats the
+palm socket another 2 cm toward character-left / weapon -Y to align the thumb.
+The measured guard contact is the reference; this final palm seating offset
+is intentional and need not itself lie on the guard centreline.
+Revision 8 rotates the wrist-to-knuckles axis 30 degrees from weapon +Y toward
++X (weapon yaw 60 degrees), counterclockwise in the supplied overhead view.
+Keep palm normal +Z and the revision-7 seating position. Weapon -Y folds this
+hand backwards. Validate a positive
+dot product between left forearm direction and the palm's longitudinal axis.
+Phase-only refinement: its five appearances have WorldSupportPalmOffsetCm
+=(0,2,0) in weapon axes / world cm, bringing the left hand back under the guard.
+All other skins keep zero. Apply through ERWorldWeaponPose::SupportContact only
+to long guns; do not edit shared weapon profiles or change the other grips.
+setup_phase_world_support.py preserves appearance fields and weapon hashes.
+Do not turn the whole right hand vertically downward. Selectable skins must
+not add field-pack/backpack attachments. Preserve the underlying locomotion,
+legs, head and finger animation. The world gun follows replicated base aim,
+including +/-35-degree pitch. Do not reuse these world transforms for FPS, reload
+clips, damage, muzzle data, spread or scope mechanics. `setup_world_weapon_pose.py`
+may update only the seven firearm presentation profiles, creates verified package
+backups and rejects changes to protected gameplay/FPS fields. Validate13 cases per
+skin locally and on a real client (260+260) with `test-world-poses.py`, then retain
+reference-weapons and scope regressions. See docs/WORLD_WEAPON_POSES.md.
+
 Map variety (26 October, latest): supersedes the dense Rooms screen counts,
 three shared themes, origin-only central building and previous material HP.
 Rooms use 22/20/18m nominal rooms (16–24m with variation), real doglegs and turning

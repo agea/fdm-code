@@ -1,4 +1,5 @@
 #include "ERMatch.h"
+#include "ERWorldPoseProbe.h"
 #include "ERLoadoutProbe.h"
 #include "ERClaymore.h"
 #include "ERLoadout.h"
@@ -224,6 +225,7 @@ void AERGameMode::BeginPlay()
     if (GetNetMode() == NM_Standalone && GetWorld()->GetMapName().Contains(TEXT("L_ProceduralLab")) && FParse::Param(FCommandLine::Get(), TEXT("ERProceduralProbe"))) GetWorld()->SpawnActor<AERProceduralProbe>();
     if (GetNetMode() == NM_Standalone && GetWorld()->GetMapName().Contains(TEXT("L_ProceduralLab")) && FParse::Param(FCommandLine::Get(), TEXT("ERBlockStressProbe"))) GetWorld()->SpawnActor<AERBlockStressProbe>();
     if (GetNetMode()==NM_Standalone && GetWorld()->GetMapName().Contains(TEXT("L_DestructionLab")) && FParse::Param(FCommandLine::Get(),TEXT("ERBlockCollapseProbe"))) GetWorld()->SpawnActor<AERBlockCollapseProbe>();
+    if(FParse::Param(FCommandLine::Get(),TEXT("ERWorldPoseProbe")))GetWorld()->SpawnActor<AERWorldPoseProbe>();
     if (FParse::Param(FCommandLine::Get(),TEXT("ERBlockNetworkProbe")) && GetWorld()->GetMapName().Contains(TEXT("L_ProceduralLab")))GetWorld()->SpawnActor<AERBlockNetworkProbe>();
     if (FParse::Param(FCommandLine::Get(), TEXT("ERNetworkProbe"))) GetWorld()->SpawnActor<AERNetworkProbe>();
     if(FParse::Param(FCommandLine::Get(),TEXT("ERTraversalProbe")))GetWorld()->SpawnActor<AERTraversalProbe>();

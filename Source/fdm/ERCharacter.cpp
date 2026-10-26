@@ -1,4 +1,5 @@
 #include "ERCharacter.h"
+#include "ERWorldWeaponPose.h"
 #include "ERClaymore.h"
 #include "ERLoadout.h"
 #include "ERFootsteps.h"
@@ -559,7 +560,7 @@ void AERCharacter::Tick(float DeltaTime)
             if (Appearance.Mesh)
             {
                 Appearance.Apply(GetMesh());
-                WorldRifle->AttachToComponent(GetMesh(), FAttachmentTransformRules::KeepRelativeTransform, TEXT("HandGrip_R"));
+                WorldRifle->AttachToComponent(GetMesh(), FAttachmentTransformRules::KeepRelativeTransform, AppliedWeaponData && AppliedWeaponData->bWorldReferencePose ? TEXT("ER_Palm_R"):TEXT("HandGrip_R"));
                 UE_LOG(LogTemp, Display, TEXT("ER_TEAM_APPEARANCE team=%s mesh=%s anim=%s hidden=%d bot=%d"),
                     State->Team == EERTeam::Alpha ? TEXT("Alpha") : TEXT("Omega"), *Appearance.Mesh->GetPathName(),
                     *GetPathNameSafe(Appearance.AnimationClass.Get()), Appearance.HiddenMaterialSlots.Num(), State->IsABot());
@@ -1070,6 +1071,17 @@ void AERCharacter::UpdateWeaponPresentation()
         // cosmetic children. Visibility below follows the equipped weapon.
         AppliedWeaponData=nullptr;return;
     }
+    if(Data->bWorldReferencePose)
+    {
+        if(WorldRifle->GetAttachSocketName()!=TEXT("ER_Palm_R"))WorldRifle->AttachToComponent(GetMesh(),FAttachmentTransformRules::KeepRelativeTransform,TEXT("ER_Palm_R"));
+        WorldRifle->SetAbsolute(false,false,true);
+        const float ParentScale=GetMesh()->GetSocketTransform(TEXT("ER_Palm_R")).GetScale3D().X;
+        WorldRifle->SetRelativeTransform(ERWorldWeaponPose::Attachment(*Data,ParentScale));
+    }
+    else if(WorldRifle->GetAttachSocketName()!=TEXT("HandGrip_R"))
+    {
+        WorldRifle->SetAbsolute(false,false,false);WorldRifle->AttachToComponent(GetMesh(),FAttachmentTransformRules::KeepRelativeTransform,TEXT("HandGrip_R"));WorldRifle->SetRelativeTransform(Data->GripTransform);
+    }
     // Authored FPS translations are baked into the owned Animation-mode rig.
     // SetDisableRetargeting is an editor debugging flag: it forces raw curve
     // sampling and asserts in cooked games, where raw animation data is absent.
@@ -1114,7 +1126,8 @@ void AERCharacter::UpdateWeaponPresentation()
     {
         Component->SetSkeletalMeshAsset(Data->Mesh);
         Component->EmptyOverrideMaterials();
-        Component->SetRelativeTransform(Component==FirstPersonRifle && Data->bFirstPersonPalmGrip ? Data->FirstPersonGripTransform : Data->GripTransform);
+        if(Component==WorldRifle && Data->bWorldReferencePose)Component->SetRelativeTransform(ERWorldWeaponPose::Attachment(*Data,GetMesh()->GetSocketTransform(TEXT("ER_Palm_R")).GetScale3D().X));
+        else Component->SetRelativeTransform(Component==FirstPersonRifle && Data->bFirstPersonPalmGrip ? Data->FirstPersonGripTransform : Data->GripTransform);
         Component->SetAnimationMode(EAnimationMode::AnimationSingleNode);
         Component->SetAnimation(nullptr);
         if (Data->WeaponIdleAnimation) Component->PlayAnimation(Data->WeaponIdleAnimation, true);

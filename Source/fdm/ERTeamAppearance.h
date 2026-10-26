@@ -28,6 +28,8 @@ struct FDM_API FERTeamAppearance
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<FName> HiddenBones;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<int32> HiddenMaterialSlots;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<FERAppearanceAttachment> Attachments;
+    // Per-skin world-only support-palm seating, in weapon axes / world cm.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) FVector WorldSupportPalmOffsetCm=FVector::ZeroVector;
     // Render this corpse from explicit post-physics bone transforms.
     UPROPERTY(EditAnywhere, BlueprintReadWrite) bool bCopyPhysicsPoseForRendering = false;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) float Scale = 1.f;

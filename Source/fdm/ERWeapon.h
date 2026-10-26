@@ -23,6 +23,14 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") FTransform GripTransform;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") bool bFirstPersonPalmGrip = false;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") FTransform FirstPersonGripTransform;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation|World") bool bWorldReferencePose=false;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation|World") float WorldWeaponScale=1.f;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation|World") FVector WorldStockContact=FVector::ZeroVector;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation|World") FVector WorldRightPalmContact=FVector::ZeroVector;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation|World") FRotator WorldRightPalmRotation=FRotator::ZeroRotator;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation|World") FVector WorldLeftPalmContact=FVector::ZeroVector;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation|World") FRotator WorldLeftPalmRotation=FRotator(0,90,0);
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation|World") FVector WorldPistolSupportContact=FVector(-4,-3,-3);
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") bool bFitSupportHand = false;
     // Full-size weapon-local palm contact, before the socket attachment transform.
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") FVector SupportHandOffset = FVector::ZeroVector;

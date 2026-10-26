@@ -9,5 +9,9 @@ class FDM_API UERPostureMesh : public USkeletalMeshComponent
 {
     GENERATED_BODY()
 public:
+    virtual void TickComponent(float DeltaTime,ELevelTick TickType,FActorComponentTickFunction* ThisTickFunction) override;
     virtual void FinalizeBoneTransform() override;
+    float GetWorldAimBlend() const {return WorldAimBlend;}
+private:
+    float WorldAimBlend=0;
 };

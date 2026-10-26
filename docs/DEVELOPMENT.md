@@ -1,5 +1,17 @@
 # Respawn & Rage — sviluppo Unreal
 
+## Pose armi in terza persona — 26 ottobre 2026
+
+Le sette armi da fuoco hanno ora profili world separati dal rig FPS: scala
+assoluta, contatto del palmo destro, calcio, mano di supporto e presa specifica
+a due mani per la pistola. Un IK a due ossa adatta entrambe le braccia a tutti
+i20 personaggi senza sostituire locomozione o postura del corpo. In posa normale
+i fucili restano bassi sul petto; entrando nello scope salgono progressivamente
+all'occhio e seguono il pitch replicato. Le proporzioni sono state corrette per
+arma, incluso il ridimensionamento dello sniper. Migrazione con backup verificato:
+`setup_world_weapon_pose.py`; matrice locale/LAN: `test-world-poses.py`. Dettagli
+e limiti in `WORLD_WEAPON_POSES.md`.
+
 ## Varietà mappe e resistenza — 26 ottobre 2026
 
 Rooms: stanze nominali22/20/18m, gomiti reali, spina inferiore sotto il ponte a
@@ -3011,6 +3023,65 @@ and hidden stray short-hair cards on this skin.
 with server-resolved supplies/team appearance and next-spawn confirmation.
 See LOADOUTS.md. Claymores have independent60s armed lifetimes and no per-player
 active cap. Shotgun gameplay override is8x22, applied after immutable source data.
+World pose refinement (26 October 2026): neutral long guns now sit near the
+right elbow, using 90% of the current upper-arm length below the shoulder and
+an external stock line. ADS blends to the existing raised shoulder pocket.
+The right palm's wrist-to-knuckles axis points forward with a 14-degree downward
+rake instead of vertically downward; the left palm supports the underside of
+the handguard. Experimental finger posing and forced LOD0 were removed: the
+authored finger animation and normal character LOD selection remain active.
+The world pose probe checks palm rotation as well as contact, aim and scale;
+single-skin captures include a close lateral view for chest/stock clearance.
+
+Follow-up chest clearance: long-gun neutral carry now turns spine_01 by
+30 degrees and the clavicles by a further 25 degrees. ADS uses 15 + 30 degrees;
+the neck counterturn retains the face direction. The neutral stock line stays
+half the original shoulder span plus 3 cm to the right of the shoulder centre,
+opening a passage between the chest and right upper arm. The pistol keeps its
+previous clavicle-only pose. This supersedes the earlier clavicle-only rifle
+rotation, which did not rotate the jacket away from the stock.
+
+World profile revision 4 corrects the left wrist-to-knuckles direction from
+weapon -Y to +Y, preserving palm normal +Z and the measured handguard contact.
+This removes the 180-degree backwards fold at the wrist. The world pose probe
+now rejects long-gun samples when the left forearm direction and longitudinal
+palm axis have a nonpositive dot product, even if the palm contact is exact.
+
+World profile revision 5 refines the lateral seating: the neutral stock line
+is 4 cm inward from revision 4, at half the original shoulder span minus 1 cm,
+to centre it within the arm/torso gap. The support contact moves toward the
+body by 1.5 world cm, or 1 / 0.5 cm on a narrow guard, at the same longitudinal
+position and on the measured underside. The revision-4 packages are backed up
+in `Saved/WorldWeaponPoseBackup/2026-10-26/Revision5`. Opt-in
+`-ERWorldPoseHands` captures close handguard/stock details with separate
+`-Hands` filenames, preserving the general gallery.
+
+World profile revision 6 advances the left support station 4 world cm toward
+the muzzle on all six long guns, remeasuring the underside before applying
+the existing lateral inset. It derives the station from the fixed reference
+profile, so reruns do not accumulate the advance. Revision-5 packages are
+backed up in `Saved/WorldWeaponPoseBackup/2026-10-26/Revision6`.
+
+World profile revision 7 adds another 2 world cm forward and 2 cm toward
+character-left / weapon -Y, following the user's explicit thumb-alignment
+direction. The advance is now 6 cm from revision 5. The lateral addition is
+an intentional palm seating offset relative to the measured guard surface,
+not a new physical contact ray. Revision-6 packages are backed up under
+`Saved/WorldWeaponPoseBackup/2026-10-26/Revision7`.
+
+World profile revision 8 rotates the left support palm 30 degrees
+counterclockwise in the user's overhead view: longitudinal direction moves
+from weapon +Y toward +X (weapon yaw 60 degrees), retaining normal +Z and
+revision-7 seating. Backups are under `Revision8` in the same directory.
+
+Phase support-hand refinement: FERTeamAppearance exposes a world-only
+WorldSupportPalmOffsetCm, default zero. Only the five Phase appearances in
+the character/corpse catalogs use (0,2,0) weapon-axis / world cm; other skins
+and the shared weapon profiles remain unchanged. ERWorldWeaponPose::SupportContact
+converts the per-skin offset into unscaled weapon coordinates for long guns.
+setup_phase_world_support.py backs up affected Blueprints, checks protected
+appearance properties and verifies unchanged hashes for all 11 weapon profiles.
+
 # Server round rotation (23 October 2026)
 
 Updated25 October2026: after the existing ten-second results interval,

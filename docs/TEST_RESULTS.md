@@ -6411,3 +6411,133 @@ HEAD. Saved maps and other production recipes retain their protected hashes.
 Python syntax and `git diff --check` passed. LAN uses separate processes on this
 Mac; no distinct-device, packaged-build, performance or competitive playtest
 claim is made for these changes.
+
+## Pose armi in terza persona — 26 ottobre 2026
+
+La build Editor Mac Development è riuscita. La matrice Metal esterna ha verificato
+20 skin x13 casi: sette armi normali, quattro pose scope e carbine a pitch+/-35°;
+260/260 campioni passati. Il test LAN separato ha ottenuto260/260 sul server e
+260/260 sul client, con contatto palmo destro<0,5cm, sinistro<1,5cm, asse arma
+allineato all'aim oltre0,995 e scala world esatta. La galleria ha prodotto due
+viste per le skin rappresentative0/5/10/15.
+
+La successiva galleria completa ha superato20/20 pose e prodotto80 nuove catture
+Metal: tutti i personaggi in posa neutra con Assault Rifle, da quattro angolazioni.
+`capture-world-pose-gallery.py` ha inoltre composto quattro tavole5x4 etichettate
+in `Saved/Testing/WorldPoseAll`.
+
+Dopo la revisione vista dall'alto, le clavicole sono state inclinate40 gradi in
+neutro e45 gradi in ADS, il palmo sinistro è stato riallineato all'asse del
+fucile e gli accessori field-pack sono stati rimossi da personaggi e corpi. La
+galleria completa è stata rigenerata:80/80 catture e quattro tavole PASS. La
+matrice LAN è nuovamente passata260/260 sul server e260/260 sul client; anche
+`test-reference-weapons.py` e `test-scopes.py` sono nuovamente PASS.
+
+`python3 scripts/test-reference-weapons.py` è passato, inclusi tutti gli slot
+remoti, la nuova presa world della pistola e delle sei armi lunghe, reload,
+ballistica e headshot reale. `python3 scripts/test-scopes.py` è passato con tutti
+gli stati remoti e le verifiche di ADS/ottiche/launcher. Il vecchio fixture della
+notifica headshot ora attende la fine del toast Double Kill da sei secondi, senza
+modificare il gameplay. `verify_sketchfab_weapons.py` resta rosso per differenze
+pregresse tra alcuni valori salvati e il workbook e per le vecchie soglie dei
+palmi di reload; la migrazione world protegge e verifica che tali campi non siano
+stati cambiati. Nessun packaged build o test su due dispositivi distinti.
+
+### Polso e posa standard bassa — 26 ottobre, revisione 3
+
+La rotazione verticale del palmo destro è stata sostituita con un asse
+polso-nocche in avanti, inclinato circa 14 gradi verso il basso. Le armi lunghe
+in posa standard usano una quota derivata dalla lunghezza del braccio destro,
+vicina al gomito; le catture ravvicinate Alpha 3/Sniper, di tre quarti, laterali
+e dall'alto, mostrano il calcio sotto il braccio fuori dal torace. La sinistra
+appoggia sul paramano inferiore, escludendo il caricatore dalla selezione del
+contatto. Questo risolve anche il precedente errore di raggiungibilità del
+Marksman sulle skin Belica e Phase. Rimossi gli esperimenti sulle falangi e
+il forcing LOD0; le dita e i LOD seguono nuovamente le animazioni originali.
+
+Build Editor Mac PASS. Matrice finale LAN PASS: 260/260 server e 260/260 client,
+contatti entro le tolleranze e errore angolare del palmo destro massimo 0,002
+gradi. Galleria Metal finale PASS: 80 catture e quattro tavole dei 20 personaggi.
+Regressioni `test-reference-weapons.py` e `test-scopes.py` PASS, inclusi tutti
+gli slot/stati remoti. Log e catture in `Saved/Testing`; nessuna nuova verifica
+di packaged build o dispositivi distinti.
+
+### Passaggio del calcio tra busto e braccio — 26 ottobre
+
+Le catture precedenti lasciavano ancora il calcio nel busto: il solver ruotava
+le clavicole senza ruotare la giacca. La posa delle armi lunghe ora applica
+30 gradi al busto e altri 25 alle clavicole (ADS: 15 + 30), con compensazione
+del collo. Il calcio neutro usa una linea esterna pari a metà della larghezza
+originale delle spalle più 3 cm dal centro delle spalle. Altezza bassa e
+rotazioni dei palmi conservate; pistola con la precedente posa delle clavicole.
+
+Build Editor Mac PASS (`world-pose-chest-build.log`). Cattura ravvicinata
+Alpha 3/Sniper PASS, ispezionata di tre quarti, di lato e dall'alto; galleria
+completa rigenerata e ispezionata: 80 catture / quattro tavole PASS. Verifica
+LAN finale: 260/260 server e 260/260 client, senza errori di contatto, rotazione,
+scala o replica. Armi di riferimento e scope PASS, inclusi tutti gli slot e
+stati remoti (`world-pose-chest-reference-result.log`,
+`world-pose-chest-scopes-result.log`). La separazione visiva è verificata nelle
+catture; i controlli numerici dei palmi non costituiscono una prova generale
+di assenza di intersezioni durante ogni animazione locomotoria.
+
+### Mano sinistra ripiegata indietro — revisione world 4, 26 ottobre
+
+Invertito l'asse polso-nocche sinistro da weapon -Y a +Y, conservando normale
++Z e contatti del paramano. La rotazione di 180 gradi corregge il polso senza
+spostare arma, busto o mano destra. Catture ravvicinate Alpha 3/Sniper e galleria
+dei 20 personaggi rigenerate e ispezionate: 80 catture / quattro tavole PASS.
+
+Build e migrazione protetta dei profili PASS. Verifica finale LAN: 260/260
+server e 260/260 client. Il nuovo controllo avambraccio/palmo è positivo in
+tutti i 240 campioni con arma lunga, minimo 0,561; impedisce che un contatto
+esatto nasconda una mano rivolta all'indietro. Regressioni armi e scope PASS,
+inclusi slot/stati remoti. Log dedicati `world-pose-left-wrist-*.log` in
+`Saved/Testing`. FPS e campi di gameplay protetti dalla migrazione invariati.
+
+### Ricentramento nello spazio braccio/fianco e sul palmo — revisione 5
+
+Il calcio neutro è stato portato 4 cm verso il corpo rispetto alla precedente
+linea esterna. L'appoggio sinistro è stato spostato verso l'interno di 1,5 cm
+world sulle armi lunghe, ridotti a 1 cm sullo Sniper per restare sulla sua
+superficie stretta. La posizione longitudinale e il verso del polso sono
+conservati. L'utente ha confermato che intendeva centrare il fucile sul palmo.
+Backup verificato dei pacchetti precedenti in
+`Saved/WorldWeaponPoseBackup/2026-10-26/Revision5`.
+
+Build e migrazione protetta PASS. Nuove catture ravvicinate Assault/Sniper
+Alpha 3 (`-Hands`) e galleria completa 80/80 PASS, ispezionate. Verifica finale
+LAN: 260/260 server e 260/260 client; minimo prodotto scalare di continuità
+del polso sinistro 0,573 sui 240 casi con arma lunga. Regressioni armi e scope
+PASS con slot/stati remoti. Log `world-pose-gap-*.log` in `Saved/Testing`.
+
+### Avanzamento, allineamento del pollice e rotazione — revisioni 6–8
+
+La revisione 6 avanza la sinistra di 4 cm; la 7 aggiunge altri 2 cm avanti e
+2 cm verso sinistra rispetto al corpo, come richiesto nello screenshot. La
+revisione 8 conserva esattamente i punti d'appoggio della 7 e ruota il polso
+di 30 gradi in senso antiorario nella vista dall'alto indicata (yaw arma 60
+gradi, normale palmo +Z). Migrazioni protette e backup dedicati PASS.
+
+Cattura ravvicinata Alpha 3/Assault ispezionata contro la freccia dell'utente;
+galleria finale 80/80 PASS. Verifica finale revisione 8: 260/260 server e
+260/260 client, minimo di continuità avambraccio/palmo 0,462 sui 240 casi
+con arma lunga. Regressioni armi e scope PASS con tutti gli slot/stati remoti.
+Log finali `world-pose-left-turn-*.log` in `Saved/Testing`. Nessuna nuova build
+C++ necessaria per queste revisioni dei soli profili di presentazione.
+
+### Correzione limitata a Phase — 26 ottobre
+
+Le cinque varianti Phase aggiungono (0,2,0) cm negli assi dell'arma tramite
+FERTeamAppearance.WorldSupportPalmOffsetCm; le altre quindici skin restano a
+zero. Solo gli array Phase dei Blueprint Character e Corpse sono stati salvati
+(cinque voci ciascuno); TrainingTarget non è stato risalvato. Proprietà protette
+delle apparenze invariate e hash degli 11 profili arma condivisi identici.
+Backup e ricevuta in Saved/PhaseWorldSupportBackup/2026-10-26.
+
+Build Mac Editor PASS. Dettaglio Phase/Assault ispezionato da vicino e dall'alto;
+galleria finale 80/80 PASS. Verifica finale LAN 260/260 server e 260/260 client,
+con aspettativa indipendente di offset 2 cm per Phase e zero per tutte le altre
+skin. Regressioni armi/scope PASS, inclusi slot/stati remoti. Log dedicati
+world-pose-phase-*.log in Saved/Testing. Il nuovo offset agisce solo sulla
+sinistra delle armi lunghe; pistola, FPS, arma e mano destra invariati.
