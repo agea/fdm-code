@@ -70,12 +70,18 @@ void AERIndustrialMapProbe::Capture(AERProceduralMap* Map,int32 View)
             Camera->GetCameraComponent()->FieldOfView=65;
         }
     }
+    if(View==5)
+    {
+        const FVector Target=L.CentralBuildingCenter+FVector(0,0,L.CentralBuildingSize.Z*.4f);
+        Camera->SetActorLocation(L.CentralBuildingCenter+FVector(-L.CentralBuildingSize.X*1.25f,-L.CentralBuildingSize.Y, L.CentralBuildingSize.Z+1000));
+        Camera->SetActorRotation((Target-Camera->GetActorLocation()).Rotation());Camera->GetCameraComponent()->FieldOfView=65;
+    }
     if(!Ground)
     {
         Camera->GetCameraComponent()->ProjectionMode=ECameraProjectionMode::Orthographic;
         Camera->GetCameraComponent()->OrthoWidth=FMath::Max(L.ArenaSize.X,L.ArenaSize.Y*16.f/9)*1.08;
     }
-    const FString Filename=FPaths::ProjectSavedDir()/FString::Printf(TEXT("Testing/Industrial-%s-rule%d-seed%d.png"),View==4 ? TEXT("Fence"):View==3 ? TEXT("Concrete"):View==2 ? TEXT("Container"):Ground ? TEXT("Ground"):TEXT("Plan"),int32(L.CrossingRule),Map->LayoutConfig.Seed);
+    const FString Filename=FPaths::ProjectSavedDir()/FString::Printf(TEXT("Testing/Industrial-%s-rule%d-seed%d.png"),View==5 ? TEXT("Architecture"):View==4 ? TEXT("Fence"):View==3 ? TEXT("Concrete"):View==2 ? TEXT("Container"):Ground ? TEXT("Ground"):TEXT("Plan"),int32(L.CrossingRule),Map->LayoutConfig.Seed);
     FTimerHandle ScreenshotTimer;GetWorldTimerManager().SetTimer(ScreenshotTimer,[Filename](){FScreenshotRequest::RequestScreenshot(Filename,false,false);},.35f,false);
 }
 void AERIndustrialMapProbe::Tick(float Delta)
@@ -121,7 +127,8 @@ void AERIndustrialMapProbe::Tick(float Delta)
     if(FParse::Param(FCommandLine::Get(),TEXT("ERFactoryFinishGallery")))
     {
         if(!Phase && Elapsed>3)
-        {Check(ERIndustrialTest::FactoryPaletteMatches(*Map),TEXT("factory_palette_applied_to_rendered_metal"));Check(ERIndustrialTest::IntermediateCoverMatches(*Map),TEXT("intermediate_cover_access_and_concealment"));Capture(Map);Publish(1,Map);}
+        {Check(ERIndustrialTest::FactoryPaletteMatches(*Map),TEXT("factory_palette_applied_to_rendered_metal"));Check(ERIndustrialTest::IntermediateCoverMatches(*Map),TEXT("intermediate_cover_access_and_concealment"));Capture(Map);Publish(1,Map);
+            FTimerHandle ArchitectureTimer;GetWorldTimerManager().SetTimer(ArchitectureTimer,FTimerDelegate::CreateWeakLambda(this,[this,Map](){Capture(Map,5);}),1.5f,false);}
         if(Phase && Elapsed>7 && Gallery==0){Capture(Map,2);++Gallery;}
         if(Phase && Elapsed>11 && Gallery==1){Capture(Map,1);++Gallery;}
         if(Phase && Elapsed>15 && Gallery==2){Capture(Map,3);++Gallery;}
@@ -198,7 +205,7 @@ void AERIndustrialMapProbe::Tick(float Delta)
         Check(Flight==Map->GetLayout().StairRoutes.Num(),TEXT("all_floors_both_stairs_walked"));
         Check(LadderIndex==Map->GetLayout().Ladders.Num(),TEXT("all_generated_ladders_climbed"));
         // An actual authorized rifle shot after reducing a local band to 1HP.
-        const float WallX=-Map->GetLayout().CentralBuildingSize.X*.5;
+        const float WallX=Map->GetLayout().CentralBuildingCenter.X-Map->GetLayout().CentralBuildingSize.X*.5;
         C->TeleportTo({WallX+220,200,100},FRotator(0,180,0));C->GetCharacterMovement()->StopMovementImmediately();PC->SetControlRotation(FRotator(0,180,0));
         FHitResult Hit;FERCellId Id;FCollisionQueryParams Q(SCENE_QUERY_STAT(ERIndustrialShot),false,C);
         const FVector Eye=C->GetPawnViewLocation();
@@ -257,8 +264,8 @@ void AERIndustrialMapProbe::Tick(float Delta)
     {
         const int32 PreviousSeed=Map->LayoutConfig.Seed;
         auto* Mode=GetWorld()->GetAuthGameMode<AERGameMode>();
-        if(Mode)Mode->ResetRound();
-        Check(Mode && Map->IsMapReady() && Map->LayoutConfig.Seed!=PreviousSeed,TEXT("actual_round_changes_seed_and_epoch"));
+        if(Mode)Mode->ResetRound(false);
+        Check(Mode && Map->IsMapReady() && Map->LayoutConfig.Seed!=PreviousSeed,TEXT("current_arena_round_changes_seed_and_epoch"));
         for(TActorIterator<AERBotController> Bot(GetWorld());Bot;++Bot)
         {
             const FVector P=Bot->GetPawn() ? Bot->GetPawn()->GetActorLocation():FVector(1.e6);

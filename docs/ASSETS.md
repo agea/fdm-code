@@ -1,5 +1,11 @@
 # Inventario asset — primo prototipo locale
 
+26 ottobre2026 — varietà mappe: nessun nuovo modello, texture o materiale.
+Aggiornati tramite Unreal solo DA_Rooms, DA_CentralBuilding, DA_MapThemes e
+DA_ER_BlockMaterials. Riuso dei materiali esistenti; Warehouse fuso in Industrial,
+Desert conservato. Backup in Saved/MapVarietyBackup/2026-10-26 e ricevuta privata
+SourceAssets/MapTemplates/map-variety.json, con hash delle mappe/ricette protette.
+
 25 ottobre2026 — pannelli Rooms: geometria originale generata a runtime con
 legno e materiali già presenti, senza nuovi modelli o texture. Solo DA_Rooms
 passa a revision3; backup revision2 e ricevuta privata

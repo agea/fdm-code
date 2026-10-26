@@ -1,5 +1,17 @@
 # Industrial map archetypes
 
+26 October2026: Rooms now has larger chambers, winding corridors, upper-gallery
+connections and an over/under crossing. Sparse timber boards are spaced5m apart.
+Central Building OpenYard variants can move the main core8m left/right while
+keeping equal distance from base centres. Their upper floors shrink5m in width
+and2m in depth per storey, using paired exterior ladders above the ground stairs.
+The main core mirrors about its own centre; secondary architecture remains
+paired about the arena centre. The shared palette now has two choices:
+**Industrial**, combining Warehouse steel roles with masonry and cargo paint,
+and **Desert**. Access steel, columns, cargo and walls have distinct finishes.
+Material HP is reduced35% globally. See `ROOMS.md` and `MAP_VARIETY.md`.
+The dated three-theme/origin-only descriptions below are historical.
+
 25 October2026: **Rooms · Indoor** joins Central Building, Middle Eastern
 Alleys and Fire Training in the production rotation. It generates a sealed,
 half-turn symmetric graph for3v3/4v4, using the three existing material themes.

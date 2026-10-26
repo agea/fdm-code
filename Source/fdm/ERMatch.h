@@ -135,6 +135,6 @@ private:
     void PrunePendingSlots();
     void CheckMatch();
     void FinishRound();
-    void ResetRound();
+    void ResetRound(bool AllowMapTravel=true);
     void AssignTeam(AERPlayerState* Player);
 };

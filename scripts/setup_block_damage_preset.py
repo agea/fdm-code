@@ -1,4 +1,4 @@
-"""Apply the 17 October block damage preset once (ERBlockDamagePresetVersion=1).
+"""Apply the 26 October block damage preset once (ERBlockDamagePresetVersion=2).
 
 Run with UnrealEditor-Cmd -run=pythonscript. Updates only MaxHealth, the bullet
 and explosion multipliers and blast transmission of the seven profiles. Surface,
@@ -14,11 +14,11 @@ if not catalog: raise RuntimeError('Missing destruction catalog; run setup_destr
 M = ue.ERBlockMaterial
 # type: (HP per cell, bullet multiplier, explosion multiplier, blast transmission)
 preset = {
-    M.DRYWALL: (20, 1.0, 2.0, .5), M.BRICK: (100, .75, 1.5, .25), M.CONCRETE: (600, .1, .5, .05),
-    M.WOOD: (40, 1.0, 1.5, .5), M.STONE: (1000, .05, .2, .02), M.METAL: (100, .5, 1.0, .5),
-    M.GLASS: (8, 1.0, 3.0, .9),
+    M.DRYWALL: (13, 1.0, 2.0, .5), M.BRICK: (65, .75, 1.5, .25), M.CONCRETE: (390, .1, .5, .05),
+    M.WOOD: (26, 1.0, 1.5, .5), M.STONE: (650, .05, .2, .02), M.METAL: (65, .5, 1.0, .5),
+    M.GLASS: (5.2, 1.0, 3.0, .9),
 }
-if assets.get_metadata_tag(catalog, 'ERBlockDamagePresetVersion') == '1':
+if assets.get_metadata_tag(catalog, 'ERBlockDamagePresetVersion') == '2':
     ue.log('ER_BLOCK_DAMAGE_PRESET_PRESERVED')
 else:
     rows = list(catalog.get_editor_property('materials'))
@@ -40,7 +40,7 @@ else:
         receipt.append(str(kind) + ' hp=' + str(hp) + ' surface=' + (before[0].get_name() if before[0] else 'none') +
                        ' decal=' + (before[1].get_name() if before[1] else 'none'))
     catalog.set_editor_property('materials', rows)
-    assets.set_metadata_tag(catalog, 'ERBlockDamagePresetVersion', '1')
+    assets.set_metadata_tag(catalog, 'ERBlockDamagePresetVersion', '2')
     if not assets.save_loaded_asset(catalog, only_if_is_dirty=False): raise RuntimeError('Cannot save block damage preset')
     for line in receipt: ue.log('ER_BLOCK_DAMAGE_PRESET ' + line)
     ue.log('ER_BLOCK_DAMAGE_PRESET_SAVED rows=' + str(len(rows)))

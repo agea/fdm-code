@@ -22,15 +22,15 @@ The default builds both targets and uploads to `windows-x86_64` and
 toolchain. Use `-TargetPlatform Windows` or `-TargetPlatform Linux` for one
 platform. Run `butler login` once; add `-NoUpload` to keep packages local.
 
-## Rooms — 25 October 2026
+## Map variety — 26 October 2026
 
 Servers rotate randomly through all four production templates once per cycle,
 then start a fresh random cycle, avoiding consecutive repeats at the boundary.
 
 **Rooms · Indoor** adds an enclosed 3v3 / 4v4 template: two symmetric bases,
-6–10 rooms, interconnected octagonal corridors with smooth ramps, paired upper
-galleries and destructible wooden L panels. Alternating corridor panels block
-sightlines while preserving a zigzag passage. More rooms means smaller rooms. Each
+6–10 larger rooms, winding octagonal corridors, upper-gallery portals and an
+over/under crossing. Sparse timber panels interrupt long sightlines with5m
+spacing and clear side passages. More rooms means smaller rooms. Each
 seed chooses one of the existing Industrial, Desert and Warehouse material
 themes. See [the Rooms template](docs/ROOMS.md).
 

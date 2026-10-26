@@ -16,7 +16,7 @@ private:
     UPROPERTY(Replicated) int32 Phase=0;
     UPROPERTY(Replicated) uint32 ExpectedDigest=0;
     int32 Seen=0,Walk=0,Point=0,Shot=0;
-    float Elapsed=0,Stage=0;
+    float Elapsed=0,Stage=0,WalkStarted=0;
     bool Failed=false,Walking=false;
     TArray<FVector> Path;
     void Check(bool Good,const TCHAR* Label);

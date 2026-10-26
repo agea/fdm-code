@@ -6,7 +6,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FERBlockDamagePresetTest, "EclipseRecoil.Destru
 bool FERBlockDamagePresetTest::RunTest(const FString& Parameters)
 {
     // 1. Preset: IDs 0-6 keep their types and adopt the table values.
-    const float HP[] = {20,100,600,40,1000,100,8};
+    const float HP[] = {13,65,390,26,650,65,5.2f};
     const float Bullet[] = {1,.75f,.1f,1,.05f,.5f,1};
     const float Blast[] = {2,1.5f,.5f,1.5f,.2f,1,3};
     const auto* Native = GetDefault<UERBlockMaterialCatalog>();
@@ -29,7 +29,7 @@ bool FERBlockDamagePresetTest::RunTest(const FString& Parameters)
         }
 
     // 3. Bullets: 36 structural points per hit on an intact cell, no truncation.
-    const int32 Shots[] = {1,4,0,2,0,6,1};
+    const int32 Shots[] = {1,3,109,1,362,4,1};
     for (int32 I = 0; I < 7; ++I)
     {
         const auto* P = Native->Find(static_cast<EERBlockMaterial>(I));

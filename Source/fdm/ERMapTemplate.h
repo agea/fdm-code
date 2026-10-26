@@ -221,6 +221,7 @@ struct FERMapTemplatePiece
 {
     GENERATED_BODY()
     UPROPERTY(EditAnywhere, BlueprintReadWrite) FVector Center=FVector::ZeroVector;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) FVector SymmetryCenter=FVector::ZeroVector;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) FVector Size=FVector(100);
     UPROPERTY(EditAnywhere, BlueprintReadWrite) FVector2D Jitter=FVector2D::ZeroVector;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) int32 Group=0;

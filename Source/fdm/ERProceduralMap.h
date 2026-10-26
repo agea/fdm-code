@@ -82,6 +82,8 @@ struct FERProceduralLayout
     EERCrossingRule CrossingRule=EERCrossingRule::OpenYard;
     int32 BuildingFloors=0;
     FVector CentralBuildingSize=FVector::ZeroVector;
+    FVector CentralBuildingCenter=FVector::ZeroVector;
+    bool TerracedBuilding=false;
     TArray<TArray<FVector>> CrossingRoutes;
     TArray<FVector> ClimbPoints;
     TArray<FERLayoutContainer> Containers;

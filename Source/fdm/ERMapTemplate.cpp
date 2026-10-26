@@ -56,14 +56,15 @@ bool BuildTemplate(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERP
             (Piece.CollisionOnly && (Piece.Destructible || Piece.FixedMesh || Piece.VisualOnly || Piece.PawnBarrier || Piece.WalkableSurface || Piece.MeshCollision)) ||
             (Piece.Roof && (Piece.Destructible || !Piece.FixedMesh)) ||
             (Piece.Destructible && (Piece.VisualOnly || Piece.FixedSurface)) || (!Piece.Destructible && (Piece.CellSurface || Piece.MirroredCellSurface))) return false;
-        if(Symmetric && !Piece.Mirrored && (!FMath::IsNearlyZero(Piece.Center.X) || !FMath::IsNearlyZero(Piece.Center.Y) || !Piece.Jitter.IsNearlyZero()))return false;
+        if(Piece.SymmetryCenter.ContainsNaN() || (!Central && !Piece.SymmetryCenter.IsNearlyZero()) || Piece.SymmetryCenter.Y!=0 || Piece.SymmetryCenter.Z!=0 || FMath::Abs(Piece.SymmetryCenter.X)>1000)return false;
+        if(Symmetric && !Piece.Mirrored && (!FMath::IsNearlyEqual(Piece.Center.X,Piece.SymmetryCenter.X) || !FMath::IsNearlyZero(Piece.Center.Y) || !Piece.Jitter.IsNearlyZero()))return false;
         FRandomStream Random(int32(HashCombine(uint32(C.Seed),uint32(Piece.Group))));
         const float OffsetX=Random.RandRange(-int32(Piece.Jitter.X/50),int32(Piece.Jitter.X/50))*50;
         const float OffsetY=Random.RandRange(-int32(Piece.Jitter.Y/50),int32(Piece.Jitter.Y/50))*50;
         const FVector Original=Piece.Center+FVector(OffsetX,OffsetY,0);
         for(int32 Copy=0;Copy<(Symmetric && Piece.Mirrored ? 2:1);++Copy)
         {
-            const FVector Center=Copy ? FVector(-Original.X,-Original.Y,Original.Z):Original;
+            const FVector Center=Copy ? FVector(2*Piece.SymmetryCenter.X-Original.X,-Original.Y,Original.Z):Original;
             const FQuat PhysicalRotation=FRotator(0,Piece.RotationYaw+(Copy ? 180:0),0).Quaternion();
             const FBox Bounds=FBox(-Piece.Size*.5,Piece.Size*.5).TransformBy(FTransform(Piece.RotationYaw!=0 ? PhysicalRotation:FQuat::Identity,Center));
             const FVector Min=Bounds.Min,Max=Bounds.Max;

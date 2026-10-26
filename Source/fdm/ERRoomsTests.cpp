@@ -39,7 +39,7 @@ bool FERRoomsLayoutTest::RunTest(const FString& Parameters)
         TestEqual(TEXT("two team bases"),L.RoomNodes.FilterByPredicate([](const auto& V){return V.Base;}).Num(),2);
         for(int32 I=0;I<L.RoomNodes.Num();++I)
         {
-            const auto& V=L.RoomNodes[I];TestTrue(TEXT("no room dead end"),Degree[I]>=2);Heights.Add(V.Center.Z);
+            const auto& V=L.RoomNodes[I];TestTrue(TEXT("arena height encloses upper room roofs"),V.Center.Z+V.Height+20<=L.ArenaSize.Z);TestTrue(TEXT("no room dead end"),Degree[I]>=2);Heights.Add(V.Center.Z);
             if(!V.Junction){MeanArea+=V.Size.X*V.Size.Y;if(V.Polygon.Num()>4)++Polygons;}
             const FVector Mirror(-V.Center.X,-V.Center.Y,V.Center.Z);
             TestTrue(TEXT("room half-turn pairing"),L.RoomNodes.ContainsByPredicate([&](const auto& D){return Mirror.Equals(D.Center) && D.Size.Equals(V.Size) && D.Upper==V.Upper;}));
@@ -51,18 +51,27 @@ bool FERRoomsLayoutTest::RunTest(const FString& Parameters)
             TestTrue(TEXT("no degenerate shell face"),FVector::CrossProduct(F.B-F.A,F.C-F.A).SizeSquared()>1);
             for(const FVector P:{F.A,F.B,F.C,F.D})if(!Vertices.Contains(Key({-P.X,-P.Y,P.Z}))){AddError(TEXT("shell half-turn mismatch"));return false;}
         }
-        TestEqual(TEXT("paired upper rooms with real ramp routes"),L.StairRoutes.Num(),2);
+        TestEqual(TEXT("paired upper rooms with real ramp routes"),L.StairRoutes.Num(),L.RoomNodes.FilterByPredicate([](const auto& V){return V.Upper;}).Num());
         TestEqual(TEXT("eight starts per team"),L.AlphaSpawns.Num(),8);
         for(int32 I=0;I<8;++I){auto P=L.AlphaSpawns[I].GetLocation();P.X=-P.X;P.Y=-P.Y;TestTrue(TEXT("paired starts"),P.Equals(L.OmegaSpawns[I].GetLocation()));}
         TestEqual(TEXT("flat panels replace every hollow crate"),L.Panels.Num(),L.RoomScreens.Num());
-        TestTrue(TEXT("substantially denser cover"),L.RoomScreens.Num()>=60);
+        TestTrue(TEXT("larger rooms retain sparse cover"),L.RoomScreens.Num()>=8);
         for(int32 I=0;I<L.RoomLinks.Num();++I)
         {
-            const int32 Count=L.RoomScreens.FilterByPredicate([&](const auto& S){return S.Link==I;}).Num();
-            TestEqual(TEXT("every corridor has alternating sight-blocking screens"),Count,I==L.RoomLinks.Num()-1 ? 4:3);
+            const auto Screens=L.RoomScreens.FilterByPredicate([&](const auto& S){return S.Link==I;});
+            for(int32 J=1;J<Screens.Num();++J)TestTrue(TEXT("corridor boards spaced at least five metres"),FVector::Dist2D(Screens[J-1].Frame.GetLocation(),Screens[J].Frame.GetLocation())>=499.9);
+            if(FVector::Dist2D(L.RoomLinks[I].Start,L.RoomLinks[I].End)<1000)TestTrue(TEXT("short corridors stay unfurnished"),Screens.IsEmpty());
         }
         for(int32 I=0;I<L.RoomNodes.Num();++I)if(!L.RoomNodes[I].Junction)
-            TestTrue(TEXT("every room has multiple timber pockets"),L.RoomScreens.FilterByPredicate([&](const auto& S){return S.Room==I;}).Num()>=4);
+        {
+            const auto& V=L.RoomNodes[I];TestTrue(TEXT("rooms remain at least sixteen metres across"),V.Size.GetMin()>=1600);
+            const auto Screens=L.RoomScreens.FilterByPredicate([&](const auto& S){return S.Room==I;});
+            TestTrue(TEXT("no dense room pockets"),Screens.Num()<=2);
+            if(Screens.Num()==2)TestTrue(TEXT("room screens at least five metres apart"),FVector::Dist2D(Screens[0].Frame.GetLocation(),Screens[1].Frame.GetLocation())>=500);
+        }
+        TestTrue(TEXT("upper corridor opens onto gallery"),L.RoomLinks.ContainsByPredicate([&](const auto& E){return E.Start.Z>L.RoomNodes[E.A].Center.Z+200 || E.End.Z>L.RoomNodes[E.B].Center.Z+200;}));
+        const auto& Lower=L.RoomLinks[L.RoomLinks.Num()-2];const auto& Upper=L.RoomLinks.Last();
+        TestTrue(TEXT("crossing has separate lower and upper volumes"),Upper.Start.Z-Lower.Start.Z>=600 && Upper.End.Z-Lower.End.Z>=600);
         for(const auto& S:L.RoomScreens)
         {
             TestTrue(TEXT("screens have standing-height cover and calibrated wood depth"),S.Size.Z>=240 && S.Size.Y==2);
@@ -80,7 +89,7 @@ bool FERRoomsLayoutTest::RunTest(const FString& Parameters)
             for(int32 I=0;I<L.RoomShell.Num();++I)TestTrue(TEXT("art choices cannot move geometry"),L.RoomShell[I].A.Equals(Again.RoomShell[I].A));
         }
     }
-    TestEqual(TEXT("all three room counts sampled"),Counts.Num(),3);TestEqual(TEXT("all existing themes sampled"),Themes.Num(),3);TestEqual(TEXT("three floor heights"),Heights.Num(),3);
+    TestEqual(TEXT("all three room counts sampled"),Counts.Num(),3);TestEqual(TEXT("all existing themes sampled"),Themes.Num(),3);TestTrue(TEXT("multiple floor and junction elevations"),Heights.Num()>=3);
     TestTrue(TEXT("nonrectangular rooms generated"),Polygons>100);
     // Force each count to compare actual per-room area, independently of seed frequency.
     for(int32 N=2;N<=4;++N){T->Rooms.MinLaneRooms=T->Rooms.MaxLaneRooms=N;ERProcedural::Build(C,B,L);float Sum=0;for(const auto& V:L.RoomNodes)if(!V.Junction)Sum+=V.Size.X*V.Size.Y;Areas.Add(2+N*2,Sum/L.Rooms.Num());}
@@ -134,7 +143,9 @@ bool FERRoomsPhysicsTest::RunTest(const FString& Parameters)
             TestTrue(TEXT("corridor side sealed"),World->LineTraceSingleByChannel(Hit,P+FVector(0,0,200),P+Side*(E.Width*.5f+40)+FVector(0,0,200),ECC_GameTraceChannel1,Q));
             TestTrue(TEXT("corridor roof sealed"),World->LineTraceSingleByChannel(Hit,P+FVector(0,0,E.Height-30),P+FVector(0,0,E.Height+40),ECC_GameTraceChannel1,Q));
             const float SideLimit=E.Width*.5f-E.Cut-35;
-            for(float A:{-1.f,-.5f,0.f,.5f,1.f})for(float B:{-1.f,-.5f,0.f,.5f,1.f})
+            const int32 LinkIndex=int32(&E-L.RoomLinks.GetData());
+            const int32 ScreenCount=L.RoomScreens.FilterByPredicate([&](const auto& S){return S.Link==LinkIndex;}).Num();
+            if(ScreenCount>=3)for(float A:{-1.f,-.5f,0.f,.5f,1.f})for(float B:{-1.f,-.5f,0.f,.5f,1.f})
             {
                 const FVector From=E.Start+Dir*2+Side*(A*SideLimit)+FVector(0,0,172.5f);
                 const FVector To=E.End-Dir*2+Side*(B*SideLimit)+FVector(0,0,172.5f);
@@ -148,7 +159,7 @@ bool FERRoomsPhysicsTest::RunTest(const FString& Parameters)
             TestTrue(TEXT("room roof closes volume"),World->LineTraceSingleByChannel(Hit,Node.Center+FVector(0,0,Node.Height-30),Node.Center+FVector(0,0,Node.Height+30),ECC_Visibility,Q));
         // There is no global floor in the void between the sealed volumes.
         const float Gap=(FMath::Abs(L.RoomNodes[0].Center.Y)-L.RoomNodes[0].Size.Y*.5f+Asset->Rooms.CorridorWidth*.5f)*.5f;
-        TestFalse(TEXT("no external walkable apron"),World->LineTraceSingleByChannel(Hit,{0,Gap,200},{0,Gap,-100},ECC_Visibility,Q));
+        TestFalse(TEXT("no external walkable apron"),World->LineTraceSingleByChannel(Hit,{L.ArenaSize.X*.48,Gap,200},{L.ArenaSize.X*.48,Gap,-100},ECC_Visibility,Q));
     }
     TestEqual(TEXT("physics covers all three room counts"),PhysicalCounts.Num(),3);
     World->DestroyWorld(false);AddInfo(FString::Printf(TEXT("ER_ROOMS_PHYSICS seeds=6 counts=6,8,10 result=%s"),HasAnyErrors() ? TEXT("FAIL"):TEXT("PASS")));return true;

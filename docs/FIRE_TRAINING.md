@@ -1,5 +1,12 @@
 # Fire Training
 
+26 October2026: the shared Warehouse palette is merged into Industrial. The
+production choices are now Industrial and Desert. Both use the existing rusty
+steel for columns/arches, light galvanized ladder/parapet steel, original painted
+cargo and separate masonry/timber/corrugated walls. This provides visible
+contrast at distance and supersedes the older Warehouse-only palette below.
+Global structural HP is reduced35%; see `MAP_VARIETY.md`.
+
 Updated25 October 2026. Select **Fire Training · Warehouse** in the match menu.
 Template `Art/MapTemplates/DA_FireTraining`, level `Maps/L_FireTraining`,
 archetype `FireTraining`. It joins Central Building and Middle Eastern Alleys

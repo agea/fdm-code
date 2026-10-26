@@ -437,11 +437,11 @@ void AERGameMode::FinishRound()
     for (TActorIterator<AERWeapon> It(GetWorld()); It; ++It) It->Cancel();
     for (TActorIterator<AERProjectile> It(GetWorld()); It; ++It) It->Destroy();
 }
-void AERGameMode::ResetRound()
+void AERGameMode::ResetRound(bool AllowMapTravel)
 {
     if (bRoundTravelPending) return;
     auto* GI=GetGameInstance<UERGameInstance>();
-    if (GI && (GetNetMode() == NM_ListenServer || GetNetMode() == NM_DedicatedServer))
+    if (AllowMapTravel && GI && (GetNetMode() == NM_ListenServer || GetNetMode() == NM_DedicatedServer))
     {
         const FString CurrentLevel = UGameplayStatics::GetCurrentLevelName(this, true);
         FName CurrentPackage;

@@ -6360,3 +6360,54 @@ produced across seeds42/73/13 (60/76/110 panels). Room pockets and alternating
 corridor screens were visually inspected. Logs/report: `Saved/Testing/rooms-*`,
 including `rooms-network-metal-report.json`. No distinct-device, packaged-build,
 performance or competitive balance test was performed for this change.
+
+## Map variety and lower material HP — 26 October 2026
+
+Final Editor build passed. `python3 scripts/test-destruction.py` passed all21
+native tests with the saved final Industrial/Desert palette and65% material HP.
+This includes516 Rooms layouts, six Rooms physical seeds,516 Central Building
+layouts, nine physical rule/floor combinations, all current damage/cell tests,
+Fire Training geometry/physics and SharedMapThemes (four recipes x32 seeds).
+The latter verifies that firing-range ladders, columns, cargo and walls have
+distinct actual assigned finishes. Central physical checks now also sweep
+terrace doors and verify their continuous supporting floor.
+
+`python3 scripts/test-rooms.py --render --offscreen --network` passed, exit0:
+real pawn movement through the sloping slalom, switchback and upper corridor
+portal; wood damage and regeneration; initial client phases1/2/3 and late
+client phases2/3. Final state digests were1025448135 intact seed42,3356789335
+damaged and2205704357 regenerated seed73. All18 fresh Metal captures were
+produced, including6/8/10-room plans (48/46/80 sparse boards in seeds42/73/13).
+Arena bounds now enclose the upper room roofs. Long furnished corridor panels
+are5m apart; short links remain empty.
+
+`python3 scripts/test-industrial-map.py --network --rule 1 --seed 9` passed,
+exit0: lateral two-storey core, two ground stair flights, four terrace ladders,
+actual rifle and blast damage, cargo/cover breaches, settled destruction and
+same-arena round regeneration. Initial clients passed1/3/4; late clients3/4.
+Digests1828319380/2830737156/2537433128/2625696958 correspond to those phases.
+The earlier Metal/LAN run also passed. The probe now explicitly requests a
+same-arena reset, retaining the ordinary map-rotation default for gameplay.
+Its palette verifier rebuilds expected descriptors because runtime deliberately
+releases the duplicate layout panel array after cell generation. An initial
+run exposed both probe assumptions; they were corrected before final passes.
+
+The Metal finish galleries passed for lateral seeds9 (two storeys) and13
+(three storeys); `Industrial-Architecture-rule1-seed13.png` shows progressive
+setbacks, terrace doors and exterior ladders. The three-storey game probe
+reported six successful ladder climbs and passed damage/regeneration. The
+isolated `--game --rule 1 --seed 13` repeat also exited0 with a separate clean
+log (`industrial-game-host.log`), six ascents and a complete PASS.
+
+`python3 scripts/test-fire-training.py --render --offscreen --seeds 42,73`
+passed with16 fresh Metal views, covering both final themes and the real high
+ladder exit. Near/far images show rusty columns, galvanized access, painted
+cargo and distinct walls. All original materials/textures remain unchanged.
+
+`setup_map_variety.py` validated516 seeds per edited recipe, saved only the
+four owned packages, and wrote the private receipt. The four rollback packages
+were independently verified against their pre-change private-repository Git
+HEAD. Saved maps and other production recipes retain their protected hashes.
+Python syntax and `git diff --check` passed. LAN uses separate processes on this
+Mac; no distinct-device, packaged-build, performance or competitive playtest
+claim is made for these changes.

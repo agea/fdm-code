@@ -179,7 +179,7 @@ bool ERProcedural::ApplyMapTheme(const FERProceduralConfig& C,FERProceduralLayou
 {
     if(!C.TemplateAsset || !C.TemplateAsset->ThemeLibrary)return true;
     const auto& Library=*C.TemplateAsset->ThemeLibrary;
-    if(Library.Revision<1 || Library.Themes.Num()!=3)return false;
+    if(Library.Revision<1 || (Library.Themes.Num()<2 || Library.Themes.Num()>3))return false;
     TSet<FName> Names;
     for(const auto& P:Library.Themes)
     {
@@ -192,7 +192,7 @@ bool ERProcedural::ApplyMapTheme(const FERProceduralConfig& C,FERProceduralLayou
     }
     // The same cosmetic stream for every archetype, separate from geometry RNG.
     FRandomStream Cosmetic(int32(HashCombine(uint32(C.Seed),0x524f4f4du)));
-    const int32 Index=Cosmetic.RandRange(0,2);
+    const int32 Index=Cosmetic.RandRange(0,Library.Themes.Num()-1);
     const auto& P=Library.Themes[Index];
     L.ThemeIndex=Index;L.ThemeRevision=Library.Revision;L.ThemeName=P.Name;L.ThemeCeiling=P.Ceiling;
     L.ThemeMetalDetails=P.LadderSteel;

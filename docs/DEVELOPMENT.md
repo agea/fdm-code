@@ -1,5 +1,16 @@
 # Respawn & Rage — sviluppo Unreal
 
+## Varietà mappe e resistenza — 26 ottobre 2026
+
+Rooms: stanze nominali22/20/18m, gomiti reali, spina inferiore sotto il ponte a
+7,2m, porte sulle gallerie a4m raggiungibili con rampe; pannelli distanziati5m
+solo nei corridoi lunghi e massimo due per stanza. Central Building: varianti
+OpenYard laterali a+/-8m, basi equidistanti e piani superiori arretrati con scale
+a pioli. Warehouse confluisce in Industrial; entrambe le palette condivise
+mantengono materiali distinti per scale, colonne, container e pareti. HP di tutti
+i materiali ridotti35%, catalogo nativo e salvato allineati. Migrazione Unreal
+con backup e ricevuta: setup_map_variety.py. Vedi MAP_VARIETY.md.
+
 ## Pannelli Rooms — 25 ottobre 2026
 
 Scatole sostituite da 60–110 pannelli di legno distruttibili: tasche aperte a L

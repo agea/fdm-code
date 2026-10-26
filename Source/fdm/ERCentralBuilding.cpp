@@ -46,6 +46,9 @@ bool BuildCentralBuilding(const UERMapTemplate& T,int32 Seed,TArray<FERMapTempla
     L.ArenaSize=FVector(Pick(V.ArenaMin.X,V.ArenaMax.X),Pick(V.ArenaMin.Y,V.ArenaMax.Y),1600);
     L.CentralBuildingSize=FVector(W,D,Roof);
     const FVector Half=L.ArenaSize*.5;
+    const bool Terraced=L.CrossingRule==EERCrossingRule::OpenYard && L.BuildingFloors>1;
+    const float CoreX=L.CrossingRule==EERCrossingRule::OpenYard && (uint32(Seed)&1) ? ((uint32(Seed)&2) ? -800.f:800.f):0.f;
+    L.CentralBuildingCenter={CoreX,0,0};L.TerracedBuilding=Terraced;
     Pieces.Reset();L.AlphaSpawns.Reset();L.OmegaSpawns.Reset();
     auto Box=[&](FVector P,FVector Size,EERBlockMaterial M,bool Fixed=false,UStaticMesh* Mesh=nullptr,bool Pair=true,bool Deck=false)->FERMapTemplatePiece&
     {
@@ -140,23 +143,35 @@ bool BuildCentralBuilding(const UERMapTemplate& T,int32 Seed,TArray<FERMapTempla
     const float SX=-W*.5+180,Start=-D*.5+220,End=Start+480;
     for(int32 Floor=0;Floor<L.BuildingFloors;++Floor)
     {
-        const float Z=Floor*Stride;
+        const float Z=Floor*Stride,FloorW=W-(Terraced ? Floor*500:0),FloorD=D-(Terraced ? Floor*200:0);
         // South facade: offset door and two windows. The north door is rotated.
-        const float Door=-300,DoorHalf=140;
+        const float Door=CoreX!=0 ? 0:-300,DoorHalf=140;
         auto Facade=[&](float A,float B,float Lo,float Hi)
-        {if(B>A && Hi>Lo)Box({(A+B)*.5,-D*.5+10,Z+(Lo+Hi)*.5},{B-A,20,Hi-Lo},MainMaterial);};
+        {if(B>A && Hi>Lo)Box({(A+B)*.5,-FloorD*.5+10,Z+(Lo+Hi)*.5},{B-A,20,Hi-Lo},MainMaterial);};
         if(Floor==0)
         {
-            Facade(-W*.5,Door-DoorHalf,0,300);Facade(Door+DoorHalf,W*.5,0,300);
+            Facade(-FloorW*.5,Door-DoorHalf,0,300);Facade(Door+DoorHalf,FloorW*.5,0,300);
             Facade(Door-DoorHalf,Door+DoorHalf,240,300);
         }
         else
         {
-            for(float X:{-W*.25,W*.25}){Facade(X-100,X+100,0,100);Facade(X-100,X+100,210,300);}
-            Facade(-W*.5,-W*.25-100,0,300);Facade(-W*.25+100,W*.25-100,0,300);Facade(W*.25+100,W*.5,0,300);
+            for(float X:{-FloorW*.25,FloorW*.25}){Facade(X-100,X+100,0,100);Facade(X-100,X+100,210,300);}
+            Facade(-FloorW*.5,-FloorW*.25-100,0,300);Facade(-FloorW*.25+100,FloorW*.25-100,0,300);Facade(FloorW*.25+100,FloorW*.5,0,300);
         }
-        Box({-W*.5+10,0,Z+150},{20,D-40,300},MainMaterial);
+        if(Terraced && Floor>0)
+        {
+            const float DoorY=End+110,MinY=-FloorD*.5f+20,MaxY=FloorD*.5f-20;
+            for(const auto Interval:{FVector2D(MinY,DoorY-120),FVector2D(DoorY+120,MaxY)})
+                Box({-FloorW*.5f+10,(Interval.X+Interval.Y)*.5f,Z+150},{20,Interval.Y-Interval.X,300},MainMaterial);
+            Box({-FloorW*.5f+10,DoorY,Z+270},{20,240,60},MainMaterial);
+            for(float Sign:{-1.f,1.f})L.RoomAccessRoutes.Add({{Sign*(-FloorW*.5f-100),Sign*DoorY,Z+100},{Sign*(-FloorW*.5f+200),Sign*DoorY,Z+100}});
+        }
+        else Box({-FloorW*.5+10,0,Z+150},{20,FloorD-40,300},MainMaterial);
         const float DeckZ=Z+Stride;
+        if(Terraced && Floor>0)
+            Slab(-FloorW*.5,FloorW*.5,-FloorD*.5,FloorD*.5,DeckZ,false);
+        else
+        {
         Slab(-W*.5+290,W*.5-290,-D*.5,D*.5,DeckZ,false);
         Slab(-W*.5,-W*.5+70,-D*.5,D*.5,DeckZ);
         Slab(-W*.5+70,-W*.5+290,-D*.5,Start,DeckZ);
@@ -172,6 +187,7 @@ bool BuildCentralBuilding(const UERMapTemplate& T,int32 Seed,TArray<FERMapTempla
             for(int32 I=0;I<16;++I)Path.Add(Frame.TransformPosition({SX,Start+(I+.5)*30,Z+(I+1)*20+120}));
             Path.Add(Frame.TransformPosition({SX,End+100,DeckZ+100}));L.StairRoutes.Add(Path);
         }
+        }
         if(L.CrossingRule==EERCrossingRule::FencedCrossings)
         {
             const int32 N=FMath::CeilToInt((W*.5-20)/300);const float Width=(W*.5-20)/N;
@@ -180,15 +196,21 @@ bool BuildCentralBuilding(const UERMapTemplate& T,int32 Seed,TArray<FERMapTempla
     }
     // Roof parapets leave the two stairs and the crossing over their landings open.
     // Paired exterior access supplements, rather than replaces, the main stairs.
-    const float MainLadderY=-D*.25;
-    SteelLadder(FTransform::Identity,{W*.5+35,MainLadderY,0},Roof);
-    for(const auto& Interval:{FVector2D(-D*.5,-MainLadderY-80),FVector2D(-MainLadderY+80,D*.5)})
-        Box({-W*.5+10,(Interval.X+Interval.Y)*.5,Roof+50},{20,Interval.Y-Interval.X,100},EERBlockMaterial::Concrete);
-    Box({0,-D*.5+10,Roof+50},{W-40,20,100},EERBlockMaterial::Concrete);
+    const float RoofW=W-(Terraced ? (L.BuildingFloors-1)*500:0),RoofD=D-(Terraced ? (L.BuildingFloors-1)*200:0);
+    const float MainLadderY=-RoofD*.25;
+    if(Terraced)for(int32 Floor=0;Floor<L.BuildingFloors;++Floor)
+        SteelLadder(FTransform::Identity,{(W-Floor*500)*.5f+35,-(D-Floor*200)*.25f,Floor*Stride},Stride);
+    else SteelLadder(FTransform::Identity,{W*.5+35,MainLadderY,0},Roof);
+    for(const auto& Interval:{FVector2D(-RoofD*.5,-MainLadderY-80),FVector2D(-MainLadderY+80,RoofD*.5)})
+        Box({-RoofW*.5+10,(Interval.X+Interval.Y)*.5,Roof+50},{20,Interval.Y-Interval.X,100},EERBlockMaterial::Concrete);
+    Box({0,-RoofD*.5+10,Roof+50},{RoofW-40,20,100},EERBlockMaterial::Concrete);
     // Guard the stairwell's inward side, but leave its top mouth open.
-    Box({SX+120,(Start+End)*.5,Roof+50},{20,End-Start,100},EERBlockMaterial::Metal,true);
+    if(!Terraced)Box({SX+120,(Start+End)*.5,Roof+50},{20,End-Start,100},EERBlockMaterial::Metal,true);
+    for(auto& Piece:Pieces){Piece.Center.X+=CoreX;Piece.SymmetryCenter.X=CoreX;}
+    for(auto& Ladder:L.Ladders)Ladder.Frame.AddToTranslation({CoreX,0,0});
+    for(auto* Routes:{&L.StairRoutes,&L.RoomAccessRoutes})for(auto& Route:*Routes)for(auto& Point:Route)Point.X+=CoreX;
     const float SideX=Half.X-650;
-    const bool SideBuildings=L.CrossingRule!=EERCrossingRule::OpenYard || R.RandRange(0,1)==1;
+    const bool SideBuildings=CoreX==0 && (L.CrossingRule!=EERCrossingRule::OpenYard || R.RandRange(0,1)==1);
     const float SideW=Pick(700,800),SideD=Pick(1000,1200);
     if(SideBuildings)
     {
@@ -291,9 +313,10 @@ bool BuildCentralBuilding(const UERMapTemplate& T,int32 Seed,TArray<FERMapTempla
             for(float WingX:{X,-X})L.CrossingRoutes.Add({{WingX,-70,420},{WingX,70,420}});
         }
         else
-            for(float X:{-(W*.5+400),W*.5+400})L.CrossingRoutes.Add({{X,-200,100},{X,200,100}});
+            for(float X:{CoreX-(W*.5+400),CoreX+W*.5+400})L.CrossingRoutes.Add({{X,-200,100},{X,200,100}});
         // Ground route doglegs through the opposing offset doors.
-        L.CrossingRoutes.Add({{-300,-D*.5-150,100},{-300,-200,100},{300,200,100},{300,D*.5+150,100}});
+        const float DoorOffset=CoreX!=0 ? 0:300;
+        L.CrossingRoutes.Add({{CoreX-DoorOffset,-D*.5-150,100},{CoreX-DoorOffset,-200,100},{CoreX+DoorOffset,200,100},{CoreX+DoorOffset,D*.5+150,100}});
     }
     // One original-height steel course on a fixed one-metre concrete plinth.
     // The physical boundary ends at the visible top; no taller invisible wall.
@@ -306,16 +329,18 @@ bool BuildCentralBuilding(const UERMapTemplate& T,int32 Seed,TArray<FERMapTempla
     }
     // Cover geometry is paired for balance; its cosmetic palette may differ.
     // Keep a clear rear spawn strip, side-building lanes and central approach.
-    Container({-1100,-Half.Y+1000,140},{Pick(1000,1200),260,280},R.RandRange(-1,1)*15);
+    Container({CoreX!=0 ? -Half.X+700:-1100,-Half.Y+1000,140},{Pick(1000,1200),260,280},R.RandRange(-1,1)*15);
     // Reserve circulation before furnishing the yards. Cover is placed as
     // usable groups rather than isolated decorative props in one narrow row.
-    for(int32 I=0;I<10;++I)L.AlphaSpawns.Add(FTransform(FRotator(0,90,0),FVector(-850+(I%5-2)*180,-Half.Y+220+(I/5)*200,100)));
+    for(int32 I=0;I<10;++I)L.AlphaSpawns.Add(FTransform(FRotator(0,90,0),FVector((CoreX!=0 ? 0:-850)+(I%5-2)*180,-Half.Y+220+(I/5)*200,100)));
     const float EndY=Half.Y-600;
     if(L.CrossingRule==EERCrossingRule::FencedCrossings)
         Patrol={{-SideX,-EndY,100},{-SideX,EndY,100},{SideX,EndY,100},{SideX,-EndY,100}};
     else
         Patrol={{-300,-EndY,100},{-300,-D*.5-150,100},{-300,-200,100},{300,200,100},{300,D*.5+150,100},{300,EndY,100},
                 {200,EndY,100},{200,D*.5+150,100},{300,250,100},{-300,-250,100},{-200,-D*.5-150,100},{-200,-EndY,100}};
+    if(CoreX!=0)Patrol={{-200,-EndY,100},{CoreX,-D*.5-150,100},{CoreX,-200,100},{CoreX,200,100},{CoreX,D*.5+150,100},{200,EndY,100},
+        {-200,EndY,100},{CoreX,D*.5+150,100},{CoreX,250,100},{CoreX,-250,100},{CoreX,-D*.5-150,100},{200,-EndY,100}};
     TArray<FTransform> Occupied,Reserved;
     auto Frames=[&](int32 First,TArray<FTransform>& Out)
     {
@@ -323,11 +348,11 @@ bool BuildCentralBuilding(const UERMapTemplate& T,int32 Seed,TArray<FERMapTempla
         {
             const auto& P=Pieces[I];if(P.VisualOnly)continue;
             for(int32 Copy=0;Copy<(P.Mirrored ? 2:1);++Copy)
-                Out.Add(FTransform(FRotator(0,P.RotationYaw+(Copy ? 180:0),0),Copy ? FVector(-P.Center.X,-P.Center.Y,P.Center.Z):P.Center,P.Size));
+                Out.Add(FTransform(FRotator(0,P.RotationYaw+(Copy ? 180:0),0),Copy ? FVector(2*P.SymmetryCenter.X-P.Center.X,-P.Center.Y,P.Center.Z):P.Center,P.Size));
         }
     };
     Frames(0,Occupied);
-    Reserved.Add(FTransform(FQuat::Identity,{0,0,Roof*.5},{W+180,D+180,Roof+240}));
+    Reserved.Add(FTransform(FQuat::Identity,{CoreX,0,Roof*.5},{W+180,D+180,Roof+240}));
     for(const auto& S:L.SecondaryStructures)
         Reserved.Add(FTransform(S.Frame.GetRotation(),S.Frame.TransformPosition({0,0,S.Size.Z*.5}),S.Size+FVector(160,160,240)));
     for(const auto& Ladder:L.Ladders)

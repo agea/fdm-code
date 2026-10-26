@@ -109,14 +109,14 @@ bool FERCellStorageTest::RunTest(const FString& Parameters)
         return Count;
     };
     TestEqual(TEXT("drywall 1 hit"), Hits(EERBlockMaterial::Drywall, 36), 1);
-    TestEqual(TEXT("brick 4 hits"), Hits(EERBlockMaterial::Brick, 36), 4);
-    TestEqual(TEXT("wood 2 hits"), Hits(EERBlockMaterial::Wood, 36), 2);
-    TestEqual(TEXT("sheet 6 hits"), Hits(EERBlockMaterial::Metal, 36), 6);
+    TestEqual(TEXT("brick 3 hits"), Hits(EERBlockMaterial::Brick, 36), 3);
+    TestEqual(TEXT("wood 1 hit"), Hits(EERBlockMaterial::Wood, 36), 1);
+    TestEqual(TEXT("sheet 4 hits"), Hits(EERBlockMaterial::Metal, 36), 4);
     const FERCellId Concrete{FindPanel(W, 2 * 8), 7, 0, 7};
     for (int32 I = 0; I < 10; ++I) { TMap<FERCellId, float> D; D.Add(Concrete, 36 * .1f); W.ApplyDamage(D); }
-    TestTrue(TEXT("concrete keeps fractional 3.6 per hit"), FMath::IsNearlyEqual(W.GetHealth(Concrete), 564.f, .01f));
-    TestEqual(TEXT("neighbour untouched"), W.GetHealth({Concrete.Panel, 8, 0, 7}), 600.f);
-    TestEqual(TEXT("cell behind untouched"), W.GetHealth({Concrete.Panel, 7, 1, 7}), 600.f);
+    TestTrue(TEXT("concrete keeps fractional 3.6 per hit"), FMath::IsNearlyEqual(W.GetHealth(Concrete), 354.f, .01f));
+    TestEqual(TEXT("neighbour untouched"), W.GetHealth({Concrete.Panel, 8, 0, 7}), 390.f);
+    TestEqual(TEXT("cell behind untouched"), W.GetHealth({Concrete.Panel, 7, 1, 7}), 390.f);
     // Network encoding: round trip and fail-closed decoding.
     TArray<uint8> Mask; TArray<uint64> Bits;
     W.EncodeChunk(W.GetPanels()[FindPanel(W, 1 * 8)].FirstChunk, Mask);
@@ -241,18 +241,18 @@ bool FERCellCombatTest::RunTest(const FString& Parameters)
     TestTrue(TEXT("bullet removes the inner board cell"), !W.IsAlive(Front));
     TestTrue(TEXT("remaining damage removes the outer board cell"), !W.IsAlive(Back));
     TestEqual(TEXT("only the two crossed cells"), W.GetRemovedCount(), int64(2));
-    TestTrue(TEXT("two 20HP boards leave 20 damage from 60"), FMath::IsNearlyEqual(Shot.RemainingDamage, 20.f, .01f));
+    TestTrue(TEXT("two 13HP boards leave 34 damage from 60"), FMath::IsNearlyEqual(Shot.RemainingDamage, 34.f, .01f));
     // A weaker bullet exhausts itself in the second board.
     Room->Regenerate();
-    Shot = Fire(World, FVector(Aim.X, 0, Aim.Z), FVector(0, -1, 0), 36);
-    TestTrue(TEXT("36 breaks first board and leaves second at 4HP"), !W.IsAlive(Front) && FMath::IsNearlyEqual(W.GetHealth(Back),4.f,.01f) && Shot.RemainingDamage==0);
+    Shot = Fire(World, FVector(Aim.X, 0, Aim.Z), FVector(0, -1, 0), 22);
+    TestTrue(TEXT("22 breaks first board and leaves second at 4HP"), !W.IsAlive(Front) && FMath::IsNearlyEqual(W.GetHealth(Back),4.f,.01f) && Shot.RemainingDamage==0);
     // Brick stops the bullet in its first surviving layer.
     Room->Regenerate();
     const FERCellId B0 = CellAt(W, 1 * 8, 54, 3, 30), B1 = CellAt(W, 1 * 8, 54, 2, 30), B2 = CellAt(W, 1 * 8, 54, 1, 30), B3 = CellAt(W, 1 * 8, 54, 0, 30);
     const FVector BrickAim = W.GetCellCenter(B0);
     Shot = Fire(World, FVector(0, BrickAim.Y, BrickAim.Z), FVector(1, 0, 0), 36);
-    TestTrue(TEXT("first 100HP layer absorbs all 36 damage"), FMath::IsNearlyEqual(W.GetHealth(B0), 64.f, .01f) && Shot.RemainingDamage==0);
-    TestTrue(TEXT("intact first layer protects every deeper layer"), W.GetHealth(B1)==100 && W.GetHealth(B2)==100 && W.GetHealth(B3)==100);
+    TestTrue(TEXT("first 65HP layer absorbs all 36 damage"), FMath::IsNearlyEqual(W.GetHealth(B0), 29.f, .01f) && Shot.RemainingDamage==0);
+    TestTrue(TEXT("intact first layer protects every deeper layer"), W.GetHealth(B1)==65 && W.GetHealth(B2)==65 && W.GetHealth(B3)==65);
     TestEqual(TEXT("penetration never removes brick at 36"), W.GetRemovedCount(), int64(0));
     // Owner's example, using a real wood cell and a physical target behind it.
     auto* Wood=SpawnCellRoom(World,FVector(0,5000,0));
@@ -281,9 +281,9 @@ bool FERCellCombatTest::RunTest(const FString& Parameters)
     const FERCellId C0 = CellAt(W, 2 * 8, 50, 0, 22), C3 = CellAt(W, 2 * 8, 50, 3, 22);
     const FVector Face = W.GetCellCenter(C0) - FVector(0, 12.5, 0);
     const auto Blast = AERBlockRoom::ApplyWorldExplosion(World, Face, FERBlockExplosionProfile());
-    TestTrue(TEXT("concrete front cell takes 400 x 0.5 = 200 at full exposure"), FMath::IsNearlyEqual(W.GetHealth(C0), 400.f, .05f));
-    TestTrue(TEXT("rear layer shielded, not full damage"), W.GetHealth(C3) > 400.f && W.GetHealth(C3) < 600.f);
-    TestTrue(TEXT("most candidates attenuated"), Blast.Attenuated > 0 && Blast.Destroyed == 0);
+    TestTrue(TEXT("concrete front cell takes 400 x 0.5 = 200 at full exposure"), FMath::IsNearlyEqual(W.GetHealth(C0), 190.f, .05f));
+    TestTrue(TEXT("rear layer shielded, not full damage"), W.GetHealth(C3) > 190.f && W.GetHealth(C3) < 390.f);
+    TestTrue(TEXT("most candidates attenuated"), Blast.Attenuated > 0 && W.IsAlive(C0) && W.IsAlive(C3));
     bool bLocal = true;
     for (const auto& Chunk : W.GetChunks())
         for (int32 Z = 0; Z < Chunk.SZ; ++Z) for (int32 Y = 0; Y < W.GetPanels()[Chunk.Panel].Dims.Y; ++Y) for (int32 X = 0; X < Chunk.SX; ++X)

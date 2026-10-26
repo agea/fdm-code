@@ -1,5 +1,25 @@
 # Respawn & Rage Unreal development
 
+Map variety (26 October, latest): supersedes the dense Rooms screen counts,
+three shared themes, origin-only central building and previous material HP.
+Rooms use 22/20/18m nominal rooms (16–24m with variation), real doglegs and turning
+chambers, a lower spine under a 7.2m transverse corridor, and 4m galleries with
+upper portals and switchback access. Long corridors alone get boards at 5m
+intervals; rooms have at most two separated boards, rejected on access routes.
+Keep paired geometry and real standing/floor clearance on every generated path.
+Central Building OpenYard can move its core to +/-8m on X, equidistant from the
+two base centres. Main pieces mirror about their own SymmetryCenter; other
+pieces retain the world half-turn. OpenYard upper floors shrink 5m/2m per storey
+and use paired terrace ladders, with ground stairs retained. Shared themes are
+Industrial (merged Warehouse roles) and Desert. Both keep shell sheets, wall
+materials, warm rusty steel columns, light galvanized ladders and preserved
+cargo paint distinct. Reuse existing
+art. All seven native/saved material HP values become 65% of the previous
+preset; preserve penetration, multipliers, thickness and actor damage tuning.
+setup_map_variety.py backs up the four owned assets and saves recipe/library
+revisions plus damage preset2, protecting maps and other recipes. Validate full
+destruction tests, real upper portal traversal, Metal and initial/late LAN peers.
+
 Rooms timber screens (25 October, latest): replace crates with destructible wood
 panels, 240cm high and one calibrated 2cm wood depth. Corridors use three
 alternating baffles (four in the self-symmetric cross-link), blocking standing

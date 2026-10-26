@@ -15,8 +15,9 @@ namespace ERIndustrialTest
 // Palette identity is part of the layout digest; verify the actual rendered chunks as well.
 inline bool FactoryPaletteMatches(AERProceduralMap& Map)
 {
+    auto Fail=[](int32 Line){UE_LOG(LogTemp,Warning,TEXT("ER_PALETTE_MISMATCH check_line=%d"),Line);return false;};
     const auto* T=Map.LayoutConfig.TemplateAsset.Get();
-    if(!T || !T->CentralBuilding.SteelSurface || T->CentralBuilding.ContainerSurfaces.IsEmpty())return false;
+    if(!T || !T->CentralBuilding.SteelSurface || T->CentralBuilding.ContainerSurfaces.IsEmpty())return Fail(__LINE__);
     const auto& V=T->CentralBuilding;
     const auto& L=Map.GetLayout();const bool Themed=L.ThemeIndex!=INDEX_NONE;
     auto* Steel=L.ThemeMetalDetails ? L.ThemeMetalDetails:Themed ? L.ThemeMaterials[uint8(EERBlockMaterial::Metal)]:V.SteelSurface.Get();
@@ -24,36 +25,39 @@ inline bool FactoryPaletteMatches(AERProceduralMap& Map)
     {
         TInlineComponentArray<UInstancedStaticMeshComponent*> Instances(&Map);bool Found=false;
         for(const auto* Mesh:Instances)if(Mesh->GetName()==TEXT("IndustrialFenceModules"))
-        {Found=true;if(Mesh->GetStaticMesh()!=V.FenceModule || Mesh->GetMaterial(0)!=Steel || Mesh->GetInstanceCount()==0)return false;}
-        if(!Found)return false;
+        {Found=true;if(Mesh->GetStaticMesh()!=V.FenceModule || Mesh->GetMaterial(0)!=Steel || Mesh->GetInstanceCount()==0)return Fail(__LINE__);}
+        if(!Found)return Fail(__LINE__);
     }
+    // Runtime drops the duplicate descriptor array after building its cells.
+    FERProceduralLayout AuthoredLayout;
+    if(Themed && !ERProcedural::Build(Map.LayoutConfig,Map.Config,AuthoredLayout,Map.CellSettings))return Fail(__LINE__);
     TMap<FString,UMaterialInterface*> Expected;
     for(const auto& P:Map.GetCellWorld().GetPanels())
     {
         if(Themed)
         {
-            const auto* Authored=L.Panels.FindByPredicate([&](const auto& D){return D.Id==P.Id;});
-            if(!Authored || P.Surface!=Authored->Surface)return false;
+            const auto* Authored=AuthoredLayout.Panels.FindByPredicate([&](const auto& D){return D.Id==P.Id;});
+            if(!Authored || P.Surface!=Authored->Surface)return Fail(__LINE__);
         }
-        if(!Themed && P.Material==EERBlockMaterial::Metal && (P.Strength==8 ? !V.ContainerSurfaces.Contains(P.Surface):P.Surface!=V.SteelSurface))return false;
+        if(!Themed && P.Material==EERBlockMaterial::Metal && (P.Strength==8 ? !V.ContainerSurfaces.Contains(P.Surface):P.Surface!=V.SteelSurface))return Fail(__LINE__);
         const auto* Palette=P.Material==EERBlockMaterial::Concrete ? &V.ConcreteSurfaces:P.Material==EERBlockMaterial::Brick ? &V.BrickSurfaces:P.Material==EERBlockMaterial::Wood ? &V.WoodSurfaces:nullptr;
-        if(!Themed && Palette && !Palette->IsEmpty() && !Palette->Contains(P.Surface))return false;
+        if(!Themed && Palette && !Palette->IsEmpty() && !Palette->Contains(P.Surface))return Fail(__LINE__);
         if(P.Surface)Expected.Add(FString::Printf(TEXT("Cells_P%d"),P.Id),P.Surface);
     }
     if(Map.GetLayout().GroundSurface)
     {
         TInlineComponentArray<UStaticMeshComponent*> Floors(&Map);bool Found=false;
         for(const auto* Mesh:Floors)if(Mesh->GetName()==TEXT("IndestructibleFloor"))
-        {Found=true;if(Mesh->GetMaterial(0)!=Map.GetLayout().GroundSurface)return false;}
-        if(!Found)return false;
+        {Found=true;if(Mesh->GetMaterial(0)!=Map.GetLayout().GroundSurface)return Fail(__LINE__);}
+        if(!Found)return Fail(__LINE__);
     }
     TInlineComponentArray<UDynamicMeshComponent*> Components(&Map);int32 Matched=0;
     for(const auto* Mesh:Components)
     {
         FString Key,Chunk;
         if(Mesh->GetName().Split(TEXT("_C"),&Key,&Chunk))
-            if(auto* Surface=Expected.Find(Key)){if(Mesh->GetMaterial(0)!=*Surface)return false;++Matched;}
-        if(Mesh->GetName().StartsWith(TEXT("IndustrialFenceMetal_")) && Mesh->GetMaterial(0)!=Steel)return false;
+            if(auto* Surface=Expected.Find(Key)){if(Mesh->GetMaterial(0)!=*Surface)return Fail(__LINE__);++Matched;}
+        if(Mesh->GetName().StartsWith(TEXT("IndustrialFenceMetal_")) && Mesh->GetMaterial(0)!=Steel)return Fail(__LINE__);
     }
     return Matched>0;
 }

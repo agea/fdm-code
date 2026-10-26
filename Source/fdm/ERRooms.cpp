@@ -42,21 +42,25 @@ bool BuildRooms(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProc
     FERProceduralLayout L;L.RoomsTheme=Cosmetic.RandRange(0,2);
     const auto& Theme=R.Themes[L.RoomsTheme];L.GroundSurface=Theme.Floor;
     const int32 N=Geometry.RandRange(R.MinLaneRooms,R.MaxLaneRooms);
-    const float S=N==2 ? 1600.f:N==3 ? 1300.f:1100.f;
-    const float X=S+1200,Y=(N-1)*(S+1100)*.5f,H=R.CorridorHeight;
+    const float S=N==2 ? 2200.f:N==3 ? 2000.f:1800.f;
+    const float X=S+1700,Y=(N-1)*(S+2400)*.5f,H=R.CorridorHeight;
     auto Turn=[](FVector P){return FVector(-P.X,-P.Y,P.Z);};
     auto Node=[&](FVector Center,FVector2D Size,float Cut,bool Base=false,bool Junction=false,bool Upper=false)
     {
-        FERRoomsNode V;V.Center=Center;V.Size=Size;V.Base=Base;V.Junction=Junction;V.Upper=Upper;V.Height=Upper ? 700:H;
+        FERRoomsNode V;V.Center=Center;V.Size=Size;V.Base=Base;V.Junction=Junction;V.Upper=Upper;V.Height=Upper ? 820:H;
         const float A=Size.X*.5f,D=Size.Y*.5f;
         if(Cut>0)V.Polygon={{-A+Cut,-D},{A-Cut,-D},{A,-D+Cut},{A,D-Cut},{A-Cut,D},{-A+Cut,D},{-A,D-Cut},{-A,-D+Cut}};
         else V.Polygon={{-A,-D},{A,-D},{A,D},{-A,D}};
         return L.RoomNodes.Add(MoveTemp(V));
     };
     Node({0,-Y,0},{S+200,S},150,true);Node({0,Y,0},{S+200,S},150,true);
+    const int32 UpperRow=(N-1)/2;
     for(int32 Row=0;Row<N;++Row)
-        Node({-X,-Y+Row*(S+1100),float(Geometry.RandRange(0,2)*160)},
-            {S+Geometry.RandRange(-1,1)*50,S+Geometry.RandRange(-1,1)*50},Geometry.RandRange(0,2)==0 ? 0:float(Geometry.RandRange(2,4)*40),false,false,Row==0);
+    {
+        const float Bend=Row==UpperRow ? 0.f:float((Row%2 ? -1:1)*800);
+        Node({-X+Bend,-Y+Row*(S+2400),Row==UpperRow ? 320.f:float(Geometry.RandRange(0,2)*160)},
+            {S+Geometry.RandRange(-2,2)*100,S+Geometry.RandRange(-2,2)*100},Geometry.RandRange(0,2)==0 ? 0:float(Geometry.RandRange(2,4)*40),false,false,Row==0 || Row==UpperRow);
+    }
     // Copy a complete half, including polygon shape, elevation and upper gallery.
     for(int32 Row=0;Row<N;++Row)
     {
@@ -70,23 +74,50 @@ bool BuildRooms(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProc
         LeftMid=Node({-X,0,160},{400,400},0,false,true);
         RightMid=Node({X,0,160},{400,400},0,false,true);
     }
-    auto Mirror=[&](int32 I){if(I<2)return 1-I;if(I<2+N)return 2+N+(N-1-(I-2));if(I<2+2*N)return 2+(N-1-(I-2-N));return I==LeftMid ? RightMid:LeftMid;};
-    auto Link=[&](int32 A,int32 D)
+    TArray<int32> Partners;Partners.SetNum(L.RoomNodes.Num());
+    for(int32 I=0;I<Partners.Num();++I)
+        Partners[I]=I<2 ? 1-I:I<2+N ? 2+N+(N-1-(I-2)):I<2+2*N ? 2+(N-1-(I-2-N)):I==LeftMid ? RightMid:LeftMid;
+    auto Mirror=[&](int32 I){return Partners[I];};
+    auto JointPair=[&](FVector P)
+    {
+        const int32 A=Node(P,{440,440},0,false,true),D=Node(Turn(P),{440,440},0,false,true);
+        Partners.Add(D);Partners.Add(A);return A;
+    };
+    auto Segment=[&](int32 A,int32 D,float RaiseA=0,float RaiseD=0)
     {
         const auto& NA=L.RoomNodes[A];const auto& ND=L.RoomNodes[D];
         const FVector Dir=(ND.Center-NA.Center).GetSafeNormal2D();const bool Across=FMath::Abs(Dir.X)>.5;
         const float RA=(Across ? NA.Size.X:NA.Size.Y)*.5f,RD=(Across ? ND.Size.X:ND.Size.Y)*.5f;
-        L.RoomLinks.Add({A,D,NA.Center+Dir*RA,ND.Center-Dir*RD,R.CorridorWidth,H,R.CornerCut});
+        L.RoomLinks.Add({A,D,NA.Center+Dir*RA+FVector(0,0,RaiseA),ND.Center-Dir*RD+FVector(0,0,RaiseD),R.CorridorWidth,H,R.CornerCut});
+    };
+    auto PairSegment=[&](int32 A,int32 D,float RaiseA=0,float RaiseD=0)
+    {Segment(A,D,RaiseA,RaiseD);Segment(Mirror(A),Mirror(D),RaiseA,RaiseD);};
+    auto LinkPair=[&](int32 A,int32 D)
+    {
+        const FVector P=L.RoomNodes[A].Center,Q=L.RoomNodes[D].Center;
+        if(FMath::Abs(P.X-Q.X)<1 || FMath::Abs(P.Y-Q.Y)<1){PairSegment(A,D);return;}
+        // Axis-aligned mouths and two real turning chambers make a dogleg,
+        // rather than overlapping diagonal shells at the room doors.
+        const float Direction=FMath::Sign(Q.Y-P.Y);
+        const float Mid=(P.Y+Direction*L.RoomNodes[A].Size.Y*.5f+Q.Y-Direction*L.RoomNodes[D].Size.Y*.5f)*.5f,Z=(P.Z+Q.Z)*.5f;
+        const int32 J=JointPair({P.X,Mid,Z}),K=JointPair({Q.X,Mid,Z});
+        PairSegment(A,J);PairSegment(J,K);PairSegment(K,D);
     };
     TArray<int32> Lane{0};
     for(int32 Row=0;Row<N;++Row){Lane.Add(2+Row);if(N%2==0 && Row==N/2-1)Lane.Add(LeftMid);}
     Lane.Add(1);
-    for(int32 I=1;I<Lane.Num();++I){Link(Lane[I-1],Lane[I]);Link(Mirror(Lane[I-1]),Mirror(Lane[I]));}
-    if(N==4 && Geometry.RandRange(0,1))
+    for(int32 I=1;I<Lane.Num();++I)LinkPair(Lane[I-1],Lane[I]);
+    // A direct lower spine passes under an elevated transverse route. The
+    // upper route enters actual room galleries, reached by their switchbacks.
+    int32 UpperLeft=2+UpperRow,UpperRight=Mirror(UpperLeft);
+    if(N%2==0)
     {
-        Link(3,2+N+1);Link(Mirror(3),Mirror(2+N+1));
+        const int32 J=JointPair({-X,0,720});
+        PairSegment(UpperLeft,J,400,0);UpperLeft=J;UpperRight=Mirror(J);
     }
-    Link(LeftMid,RightMid);
+    Segment(0,1);
+    Segment(UpperLeft,UpperRight,N%2 ? 400:0,N%2 ? 400:0);
+    TMap<int32,TArray<FVector>> GalleryPaths;
     auto Face=[&](FVector A,FVector D,FVector E,FVector F,UMaterialInterface* Surface,FVector Normal,bool Roof=false)
     {
         if(FVector::DotProduct(FVector::CrossProduct(D-A,E-A),Normal)<0)
@@ -127,22 +158,31 @@ bool BuildRooms(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProc
         {
             const FVector A=V.Center+FVector(V.Polygon[I],0),D=V.Center+FVector(V.Polygon[(I+1)%V.Polygon.Num()],0),Along=(D-A).GetSafeNormal();
             const FVector Normal=FVector::CrossProduct(FVector::UpVector,Along);const float Length=(D-A).Size();
-            bool Door=false;
+            TArray<FVector> Portals;
             for(const auto& E:L.RoomLinks)if(E.A==Index || E.B==Index)
             {
                 const FVector P=E.A==Index ? E.Start:E.End;
-                if(FVector::DistSquared(P,FMath::ClosestPointOnSegment(P,A,D))<.01)Door=true;
+                const FVector Ground(P.X,P.Y,V.Center.Z);
+                if(FVector::DistSquared(Ground,FMath::ClosestPointOnSegment(Ground,A,D))<.01){Portals.Add(P);}
             }
             auto Wall=[&](float From,float To,float Bottom,float Top)
             {if(To-From>.1f && Top-Bottom>.1f)Face(A+Along*From+FVector(0,0,Bottom),A+Along*To+FVector(0,0,Bottom),A+Along*To+FVector(0,0,Top),A+Along*From+FVector(0,0,Top),Theme.Wall,Normal);};
-            if(Door)
+            if(!Portals.IsEmpty())
             {
-                Wall(0,(Length-R.CorridorWidth)*.5f,0,V.Height);Wall((Length+R.CorridorWidth)*.5f,Length,0,V.Height);Wall((Length-R.CorridorWidth)*.5f,(Length+R.CorridorWidth)*.5f,H,V.Height);
+                const float At=FVector::DotProduct(Portals[0]-A,Along);
+                Wall(0,At-R.CorridorWidth*.5f,0,V.Height);Wall(At+R.CorridorWidth*.5f,Length,0,V.Height);
+                TArray<float> Levels{0,V.Height};for(const auto P:Portals){Levels.Add(P.Z-V.Center.Z);Levels.Add(P.Z-V.Center.Z+H);}Levels.Sort();
+                for(int32 J=1;J<Levels.Num();++J)
+                {
+                    const float Mid=(Levels[J-1]+Levels[J])*.5f;
+                    if(!Portals.ContainsByPredicate([&](const auto P){return Mid>P.Z-V.Center.Z && Mid<P.Z-V.Center.Z+H;}))
+                        Wall(At-R.CorridorWidth*.5f,At+R.CorridorWidth*.5f,Levels[J-1],Levels[J]);
+                }
                 // Match the octagonal mouth exactly. A rectangular opening
                 // would expose four triangular gaps outside the corridor shell.
-                for(float Side:{-1.f,1.f})for(float Top:{0.f,1.f})
+                for(const auto Portal:Portals)for(float Side:{-1.f,1.f})for(float Top:{0.f,1.f})
                 {
-                    const FVector Corner=(A+D)*.5f+Along*(Side*R.CorridorWidth*.5f)+FVector(0,0,Top*H);
+                    const FVector Corner=Portal+FVector(0,0,Top*H)+Along*(Side*R.CorridorWidth*.5f);
                     const FVector B0=Corner-Along*(Side*R.CornerCut),C0=Corner+FVector(0,0,(Top ? -1:1)*R.CornerCut);
                     // The corridor prism also has an end cap at this plane.
                     // A 2mm reveal keeps the visible infill clear of that cap.
@@ -154,20 +194,24 @@ bool BuildRooms(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProc
         }
         if(V.Upper)
         {
-            // A switchback of two smooth 160cm rises beside the unused outer
+            // A switchback of two smooth 200cm rises beside the unused outer
             // wall. Ground doors and the central crossing retain full headroom.
-            const float Sign=Index<2+N ? 1.f:-1.f,A=V.Size.X*.5f-230;
+            const float Sign=Index<2+N ? 1.f:-1.f,A=V.Size.X*.5f-300;
             auto P=[&](float PX,float PY,float Z){return V.Center+FVector(PX*Sign,PY*Sign,Z);};
             const float Y1=-V.Size.Y*.5f+160,Y2=Y1+200;
-            Ramp(P(-A,Y1,0),P(A,Y1,160),160);Ramp(P(A,Y2,160),P(-A,Y2,320),160);
-            Box(P(A+80,(Y1+Y2)*.5f,150),{160,360,20},Theme.Floor);
+            Ramp(P(-A,Y1,0),P(A,Y1,200),160);Ramp(P(A,Y2,200),P(-A,Y2,400),160);
+            Box(P(A+80,(Y1+Y2)*.5f,190),{160,360,20},Theme.Floor);
             const float MinX=-V.Size.X*.5f+40,MaxX=-A,MinY=Y2-95,MaxY=V.Size.Y*.5f-180;
-            Box(P((MinX+MaxX)*.5f,(MinY+MaxY)*.5f,310),{MaxX-MinX,MaxY-MinY,20},Theme.Floor);
+            Box(P((MinX+MaxX)*.5f,(MinY+MaxY)*.5f,390),{MaxX-MinX,MaxY-MinY,20},Theme.Floor);
             // A short solid rail protects the gallery while leaving its entry open.
-            Box(P(MaxX-5,(Y2+100+MaxY)*.5f,370),{10,MaxY-Y2-100,100},Theme.Wood);
-            TArray<FVector> Route{P(-A-100,Y1,100),P(-A,Y1,100),P(A,Y1,260),P(A+80,Y1,260),P(A+80,Y2,260),P(A,Y2,260),P(-A,Y2,420),P(-A-60,Y2,420),P(-A-60,MaxY-80,420)};
-            L.StairRoutes.Add(MoveTemp(Route));
-            FBox Deck(ForceInit);Deck+=P(MinX,MinY,300);Deck+=P(MaxX,MaxY,320);L.ElevatedDecks.Add(Deck);
+            Box(P(MaxX-5,(Y2+100+MaxY)*.5f,450),{10,MaxY-Y2-100,100},Theme.Wood);
+            TArray<FVector> Route{P(-A-100,Y1,100),P(-A,Y1,100),P(A,Y1,300),P(A+80,Y1,300),P(A+80,Y2,300),P(A,Y2,300),P(-A,Y2,500),P(-A-60,Y2,500),P(-A-60,MaxY-80,500)};
+            GalleryPaths.Add(Index,Route);L.StairRoutes.Add(MoveTemp(Route));
+            // Continue the landing around the north and inner walls. Upper
+            // corridor mouths now open onto a supported gallery, not empty air.
+            Box(P(0,V.Size.Y*.5f-120,390),{V.Size.X-80,240,20},Theme.Floor);
+            Box(P(V.Size.X*.5f-120,(Y2+200+V.Size.Y*.5f-40)*.5f,390),{240,V.Size.Y*.5f-40-Y2-200,20},Theme.Floor);
+            FBox Deck(ForceInit);Deck+=P(MinX,MinY,380);Deck+=P(MaxX,MaxY,400);L.ElevatedDecks.Add(Deck);
         }
     }
     for(const auto& E:L.RoomLinks)
@@ -202,10 +246,8 @@ bool BuildRooms(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProc
         L.LowCovers.Add(FBox(-Size*.5,Size*.5).TransformBy(Frame));
         L.RoomScreens.Add({Frame,Size,Link,Room});
     };
-    // Three alternating solid screens prevent every straight eye-height line
-    // through a corridor, including diagonal lines through opposite side gaps.
-    // The self-symmetric transverse link uses four screens so the reverse order
-    // and reversed side are exactly its own half-turn image.
+    // Long runs alone get screens at five-metre intervals. Self-symmetric
+    // links use an even count so reverse order and side remain half-turn paired.
     L.RoomAccessRoutes.SetNum(L.RoomLinks.Num());
     auto FurnishLink=[&](int32 Index,int32 Count,float FirstGap)
     {
@@ -214,42 +256,67 @@ bool BuildRooms(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProc
         const float Offset=E.Width*.5f-E.Cut-20,Margin=FMath::Min(60.f,FMath::Max(42.f,Length*.12f));
         const float Slope=FMath::Abs(E.End.Z-E.Start.Z)/Length;
         auto Point=[&](float Along,float Across,float Z=100){return FMath::Lerp(E.Start,E.End,Along/Length)+Side*Across+FVector(0,0,Z);};
-        auto& Path=L.RoomAccessRoutes[Index];Path={L.RoomNodes[E.A].Center+FVector(0,0,100),E.Start+FVector(0,0,100)};
+        auto Entry=[&](int32 NodeIndex,FVector Portal)
+        {
+            const auto& V=L.RoomNodes[NodeIndex];TArray<FVector> Route{V.Center+FVector(0,0,100)};
+            if(Portal.Z>V.Center.Z+200 && GalleryPaths.Contains(NodeIndex))
+            {
+                Route.Append(GalleryPaths[NodeIndex]);const float Sign=NodeIndex<2+N ? 1.f:-1.f;
+                auto P=[&](float X0,float Y0){return V.Center+FVector(X0*Sign,Y0*Sign,500);};
+                const FVector Local=(Portal-V.Center)*Sign;
+                Route.Add(P(-V.Size.X*.5f+140,V.Size.Y*.5f-140));
+                Route.Add(P(Local.X>V.Size.X*.4f ? V.Size.X*.5f-140:Local.X,V.Size.Y*.5f-140));
+                if(Local.X>V.Size.X*.4f)Route.Add(P(V.Size.X*.5f-140,Local.Y));
+            }
+            else if(V.Upper)
+            {
+                const float Sign=NodeIndex<2+N ? 1.f:-1.f;const FVector Local=(Portal-V.Center)*Sign;
+                if(Local.Y<-V.Size.Y*.4f)
+                {
+                    auto P=[&](float X0,float Y0){return V.Center+FVector(X0*Sign,Y0*Sign,100);};
+                    Route.Add(P(-V.Size.X*.5f+180,0));Route.Add(P(-V.Size.X*.5f+180,-V.Size.Y*.5f+40));Route.Add(P(0,-V.Size.Y*.5f+40));
+                }
+            }
+            Route.Add(Portal+FVector(0,0,100));return Route;
+        };
+        auto& Path=L.RoomAccessRoutes[Index];Path=Entry(E.A,E.Start);
         for(int32 I=0;I<Count;++I)
         {
-            const float Along=Length*(.15f+.7f*I/(Count-1)),Gap=(I%2 ? -FirstGap:FirstGap);
+            const float Along=(Length-(Count-1)*500)*.5f+I*500,Gap=(I%2 ? -FirstGap:FirstGap);
             const float A=Gap>0 ? -E.Width*.5f:-10,B=Gap>0 ? 10:E.Width*.5f;
             const float Height=240+Slope*Cells.WoodDepth;
             const FVector Center=Point(Along,(A+B)*.5f,120);
-            AddScreen(Center,Side.Rotation().Yaw+(Count==4 && I>=2 ? 180:0),{B-A,Cells.WoodDepth,Height},Index,INDEX_NONE);
+            AddScreen(Center,Side.Rotation().Yaw+(Index>=L.RoomLinks.Num()-2 && I>=Count/2 ? 180:0),{B-A,Cells.WoodDepth,Height},Index,INDEX_NONE);
             Path.Add(Point(Along-Margin,Gap*Offset));Path.Add(Point(Along+Margin,Gap*Offset));
         }
-        Path.Add(E.End+FVector(0,0,100));Path.Add(L.RoomNodes[E.B].Center+FVector(0,0,100));
+        auto Exit=Entry(E.B,E.End);Algo::Reverse(Exit);Path.Append(Exit);
     };
-    for(int32 I=0;I<L.RoomLinks.Num()-1;I+=2)
+    auto ScreenCount=[&](int32 I){const float Length=FVector::Dist2D(L.RoomLinks[I].Start,L.RoomLinks[I].End);return Length>=1000 ? FMath::FloorToInt(Length/500):0;};
+    // All generated pairs precede the lower spine and the upper self-link.
+    for(int32 I=0;I<L.RoomLinks.Num()-2;I+=2)
     {
         const float Gap=(HashCombineFast(uint32(C.Seed),uint32(I))&1) ? 1.f:-1.f;
-        FurnishLink(I,3,Gap);FurnishLink(I+1,3,Gap);
+        FurnishLink(I,ScreenCount(I),Gap);FurnishLink(I+1,ScreenCount(I+1),Gap);
     }
-    FurnishLink(L.RoomLinks.Num()-1,4,(uint32(C.Seed)&1) ? 1.f:-1.f);
-    // Four L-shaped pockets in ordinary rooms. Bases and the two gallery rooms
-    // keep their rear half clear for spawn rows and both switchback flights.
+    for(int32 I=L.RoomLinks.Num()-2;I<L.RoomLinks.Num();++I)
+        FurnishLink(I,(ScreenCount(I)/2)*2,(uint32(C.Seed)&1) ? 1.f:-1.f);
+    // Sparse independent boards, with at least 5m between their centres.
+    // Reject a pocket if it would intersect a portal or gallery approach.
     auto FurnishRoom=[&](int32 Index)
     {
         const auto& V=L.RoomNodes[Index];const int32 Paired=Mirror(Index);
-        const float Span=FMath::Clamp(float(FMath::Min(V.Size.X,V.Size.Y)*.3),280.f,450.f),Leg=Span*.65f;
-        auto Pair=[&](FVector P,float Yaw,FVector Size)
-        {AddScreen(P,Yaw,Size,INDEX_NONE,Index);AddScreen(Turn(P),Yaw+180,Size,INDEX_NONE,Paired);};
-        for(float SX:{-1.f,1.f})for(float SY:{-1.f,1.f})
+        for(float SX:{-1.f,1.f})
         {
-            if((V.Base || V.Upper) && SY<0)continue;
-            const float X=SX*V.Size.X*.25f,Y=SY*V.Size.Y*.25f;
-            Pair(V.Center+FVector(X,Y,120),0,{Span,Cells.WoodDepth,240});
-            Pair(V.Center+FVector(X-SX*(Span-Cells.WoodDepth)*.5f,Y+SY*(Leg+Cells.WoodDepth)*.5f,120),90,{Leg,Cells.WoodDepth,240});
+            const FVector P=V.Center+FVector(SX*V.Size.X*.26f,V.Size.Y*.23f,120);
+            const FVector Size(FMath::Min(float(V.Size.X)*.25f,450.f),Cells.WoodDepth,240);
+            const FTransform Frame(P);bool Clear=true;
+            for(const auto* Routes:{&L.RoomAccessRoutes,&L.StairRoutes})for(const auto& Route:*Routes)
+                for(int32 I=1;I<Route.Num();++I)
+                    if(FMath::LineBoxIntersection(FBox(-Size*.5,Size*.5).ExpandBy(FVector(40,40,95)),Frame.InverseTransformPosition(Route[I-1]),Frame.InverseTransformPosition(Route[I]),Frame.InverseTransformVector(Route[I]-Route[I-1])))Clear=false;
+            if(Clear){AddScreen(P,0,Size,INDEX_NONE,Index);AddScreen(Turn(P),180,Size,INDEX_NONE,Paired);}
         }
     };
-    FurnishRoom(0);
-    for(int32 Row=0;Row<N;++Row)FurnishRoom(2+Row);
+    FurnishRoom(0);for(int32 Row=0;Row<N;++Row)FurnishRoom(2+Row);
     // Eight starts per base, all away from the two lateral door axes.
     for(int32 Row=0;Row<2;++Row)for(int32 Col=0;Col<4;++Col)
     {
@@ -258,15 +325,18 @@ bool BuildRooms(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProc
     }
     auto LaneRoute=[&](bool Mirrored)
     {
-        TArray<FVector> Path;
-        for(int32 I=1;I<Lane.Num();++I)
+        TArray<FVector> Path;TArray<int32> Previous,Via;Previous.Init(INDEX_NONE,L.RoomNodes.Num());Via=Previous;
+        const int32 Start=Mirrored ? 1:0,Goal=1-Start;TArray<int32> Queue{Start};Previous[Start]=Start;
+        for(int32 Q=0;Q<Queue.Num() && Previous[Goal]==INDEX_NONE;++Q)for(int32 I=0;I<L.RoomLinks.Num()-2;++I)
         {
-            const int32 A=Mirrored ? Mirror(Lane[I-1]):Lane[I-1],D=Mirrored ? Mirror(Lane[I]):Lane[I];
-            for(const auto& E:L.RoomLinks)if(E.A==A && E.B==D)
-            {
-                const int32 Index=int32(&E-L.RoomLinks.GetData());const auto& Access=L.RoomAccessRoutes[Index];
-                for(int32 J=Path.IsEmpty() ? 0:1;J<Access.Num();++J)Path.Add(Access[J]);break;
-            }
+            const auto& E=L.RoomLinks[I];const int32 Next=E.A==Queue[Q] ? E.B:E.B==Queue[Q] ? E.A:INDEX_NONE;
+            if(Next!=INDEX_NONE && Previous[Next]==INDEX_NONE){Previous[Next]=Queue[Q];Via[Next]=I;Queue.Add(Next);}
+        }
+        TArray<int32> Steps;for(int32 At=Goal;At!=Start;At=Previous[At]){if(At==INDEX_NONE)return Path;Steps.Add(At);}Algo::Reverse(Steps);
+        for(int32 At:Steps)
+        {
+            auto Access=L.RoomAccessRoutes[Via[At]];if(L.RoomLinks[Via[At]].A==At)Algo::Reverse(Access);
+            for(int32 J=Path.IsEmpty() ? 0:1;J<Access.Num();++J)Path.Add(Access[J]);
         }
         return Path;
     };
@@ -275,10 +345,10 @@ bool BuildRooms(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProc
     for(int32 I=1;I<Other.Num()-1;++I)Patrol.Add(Other[I]);
     L.Spawn=L.AlphaSpawns[0].GetLocation();
     L.Routes={{L.Spawn,L.RoomNodes[0].Center+FVector(0,0,100)},Patrol,{L.OmegaSpawns[0].GetLocation(),L.RoomNodes[1].Center+FVector(0,0,100)}};
-    L.ArenaSize={2*(X+S*.5f+100),2*Y+S+200,1100};
+    L.ArenaSize={2*(X+S*.5f+1100),2*Y+S+400,1300};
     // This sealed complex uses ground-level player sight; aerial recon remains
     // above the roof. No warehouse orbit may pass through these separate rooms.
-    L.FeatureNames={Theme.Name,TEXT("OctagonalCorridors"),TEXT("SwitchbackRamps"),TEXT("TimberScreens"),TEXT("BlockedCorridorSightlines")};
+    L.FeatureNames={Theme.Name,TEXT("OctagonalCorridors"),TEXT("SwitchbackRamps"),TEXT("TimberScreens"),TEXT("SpacedTimberScreens"),TEXT("GalleryConnections"),TEXT("OverUnderCrossing"),TEXT("DoglegCorridors")};
     // Validate whole swept standing routes against every oriented screen before
     // publishing; all paths follow the real sloped supporting floor.
     for(const auto* Paths:{&L.RoomAccessRoutes,&L.StairRoutes,&L.CrossingRoutes})for(const auto& Path:*Paths)

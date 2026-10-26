@@ -10,7 +10,7 @@ UERBlockMaterialCatalog::UERBlockMaterialCatalog()
         Entry.Type = static_cast<EERBlockMaterial>(Index);
         // Drywall, Brick (hollow), Concrete (reinforced), Wood panel, Stone,
         // Metal (container sheet), Glass (pane break).
-        const float Health[] = {20,100,600,40,1000,100,8};
+        const float Health[] = {13,65,390,26,650,65,5.2f};
         Entry.MaxHealth = Health[Index];
         const float EntryCost[] = {5,20,40,7,30,60,1};
         const float PerCm[] = {.5f,5,15,1.5f,7,15,.1f};

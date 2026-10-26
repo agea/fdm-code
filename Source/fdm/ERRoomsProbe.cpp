@@ -36,7 +36,7 @@ void AERRoomsProbe::Tick(float Delta)
                 const FVector P=(E.Start+E.End)*.5f;
                 Good&=GetWorld()->LineTraceSingleByChannel(Hit,P+FVector(0,0,E.Height-30),P+FVector(0,0,E.Height+30),ECC_Visibility,Q);
             }
-            for(const auto& E:L.RoomLinks)Good&=GetWorld()->LineTraceSingleByChannel(Hit,E.Start+FVector(0,0,172.5f),E.End+FVector(0,0,172.5f),ECC_GameTraceChannel1,Q);
+            for(const auto& E:L.RoomLinks)if(L.RoomScreens.ContainsByPredicate([&](const auto& S){return S.Link==int32(&E-L.RoomLinks.GetData());}))Good&=GetWorld()->LineTraceSingleByChannel(Hit,E.Start+FVector(0,0,172.5f),E.End+FVector(0,0,172.5f),ECC_GameTraceChannel1,Q);
             UE_LOG(LogTemp,Display,TEXT("ER_ROOMS_CLIENT_%s phase=%d digest=%u"),Good ? TEXT("PASS"):TEXT("FAIL"),Phase,ExpectedDigest);Seen=Phase;
         }
         return;
@@ -47,7 +47,7 @@ void AERRoomsProbe::Tick(float Delta)
     {
         Check(Map->ValidateCells(),TEXT("initial_cells"));
         FCollisionQueryParams Q(SCENE_QUERY_STAT(ERRoomsScreens),false,Pawn);FHitResult Hit;bool Blocked=true;
-        for(const auto& E:L.RoomLinks)
+        for(const auto& E:L.RoomLinks)if(L.RoomScreens.ContainsByPredicate([&](const auto& S){return S.Link==int32(&E-L.RoomLinks.GetData());}))
         {
             FERCellId Id;
             Blocked&=GetWorld()->LineTraceSingleByChannel(Hit,E.Start+FVector(0,0,172.5f),E.End+FVector(0,0,172.5f),ECC_GameTraceChannel1,Q) && Map->ResolveCell(Hit,Id);
@@ -59,7 +59,7 @@ void AERRoomsProbe::Tick(float Delta)
     }
     if(Phase==1)
     {
-        if(!Walking && Walk<2)
+        if(!Walking && Walk<3)
         {
             Path.Reset();
             if(Walk==0)
@@ -67,12 +67,23 @@ void AERRoomsProbe::Tick(float Delta)
                 for(int32 I=0;I<L.RoomLinks.Num();++I)if(FMath::Abs(L.RoomLinks[I].End.Z-L.RoomLinks[I].Start.Z)>1)
                 {const auto& Access=L.RoomAccessRoutes[I];for(int32 J=1;J<Access.Num()-1;++J)Path.Add(Access[J]);break;}
             }
-            else Path=L.StairRoutes[0];
-            if(Path.IsEmpty()){Check(false,TEXT("walk_route_exists"));Walk=2;}
+            else if(Walk==1)Path=L.StairRoutes[0];
+            else for(int32 I=0;I<L.RoomLinks.Num();++I)
+            {
+                const auto& E=L.RoomLinks[I];if(E.Start.Z<L.RoomNodes[E.A].Center.Z+300)continue;
+                bool Started=false;
+                for(const auto P:L.RoomAccessRoutes[I])
+                {
+                    if(P.Z>=E.Start.Z+90)Started=true;if(Started)Path.Add(P);
+                    if(P.Equals(E.Start+FVector(0,0,100),.1))break;
+                }
+                Path.Add(E.Start+(E.End-E.Start).GetSafeNormal2D()*FMath::Min(180.f,float(FVector::Dist2D(E.Start,E.End)*.5))+FVector(0,0,100));break;
+            }
+            if(Path.IsEmpty()){Check(false,TEXT("walk_route_exists"));Walk=3;}
             else
             {
                 Pawn->TeleportTo(Path[0],FRotator::ZeroRotator,false,true);Pawn->GetCharacterMovement()->StopMovementImmediately();Pawn->GetCharacterMovement()->SetMovementMode(MOVE_Walking);
-                Point=1;Walking=true;
+                Point=1;Walking=true;WalkStarted=Elapsed;
             }
         }
         if(Walking)
@@ -81,13 +92,13 @@ void AERRoomsProbe::Tick(float Delta)
             if(FVector::Dist2D(Target,Position)<8 && FMath::Abs(Target.Z-Position.Z)<40)
             {
                 Pawn->GetCharacterMovement()->StopMovementImmediately();
-                if(++Point>=Path.Num()){Check(true,Walk==0 ? TEXT("pawn_walks_corridor_ramp"):TEXT("pawn_walks_upper_switchback"));Walking=false;++Walk;Pawn->GetCharacterMovement()->StopMovementImmediately();}
+                if(++Point>=Path.Num()){Check(true,Walk==0 ? TEXT("pawn_walks_corridor_ramp"):Walk==1 ? TEXT("pawn_walks_upper_switchback"):TEXT("pawn_walks_upper_corridor_portal"));Walking=false;++Walk;Pawn->GetCharacterMovement()->StopMovementImmediately();}
             }
             else Pawn->AddMovementInput((Target-Position).GetSafeNormal2D(),FMath::Clamp(float(FVector::Dist2D(Target,Position)/100),.2f,1.f),true);
         }
-        if(Elapsed-Stage>45 && Walk<2)
-        {UE_LOG(LogTemp,Display,TEXT("ER_ROOMS_WALK_BLOCKED walk=%d point=%d actual=%s target=%s"),Walk,Point,*Pawn->GetActorLocation().ToString(),*Path[Point].ToString());Check(false,TEXT("pawn_walk_timeout"));Walk=2;}
-        if(Walk==2 && Elapsed-Stage>(GetNetMode()==NM_Standalone ? 20:30))
+        if(Walking && Elapsed-WalkStarted>45 && Walk<3)
+        {UE_LOG(LogTemp,Display,TEXT("ER_ROOMS_WALK_BLOCKED walk=%d point=%d actual=%s target=%s"),Walk,Point,*Pawn->GetActorLocation().ToString(),*Path[Point].ToString());Check(false,TEXT("pawn_walk_timeout"));Walk=3;}
+        if(Walk==3 && Elapsed-Stage>(GetNetMode()==NM_Standalone ? 20:30))
         {
             Pawn->TeleportTo(L.AlphaSpawns[0].GetLocation(),FRotator::ZeroRotator,false,true);
             const FBox Cover=L.LowCovers[0];FHitResult Hit;FCollisionQueryParams Q(SCENE_QUERY_STAT(ERRoomsDamage),false);Q.AddIgnoredActor(Pawn);
@@ -126,7 +137,7 @@ void AERRoomsProbe::Tick(float Delta)
             else if(Kind==2){const auto& E=L.RoomLinks[0];const FVector D=(E.End-E.Start).GetSafeNormal2D();Eye=E.Start+D*60+FVector(0,0,170);Target=E.End+FVector(0,0,160);}
             else if(Kind==3){const auto& R=L.StairRoutes[0];Eye=R.Last()+FVector(0,0,60);Target=L.RoomNodes[2].Center+FVector(0,0,140);}
             else if(Kind==4){const auto& V=L.RoomNodes[3];Eye=V.Center+FVector(0,0,170);Target=V.Center+FVector(V.Size.X*.35f,V.Size.Y*.3f,160);}
-            else{const auto& R=L.RoomAccessRoutes[0];Eye=R[2]+FVector(0,0,70);Target=R[4]+FVector(0,0,70);}
+            else{const auto* R=L.RoomAccessRoutes.FindByPredicate([](const auto& V){return V.Num()>=6;});Eye=(*R)[2]+FVector(0,0,70);Target=(*R)[4]+FVector(0,0,70);}
             auto* Camera=GetWorld()->SpawnActor<ACameraActor>(Eye,Kind==0 ? FRotator(-90,0,0):(Target-Eye).Rotation());
             Camera->GetCameraComponent()->SetFieldOfView(90);
             if(Kind==0){Camera->GetCameraComponent()->SetProjectionMode(ECameraProjectionMode::Orthographic);Camera->GetCameraComponent()->OrthoWidth=FMath::Max(L.ArenaSize.Y,L.ArenaSize.X*16.f/9)*1.08f;}

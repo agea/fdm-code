@@ -21,13 +21,19 @@ bool FERCentralBuildingLayoutTest::RunTest(const FString& Parameters)
     T->CentralBuilding.SteelSurface=NewObject<UMaterial>(T,TEXT("TestGraySteel"));
     for(int32 I=0;I<4;++I)T->CentralBuilding.ContainerSurfaces.Add(NewObject<UMaterial>(T,*FString::Printf(TEXT("TestPaint%d"),I)));
     FERProceduralConfig C;C.TemplateAsset=T;FERBlockRoomConfig B;FERProceduralLayout L,Again;
-    TSet<FString> Shapes,Compositions;TSet<int32> Rules,Floors,SecondaryFloors,Angles,Materials;int32 MinOpenCover=MAX_int32,MinOtherCover=MAX_int32;bool Tower=false,Building=false,AsymmetricPaint=false;
+    TSet<FString> Shapes,Compositions;TSet<int32> Rules,Floors,SecondaryFloors,Angles,Materials;int32 MinOpenCover=MAX_int32,MinOtherCover=MAX_int32;bool Tower=false,Building=false,AsymmetricPaint=false,TerracedSeen=false;TSet<float> CoreOffsets;
     auto Key=[](FVector Center,FVector Size,uint8 M){return FString::Printf(TEXT("%d:%d:%d/%d:%d:%d/%d"),FMath::RoundToInt(Center.X*1000),FMath::RoundToInt(Center.Y*1000),FMath::RoundToInt(Center.Z*1000),FMath::RoundToInt(Size.X*1000),FMath::RoundToInt(Size.Y*1000),FMath::RoundToInt(Size.Z*1000),M);};
     TArray<int32> Seeds;for(int32 I=0;I<512;++I)Seeds.Add(I);Seeds.Append({7919,-17,INT32_MIN,INT32_MAX});
     for(int32 Seed:Seeds)
     {
         C.Seed=Seed;
         if(!ERProcedural::Build(C,B,L)){AddError(FString::Printf(TEXT("Central layout rejected seed=%d"),Seed));return false;}
+        CoreOffsets.Add(L.CentralBuildingCenter.X);TerracedSeen|=L.TerracedBuilding;
+        if(!L.CentralBuildingCenter.IsNearlyZero())
+        {
+            FVector A=FVector::ZeroVector,D=FVector::ZeroVector;for(const auto& P:L.AlphaSpawns)A+=P.GetLocation();for(const auto& P:L.OmegaSpawns)D+=P.GetLocation();A/=L.AlphaSpawns.Num();D/=L.OmegaSpawns.Num();
+            TestTrue(TEXT("lateral building is equidistant from team base centres"),FMath::IsNearlyEqual(FVector::Dist2D(A,L.CentralBuildingCenter),FVector::Dist2D(D,L.CentralBuildingCenter),.01));
+        }
         Shapes.Add(L.ArenaSize.ToString()+L.CentralBuildingSize.ToString());Rules.Add(uint8(L.CrossingRule));Floors.Add(L.BuildingFloors);
         FString Composition;for(auto K:L.ModuleKinds)Composition+=FString::FromInt(uint8(K));Compositions.Add(Composition);
         TestEqual(TEXT("10 starts per team"),L.AlphaSpawns.Num(),10);TestEqual(TEXT("paired starts"),L.OmegaSpawns.Num(),10);
@@ -47,10 +53,10 @@ bool FERCentralBuildingLayoutTest::RunTest(const FString& Parameters)
         }
         TSet<FString> Solids;
         for(const auto& P:L.Panels){const auto Box=FBox(FVector::ZeroVector,P.Size).TransformBy(P.Transform);Solids.Add(Key(Box.GetCenter(),Box.GetSize(),uint8(P.Material)));}
-        for(const auto& P:L.Panels){const auto Box=FBox(FVector::ZeroVector,P.Size).TransformBy(P.Transform);auto V=Box.GetCenter();V.X=-V.X;V.Y=-V.Y;if(!Solids.Contains(Key(V,Box.GetSize(),uint8(P.Material)))){AddError(TEXT("unpaired cell geometry"));return false;}}
+        for(const auto& P:L.Panels){const auto Box=FBox(FVector::ZeroVector,P.Size).TransformBy(P.Transform);auto V=Box.GetCenter();V.X=-V.X;V.Y=-V.Y;if(!Solids.Contains(Key(V,Box.GetSize(),uint8(P.Material))) && !Solids.Contains(Key(V+2*L.CentralBuildingCenter,Box.GetSize(),uint8(P.Material)))){AddError(TEXT("unpaired cell geometry"));return false;}}
         Solids.Reset();
         for(const auto& P:L.FixedPieces)Solids.Add(Key(P.Transform.GetLocation(),P.Transform.GetScale3D(),uint8(P.Material)));
-        for(const auto& P:L.FixedPieces){auto V=P.Transform.GetLocation();V.X=-V.X;V.Y=-V.Y;if(!Solids.Contains(Key(V,P.Transform.GetScale3D(),uint8(P.Material)))){AddError(TEXT("unpaired fixed collision"));return false;}}
+        for(const auto& P:L.FixedPieces){auto V=P.Transform.GetLocation();V.X=-V.X;V.Y=-V.Y;if(!Solids.Contains(Key(V,P.Transform.GetScale3D(),uint8(P.Material))) && !Solids.Contains(Key(V+2*L.CentralBuildingCenter,P.Transform.GetScale3D(),uint8(P.Material)))){AddError(TEXT("unpaired fixed collision"));return false;}}
         for(const auto& P:L.FixedPieces)if(P.PawnBarrier)
         {
             const FVector Size=P.Transform.GetScale3D()*100;
@@ -65,14 +71,14 @@ bool FERCentralBuildingLayoutTest::RunTest(const FString& Parameters)
             TestNotNull(TEXT("steel rests on a concrete plinth"),Plinth);
             TestTrue(TEXT("plinth starts on its floor"),FMath::IsNearlyZero(FMath::Fmod(Bottom-ERIndustrialFence::PlinthHeightCm,320.f),.01));
         }
-        int32 Flights=L.BuildingFloors*2+L.WallAccessFlights.Num(),Ladders=2+L.SecondaryStructures.Num();
+        int32 Flights=(L.TerracedBuilding ? 2:L.BuildingFloors*2)+L.WallAccessFlights.Num(),Ladders=(L.TerracedBuilding ? L.BuildingFloors*2:2)+L.SecondaryStructures.Num();
         for(const auto& S:L.SecondaryStructures){if(S.LadderAccess)Ladders+=S.Floors;else Flights+=S.Floors;
             TestTrue(TEXT("towers and compact buildings prefer ladders"),S.LadderAccess==(S.Tower || S.Size.X<800 || S.Size.Y<1150));SecondaryFloors.Add(S.Floors);Tower|=S.Tower;Building|=!S.Tower;Materials.Add(uint8(S.Material));}
         for(float A:L.CoverAngles)Angles.Add(FMath::RoundToInt(FMath::Fmod(A+180,180)));
         TestEqual(TEXT("main and large buildings retain stairs"),L.StairRoutes.Num(),Flights);
         TestEqual(TEXT("every compact storey and paired exterior has a ladder"),L.Ladders.Num(),Ladders);
         for(int32 I=0;I<L.Ladders.Num();I+=2)
-            TestTrue(TEXT("ladder access is half-turn symmetric"),(L.Ladders[I].Frame*FTransform(FRotator(0,180,0))).Equals(L.Ladders[I+1].Frame));
+            TestTrue(TEXT("ladder access is half-turn symmetric"),(L.Ladders[I].Frame*FTransform(FRotator(0,180,0))).Equals(L.Ladders[I+1].Frame) || (L.Ladders[I].Frame*FTransform(FRotator(0,180,0))).GetLocation().Equals(L.Ladders[I+1].Frame.GetLocation()-2*L.CentralBuildingCenter));
         if(L.CrossingRule==EERCrossingRule::OpenYard)MinOpenCover=FMath::Min(MinOpenCover,L.CoverSites.Num());
         else MinOtherCover=FMath::Min(MinOtherCover,L.CoverSites.Num());
         TestTrue(TEXT("paired destructible containers"),L.Containers.Num()>=2 && L.Containers.Num()%2==0);
@@ -82,6 +88,7 @@ bool FERCentralBuildingLayoutTest::RunTest(const FString& Parameters)
     TestTrue(FString::Printf(TEXT("separated variants retain intermediate cover min=%d"),MinOtherCover),MinOtherCover>=12);
     AddInfo(FString::Printf(TEXT("ER_CENTRAL_COVER min_open=%d min_other=%d"),MinOpenCover,MinOtherCover));
     TestTrue(TEXT("cosmetic container rolls can differ across symmetric geometry"),AsymmetricPaint);
+    TestTrue(TEXT("centred and both lateral cores sampled"),CoreOffsets.Num()==3);TestTrue(TEXT("setback upper floors sampled"),TerracedSeen);
     TestTrue(TEXT("hundreds of different building/arena dimensions"),Shapes.Num()>450);
     TestTrue(TEXT("over a hundred distinct cover compositions"),Compositions.Num()>100);
     TestEqual(TEXT("all crossing rules sampled"),Rules.Num(),3);TestEqual(TEXT("one to three floors sampled"),Floors.Num(),3);
@@ -162,7 +169,7 @@ bool FERCentralBuildingCollisionTest::RunTest(const FString& Parameters)
         T->CentralBuilding.MinFloors=T->CentralBuilding.MaxFloors=Floors;Map->LayoutConfig.CrossingOverride=Rule;
         if(!TestTrue(TEXT("physical generation"),Map->Regenerate()))continue;
         const auto& L=Map->GetLayout();TestTrue(TEXT("valid cell chunks"),Map->ValidateCells());
-        int32 ExpectedLadders=2+L.SecondaryStructures.Num();
+        int32 ExpectedLadders=(L.TerracedBuilding ? L.BuildingFloors*2:2)+L.SecondaryStructures.Num();
         for(const auto& S:L.SecondaryStructures)if(S.LadderAccess)ExpectedLadders+=S.Floors;
         TestEqual(TEXT("paired interior and exterior ladders"),L.Ladders.Num(),ExpectedLadders);
         for(const auto& Desc:L.Ladders)
@@ -195,6 +202,11 @@ bool FERCentralBuildingCollisionTest::RunTest(const FString& Parameters)
         TestTrue(TEXT("small module repeated across barriers"),Modules>L.FixedPieces.FilterByPredicate([](const auto& P){return P.PawnBarrier;}).Num());
         for(const auto* Starts:{&L.AlphaSpawns,&L.OmegaSpawns})for(const auto& S:*Starts)
         {TestFalse(TEXT("spawn capsule clear"),World->OverlapBlockingTestByChannel(S.GetLocation(),FQuat::Identity,ECC_Pawn,Capsule,Q));TestTrue(TEXT("spawn supported"),World->LineTraceSingleByChannel(Hit,S.GetLocation(),S.GetLocation()-FVector(0,0,120),ECC_WorldStatic,Q));}
+        for(const auto& Route:L.RoomAccessRoutes)for(int32 I=1;I<Route.Num();++I)
+        {
+            TestFalse(TEXT("terrace doorway has standing clearance"),World->SweepSingleByChannel(Hit,Route[I-1],Route[I],FQuat::Identity,ECC_Pawn,Capsule,Q));
+            for(int32 J=0;J<=10;++J){const FVector P=FMath::Lerp(Route[I-1],Route[I],J/10.f);TestTrue(TEXT("terrace doorway has continuous floor support"),World->LineTraceSingleByChannel(Hit,P,P-FVector(0,0,120),ECC_WorldStatic,Q));}
+        }
         for(const auto& Route:L.CrossingRoutes)for(int32 I=1;I<Route.Num();++I)
             TestFalse(TEXT("crossing has standing clearance"),World->SweepSingleByChannel(Hit,Route[I-1],Route[I],FQuat::Identity,ECC_Pawn,Capsule,Q));
         for(const auto& Route:L.StairRoutes)for(int32 I=1;I<Route.Num();++I)
@@ -318,7 +330,7 @@ bool FERCentralBuildingEvolutionTest::RunTest(const FString& Parameters)
         const auto Shot=Map->ShootCells(Hit,A,(B-A).GetSafeNormal(),500,RemainingDamage,8);
         TestTrue(TEXT("reinforced steel stops rifle penetration"),Shot.bStop);
         TestTrue(TEXT("rifle damages steel without erasing it"),Map->GetCellWorld().IsAlive(Id) && Map->GetCellWorld().GetHealth(Id)<Before);
-        TestTrue(TEXT("container is substantially tougher than the sheet default"),Before>=800);
+        TestTrue(TEXT("container is substantially tougher than the sheet default"),FMath::IsNearlyEqual(Before,8*Map->MaterialCatalog->Find(EERBlockMaterial::Metal)->MaxHealth));
     }
     else AddError(TEXT("container shot missed destructible steel"));
     ERIndustrialTest::BreachContainer(*Map,Container);ERIndustrialTest::Settle(*Map);

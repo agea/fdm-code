@@ -27,6 +27,26 @@ bool FERMapThemeTest::RunTest(const FString& Parameters)
                     Palette.ShellSteel!=Palette.Wall && Palette.LadderSteel!=Palette.Materials[uint8(EERBlockMaterial::Metal)] &&
                     Palette.DeckSteel!=Palette.LadderSteel && Palette.DeckSteel!=Palette.Wall && Palette.DeckSteel!=Palette.ShellSteel);
             }
+            if(Saved->Archetype==EERMapArchetype::FireTraining)
+            {
+                TSet<UMaterialInterface*> Walls,Cargo,Columns,LadderFinishes;
+                for(const auto& D:After.Panels)
+                    if(D.Material==EERBlockMaterial::Metal && D.Strength>1)Cargo.Add(D.Surface);
+                    else if(D.Material==EERBlockMaterial::Concrete || D.Material==EERBlockMaterial::Wood)Walls.Add(D.Surface);
+                for(const auto& D:After.FixedPieces)if(D.Mesh)
+                {
+                    const auto MeshName=D.Mesh->GetName();
+                    if(MeshName.Contains(TEXT("Post")) || MeshName.Contains(TEXT("RoofArch")))Columns.Add(D.Surface);
+                    if(MeshName.Contains(TEXT("SideWallBay")))Walls.Add(D.Surface);
+                }
+                LadderFinishes.Add(Palette.LadderSteel);
+                for(const auto* Left:{&LadderFinishes,&Columns,&Cargo})for(auto* M:*Left)
+                {
+                    TestTrue(TEXT("firing range walls never share access, column or cargo finishes"),M && !Walls.Contains(M));
+                    if(Left!=&Cargo)TestFalse(TEXT("cargo keeps a separate paint finish"),Cargo.Contains(M));
+                    if(Left==&LadderFinishes)TestFalse(TEXT("ladders never share a column finish"),Columns.Contains(M));
+                }
+            }
             if(Expected.Num()<32)Expected.Add(After.ThemeIndex);else TestEqual(TEXT("same seed selects same theme across all templates"),After.ThemeIndex,Expected[Seed]);
             TestEqual(TEXT("panel count unchanged"),Before.Panels.Num(),After.Panels.Num());
             for(int32 I=0;I<Before.Panels.Num();++I)
@@ -58,15 +78,15 @@ bool FERMapThemeTest::RunTest(const FString& Parameters)
             for(int32 I=0;I<After.Panels.Num();++I)TestEqual(TEXT("role finishes deterministic"),Again.Panels[I].Surface,After.Panels[I].Surface);
         }
         auto* Invalid=DuplicateObject<UERMapTemplate>(Saved,GetTransientPackage());Invalid->ThemeLibrary=DuplicateObject<UERMapThemeLibrary>(Saved->ThemeLibrary,GetTransientPackage());
-        Invalid->ThemeLibrary->Themes[2].Materials.Reset();C.TemplateAsset=Invalid;
+        Invalid->ThemeLibrary->Themes.Last().Materials.Reset();C.TemplateAsset=Invalid;
         FERProceduralLayout Prior;Prior.ThemeName=TEXT("unchanged");
         TestFalse(TEXT("incomplete theme library rejected"),ERProcedural::Build(C,B,Prior));
         TestEqual(TEXT("rejection leaves output intact"),Prior.ThemeName,FName(TEXT("unchanged")));
         Invalid->ThemeLibrary=DuplicateObject<UERMapThemeLibrary>(Saved->ThemeLibrary,GetTransientPackage());
-        if(Invalid->ThemeLibrary->Themes[2].ShellSteel)
-        {Invalid->ThemeLibrary->Themes[2].DeckSteel=nullptr;TestFalse(TEXT("partial steel role palette rejected"),ERProcedural::Build(C,B,Prior));}
+        if(Invalid->ThemeLibrary->Themes.Last().ShellSteel)
+        {Invalid->ThemeLibrary->Themes.Last().DeckSteel=nullptr;TestFalse(TEXT("partial steel role palette rejected"),ERProcedural::Build(C,B,Prior));}
     }
-    TestEqual(TEXT("all themes sampled"),Seen.Num(),3);
+    TestEqual(TEXT("all themes sampled"),Seen.Num(),2);
     AddInfo(TEXT("ER_SHARED_MAP_THEMES templates=4 seeds=32 geometry=unchanged deterministic=PASS"));return true;
 }
 #endif

@@ -1,5 +1,11 @@
 # Respawn & Rage — procedural destruction laboratory
 
+26 October2026: all seven material HP values are now65% of the17 October
+preset, reducing resistance to bullets and explosions. Current HP by ID0–6:
+13/65/390/26/650/65/5.2. Native/saved catalogs and preset marker2 agree.
+Multipliers, penetration, thickness and reinforcement remain unchanged. The older
+HP tables below are historical. See `MAP_VARIETY.md` for the current values.
+
 Current bullet rule (21 October): each crossed 5cm cell subtracts its **current
 HP** from a single damage budget. 100 through60HP leaves40; a surviving cell or
 zero budget stops the ray. Empty cells cost nothing; indestructible cover blocks.
