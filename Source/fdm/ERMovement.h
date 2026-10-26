@@ -29,8 +29,8 @@ public:
     bool bPreviousSprintHeld = false;
     double SprintRequestUntil = 0;
     UPROPERTY(ReplicatedUsing=OnRep_Locomotion) FERLocomotionState Locomotion;
-    static constexpr double MaxSprintDuration = 10.0;
-    static constexpr double RecoveryRatio = 2.0;
+    static constexpr double MaxSprintDuration = 15.0;
+    static constexpr double RecoveryRatio = 20.0 / MaxSprintDuration;
     bool IsSprinting() const;
     bool IsProne() const { return Locomotion.ProneBlend > .5f; }
     bool IsChangingPosture() const;

@@ -271,11 +271,11 @@ AERCharacter::AERCharacter(const FObjectInitializer& ObjectInitializer)
     bReplicates = true;
     PrimaryActorTick.bCanEverTick = true;
     GetCapsuleComponent()->InitCapsuleSize(34, 92.5f);
-    GetCharacterMovement()->MaxWalkSpeed = 1000.f / 3.6f;
+    GetCharacterMovement()->MaxWalkSpeed = 1500.f / 3.6f;
     GetCharacterMovement()->JumpZVelocity = 460;
     GetCharacterMovement()->AirControl = 0.2f;
     GetCharacterMovement()->GetNavAgentPropertiesRef().bCanCrouch = true;
-    GetCharacterMovement()->MaxWalkSpeedCrouched = 100;
+    GetCharacterMovement()->MaxWalkSpeedCrouched = 150;
     BaseEyeHeight = 77.5f; CrouchedEyeHeight = 50;
     bUseControllerRotationYaw = true;
     Wounds = CreateDefaultSubobject<UERWounds>(TEXT("Wounds"));
@@ -556,7 +556,7 @@ void AERCharacter::Tick(float DeltaTime)
         if (bStepping)
         {
             StepPhase = FMath::Fmod(StepPhase + DeltaTime * Speed / 140.f * 2.f * PI, 4.f * PI);
-            const float Strength = FMath::Clamp(Speed / (1000.f / 3.6f), 0.f, 1.f) * (bIsCrouched ? .5f : 1.f);
+            const float Strength = FMath::Clamp(Speed / (1500.f / 3.6f), 0.f, 1.f) * (bIsCrouched ? .5f : 1.f);
             Target = FVector(0, .25f * FMath::Sin(StepPhase*.5f), .70f * FMath::Sin(StepPhase)) * Strength;
         }
         StepOffset = FMath::VInterpTo(StepOffset, Target, DeltaTime, 14.f);

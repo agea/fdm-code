@@ -66,7 +66,7 @@ UERMovement::UERMovement()
 {
     SetIsReplicatedByDefault(true);
     SetCrouchedHalfHeight(62.5f);
-    MaxWalkSpeed = 1000.f / 3.6f; MaxWalkSpeedCrouched = 100.f;
+    MaxWalkSpeed = 1500.f / 3.6f; MaxWalkSpeedCrouched = 150.f;
     MaxAcceleration = 1000; GroundFriction = 3;
     bUseSeparateBrakingFriction = true; BrakingFriction = 0;
     BrakingDecelerationWalking = 850;
@@ -78,11 +78,11 @@ float UERMovement::GetMaxSpeed() const
     if(C && C->Weapon && C->Weapon->bPlacingClaymore)return 0;
     if (IsOnLadder()) return LadderSpeed();
     if (IsMantling()) return 0;
-    if (IsChangingPosture()) return 45.f;
-    if (IsProne()) return 55.f;
+    if (IsChangingPosture()) return 67.5f;
+    if (IsProne()) return 82.5f;
     if (Locomotion.HalfHeight < 92.f) return MaxWalkSpeedCrouched;
-    if (IsSprinting()) return 1800.f / 3.6f;
-    return bWalkHeld ? 500.f / 3.6f : Super::GetMaxSpeed();
+    if (IsSprinting()) return 2700.f / 3.6f;
+    return bWalkHeld ? 750.f / 3.6f : Super::GetMaxSpeed();
 }
 void UERMovement::UpdateFromCompressedFlags(uint8 Flags)
 {
@@ -369,7 +369,7 @@ bool UERMovement::CanClimbLadder() const
 float UERMovement::LadderSpeed() const
 {
     const auto* C=Cast<AERCharacter>(CharacterOwner);
-    return C && C->CanHoldWeaponOnLadder() ? 144.f:180.f;
+    return C && C->CanHoldWeaponOnLadder() ? 216.f:270.f;
 }
 AERLadder* UERMovement::FindLadder(bool Entry) const
 {

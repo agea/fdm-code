@@ -94,7 +94,7 @@ void AERMovementProbe::Tick(float DeltaTime)
             {
                 const FVector SprintVelocity=M->Velocity;
                 const float SprintCone=C->Weapon->GetSpreadDegrees();
-                M->Velocity=SprintVelocity.GetSafeNormal2D()*(1000.f/3.6f);
+                M->Velocity=SprintVelocity.GetSafeNormal2D()*(1500.f/3.6f);
                 const float RunCone=C->Weapon->GetSpreadDegrees();M->Velocity=SprintVelocity;
                 UE_LOG(LogTemp,Display,TEXT("ER_MOVEMENT_CLIENT_%s owner_sprint_has_extra_spread run=%.3f sprint=%.3f"),
                     SprintCone>RunCone+1.4f?TEXT("PASS"):TEXT("FAIL"),RunCone,SprintCone);
@@ -223,7 +223,7 @@ void AERMovementProbe::Tick(float DeltaTime)
         if (Phase == 1 && Peak == 0 && Move->Velocity.Size2D() > 0 && Move->Velocity.Size2D() < Move->MaxWalkSpeed-1) Peak = Move->Velocity.Size2D();
         if (Elapsed > 1.5f)
         {
-            Check(FMath::IsNearlyEqual(Move->Velocity.Size2D(), Phase == 1 ? 1000.f/3.6f : 500.f/3.6f,1),Phase == 1 ? TEXT("10 km/h run") : TEXT("5 km/h Shift walk"));
+            Check(FMath::IsNearlyEqual(Move->Velocity.Size2D(), Phase == 1 ? 1500.f/3.6f : 750.f/3.6f,1),Phase == 1 ? TEXT("15 km/h run") : TEXT("7.5 km/h Shift walk"));
             if (Phase == 1) Check(Peak > 0 && Peak < Move->MaxWalkSpeed,TEXT("progressive acceleration"));
             Advance();
         }
@@ -283,7 +283,7 @@ void AERMovementProbe::Tick(float DeltaTime)
         if (Elapsed > 2)
         {
             const auto* Remote = Cast<UERMovement>(Client->GetCharacterMovement());
-            Check(FMath::IsNearlyEqual(Remote->Velocity.Size2D(),Phase==25 ? 1000.f/3.6f : 500.f/3.6f,2) && Remote->bWalkHeld==(Phase==26),Phase==25 ? TEXT("remote client run replicated") : TEXT("remote client walk intent replicated"));
+            Check(FMath::IsNearlyEqual(Remote->Velocity.Size2D(),Phase==25 ? 1500.f/3.6f : 750.f/3.6f,2) && Remote->bWalkHeld==(Phase==26),Phase==25 ? TEXT("remote client run replicated") : TEXT("remote client walk intent replicated"));
             Advance();
         }
         return;
@@ -370,9 +370,9 @@ void AERMovementProbe::Tick(float DeltaTime)
         {
             if (Elapsed > 1.5f && Peak == 0)
             {
-                Check(Remote->IsSprinting() && FMath::IsNearlyEqual(Remote->Velocity.Size2D(),500.f,2),TEXT("remote double-W intent: 18 km/h sprint"));
+                Check(Remote->IsSprinting() && FMath::IsNearlyEqual(Remote->Velocity.Size2D(),750.f,2),TEXT("remote double-W intent: 27 km/h sprint"));
                 auto* Weapon=Client->Weapon.Get();const float SprintCone=Weapon->GetSpreadDegrees();
-                const FVector SprintVelocity=Remote->Velocity;Remote->Velocity=SprintVelocity.GetSafeNormal2D()*(1000.f/3.6f);
+                const FVector SprintVelocity=Remote->Velocity;Remote->Velocity=SprintVelocity.GetSafeNormal2D()*(1500.f/3.6f);
                 const float RunCone=Weapon->GetSpreadDegrees();Remote->Velocity=SprintVelocity;
                 Check(SprintCone>RunCone+1.4f,TEXT("actual remote sprint adds real dispersion beyond ordinary running"));
                 const uint32 Shots=Weapon->AuthorizedShotCount;
@@ -381,11 +381,11 @@ void AERMovementProbe::Tick(float DeltaTime)
                     TEXT("actual sprint shot samples the same widened cone as the HUD"));
                 Peak=1;
             }
-            if (Elapsed > 10.8f) { Check(Peak==1 && !Remote->IsSprinting() && Remote->GetRecoveryRemaining()>18 && Remote->GetRecoveryRemaining()<20 && Remote->GetStaminaFraction()>0 && Remote->GetStaminaFraction()<.3f,TEXT("sprint ends at 10 seconds; stamina refills over 20 seconds")); Advance(); }
+            if (Elapsed > 15.8f) { Check(Peak==1 && !Remote->IsSprinting() && Remote->GetRecoveryRemaining()>18 && Remote->GetRecoveryRemaining()<20 && Remote->GetStaminaFraction()>0 && Remote->GetStaminaFraction()<.3f,TEXT("sprint ends at 15 seconds; stamina refills over 20 seconds")); Advance(); }
         }
         else if (Phase == 34 && Elapsed > 20.5f)
         {
-            Check(!Remote->IsSprinting() && Remote->GetRecoveryRemaining()==0 && Remote->GetStaminaFraction()==1 && Remote->Velocity.Size2D()<280,TEXT("held sprint cannot restart after cooldown")); Advance();
+            Check(!Remote->IsSprinting() && Remote->GetRecoveryRemaining()==0 && Remote->GetStaminaFraction()==1 && Remote->Velocity.Size2D()<420,TEXT("held sprint cannot restart after cooldown")); Advance();
         }
         else if (Phase == 35 && Elapsed > .5f) Advance();
         else if (Phase == 36 && Elapsed > 1)
@@ -469,10 +469,10 @@ void AERMovementProbe::Tick(float DeltaTime)
             FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir()/FString::Printf(TEXT("Testing/Stamina/Phase%d.png"),Phase),true,false);
         Move->bSprintHeld=Phase==44 || Phase==46;
         if (Move->bSprintHeld) Host->AddMovementInput(FVector(1,0,0));
-        if (Phase==44 && Elapsed>4.f)
+        if (Phase==44 && Elapsed>6.f)
         {
             Check(Move->IsSprinting() && Move->GetStaminaFraction()>.55f && Move->GetStaminaFraction()<.65f,
-                TEXT("four seconds of sprint consumes forty percent stamina"));
+                TEXT("six seconds of sprint consumes forty percent stamina"));
             Advance();
         }
         else if (Phase==45 && Elapsed>.4f)
@@ -483,8 +483,8 @@ void AERMovementProbe::Tick(float DeltaTime)
         }
         else if (Phase==46 && Elapsed>1.f)
         {
-            Check(Move->IsSprinting() && Move->GetSprintRemaining()>5.f && Move->GetSprintRemaining()<6.5f,
-                TEXT("fresh gesture resumes partial stamina without resetting to ten seconds"));
+            Check(Move->IsSprinting() && Move->GetSprintRemaining()>8.f && Move->GetSprintRemaining()<10.f,
+                TEXT("fresh gesture resumes partial stamina without resetting to fifteen seconds"));
             Advance();
         }
         else if (Phase==47 && Elapsed>20.5f)

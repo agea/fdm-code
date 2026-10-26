@@ -51,7 +51,7 @@ void AERBotController::OnPossess(APawn* PossessedPawn)
         const float Distance = FVector::DistSquared2D(PossessedPawn->GetActorLocation(), Route[I]->GetActorLocation());
         if (Distance < Nearest) { Nearest = Distance; RoutePosition = I; }
     }
-    if (auto* BotCharacter = Cast<AERCharacter>(PossessedPawn)) BotCharacter->GetCharacterMovement()->MaxWalkSpeed = 1000.f / 3.6f;
+    if (auto* BotCharacter = Cast<AERCharacter>(PossessedPawn)) BotCharacter->GetCharacterMovement()->MaxWalkSpeed = 1500.f / 3.6f;
 }
 bool AERBotController::HasSight(AERCharacter* Other) const
 {

@@ -1,3 +1,9 @@
+Movement revision (26 October, latest): all game modes use +50% locomotion
+speeds: run 15km/h, Shift walk 7.5km/h, sprint 27km/h, crouch 150cm/s,
+prone 82.5cm/s, posture transition 67.5cm/s, ladders 216/270cm/s.
+Sprint stamina lasts 15 seconds; full recovery remains 20 seconds.
+This supersedes earlier movement speeds and sprint duration below.
+
 # Respawn & Rage Unreal development
 
 World weapon poses (26 October, latest): third-person firearms use geometry-

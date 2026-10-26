@@ -245,13 +245,13 @@ float AERWeapon::GetSpreadDegrees() const
     if(Data->bUseWorksheetAccuracy)
         return ERWeaponAccuracy::Degrees(GetAccuracyMode().Spread+GetWorksheetInaccuracy());
     const float Speed = Character->GetVelocity().Size2D();
-    const float SpeedFraction = FMath::Clamp(Speed / (1000.f / 3.6f), 0.f, 1.f);
+    const float SpeedFraction = FMath::Clamp(Speed / (1500.f / 3.6f), 0.f, 1.f);
     // Extra physical speed beyond the normal run widens every weapon's cone.
     // Apply after the ordinary cap so sprint also penalizes already-inaccurate rifles.
-    const float Sprint = 1.5f * FMath::GetMappedRangeValueClamped(FVector2D(1000.f / 3.6f,1800.f / 3.6f),FVector2D(0,1),Speed);
+    const float Sprint = 1.5f * FMath::GetMappedRangeValueClamped(FVector2D(1500.f / 3.6f,2700.f / 3.6f),FVector2D(0,1),Speed);
     const auto* Movement = Cast<UERMovement>(Character->GetCharacterMovement());
     const float Ladder = Movement->IsOnLadder() && Data->bOneHanded && Data->Payload==EERPayload::Bullet ?
-        Data->LadderMovingSpreadDegrees * FMath::Clamp((FMath::Abs(Character->GetVelocity().Z)-5.f)/(144.f-5.f),0.f,1.f) : 0.f;
+        Data->LadderMovingSpreadDegrees * FMath::Clamp((FMath::Abs(Character->GetVelocity().Z)-5.f)/(216.f-5.f),0.f,1.f) : 0.f;
     const float LowPosture = FMath::GetMappedRangeValueClamped(FVector2D(62.5f,92.5f), FVector2D(Data->CrouchSpreadMultiplier,1.f), Movement->Locomotion.HalfHeight);
     const float Posture = FMath::Lerp(LowPosture, Data->CrouchSpreadMultiplier * .65f, Movement->Locomotion.ProneBlend);
     const float Air = Character->GetCharacterMovement()->IsFalling() ? Data->AirborneSpreadDegrees : 0.f;
