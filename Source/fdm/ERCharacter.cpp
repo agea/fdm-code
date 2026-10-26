@@ -1,4 +1,5 @@
 #include "ERCharacter.h"
+#include "ERWounds.h"
 #include "ERWorldWeaponPose.h"
 #include "ERClaymore.h"
 #include "ERLoadout.h"
@@ -231,14 +232,19 @@ bool UERHealthComponent::IsProtected() const
     const auto* State = GetWorld()->GetGameState<AERGameState>();
     return State && State->GetServerWorldTimeSeconds() < ProtectionEndServerTime;
 }
-float UERHealthComponent::ReceiveDamage(float Amount, AController* Killer, float ArmorRatio, const FERMessageDamage& Facts)
+float UERHealthComponent::ReceiveDamage(float Amount, AController* Killer, float ArmorRatio, const FERMessageDamage& Facts, const FHitResult* BulletHit)
 {
     auto* Character = Cast<AERCharacter>(GetOwner());
     auto* Mode = GetWorld()->GetAuthGameMode<AERGameMode>();
     if (!Character || !Character->HasAuthority() || !Mode || !Mode->IsMatchInProgress() || bDead || IsProtected() || Amount <= 0) return 0;
+    const float ArmorBefore=Armor;
     Amount = ERWeaponBallistics::AbsorbArmor(Amount, ArmorRatio, Armor);
     const float Before = Health;
     Health = FMath::Clamp(Health - Amount, 0.f, 100.f);
+    const float HealthLost=Before-Health, ArmorLost=ArmorBefore-Armor;
+    if (BulletHit && (HealthLost>0 || ArmorLost>0)) Character->Wounds->Record(Character->GetMesh(),*BulletHit,HealthLost<=0 && ArmorLost>0);
+    if ((HealthLost>0 || ArmorLost>0) && Killer && Killer!=Character->Controller)
+        if (auto* Shooter=Cast<AERPlayerController>(Killer)) Shooter->ClientInflictedDamage(HealthLost,ArmorLost);
     UE_LOG(LogTemp, Display, TEXT("ER_DAMAGE target=%s hp=%.0f"), *Character->GetName(), Health);
     GetWorld()->GetSubsystem<UERGameplayMessages>()->Damage(Character, Killer, Facts, Health <= 0);
     if (Health <= 0)
@@ -272,6 +278,7 @@ AERCharacter::AERCharacter(const FObjectInitializer& ObjectInitializer)
     GetCharacterMovement()->MaxWalkSpeedCrouched = 100;
     BaseEyeHeight = 77.5f; CrouchedEyeHeight = 50;
     bUseControllerRotationYaw = true;
+    Wounds = CreateDefaultSubobject<UERWounds>(TEXT("Wounds"));
     Health = CreateDefaultSubobject<UERHealthComponent>(TEXT("Health"));
     Footsteps = CreateDefaultSubobject<UERFootsteps>(TEXT("Footsteps"));
     ProneHitVolume = CreateDefaultSubobject<UCapsuleComponent>(TEXT("ProneHitVolume"));
@@ -351,6 +358,11 @@ void AERCharacter::BeginPlay()
     if(HasAuthority()) SpawnFacingYaw=GetActorRotation().Yaw;
     Super::BeginPlay();
     FirstPersonBodyBaseLocation = FirstPersonBody->GetRelativeLocation();
+    // Projected wounds and world bullet marks must never paint held weapons.
+    for(UPrimitiveComponent* Part : {static_cast<UPrimitiveComponent*>(FirstPersonRifle.Get()),
+        static_cast<UPrimitiveComponent*>(WorldRifle.Get()),static_cast<UPrimitiveComponent*>(FirstPersonSight.Get()),
+        static_cast<UPrimitiveComponent*>(WorldSight.Get()),static_cast<UPrimitiveComponent*>(FirstPersonMuzzleFlash.Get()),
+        static_cast<UPrimitiveComponent*>(WorldMuzzleFlash.Get())}) Part->SetReceivesDecals(false);
     FirstPersonBodyBaseRotation = FirstPersonBody->GetRelativeRotation();
     UERShotEffects::Prewarm(GetWorld(), TracerSystem, Camera->GetComponentLocation());
     // Compress only the viewmodel's rendered depth, preserving its framing and
@@ -560,6 +572,7 @@ void AERCharacter::Tick(float DeltaTime)
             if (Appearance.Mesh)
             {
                 Appearance.Apply(GetMesh());
+                Wounds->SetBody(GetMesh());
                 WorldRifle->AttachToComponent(GetMesh(), FAttachmentTransformRules::KeepRelativeTransform, AppliedWeaponData && AppliedWeaponData->bWorldReferencePose ? TEXT("ER_Palm_R"):TEXT("HandGrip_R"));
                 UE_LOG(LogTemp, Display, TEXT("ER_TEAM_APPEARANCE team=%s mesh=%s anim=%s hidden=%d bot=%d"),
                     State->Team == EERTeam::Alpha ? TEXT("Alpha") : TEXT("Omega"), *Appearance.Mesh->GetPathName(),
@@ -833,7 +846,7 @@ float AERCharacter::TakeDamage(float Damage, const FDamageEvent& Event, AControl
             Projectile->Payload == EERPayload::LaunchedHE || Projectile->Payload == EERPayload::Rocket);
         Facts.Grenade = Facts.Explosion && (Projectile->Payload == EERPayload::HE || Projectile->Payload == EERPayload::LaunchedHE);
     }
-    Health->ReceiveDamage(Damage, Killer, Ratio, Facts);
+    Health->ReceiveDamage(Damage, Killer, Ratio, Facts, bBullet ? &static_cast<const FPointDamageEvent&>(Event).HitInfo : nullptr);
     const float Applied=Before-Health->Health;
     if(Applied>0)
     {
@@ -926,6 +939,7 @@ void AERCharacter::ApplyDeathVisuals()
         if (auto* Corpse = GetWorld()->SpawnActorDeferred<AERCorpse>(CorpseClass, Transform, nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn))
         {
             if (const auto* State = GetPlayerState<AERPlayerState>()) { Corpse->Team = State->Team; Corpse->SkinIndex = State->ActiveSkin; }
+            Corpse->Wounds->CopyFrom(Wounds);
             Corpse->ImpactDirection = LastHitDirection;
             UGameplayStatics::FinishSpawningActor(Corpse, Transform);
         }

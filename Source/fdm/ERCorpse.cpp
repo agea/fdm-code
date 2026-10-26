@@ -1,4 +1,5 @@
 #include "ERCorpse.h"
+#include "ERWounds.h"
 #include "Components/PoseableMeshComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/SceneComponent.h"
@@ -46,7 +47,8 @@ AERCorpse::AERCorpse()
     Body = CreateDefaultSubobject<UERCorpseMeshComponent>(TEXT("Body"));
     Body->SetupAttachment(GetRootComponent());
     Body->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-    InitialLifeSpan = 90;
+    Wounds = CreateDefaultSubobject<UERWounds>(TEXT("Wounds"));
+    InitialLifeSpan = 30;
 }
 const FERTeamAppearance& AERCorpse::GetTeamAppearance() const
 {
@@ -56,6 +58,9 @@ const FERTeamAppearance& AERCorpse::GetTeamAppearance() const
 void AERCorpse::BeginPlay()
 {
     Super::BeginPlay();
+    // Enforce the lifetime even when a saved Blueprint retains the old default.
+    // Server destruction replicates to every peer together with attached wounds.
+    if(HasAuthority())SetLifeSpan(30.f);
     const auto& Appearance = GetTeamAppearance();
     if (Appearance.Mesh) Appearance.Apply(Body, true);
     else
@@ -106,6 +111,7 @@ void AERCorpse::BeginPlay()
         Body->SetVisibility(false,false);
     }
     else SetActorTickEnabled(false);
+    Wounds->SetBody(PoseBody ? static_cast<USkinnedMeshComponent*>(PoseBody.Get()) : Body.Get());
     UE_LOG(LogTemp, Display, TEXT("ER_CORPSE_CREATED team=%d physics=%d mesh=%s"), static_cast<int32>(Team), Body->IsSimulatingPhysics(), *GetPathNameSafe(Body->GetSkeletalMeshAsset()));
 }
 void AERCorpse::Tick(float DeltaSeconds)

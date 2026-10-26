@@ -1,5 +1,44 @@
 # Respawn & Rage — sviluppo Unreal
 
+## Durata cadaveri — 26 ottobre 2026
+
+Il server elimina ogni cadavere 30 secondi dopo la sua creazione, insieme alle
+decal agganciate; la distruzione viene replicata a tutti i client. Il limite è
+imposto in BeginPlay anche ai Blueprint salvati con il precedente valore90s.
+
+## Ferite da proiettile — 26 ottobre 2026
+
+I colpi da arma da fuoco che producono danno applicano sul personaggio una delle
+decal della famiglia corretta, scelta casualmente dal server. Posizione e orientamento
+sono salvati rispetto all'osso colpito, replicati ai client e trasferiti al
+ragdoll alla morte; massimo 32 segni per corpo. I colpi protetti o rifiutati e i
+danni non da proiettile non aggiungono ferite. I colpi assorbiti interamente
+dall'armatura aggiungono comunque la decal. Il nuovo atlante ArmorImpacts.png
+fornisce quattro strappi di tessuto scelti solo quando perde armatura e zero
+salute; con qualsiasi perdita di salute si usano le ferite originali.
+`setup_armor_decals.py` importa l'atlante intatto e crea quattro istanze con UV
+dei quadranti, senza modificare alpha o pixel della sorgente. `wound2.png`,
+ultima immagine della prima serie, viene ruotata di 180 gradi; le altre conservano il proprio
+orientamento. Le dimensioni visibili delle decal sono ridotte al 40%
+delle iniziali, con rapporto d'aspetto e profondità di proiezione conservati.
+Gli originali con alpha restano in
+`SourceAssets/BulletImpacts/Wounds`; `setup_wound_decals.py` rigenera texture,
+materiale decal e quattro istanze sotto `Effects/Wounds`.
+
+Sotto il mirino compaiono i danni effettivamente inflitti a salute (rosso) e
+armatura (verde), con i colori delle icone circolari. Notifiche inviate dal
+server solo all'attaccante: massimo cinque righe, nuova sopra e precedenti
+spostate in basso, un secondo visibile seguito da sfumatura di 0,2 secondi.
+Testo ridotto a scala 0,5 (prima 0,7), righe distanziate 17 unità di riferimento.
+Le decal sui giocatori vivi e sui cadaveri disabilitano la scomparsa per
+dimensione sullo schermo: la soglia predefinita 0,01 rendeva poco visibili i
+segni ridotti al 40% già a distanze brevi. Restano agganciate all'osso colpito.
+Correzione successiva: il contatto fisico non è necessariamente sulla pelle o
+sui vestiti renderizzati. Le decal seguono ora il raggio del proiettile, con
+centro sul contatto e semiprofondità40cm (scarti misurati fino a30cm), mantenendo le dimensioni visibili.
+Gli impatti senza nome osso usano l'osso corporeo più vicino. Le armi impugnate,
+i mirini, i visuali delle armi lanciate e le Claymore rifiutano tutte le decal.
+
 ## Pose armi in terza persona — 26 ottobre 2026
 
 Le sette armi da fuoco hanno ora profili world separati dal rig FPS: scala

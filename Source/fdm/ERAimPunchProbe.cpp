@@ -1,5 +1,7 @@
 #include "ERAimPunchProbe.h"
 #include "ERCharacter.h"
+#include "ERCorpse.h"
+#include "ERWounds.h"
 #include "ERWeapon.h"
 #include "ERPlayerController.h"
 #include "ERBotController.h"
@@ -55,6 +57,11 @@ void AERAimPunchProbe::Tick(float DeltaTime)
             FMinimalViewInfo V;C->CalcCamera(0,V);
             UE_LOG(LogTemp,Display,TEXT("ER_AIMPUNCH_CAMERA pawn=%s real=%.6f pitch=%.6f yaw=%.6f punch=%.6f"),*C->GetName(),FPlatformTime::Seconds(),V.Rotation.Pitch,V.Rotation.Yaw,C->GetAimPunchRotation().Pitch);
         }
+        if(!WoundReplicationReported && Phase>=99 && C->Wounds->GetMarks().Num()>0)
+        {
+            WoundReplicationReported=true;
+            UE_LOG(LogTemp,Display,TEXT("ER_WOUND_CLIENT_PASS replicated_marks=%d"),C->Wounds->GetMarks().Num());
+        }
         const auto& State=C->GetAimPunchState();
         if(State.Sequence!=ClientSequence && State.Angle.X>.01 && !C->Health->bDead)
         {
@@ -101,7 +108,9 @@ void AERAimPunchProbe::Tick(float DeltaTime)
     {
         H->Health->Health=100;H->ResetAimPunch();H->RecoilState=FERWeaponRecoilState();
         const auto Base=Host->GetControlRotation();const FVector Pos=H->GetActorLocation();
+        const int32 WoundsBefore=H->Wounds->GetMarks().Num();
         Check(FMath::IsNearlyEqual(Hit(H,20),20.f,.001f),TEXT("20hp_real_bullet_pipeline"));
+        Check(H->Wounds->GetMarks().Num()==WoundsBefore+1,TEXT("accepted_bullet_adds_one_wound"));
         Check(FMath::IsNearlyEqual(H->GetAimPunchRotation().Pitch,.64f,.001f),TEXT("single_hit_exact_impulse"));
         Check(Host->GetControlRotation().Equals(Base) && H->GetActorLocation().Equals(Pos),TEXT("input_and_capsule_unchanged"));
         FMinimalViewInfo V;H->CalcCamera(0,V);
@@ -114,10 +123,29 @@ void AERAimPunchProbe::Tick(float DeltaTime)
         const float Actual=100-H->Health->Health;Check(FMath::IsNearlyEqual(H->GetAimPunchRotation().Pitch,(.4f+Actual*.012f)*.6f,.001f),TEXT("armor_uses_actual_mitigation"));
         H->ResetAimPunch();H->Health->Health=100;H->Health->Armor=0;Hit(H,20,true);
         Check(FMath::IsNearlyEqual(H->GetAimPunchRotation().Pitch,.96f,.001f),TEXT("real_head_bone_flag"));
-        H->ResetAimPunch();H->Health->ProtectionEndServerTime=Now+10;Hit(H,20);
+        H->ResetAimPunch();H->Health->ProtectionEndServerTime=Now+10;
+        const int32 ProtectedWounds=H->Wounds->GetMarks().Num();Hit(H,20);
         Check(H->GetAimPunchRotation().IsNearlyZero(),TEXT("spawn_protected_no_impulse"));H->Health->ProtectionEndServerTime=0;
+        Check(H->Wounds->GetMarks().Num()==ProtectedWounds,TEXT("protected_bullet_adds_no_wound"));
         FHitResult Other;UGameplayStatics::ApplyPointDamage(H,5,FVector::ForwardVector,Other,Host,nullptr,UDamageType::StaticClass());
         Check(H->GetAimPunchRotation().IsNearlyZero(),TEXT("non_bullet_no_impulse"));
+        Check(H->Wounds->GetMarks().Num()==ProtectedWounds,TEXT("non_bullet_adds_no_wound"));
+        H->Health->Armor=100;
+        FHitResult ArmorHit;ArmorHit.BoneName=TEXT("spine_03");ArmorHit.ImpactPoint=H->GetMesh()->GetSocketLocation(ArmorHit.BoneName);ArmorHit.ImpactNormal=FVector::ForwardVector;
+        const float HealthBeforeArmorHit=H->Health->Health;
+        H->Health->ReceiveDamage(20,Client,0.f,FERMessageDamage(),&ArmorHit);
+        Check(H->Health->Health==HealthBeforeArmorHit && H->Health->Armor==90 && H->Wounds->GetMarks().Num()==ProtectedWounds+1,
+            TEXT("armor_only_hit_adds_wound_without_health_loss"));
+        Check(H->Wounds->GetMarks().Last().Variant>=4 && H->Wounds->GetMarks().Last().Variant<8,
+            TEXT("armor_only_selects_fabric_atlas"));
+        H->Health->ReceiveDamage(10,Client,1.f,FERMessageDamage(),&ArmorHit);
+        Check(H->Health->Health<HealthBeforeArmorHit && H->Health->Armor<90 && H->Wounds->GetMarks().Last().Variant<4,
+            TEXT("mixed_health_armor_selects_original_wounds"));
+        for(int32 I=1;I<=6;++I)Host->ClientInflictedDamage(float(I),float(I*2));
+        Check(Host->DamageNotices.Num()==5 && Host->DamageNotices[0].Health==6 && Host->DamageNotices.Last().Health==2,
+            TEXT("damage_notices_newest_first_max_five"));
+        Host->DamageNotices.Reset();
+        H->Health->Armor=0;
         H->Health->Health=100;H->ResetAimPunch();Hit(H,20);
         --H->Inventory[1]->AuthorizedShotCount;Hit(H,20);
         Check(FMath::IsNearlyEqual(H->GetAimPunchRotation().Pitch,.88f,.001f),TEXT("pellets_share_one_base_impulse"));
@@ -155,6 +183,7 @@ void AERAimPunchProbe::Tick(float DeltaTime)
         Host->SetControlRotation((C->GetMesh()->GetSocketLocation(TEXT("spine_03"))-H->Camera->GetComponentLocation()).Rotation());
         H->ServerStartFire();H->ServerStopFire();
         Check(C->Health->Health<100 && C->GetAimPunchRotation().Pitch>0,TEXT("physical_host_bullet_punches_remote_victim"));
+        Check(C->Wounds->GetMarks().Num()>0,TEXT("physical_host_bullet_marks_remote_victim"));
         C->ServerSelectWeapon(2);Advance(99,.5f);return;
     }
     if(Phase==99){C->Health->Health=100;Hit(C,20);Advance(100,.3f);return;}
@@ -189,6 +218,10 @@ void AERAimPunchProbe::Tick(float DeltaTime)
     }
     if(Phase==103)
     {
+        bool CorpseWounds=false;
+        for(TActorIterator<AERCorpse> It(GetWorld());It;++It)
+            CorpseWounds|=It->Wounds && It->Wounds->GetMarks().Num()>0;
+        Check(CorpseWounds,TEXT("death_copies_wounds_to_corpse"));
         Client->RespawnAllowedAt=Now;Mode->RequestRespawn(Client);
         auto* Fresh=Cast<AERCharacter>(Client->GetPawn());
         Check(Fresh && Fresh!=C && Fresh->GetAimPunchRotation().IsNearlyZero() && Fresh->GetAimPunchState().Angle.IsZero(),TEXT("respawn_new_pawn_has_no_offset"));

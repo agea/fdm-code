@@ -24,7 +24,7 @@ processes=[];handles=[];started=time.time()
 try:
     hostlog=logs/(tag+'-host.log');clientlog=logs/(tag+'-client.log')
     handles.append(hostlog.open('w'))
-    host=subprocess.Popen(common+['/Game/EclipseRecoil/Maps/L_Depot?listen?Name=AimHost?ERAlphaBots=1?EROmegaBots=0?ERBotMode=Target','-port=17831','-ERAimPunchProbe'],stdout=handles[-1],stderr=subprocess.STDOUT);processes.append(host)
+    host=subprocess.Popen(common+['/Game/EclipseRecoil/Maps/L_Depot?listen?Name=AimHost?ERFullArsenalTest?ERAlphaBots=1?EROmegaBots=0?ERBotMode=Target','-port=17831','-ERAimPunchProbe'],stdout=handles[-1],stderr=subprocess.STDOUT);processes.append(host)
     end=time.monotonic()+70
     while 'listening on port 17831' not in hostlog.read_text(errors='replace'):
         if host.poll() is not None or time.monotonic()>end:raise RuntimeError('Host failed to listen')

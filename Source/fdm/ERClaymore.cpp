@@ -101,6 +101,8 @@ bool AERClaymore::Place(AERCharacter* C)
 void AERClaymore::BeginPlay()
 {
     Super::BeginPlay();
+    Body->SetReceivesDecals(false);Front->SetReceivesDecals(false);
+    LaserLeft->SetReceivesDecals(false);LaserRight->SetReceivesDecals(false);
     if(HasAuthority())ArmAt=GetWorld()->GetTimeSeconds()+ArmDelay;
     UpdateLasers();
 }

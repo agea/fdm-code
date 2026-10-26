@@ -29,7 +29,7 @@ public:
     UPROPERTY(ReplicatedUsing=OnRep_Dead, BlueprintReadOnly) bool bDead = false;
     UPROPERTY(Replicated, BlueprintReadOnly) double ProtectionEndServerTime = 0;
     bool IsProtected() const;
-    float ReceiveDamage(float Amount, AController* Killer, float ArmorRatio = 2, const FERMessageDamage& Facts = FERMessageDamage());
+    float ReceiveDamage(float Amount, AController* Killer, float ArmorRatio = 2, const FERMessageDamage& Facts = FERMessageDamage(), const FHitResult* BulletHit = nullptr);
     UFUNCTION() void OnRep_Dead();
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 };
@@ -39,6 +39,7 @@ class FDM_API AERCharacter : public ACharacter
 {
     GENERATED_BODY()
 public:
+    UPROPERTY(VisibleAnywhere) TObjectPtr<class UERWounds> Wounds;
     AERCharacter(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
     UFUNCTION(BlueprintCallable, Category="Training|Editor")
     static bool CopyTrainingGripSockets(class USkeletalMesh* TargetMesh, class USkeletalMesh* SourceMesh);

@@ -6541,3 +6541,58 @@ con aspettativa indipendente di offset 2 cm per Phase e zero per tutte le altre
 skin. Regressioni armi/scope PASS, inclusi slot/stati remoti. Log dedicati
 world-pose-phase-*.log in Saved/Testing. Il nuovo offset agisce solo sulla
 sinistra delle armi lunghe; pistola, FPS, arma e mano destra invariati.
+
+### Decal ferite da proiettile — 26 ottobre
+
+Correzione proiezione su mesh: build Mac Editor PASS. Audit grafico su25 raggi
+toracici confrontati con i triangoli CPU-skinned visibili. Prima calibrazione:
+22 contatti/22 intersezioni render, vecchio volume copriva5, volume12cm con
+centro arretrato copriva16: insufficiente, scarti misurati fino30,26cm.
+Versione finale: proiezione lungo il raggio, centrata sul contatto fisico,
+semiprofondità40cm, larghezza/altezza40% preservate. Nuova esecuzione24 contatti,
+24 intersezioni, copertura6/24 col vecchio proiettore e24/24 col nuovo;24 segni
+su bersaglio vivo a76HP. Immagine Metal a2m ispezionata. Armi FPS/world con
+bReceivesDecals=0/0 verificato nel processo; mirini, flash, visuali proiettile,
+Claymore e anteprima piazzamento disabilitati anch'essi a runtime. Impatti senza
+bone usano FindClosestBone e il cambio skin riaggancia i segni già replicati.
+La correzione precedente della sola distanza non risolveva lo scarto fisica/mesh.
+
+Correzione visibilità sui vivi: build Mac Editor PASS. UDecalComponent usava
+FadeScreenSize=0.01 predefinito, mentre i muri usano 0.0005; per i piccoli segni
+sui personaggi la scomparsa per dimensione schermo è ora disattivata (zero).
+Galleria Metal ERTeamGallery/ERWoundGallery: tre impatti ottenuti con le tracce
+fisiche dei proiettili e applicati tramite ReceiveDamage, bersaglio vivo a70HP,
+tre segni visibili nelle catture a200/600cm. Ispezionate entrambe le immagini
+con segni; baseline e immagini in Saved/Testing/Wounds/alive-*.png. La prima
+prova con traceComplex=true non aveva prodotto impatti ed è stata corretta per
+usare false, come ERShotTrace/armi reali. Testo danni da scala0.7 a0.5, righe17.
+
+Famiglie tessuto/ferita: build Mac Editor e import atlante ArmorImpacts PASS.
+Prova host/client Metal e regressione AimPunch completa PASS. Controlli dedicati:
+0 HP/10 AP seleziona uno dei quattro quadranti tessuto (varianti 4..7); danno
+misto a salute e armatura seleziona una delle ferite originali (0..3). Sorgente
+RGBA 1254x1254 con alpha 0..255 preservata; nessun errore di compilazione materiale.
+
+Estensione armatura/notifiche: build Mac Editor PASS; prova host/client Metal
+PASS per danno alla sola armatura (0 HP/10 AP), decal aggiunta, notifica ricevuta
+dal tiratore remoto e coda massima di cinque elementi con ordine nuovo-prima.
+Test AimPunch completo ora PASS dopo aver ripristinato nella fixture l'opzione
+ERFullArsenalTest richiesta dai suoi indici arma/scope; i fallimenti precedenti
+erano dovuti al catalogo chiuso usato dalla fixture. Notifiche a piena opacità
+per 1s e sfumatura di testo/ombra per 0,2s, rosso salute/verde armatura.
+
+Riduzione successiva: larghezza e altezza al 40% delle dimensioni iniziali,
+rapporto d'aspetto e profondità di proiezione conservati. Build Mac Editor PASS.
+
+Build Mac Editor PASS. Import Unreal PASS per quattro PNG originali con alpha,
+un materiale decal e quattro istanze. Automazione
+`EclipseRecoil.Player.WoundDecalOrientation` PASS: la variante `wound2`, ultima
+immagine allegata, usa 180 gradi e le altre tre zero.
+
+Prova listen server/client, sia null RHI sia Metal: PASS per un segno su ogni
+colpo accettato, nessun segno durante protezione o da danno non Bullet, impatto
+fisico sul giocatore remoto, replica al client e copia sul cadavere. In Metal le
+quattro texture sono state caricate e compilate senza errori materiale/shader.
+La suite AimPunch completa ha continuato a segnalare errori nelle proprie
+asserzioni di vettore arma/scope, estranee ai controlli ferita; non viene quindi
+registrata come regressione complessivamente superata.

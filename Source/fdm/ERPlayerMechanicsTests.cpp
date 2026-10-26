@@ -1,6 +1,7 @@
 #include "Misc/AutomationTest.h"
 #include "ERResolutionPolicy.h"
 #include "ERCharacter.h"
+#include "ERWounds.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FERResolutionTest,"EclipseRecoil.Player.ResolutionHysteresis",EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
@@ -34,6 +35,15 @@ bool FERFallTest::RunTest(const FString&)
     TestTrue(TEXT("Eleven meters is lethal"),FMath::IsNearlyEqual(Damage(1100),100.f,.001f));
     TestEqual(TEXT("Upward velocity never damages"),AERCharacter::FallDamage(-2000,Gravity),0.f);
     TestEqual(TEXT("Invalid gravity never damages"),AERCharacter::FallDamage(2000,0),0.f);
+    return true;
+}
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FERWoundOrientationTest,"EclipseRecoil.Player.WoundDecalOrientation",EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
+bool FERWoundOrientationTest::RunTest(const FString&)
+{
+    TestEqual(TEXT("wound1 keeps authored orientation"),UERWounds::RollForVariant(0),0.f);
+    TestEqual(TEXT("last attachment wound2 rotates 180 degrees"),UERWounds::RollForVariant(1),180.f);
+    TestEqual(TEXT("wound3 keeps authored orientation"),UERWounds::RollForVariant(2),0.f);
+    TestEqual(TEXT("wound4 keeps authored orientation"),UERWounds::RollForVariant(3),0.f);
     return true;
 }
 #endif

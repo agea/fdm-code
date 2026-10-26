@@ -1005,7 +1005,7 @@ FVector2D AERHUD::DrawHUDTextAnchored(const FString& Value, FVector2D Position, 
     Position-=Size*Anchor;
     FCanvasTextItem Item(FVector2D(FMath::RoundToFloat(Position.X),FMath::RoundToFloat(Position.Y)),FText::FromString(Value),Font,Color);
     // Keep the shadow close to the glyphs at every viewport resolution.
-    Item.EnableShadow(FLinearColor(0,0,0,.9f), FVector2D(2,2));
+    Item.EnableShadow(FLinearColor(0,0,0,.9f*Color.A), FVector2D(2,2));
     Canvas->DrawItem(Item);
     return Size;
 }
@@ -1060,6 +1060,7 @@ void AERHUD::DrawHUD()
     }
 
     DrawDamageFeedback(Character);
+    DrawInflictedDamage();
     const FLinearColor AlphaColor=ERRecon::TeamColor(EERTeam::Alpha), OmegaColor=ERRecon::TeamColor(EERTeam::Omega);
     DrawHUDText(FString::Printf(TEXT("%02d"),GS->AlphaScore),Layout.Position(555,20).X,Layout.Position(555,20).Y,AlphaColor,1.45f,true);
     DrawHUDText(TEXT("50"),W/2,Layout.Position(640,27).Y,FLinearColor(.8f,.82f,.85f),1.f,true);

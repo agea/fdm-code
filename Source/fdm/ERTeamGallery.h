@@ -12,6 +12,7 @@ public:
     AERTeamGallery();
     virtual void Tick(float DeltaTime) override;
 private:
+    void TickWounds(class AERCharacter* Player, class APlayerController* PC);
     void TickProtection(class AERCharacter* Player, class APlayerController* PC);
     void TickProtectionRespawn(class AERCharacter* Player, class APlayerController* PC);
     float ProtectionRespawnSeenAt = 0;

@@ -191,6 +191,40 @@ instead of the previous material mark, including penetrated surfaces/pellets.
 Preserve grenade contact/blast rules, pawn exclusion, 128 marks/20s and damage.
 The earlier FourBulletImpacts.png remains a historical source.
 
+Player wound decals (26 October, latest attachment): successful firearm point
+damage to health or armor records one of the four owner-supplied wound1..4 PNGs at the skeletal
+impact bone. The server chooses the variant and replicates bounded bone-local
+state (32 marks) so animation and late clients agree. Protected/rejected damage,
+melee and explosions add no wound mark. Copy the marks to the replicated corpse
+when the player dies. Preserve every source PNG and its alpha; the last displayed
+attachment is wound2.png and receives a fixed 180-degree decal rotation, while
+wound1, wound3 and wound4 retain their authored orientation. setup_wound_decals.py
+owns only Effects/Wounds. Render wound width/height at 40% of the initial size,
+preserving aspect ratio and projection depth. Verify the orientation automation plus real host/client
+damage, protected hits, corpse transfer and Metal material loading.
+Armor-only damage uses one of four fabric tears from the original owner
+ArmorImpacts.png atlas (setup_armor_decals.py, four quadrant instances). Any
+positive health loss, including mixed health/armor damage, uses the four original
+wounds. Replicate the selected eight-way variant and copy it to the corpse.
+
+Inflicted damage notices (26 October): the server sends actual health/armor lost
+to the attacking player only. Draw red HP and green AP text matching the circular
+vitals under the reticle, newest first, maximum five rows. Hold full opacity for
+one second then fade text and shadow over 0.2 seconds. Every new notice pushes
+older rows down. Reject protected/zero-loss hits and self damage notifications.
+Wound visibility refinement: disable UDecalComponent screen-size fading for
+retained player/corpse marks; the default .01 hides the 40%-sized marks at combat
+distances. Validate living-target Metal captures with ERTeamGallery/ERWoundGallery
+at 2m and 6m. Damage notices use text scale .5 and 17-unit row spacing.
+Subsequent wound projection correction: physics hit bodies do not match rendered
+skin/clothing. Project along the bullet trace rather than the hull normal, with
+40cm half-depth centred at the hit (measured gaps up to30cm; supersedes the shallow 3cm projector). Keep
+visible width/height at40%. Resolve missing hit bones to the nearest body bone;
+rebind retained marks after skin application. All held weapons, sights, muzzle
+meshes, thrown weapon visuals and Claymore/placement meshes reject decals at
+runtime, including serialized Blueprint components. Geometry audit in the wound
+gallery compares physics contacts with skinned render triangles on25 chest rays.
+
 Industrial wire removal (22 October, subsequent request): the user explicitly
 authorized completely removing the obsolete industrial wire assets, superseding
 the earlier reference/vendor retention rules for this retired fence family only.
@@ -499,7 +533,8 @@ reviewing their new repository ownership.
   or change ControlRotation for flinch.
 - Death spawns a separate replicated cosmetic team-character corpse. Ragdoll contacts
   only WorldStatic, never players/projectiles; retain it through respawn, settle
-  after five seconds, cap twelve/90 seconds and clear on round reset.
+  after five seconds, cap twelve/30 seconds and clear on round reset. Enforce
+  the 30-second lifetime on the server in BeginPlay, including saved Blueprints.
 - Rifle spread is real and server sampled; the ammo reticle reads that same
   cone plus replicated owner burst state against the synchronized server clock.
   Keep posture, speed, airborne and burst penalties shared with the HUD.

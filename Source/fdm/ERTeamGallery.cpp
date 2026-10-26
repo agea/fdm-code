@@ -1,6 +1,8 @@
 #include "ERTeamGallery.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "ERCharacter.h"
+#include "ERWounds.h"
+#include "Components/DecalComponent.h"
 #include "ERMovement.h"
 #include "ERCorpse.h"
 #include "ERWeapon.h"
@@ -305,6 +307,98 @@ void AERTeamGallery::TickProtection(AERCharacter* Player, APlayerController* PC)
 #endif
 }
 
+void AERTeamGallery::TickWounds(AERCharacter* Player,APlayerController* PC)
+{
+#if !UE_BUILD_SHIPPING
+    if(!Player || !PC || !Player->GetMesh()->GetSkeletalMeshAsset() || Age<8 || Age<NextShot)return;
+    if(Stage==0)
+    {
+        PC->SetIgnoreMoveInput(true);PC->SetIgnoreLookInput(true);
+        Player->TeleportTo(FVector(-10000,-10000,100),FRotator::ZeroRotator);
+        Player->GetCharacterMovement()->DisableMovement();
+        Player->Health->ProtectionEndServerTime=0;Player->Health->Health=100;Player->Health->Armor=100;
+        Player->GetMesh()->SetOwnerNoSee(false);
+        Player->FirstPersonBody->SetVisibility(false);Player->FirstPersonRifle->SetVisibility(false);
+        Player->WorldRifle->SetVisibility(false);
+        GalleryCamera=GetWorld()->SpawnActor<ACameraActor>();
+        GalleryCamera->GetCameraComponent()->SetFieldOfView(50);
+        PC->SetViewTarget(GalleryCamera);
+        if(PC->GetHUD())PC->GetHUD()->bShowHUD=false;
+        for(FVector Offset:{FVector(220,200,150),FVector(220,-200,150)})
+        {
+            auto* Light=GetWorld()->SpawnActor<APointLight>(Player->GetActorLocation()+Offset,FRotator::ZeroRotator);
+            Light->SetMobility(EComponentMobility::Movable);Light->PointLightComponent->SetIntensity(50000);
+            Light->PointLightComponent->SetAttenuationRadius(1800);Light->PointLightComponent->SetCastShadows(false);
+        }
+        Stage=1;NextShot=Age+3;return;
+    }
+    Player->GetMesh()->SetOwnerNoSee(false);
+    Player->FirstPersonBody->SetVisibility(false);Player->FirstPersonRifle->SetVisibility(false);Player->WorldRifle->SetVisibility(false);
+    const FVector Chest=Player->GetMesh()->GetSocketLocation(TEXT("spine_03"));
+    if(Stage==1)
+    {
+        Player->GetMesh()->bPauseAnims=true;
+        TArray<FFinalSkinVertex> Vertices;Player->GetMesh()->GetCPUSkinnedVertices(Vertices,0);
+        TArray<uint32> Indices;
+        const auto& LOD=Player->GetMesh()->GetSkeletalMeshAsset()->GetResourceForRendering()->LODRenderData[0];
+        LOD.MultiSizeIndexContainer.GetIndexBuffer(Indices);
+        const auto MeshTransform=Player->GetMesh()->GetComponentTransform();
+        int32 PhysicalHits=0,SurfaceHits=0,OldCovered=0,NewCovered=0;
+        for(float Height:{-12.f,-6.f,0.f,6.f,12.f})for(float Side:{-12.f,-6.f,0.f,6.f,12.f})
+        {
+            const FVector Target=Chest+FVector(0,Side,Height);
+            const FVector Start=Target+FVector(200,0,0),End=Target-FVector(50,0,0);
+            FHitResult Hit;FCollisionQueryParams Q(SCENE_QUERY_STAT(ERWoundGallery),false);
+            if(!Player->GetMesh()->LineTraceComponent(Hit,Start,End,Q))continue;
+            ++PhysicalHits;
+            FVector Surface=FVector::ZeroVector;double Nearest=DBL_MAX;
+            for(const auto& Section:LOD.RenderSections)
+            {
+                if(!Player->GetMesh()->IsMaterialSectionShown(Section.MaterialIndex,0))continue;
+                for(uint32 T=Section.BaseIndex;T<Section.BaseIndex+Section.NumTriangles*3;T+=3)
+                {
+                    FVector Point,Normal;
+                    if(FMath::SegmentTriangleIntersection(Start,End,
+                        MeshTransform.TransformPosition(FVector(Vertices[Indices[T]].Position)),
+                        MeshTransform.TransformPosition(FVector(Vertices[Indices[T+1]].Position)),
+                        MeshTransform.TransformPosition(FVector(Vertices[Indices[T+2]].Position)),Point,Normal))
+                    {const double D=FVector::DistSquared(Start,Point);if(D<Nearest){Nearest=D;Surface=Point;}}
+                }
+            }
+            if(Nearest<DBL_MAX)
+            {
+                ++SurfaceHits;
+                const FVector Delta=Surface-Hit.ImpactPoint,Normal=Hit.ImpactNormal.GetSafeNormal();
+                const float OldDepth=FVector::DotProduct(Delta,Normal);
+                const bool Old=FMath::Abs(OldDepth)<=3 && (Delta-Normal*OldDepth).Size()<=1.2f;
+                const bool New=FMath::Abs((Surface-Hit.ImpactPoint).X)<=40;
+                OldCovered+=Old;NewCovered+=New;
+                UE_LOG(LogTemp,Display,TEXT("ER_WOUND_SURFACE bone=%s gap=%.2f old=%d new=%d"),*Hit.BoneName.ToString(),Delta.Size(),Old,New);
+            }
+            Player->Health->ReceiveDamage(1,nullptr,2.f,FERMessageDamage(),&Hit);
+        }
+        UE_LOG(LogTemp,Display,TEXT("ER_WOUND_COVERAGE physics=%d surfaces=%d old=%d new=%d weapons_receive=%d/%d"),
+            PhysicalHits,SurfaceHits,OldCovered,NewCovered,Player->FirstPersonRifle->bReceivesDecals,Player->WorldRifle->bReceivesDecals);
+        UE_LOG(LogTemp,Display,TEXT("ER_WOUND_GALLERY alive=%d hp=%.1f marks=%d"),!Player->Health->bDead,Player->Health->Health,Player->Wounds->GetMarks().Num());
+        Stage=2;NextShot=Age+2;return;
+    }
+    if(Stage>=2 && Stage<=5)
+    {
+        const bool Show=(Stage%2)==1;
+        const float Distance=Stage<=3 ? 200.f : 600.f;
+        TArray<UDecalComponent*> Marks;Player->GetComponents(Marks);
+        for(auto* Mark:Marks)Mark->SetVisibility(Show);
+        const FVector Target=Chest;
+        GalleryCamera->SetActorLocationAndRotation(Target+FVector(Distance,0,0),FRotator(0,180,0));
+        // Allow a full rendered frame after changing visibility/camera.
+        if(ShotIndex!=Stage){ShotIndex=Stage;NextShot=Age+1;return;}
+        FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir()/FString::Printf(TEXT("Testing/Wounds/alive-%d-%s.png"),int32(Distance),Show?TEXT("marks"):TEXT("baseline")),false,false);
+        ++Stage;NextShot=Age+1;return;
+    }
+    UE_LOG(LogTemp,Display,TEXT("ER_WOUND_GALLERY_COMPLETE alive=%d marks=%d"),!Player->Health->bDead,Player->Wounds->GetMarks().Num());
+    FPlatformMisc::RequestExit(false);
+#endif
+}
 AERTeamGallery::AERTeamGallery() { PrimaryActorTick.bCanEverTick = true; }
 void AERTeamGallery::Tick(float DeltaTime)
 {
@@ -313,6 +407,7 @@ void AERTeamGallery::Tick(float DeltaTime)
     Age += DeltaTime;
     auto* PC = GetWorld()->GetFirstPlayerController();
     auto* Player = PC ? Cast<AERCharacter>(PC->GetPawn()) : nullptr;
+    if (FParse::Param(FCommandLine::Get(), TEXT("ERWoundGallery"))) { TickWounds(Player,PC); return; }
     if (FParse::Param(FCommandLine::Get(), TEXT("ERProtectionRespawnGallery"))) { TickProtectionRespawn(Player,PC); return; }
     if (FParse::Param(FCommandLine::Get(), TEXT("ERProtectionGallery"))) { TickProtection(Player,PC); return; }
     if (FParse::Param(FCommandLine::Get(), TEXT("ERCharacterShots"))) { TickCharacterShots(Player,PC); return; }

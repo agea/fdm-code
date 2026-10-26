@@ -95,6 +95,9 @@ class FDM_API AERPlayerController : public APlayerController
     GENERATED_BODY()
 public:
     AERPlayerController();
+    struct FDamageNotice { float Health=0, Armor=0; double Time=0; };
+    TArray<FDamageNotice> DamageNotices;
+    UFUNCTION(Client, Reliable) void ClientInflictedDamage(float HealthDamage, float ArmorDamage);
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly) TObjectPtr<class UERReconComponent> Recon;
     UPROPERTY(Replicated, BlueprintReadOnly) bool bAwaitingRespawn = false;
     UPROPERTY(Replicated, BlueprintReadOnly) double RespawnAllowedAt = 0;
@@ -269,6 +272,7 @@ public:
         float Scale = 1.3f, bool Centered = false);
 private:
     void DrawDamageFeedback(const class AERCharacter* Character);
+    void DrawInflictedDamage();
     void DrawVitals(const class AERCharacter* Character);
     void DrawWeaponInventory(const class AERCharacter* Character);
     UPROPERTY() TArray<TObjectPtr<class UTexture2D>> WeaponIcons;

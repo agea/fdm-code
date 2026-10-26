@@ -23,6 +23,7 @@ class FDM_API AERCorpse : public AActor
     GENERATED_BODY()
 public:
     AERCorpse();
+    UPROPERTY(VisibleAnywhere) TObjectPtr<class UERWounds> Wounds;
     UFUNCTION(BlueprintCallable, Category="Team appearance|Editor")
     static bool BuildTeamRagdollPhysics(class UPhysicsAsset* Asset, class USkeletalMesh* Mesh, float LimbSwing = 65.f, float LegSwing = 65.f);
     bool HasValidRagdollPose() const;

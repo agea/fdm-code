@@ -20,7 +20,7 @@ private:
     double ReadyAfter=0;
     uint32 ClientSequence=0;
     double Deadline=0;
-    bool Failed=false,Recovered=false;
+    bool Failed=false,Recovered=false,WoundReplicationReported=false;
     void Check(bool Value,const TCHAR* Label);
     void Advance(int32 Next,float Delay);
     float Hit(class AERCharacter* Victim,float HP,bool Head=false);

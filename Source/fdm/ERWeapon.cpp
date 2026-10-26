@@ -688,6 +688,7 @@ void AERProjectile::PostInitializeComponents()
 void AERProjectile::BeginPlay()
 {
     Super::BeginPlay();
+    Visual->SetReceivesDecals(false);Effect->SetReceivesDecals(false);
     // Capture allegiance when armed; death, respawn or team changes cannot recolor it.
     if(HasAuthority() && Payload==EERPayload::Smoke)
         if(const auto* Pawn=GetInstigator())
@@ -996,6 +997,7 @@ void AERWeapon::Tick(float Delta)
     if(!PlacementGhost)
     {
         PlacementGhost=NewObject<UStaticMeshComponent>(this);AddInstanceComponent(PlacementGhost);
+        PlacementGhost->SetReceivesDecals(false);
         PlacementGhost->SetStaticMesh(Data->PlacedMesh?Data->PlacedMesh.Get():GetDefault<AERClaymore>()->Body->GetStaticMesh().Get());
         PlacementGhost->SetCollisionEnabled(ECollisionEnabled::NoCollision);PlacementGhost->SetCastShadow(false);
         PlacementGhost->RegisterComponent();PlacementGhost->SetWorldScale3D(Data->PlacedMesh?FVector(1):FVector(.15f,.30f,.18f));
