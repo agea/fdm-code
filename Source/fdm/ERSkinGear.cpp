@@ -4,6 +4,7 @@
 #if WITH_EDITOR
 #include "MeshDescription.h"
 #include "StaticMeshAttributes.h"
+#include "SkeletalMeshAttributes.h"
 #endif
 
 FERAppearanceAttachment AERCorpse::MakeFieldAttachment(UStaticMesh* Gear, UMaterialInterface* Material, USkeletalMesh* Character, FName Bone, FVector Offset, FVector Scale)
@@ -100,6 +101,74 @@ bool AERCorpse::BuildFieldGear(UStaticMesh* Mesh, bool bHelmet, bool bOutwardFac
     if (!Mesh->BuildFromMeshDescriptions({&Description}, Params)) return false;
     Mesh->MarkPackageDirty();
     return true;
+#else
+    return false;
+#endif
+}
+
+
+bool AERCorpse::BuildDrongoMask(UStaticMesh* TargetMesh,USkeletalMesh* SourceMesh)
+{
+#if WITH_EDITOR
+    if(!TargetMesh || !SourceMesh || !TargetMesh->GetPathName().StartsWith(TEXT("/Game/EclipseRecoil/Characters/Teams/Gear/")))return false;
+    const FMeshDescription* Source=SourceMesh->GetMeshDescription(0);if(!Source)return false;
+    const auto& Ref=SourceMesh->GetRefSkeleton();const int32 HeadBone=Ref.FindBoneIndex(TEXT("head"));int32 Bone=HeadBone;if(Bone==INDEX_NONE)return false;
+    FTransform Head=Ref.GetRefBonePose()[Bone];while((Bone=Ref.GetParentIndex(Bone))!=INDEX_NONE)Head*=Ref.GetRefBonePose()[Bone];
+    FSkeletalMeshConstAttributes In(*Source);
+    TArray<int32> BoneMap;BoneMap.Init(INDEX_NONE,In.Bones().GetArraySize());
+    for(const FBoneID ID:In.Bones().GetElementIDs())BoneMap[ID.GetValue()]=Ref.FindBoneIndex(In.GetBoneNames()[ID]);
+    const auto Weights=In.GetVertexSkinWeights();
+    auto HeadWeight=[&](FVertexID Vertex)
+    {
+        float Total=0;
+        for(const auto Weight:Weights.Get(Vertex))
+        {
+            int32 Index=BoneMap.IsValidIndex(Weight.GetBoneIndex())?BoneMap[Weight.GetBoneIndex()]:INDEX_NONE;
+            while(Index!=INDEX_NONE && Index!=HeadBone)Index=Ref.GetParentIndex(Index);
+            if(Index==HeadBone)Total+=Weight.GetWeight();
+        }
+        return Total;
+    };
+    FMeshDescription Out;FStaticMeshAttributes Attr(Out);Attr.Register();
+    const int32 UVs=In.GetVertexInstanceUVs().GetNumChannels();Attr.GetVertexInstanceUVs().SetNumChannels(UVs);
+    TargetMesh->GetStaticMaterials().Reset();
+    TMap<FPolygonGroupID,FPolygonGroupID> Groups;int32 Triangles=0;
+    for(const FTriangleID Triangle:Source->Triangles().GetElementIDs())
+    {
+        const FPolygonGroupID Group=Source->GetTrianglePolygonGroup(Triangle);
+        const FName Slot=In.GetPolygonGroupMaterialSlotNames()[Group];const FString Name=Slot.ToString().ToLower();
+        if(!Name.Contains(TEXT("variant")) && !Name.Contains(TEXT("bones")))continue;
+        const auto Corners=Source->GetTriangleVertexInstances(Triangle);bool InHead=true;
+        for(const auto Corner:Corners)
+        {
+            const FVector P(In.GetVertexPositions()[Source->GetVertexInstanceVertex(Corner)]);
+            const FVector Offset=P-Head.GetLocation();
+            InHead &= Offset.Z>-22 && Offset.Z<30 && FMath::Abs(Offset.X)<26 && FMath::Abs(Offset.Y)<35 && HeadWeight(Source->GetVertexInstanceVertex(Corner))>.8f;
+        }
+        if(!InHead)continue;
+        if(!Groups.Contains(Group))
+        {
+            const auto NewGroup=Out.CreatePolygonGroup();Groups.Add(Group,NewGroup);Attr.GetPolygonGroupMaterialSlotNames()[NewGroup]=Slot;
+            const int32 Material=SourceMesh->GetMaterials().IndexOfByPredicate([&](const FSkeletalMaterial& M){return M.MaterialSlotName==Slot || M.ImportedMaterialSlotName==Slot;});
+            TargetMesh->GetStaticMaterials().Add(FStaticMaterial(Material==INDEX_NONE?nullptr:SourceMesh->GetMaterials()[Material].MaterialInterface.Get(),Slot));
+        }
+        TArray<FVertexInstanceID> NewCorners;
+        for(const auto Corner:Corners)
+        {
+            const auto Vertex=Out.CreateVertex();Attr.GetVertexPositions()[Vertex]=FVector3f(Head.InverseTransformPosition(FVector(In.GetVertexPositions()[Source->GetVertexInstanceVertex(Corner)])));
+            const auto Instance=Out.CreateVertexInstance(Vertex);NewCorners.Add(Instance);
+            Attr.GetVertexInstanceNormals()[Instance]=FVector3f(Head.InverseTransformVectorNoScale(FVector(In.GetVertexInstanceNormals()[Corner])));
+            Attr.GetVertexInstanceTangents()[Instance]=FVector3f(Head.InverseTransformVectorNoScale(FVector(In.GetVertexInstanceTangents()[Corner])));
+            Attr.GetVertexInstanceBinormalSigns()[Instance]=In.GetVertexInstanceBinormalSigns()[Corner];
+            Attr.GetVertexInstanceColors()[Instance]=In.GetVertexInstanceColors()[Corner];
+            for(int32 UV=0;UV<UVs;++UV)Attr.GetVertexInstanceUVs().Set(Instance,UV,In.GetVertexInstanceUVs().Get(Corner,UV));
+        }
+        Out.CreatePolygon(Groups[Group],NewCorners);++Triangles;
+    }
+    if(Triangles<50)return false;
+    UStaticMesh::FBuildMeshDescriptionsParams Params;Params.bBuildSimpleCollision=false;Params.bFastBuild=false;
+    if(!TargetMesh->BuildFromMeshDescriptions({&Out},Params))return false;
+    TargetMesh->MarkPackageDirty();UE_LOG(LogTemp,Display,TEXT("ER_DRONGO_MASK_BUILD triangles=%d materials=%d"),Triangles,Groups.Num());return true;
 #else
     return false;
 #endif

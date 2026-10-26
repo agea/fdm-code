@@ -112,8 +112,7 @@ config = {
               ['weapon_l','weapon_r','ult_root','q_weapon_l','q_weapon_r','grenade'], ['Pistol','Grenade','SIM']),
     'Omega': ('/Game/ParagonDrongo/Characters/Heroes/Drongo/Meshes/Drongo_GDC',
               '/Game/ParagonDrongo/Characters/Heroes/Drongo/Meshes/Drongo_Extents',
-              ['pistol','weapon_r','boomerang','Bazooka','canister_pos','grenade_pos','headHose_top_l_01','headHose_top_r_01',
-               'hoseSide_helper','hoseShoulder_helper','hoseChest_helper','chestHose_box'], ['Weapons','Bones']),
+              ['pistol','weapon_r','boomerang','Bazooka','canister_pos','grenade_pos'], ['Weapons']),
 }
 appearances = {}
 for team, (source_path, physics_path, hidden_bones, hidden_slot_words) in config.items():

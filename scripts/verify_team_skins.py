@@ -21,7 +21,9 @@ for path in ['/Game/EclipseRecoil/Core/BP_ERCharacter','/Game/EclipseRecoil/Core
             assert len(x.materials)==len(x.mesh.materials)
             for part in x.attachments:
                 skin_folder = x.mesh.get_path_name().rsplit('/',1)[0]+'/'
-                assert part.mesh and part.material and part.mesh.get_path_name().startswith((root+'Gear/',skin_folder))
+                assert part.mesh and part.mesh.get_path_name().startswith((root+'Gear/',skin_folder))
+                # The reused Drongo mask retains its original material slots.
+                assert part.material or (part.mesh.get_name()=='SM_ER_DrongoMask' and all(s.material_interface for s in part.mesh.get_editor_property('static_materials')))
             if catalog:
                 original=catalog.get_editor_property(team.lower()+'_skins')[index]
                 assert x.mesh==original.mesh and x.materials==original.materials and x.attachments==original.attachments

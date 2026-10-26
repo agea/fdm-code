@@ -21,6 +21,7 @@ def prepare(project, engine):
     snippets = Path(__file__).with_name('eos-guest')
     module = Path('Source/OnlineSubsystemEOS')
     expected = {
+        'OnlineSessionEOS.cpp': '619dfc6fc0f98018a9daa33db2d13f14b5cfd916fac83e6c44b02c95c70cac78',
         'UserManagerEOS.cpp': '44e165f403aade610979d855feb6f6acab86777c783d3ebfb858e2dd51bdcf37',
         'UserManagerEOS.h': '6449236d3564759d5dc76caa8738d0ed6d138ed9365dbdfb591dc7b716237c71',
     }
@@ -40,6 +41,18 @@ def prepare(project, engine):
         if text.count(needle) != 1:
             raise RuntimeError('EOS source anchor changed: ' + needle[:70])
         return text.replace(needle, replacement, 1)
+
+    # UE 5.8.3 copies EOS public availability into private slots. The browser
+    # consequently discards every result as full. Fix only this reviewed pair.
+    session_path = module / 'Private/OnlineSessionEOS.cpp'
+    session = files[session_path].decode()
+    session = once(session,
+        'SearchResult.Session.NumOpenPrivateConnections = EosSessionDetailsInfo->NumOpenPublicConnections;',
+        'SearchResult.Session.NumOpenPublicConnections = EosSessionDetailsInfo->NumOpenPublicConnections;')
+    session = once(session,
+        'SearchResult.Session.SessionSettings.NumPrivateConnections = EosSessionDetailsInfo->Settings->NumPublicConnections;',
+        'SearchResult.Session.SessionSettings.NumPublicConnections = EosSessionDetailsInfo->Settings->NumPublicConnections;')
+    files[session_path] = session.encode()
 
     header = once(header, 'struct FLocalUserEOS\n{', 'struct FLocalUserEOS\n{\n\tFString RRDeviceIdDisplayName;')
     cpp = once(cpp, 'if(!Settings.bUseEAS && Settings.bUseEOSConnect)\n\t{',

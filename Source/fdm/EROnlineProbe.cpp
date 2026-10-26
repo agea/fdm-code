@@ -17,7 +17,7 @@ void UEROnlineProbe::Initialize(FSubsystemCollectionBase& Collection)
     Super::Initialize(Collection);
     Collection.InitializeDependency<UEROnline>();
 #if !UE_BUILD_SHIPPING
-    if (FParse::Param(FCommandLine::Get(), TEXT("EROnlineServiceProbe")))
+    if (FParse::Param(FCommandLine::Get(), TEXT("EROnlineServiceProbe")) || FParse::Param(FCommandLine::Get(), TEXT("EROnlineSearchProbe")))
         Ticker = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateUObject(this, &UEROnlineProbe::Tick), .1f);
 #endif
 }
@@ -34,7 +34,9 @@ void UEROnlineProbe::FindComplete(bool Success)
     for (const auto& Result : Query->SearchResults)
     {
         if (Result.GetSessionIdStr() != SessionId) continue;
-        FString Address, Version, HostName;
+        FString Address, Version, HostName, ServerName;
+        Result.Session.SessionSettings.Get(FName(TEXT("RR_SERVER_NAME")), ServerName);
+        Check(ServerName == TEXT("EOS test server"), TEXT("chosen_server_name_advertised"));
         Result.Session.SessionSettings.Get(FName(TEXT("RR_VERSION")), Version);
         Result.Session.SessionSettings.Get(FName(TEXT("RR_HOST")), HostName);
         Check(HostName == TEXT("EOSProbe"), TEXT("guest_nickname_advertised_without_epic_profile"));
@@ -55,6 +57,37 @@ bool UEROnlineProbe::Tick(float Delta)
     if (!GI || !World || !PC || World->bIsTearingDown) return true;
     auto* Online = GI->GetSubsystem<UEROnline>();
     const double Now = FPlatformTime::Seconds();
+    // A separate process exercises the actual menu search while the service
+    // fixture hosts. Same-device credentials prove discovery, not peer admission.
+    if (FParse::Param(FCommandLine::Get(), TEXT("EROnlineSearchProbe")))
+    {
+        if (!Phase)
+        {
+            if (World->GetTimeSeconds() < 2) return true;
+            Phase = 1; Deadline = Now + 90; Online->Search();
+        }
+        if (!Online->IsBusy())
+        {
+            for (const auto& Result : Online->Results)
+            {
+                FString Name;
+                Result.Session.SessionSettings.Get(FName(TEXT("RR_SERVER_NAME")), Name);
+                if (Name == TEXT("EOS test server"))
+                {
+                    UE_LOG(LogTemp, Display, TEXT("ER_EOS_SEARCH_PROCESS result=PASS named_server_found"));
+                    GI->QuitGame(); return false;
+                }
+            }
+            if (Now < Deadline && Now >= SearchAgainAt) { SearchAgainAt = Now + 2; Online->Search(); }
+        }
+        if (Now > Deadline)
+        {
+            UE_LOG(LogTemp, Error, TEXT("ER_EOS_SEARCH_PROCESS result=FAIL status=%s"), *Online->Status);
+            FPlatformMisc::RequestExitWithStatus(false, 1); return false;
+        }
+        return true;
+    }
+
     if (Phase && (bFailed || Now > Deadline))
     {
         if (Now > Deadline) Check(false, TEXT("operation_timeout"));
@@ -69,6 +102,7 @@ bool UEROnlineProbe::Tick(float Delta)
         GI->MaxPlayers = 2;
         GI->AlphaBots = GI->OmegaBots = 0;
         GI->LocalName = TEXT("EOSProbe");
+        GI->InternetServerName = TEXT("EOS test server");
         Phase = 1; Deadline = Now + 240;
         UE_LOG(LogTemp, Display, TEXT("ER_EOS_PROBE_BEGIN authenticate_and_host"));
         Online->Host();
@@ -105,7 +139,7 @@ bool UEROnlineProbe::Tick(float Delta)
         {
             Check(true, TEXT("rehost_after_destroy_and_cancel"));
             Phase = 6; Deadline = Now + 90;
-            PC->ServerLobbyVote(1);
+            PC->ServerLobbyVote(0);
             PC->ServerLobbyReady(true);
         }
         else
@@ -119,12 +153,18 @@ bool UEROnlineProbe::Tick(float Delta)
         if (bFound)
         {
             const auto* Session = Sessions->GetNamedSession(NAME_GameSession);
-            Check(Session && Session->RegisteredPlayers.Num() == 1, TEXT("host_registered_with_service"));
-            GI->ReturnToMenu(); Phase = 3; Deadline = Now + 60;
+            Check(Session && Session->RegisteredPlayers.Num() == 1, TEXT("host_registered_locally"));
+            if (FParse::Param(FCommandLine::Get(), TEXT("EROnlineDiscoveryHost")))
+            {
+                UE_LOG(LogTemp, Display, TEXT("ER_EOS_DISCOVERY_HOST ready"));
+                Phase = 9; Deadline = Now + 150;
+            }
+            else { GI->ReturnToMenu(); Phase = 3; Deadline = Now + 60; }
         }
         else if (!bSearchRunning && Now >= SearchAgainAt)
         {
             Query = MakeShared<FOnlineSessionSearch>();
+            UEROnline::SetDiscoveryFilter(*Query);
             Query->bIsLanQuery = false; Query->MaxSearchResults = 100;
             Query->QuerySettings.Set(FName(TEXT("RR_GAME")), FString(TEXT("RespawnAndRage")), EOnlineComparisonOp::Equals);
             Query->QuerySettings.Set(FName(TEXT("RR_VERSION")), GI->BuildVersion, EOnlineComparisonOp::Equals);
@@ -133,6 +173,11 @@ bool UEROnlineProbe::Tick(float Delta)
             if (!Sessions->FindSessions(0, Query.ToSharedRef()) && bSearchRunning)
             { Sessions->ClearOnFindSessionsCompleteDelegate_Handle(FindHandle); bSearchRunning = false; Check(false, TEXT("service_search_started")); }
         }
+    }
+    else if (Phase == 9)
+    {
+        if (Now + 60 < Deadline) return true;
+        GI->ReturnToMenu(); Phase = 3; Deadline = Now + 60;
     }
     else if (Phase == 3)
     {
@@ -149,7 +194,7 @@ bool UEROnlineProbe::Tick(float Delta)
     }
     else if (Phase == 6)
     {
-        if (!World->GetMapName().Contains(TEXT("L_Depot")) || !PC->GetPawn()) return true;
+        if (!World->GetMapName().Contains(TEXT("L_CentralBuilding")) || !PC->GetPawn()) return true;
         const auto* GS = World->GetGameState<AERGameState>();
         const auto* Driver = Cast<UERNetDriverEOS>(World->GetNetDriver());
         Check(Online->IsOnline() && GS && GS->bOnline && Driver && !Driver->bIsPassthrough, TEXT("online_ready_travel_to_gameplay_keeps_p2p"));

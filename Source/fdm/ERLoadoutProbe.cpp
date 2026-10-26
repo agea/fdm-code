@@ -82,6 +82,8 @@ void AERLoadoutProbe::Tick(float Delta)
     Super::Tick(Delta);
 #if !UE_BUILD_SHIPPING
     const double Now=GetWorld()->GetTimeSeconds();
+    const bool Masks=FParse::Param(FCommandLine::Get(),TEXT("ERDrongoMaskGallery"));
+    const bool Clothing=Masks || FParse::Param(FCommandLine::Get(),TEXT("ERClothingGallery"));
     if(!HasAuthority())
     {
         if(Phase==30 && MineDeadlines.Num()==3 && Seen!=30)
@@ -91,6 +93,24 @@ void AERLoadoutProbe::Tick(float Delta)
             Observed.Sort();
             if(Observed==MineDeadlines) { Seen=30;ServerObserved(30);UE_LOG(LogTemp,Display,TEXT("ER_LOADOUT_MINES_REMOTE absolute_deadlines=PASS")); }
         }
+        if(Phase>=40 && Phase<=43 && Seen!=Phase)
+        {
+            auto* PC=Cast<AERPlayerController>(GetOwner());
+            auto* PS=PC?PC->GetPlayerState<AERPlayerState>():nullptr;
+            auto* C=PC?Cast<AERCharacter>(PC->GetPawn()):nullptr;
+            if(!PS || !C)return;
+            if(Phase==40)
+            {
+                OriginalTeam=int32(PS->Team==EERTeam::Omega);OriginalDeaths=PS->Deaths;
+                PC->ServerChangeTeam(1-OriginalTeam,false);Seen=Phase;
+            }
+            else if(Phase==41 && PS->PendingTeam!=EERTeam::None && !C->Health->bDead)
+            { PC->ServerChangeTeam(OriginalTeam,false);Seen=Phase; }
+            else if(Phase==42 && PS->PendingTeam==EERTeam::None)
+            { PC->ServerChangeTeam(1-OriginalTeam,true);Seen=Phase; }
+            else if(Phase==43 && !C->Health->bDead && PS->PendingTeam==EERTeam::None && int32(PS->Team==EERTeam::Omega)!=OriginalTeam && PS->Deaths==OriginalDeaths+1)
+            { UE_LOG(LogTemp,Display,TEXT("ER_PLAYER_TEAM_REMOTE result=PASS"));ServerObserved(43);Seen=Phase; }
+        }
         if(Phase>=1 && Phase<=15 && Seen!=Phase && Observe()) { Seen=Phase;ServerObserved(Phase); }return;
     }
     if(Phase==0)
@@ -99,6 +119,8 @@ void AERLoadoutProbe::Tick(float Delta)
             if(auto* PC=Cast<AERPlayerController>(It->Get())) { if(PC->IsLocalController())Host=PC;else Client=PC; }
         auto* Mode=GetWorld()->GetAuthGameMode<AERGameMode>();
         if(!Host || !Client || !Host->GetPawn() || !Client->GetPawn() || !Mode || !Mode->IsMatchInProgress())return;
+        if(FParse::Param(FCommandLine::Get(),TEXT("ERPlayerLayoutCapture")))GalleryStep=3;
+        if(Masks)GalleryStep=10;
         Host->ShowMenu(false);Client->ShowMenu(false);SetOwner(Client);SpawnKit(0);return;
     }
     if(Phase>=1 && Phase<=15)
@@ -123,11 +145,43 @@ void AERLoadoutProbe::Tick(float Delta)
         const uint32 BeforeShots=Shotgun->AuthorizedShotCount;
         ShotCharacter->ServerStartFire();ShotCharacter->ServerStopFire();
         Check(Shotgun->MagazineAmmo==BeforeAmmo-1 && Shotgun->LastShotTraceCount==8 && Shotgun->AuthorizedShotCount==BeforeShots+1,TEXT("shotgun_runtime8_pellets_one_shell_one_shot"));
+        if(FParse::Param(FCommandLine::Get(),TEXT("ERPlayerTeamProbe")))
+        {
+            auto* PS=Client->GetPlayerState<AERPlayerState>();
+            OriginalTeam=int32(PS->Team==EERTeam::Omega);OriginalDeaths=PS->Deaths;
+            Phase=40;Deadline=Now+25;ForceNetUpdate();return;
+        }
         if(FParse::Param(FCommandLine::Get(),TEXT("ERLoadoutMines")))
         { SpawnKit(14);Phase=30;Deadline=Now+110;return; }
         Phase=20;Deadline=Now+3;
         if(!FParse::Param(FCommandLine::Get(),TEXT("ERLoadoutGallery")))
         { UE_LOG(LogTemp,Display,TEXT("ER_LOADOUT_COMPLETE result=%s"),Failed?TEXT("FAIL"):TEXT("PASS"));FPlatformMisc::RequestExitWithStatus(false,Failed?1:0);Phase=99; }
+        return;
+    }
+    if(Phase>=40 && Phase<=43)
+    {
+        if(Now>Deadline) { Check(false,TEXT("player_team_timeout"));FPlatformMisc::RequestExitWithStatus(false,1);Phase=99;return; }
+        auto* PS=Client->GetPlayerState<AERPlayerState>();
+        auto* C=Cast<AERCharacter>(Client->GetPawn());
+        if(Phase==40 && PS->PendingTeam!=EERTeam::None)
+        {
+            Check(C && !C->Health->bDead && int32(PS->Team==EERTeam::Omega)==OriginalTeam && PS->Deaths==OriginalDeaths,TEXT("deferred_team_changed_live_player"));
+            Phase=41;ForceNetUpdate();
+        }
+        else if(Phase==41 && PS->PendingTeam==EERTeam::None)
+        { Check(PS->Deaths==OriginalDeaths,TEXT("cancel_killed_player"));Phase=42;ForceNetUpdate(); }
+        else if(Phase==42 && C && C->Health->bDead)
+        {
+            Check(PS->Deaths==OriginalDeaths+1 && int32(PS->Team==EERTeam::Omega)==OriginalTeam,TEXT("suicide_death_or_team"));
+            Client->RespawnAllowedAt=0;GetWorld()->GetAuthGameMode<AERGameMode>()->RequestRespawn(Client);
+            Phase=43;ForceNetUpdate();
+        }
+        else if(Phase==43 && Acknowledged==43)
+        {
+            UE_LOG(LogTemp,Display,TEXT("ER_PLAYER_TEAM_COMPLETE result=%s"),Failed?TEXT("FAIL"):TEXT("PASS"));
+            UE_LOG(LogTemp,Display,TEXT("ER_LOADOUT_COMPLETE result=%s"),Failed?TEXT("FAIL"):TEXT("PASS"));
+            FPlatformMisc::RequestExitWithStatus(false,Failed?1:0);Phase=99;
+        }
         return;
     }
     if(Phase==30)
@@ -144,7 +198,7 @@ void AERLoadoutProbe::Tick(float Delta)
         // A single live preview scene follows draft selections; gameplay actors never enter it.
         FName Preset=GalleryStep<2?FName("rifleman"):FName("grenadier");
         FName Variant=GalleryStep%2==0?FName("gunner"):FName("defense");
-        if(GalleryStep>=4)
+        if(GalleryStep>=4 && !Clothing)
         {
             Preset=ERLoadouts::Presets()[(GalleryStep-4)%5];Variant="defense";
             auto* PS=Host->GetPlayerState<AERPlayerState>();PS->Team=GalleryStep<9?EERTeam::Alpha:EERTeam::Omega;
@@ -152,14 +206,31 @@ void AERLoadoutProbe::Tick(float Delta)
             if(auto Old=Host->GetPawn()) { Host->UnPossess();Old->Destroy(); }
             GetWorld()->GetAuthGameMode<AERGameMode>()->RestartPlayer(Host);
         }
-        if(GalleryStep==0 || GalleryStep==4 || GalleryStep==9)Host->ERMenu(6);
+        if(GalleryStep==0 || GalleryStep==4 || GalleryStep==9 || FParse::Param(FCommandLine::Get(),TEXT("ERPlayerLayoutCapture")) || Clothing)Host->ERMenu(6);
         Host->DraftPreset=Preset;Host->DraftVariant=Variant;Host->RefreshLoadoutPreview();
+        if(Clothing && Host->MenuPreview)
+        {
+            const int32 Indices[]={0,2,3,4,0,1,2,3,4,5,6,7,8,9};
+            const int32 Case=GalleryStep/2;const bool Omega=Case>=4;
+            const auto* C=CastChecked<AERCharacter>(Host->GetPawn());
+            const auto& Appearance=Omega ? C->OmegaSkins[Indices[Case]]:C->AlphaSkins[Indices[Case]];
+            const auto Kit=ERLoadouts::Resolve("rifleman","gunner",Omega,C);
+            Host->MenuPreview->ShowLoadout(Appearance,Kit,C->ReferenceArsenal);
+            Host->MenuPreview->Rotate(FMath::FindDeltaAngleDegrees(Host->MenuPreview->GetOrbitYaw(),GalleryStep%2?155.f:-25.f));
+            UE_LOG(LogTemp,Display,TEXT("ER_CLOTHING_CAPTURE_SETUP step=%d mesh=%s"),GalleryStep,*GetNameSafe(Appearance.Mesh));
+        }
         Check(Host->MenuPreview && Host->MenuPreview->Target && Host->MenuPreview->bPreviewAvailable && Host->MenuPreview->bFramingValid,TEXT("preview_missing_or_unframed"));
+        if(Host->MenuPreview)
+        {
+            Check(Host->MenuPreview->IsWalking() && Host->MenuPreview->Equipment.Num()==1,TEXT("preview_walk_or_primary_only"));
+            PreviewYawAtStart=Host->MenuPreview->GetOrbitYaw();
+        }
         Phase=21;Deadline=Now+3;return;
     }
     if(Phase==21 && Now>=Deadline)
     {
-        if(GalleryStep>=4)
+        Check(Host->MenuPreview && FMath::Abs(FMath::FindDeltaAngleDegrees(PreviewYawAtStart,Host->MenuPreview->GetOrbitYaw()))>5.f,TEXT("preview_camera_not_orbiting"));
+        if(GalleryStep>=4 && !Clothing)
         {
             const auto* C=Cast<AERCharacter>(Host->GetPawn());const auto* PS=Host->GetPlayerState<AERPlayerState>();
             if(C && PS)
@@ -170,8 +241,8 @@ void AERLoadoutProbe::Tick(float Delta)
                 UE_LOG(LogTemp,Display,TEXT("ER_LOADOUT_SKIN_CAPTURE index=%d team=%s preset=%s mesh=%s"),GalleryStep-4,K.bOmega?TEXT("Omega"):TEXT("Alpha"),*K.Preset.ToString(),*GetNameSafe(Appearance.Mesh));
             }
         }
-        const FString Name=FPaths::ProjectSavedDir()/TEXT("Testing/Loadouts")/FString::Printf(TEXT("Loadout_%d.png"),GalleryStep);
-        FScreenshotRequest::RequestScreenshot(Name,true,false);++GalleryStep;Phase=GalleryStep<14?20:22;Deadline=Now+2;return;
+        const FString Name=FPaths::ProjectSavedDir()/TEXT("Testing/Loadouts")/FString::Printf(TEXT("%s_%d.png"),Clothing?TEXT("Clothing"):TEXT("Loadout"),GalleryStep);
+        FScreenshotRequest::RequestScreenshot(Name,true,false);++GalleryStep;Phase=GalleryStep<(Masks?16:Clothing?28:FParse::Param(FCommandLine::Get(),TEXT("ERPlayerLayoutCapture"))?4:14)?20:22;Deadline=Now+2;return;
     }
     if(Phase==22 && Now>=Deadline)
     {

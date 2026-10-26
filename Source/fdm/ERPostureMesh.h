@@ -1,6 +1,7 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "ERTeamAppearance.h"
 #include "ERPostureMesh.generated.h"
 
 // Procedural prone and weapon support-hand fitting over the team locomotion.
@@ -11,6 +12,9 @@ class FDM_API UERPostureMesh : public USkeletalMeshComponent
 public:
     virtual void TickComponent(float DeltaTime,ELevelTick TickType,FActorComponentTickFunction* ThisTickFunction) override;
     virtual void FinalizeBoneTransform() override;
+    // Optional local dressing-room inputs; gameplay characters always use their own state.
+    UPROPERTY(Transient) TObjectPtr<class UERWeaponData> PreviewWeapon;
+    UPROPERTY(Transient) FERTeamAppearance PreviewAppearance;
     float GetWorldAimBlend() const {return WorldAimBlend;}
 private:
     float WorldAimBlend=0;

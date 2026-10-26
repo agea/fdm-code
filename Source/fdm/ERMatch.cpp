@@ -58,7 +58,7 @@ void AERPlayerState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLi
     DOREPLIFETIME(AERPlayerState, bLobbyReady); DOREPLIFETIME(AERPlayerState, MapVote);
     DOREPLIFETIME(AERPlayerState, SpareMagazines); DOREPLIFETIME(AERPlayerState, HECount);
     DOREPLIFETIME(AERPlayerState, SmokeCount); DOREPLIFETIME(AERPlayerState, StunCount);
-    DOREPLIFETIME(AERPlayerState, Team); DOREPLIFETIME(AERPlayerState, Kills);
+    DOREPLIFETIME(AERPlayerState, PendingTeam); DOREPLIFETIME(AERPlayerState, Team); DOREPLIFETIME(AERPlayerState, Kills);
     DOREPLIFETIME(AERPlayerState, Deaths); DOREPLIFETIME(AERPlayerState, TeamKills);
     DOREPLIFETIME(AERPlayerState, ActiveClaymores);
     DOREPLIFETIME(AERPlayerState, LoadoutPreset); DOREPLIFETIME(AERPlayerState, LoadoutVariant);
@@ -341,6 +341,11 @@ void AERGameMode::RestartPlayer(AController* Player)
 {
     if (bLobby) return;
     if (!Player || Player->IsPendingKillPending() || Player->GetPawn()) return;
+    if (auto* PS=Player->GetPlayerState<AERPlayerState>(); PS && PS->PendingTeam!=EERTeam::None)
+    {
+        AERClaymore::RemoveFor(GetWorld(),PS);
+        PS->Team=PS->PendingTeam;PS->PendingTeam=EERTeam::None;PS->ForceNetUpdate();
+    }
     // The engine's generic fallback may use an occupied cached start or world origin.
     // A team match must wait for an actually clear start instead.
     if (AActor* Start = ChoosePlayerStart(Player))

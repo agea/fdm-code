@@ -1,5 +1,72 @@
 ## 23 October 2026 — Fire Training revision3 (naves, height, length, plazas)
 
+## Phase/Twinblast clothing and mandatory Drongo mask — 26 October 2026
+
+- Editor Mac Development arm64 build: PASS (Unreal5.8).
+- Owned cloth setup: four existing Twinblast cloth assets bounded to6cm; five
+  Phase leather-skirt sections get collision cloth with pinned waist and fixed
+  shoes, maximum22cm movement. Acquired packages and physics assets unchanged.
+  ZIP backups retained under `Saved/AssetBackups/FieldClothing-*`.
+- `python3 scripts/test-loadouts.py --render --clothing`: PASS, exit0,
+  28 Metal captures (front/back of four Twinblast, five Drongo, five Phase),
+  all15 loadouts observed by the separate client. Capture inspection confirmed
+  bounded jackets and non-intersecting skirt silhouettes at sampled walk poses.
+  This first pass exposed two Scavenger-based skins with no authored mask geometry.
+- Phase/Belica corpse gallery (`-ERCorpseGallery -ERSkinPair=5`): PASS, exit0,
+  six checkpoints and `ER_CORPSE_GALLERY_COMPLETE`, after adding Phase cloth.
+- Fresh-process `verify_field_clothing.py`: PASS, exit0; nine owned cloth skins,
+  three player/target/corpse catalogs and mask attachments validated. The shared
+  skin verifier accepts the mask's original per-slot materials without a global override.
+- Final `python3 scripts/test-loadouts.py --render --drongo-masks`: PASS, exit0;
+  six fresh Metal front/back captures of Scavenger, helmet Breacher and Smuggler,
+  all15 kits observed by client. Inspected captures10/14: both formerly bare
+  faces fully masked and the unwanted shoulder decoration absent.
+- Drongo mask extraction refined to triangles weighted to the head, excluding
+  shoulder decorations:11,963 original triangles, two existing material slots.
+  Mask setup: PASS, exit0; player, target and corpse catalogs updated with ZIP backup.
+
+
+## Player preview mouse drag — 26 October 2026
+
+Editor Mac Development arm64 build PASS (Unreal5.8) after adding Slate mouse
+capture and drag rotation. Manual interaction has not been exercised in this run.
+
+
+## Animated Player preview and layout — 26 October 2026
+
+- Editor Mac Development arm64 build: PASS (Unreal5.8).
+- `python3 scripts/test-loadouts.py --render`: PASS, exit0; Metal1440x1000,
+  all15 loadouts replicated and14 captures produced. Each preview verified a
+  playing walk, exactly one equipment mesh (primary), valid framing and camera
+  yaw advancing during the three-second observation window. Both teams and
+  Twinblast/Belica/Drongo/Phase preview families exercised; scene destroyed on close.
+- Full Metal gallery at1920x1000: PASS, exit0. All14 captures and all15 client
+  kit observations verified again after lighting/framing adjustments.
+- Final `python3 scripts/test-loadouts.py --render --layout-only --width 1920
+  --height 1000`: PASS, exit0. Inspected
+  `Saved/Testing/Loadouts/Loadout_3.png`: full figure with primary, five equipment
+  entries, both actions and status all visible at once. Camera/walk assertions,
+  all15 client kit observations and preview cleanup also PASS.
+- Visual inspection of intermediate captures identified clipped bottom actions;
+  the final layout keeps status and actions in a fixed footer, with only settings
+  scrolling. Name/team now share a row in the left column.
+
+
+## Player menu and team changes — 26 October 2026
+
+- Editor Mac Development arm64 build: PASS (Unreal 5.8).
+- `python3 scripts/test-loadouts.py --network --player-team`: PASS, exit 0.
+  Separate host/client processes observed all 15 kits; remote client requested
+  deferred team change, cancelled it, then requested suicide while spawn-protected.
+  Server checked unchanged live team/death count, one suicide death, and applied
+  the pending team before respawn. Remote client confirmed the new live pawn,
+  new team, cleared pending selection and incremented death count.
+  Logs: `Saved/Testing/loadout-network-host.log`, `loadout-network-client.log`.
+- Native loadout regressions: PASS, exit 0; Catalog and ClaymoreLifecycle both
+  reported Success (`python3 scripts/test-loadouts.py`).
+- This run used nullrhi; the Player page layout has not been visually verified.
+
+
 - Owner request: allow ×2/×3/×4 width, taller and longer halls, with empty
   plazas in large ones. Recipe: 1–4 naves of the existing kits (16–96 m), 14–36
   bays, 2–4 bands, 1300–7000 m², aspect ≤ 7, up to 3 plazas per half.
@@ -6596,3 +6663,44 @@ quattro texture sono state caricate e compilate senza errori materiale/shader.
 La suite AimPunch completa ha continuato a segnalare errori nelle proprie
 asserzioni di vettore arma/scope, estranee ai controlli ferita; non viene quindi
 registrata come regressione complessivamente superata.
+
+
+## Internet browser reproduction and server names — 26 October 2026
+
+- Reproduced on this Mac with simultaneous EOS host and browser processes:
+  backend `SessionSearch returned 1 results`, normal `ER_ONLINE_SEARCH results=0`.
+  UE 5.8.3 copied public availability into private session fields; the browser
+  consequently treated the server as full. Corrected the two assignments in the
+  hash-checked, generated project plugin, leaving the installed engine unchanged.
+- After rebuilding, the second process reported `ER_ONLINE_SEARCH results=1`
+  and `ER_EOS_SEARCH_PROCESS result=PASS named_server_found`, and exited 0.
+  It used `BuildIdOverride=987654321` to verify the explicit shared EOS bucket.
+- Chosen `EOS test server` name was returned by the service. Internet hosting
+  now has a saved server-name field, advertised separately from player nickname.
+- Build-editor succeeded; Python compilation and diff whitespace checks passed.
+- Real backend registration returned HTTP 403 `policy_missing_action`, missing
+  `matchmaking:managePlayers`. Local registered-player bookkeeping previously
+  masked this; the probe now labels it as local and reports policy incompleteness.
+  Portal product access was rejected by automatic approval review; no portal
+  settings or credentials were changed. Distinct-user joining and two-network
+  NAT/relay behavior remain unverified. No distributed packages were rebuilt.
+- Final service script exited 0: both lifecycle launches passed, including
+  Connect refresh, cancel/destroy/rehost, READY travel to Central Building and
+  clean exit with EOS instance release. Policy status remains INCOMPLETE.
+
+
+### EOS portal policy saved with user approval — 26 October 2026
+
+- Saved existing p2p policy as Custom, preserving all prior action selections,
+  feature toggles and User required; added only matchmaking:managePlayers.
+  Reopened persisted policy: Sessions 9 actions, managePlayers checked.
+  Game authentication remains EOS Connect Device ID, no Epic/EAS account.
+- Re-ran test-online-service.py, exit 0: two service lifecycle PASS markers,
+  simultaneous separate-process named server discovery, persistent guest ID,
+  refresh, READY travel and clean session/instance shutdown.
+- Immediate first host still received the old 403. Subsequent rehosts and the
+  fresh probe-relaunch.log completed without policy_missing_action; all three
+  hosts in the fresh process had no backend permission denial. The script's
+  aggregate INCOMPLETE warning includes the earlier first-call error, so this
+  is not recorded as a wholly clean two-launch policy run.
+- Distinct-identity JoinSession and two-network connectivity remain untested.

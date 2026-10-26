@@ -115,8 +115,8 @@ void UERPostureMesh::FinalizeBoneTransform()
             }
         }
     }
-    const auto* Data=C && C->Weapon ? C->Weapon->Data.Get() : nullptr;
-    if(Mesh && Data && Data->bWorldReferencePose && C && !C->Health->bDead && !C->IsWeaponStowed())
+    const auto* Data=C ? (C->Weapon ? C->Weapon->Data.Get():nullptr):PreviewWeapon.Get();
+    if(Mesh && Data && Data->bWorldReferencePose && ((!C && PreviewWeapon) || (C && !C->Health->bDead && !C->IsWeaponStowed())))
     {
         const auto& Ref=Mesh->GetRefSkeleton();auto& Pose=GetEditableComponentSpaceTransforms();
         const auto* PalmR=Mesh->FindSocket(TEXT("ER_Palm_R"));const auto* PalmL=Mesh->FindSocket(TEXT("ER_Palm_L"));
@@ -124,10 +124,10 @@ void UERPostureMesh::FinalizeBoneTransform()
         if(PalmR && PalmL && Pose.IsValidIndex(ShoulderR) && Pose.IsValidIndex(ShoulderL))
         {
             const float BodyScale=GetComponentScale().X,Unit=1.f/FMath::Max(.1f,BodyScale);
-            const FVector Right=GetComponentTransform().InverseTransformVectorNoScale(C->GetActorRightVector()).GetSafeNormal();
+            const FVector Right=GetComponentTransform().InverseTransformVectorNoScale(C ? C->GetActorRightVector():GetOwner()->GetActorRightVector()).GetSafeNormal();
             const FVector Up=GetComponentTransform().InverseTransformVectorNoScale(FVector::UpVector).GetSafeNormal();
             const bool Pistol=Data->bOneHanded && Data->Payload==EERPayload::Bullet;
-            const FRotator BaseAim=C->GetBaseAimRotation();const float Pitch=FMath::Clamp(FRotator::NormalizeAxis(BaseAim.Pitch),-65.f,65.f);
+            const FRotator BaseAim=C ? C->GetBaseAimRotation():GetOwner()->GetActorRotation();const float Pitch=FMath::Clamp(FRotator::NormalizeAxis(BaseAim.Pitch),-65.f,65.f);
             const FVector Aim=GetComponentTransform().InverseTransformVectorNoScale(FRotator(Pitch,BaseAim.Yaw,0).Vector()).GetSafeNormal();
             const FQuat GunRotation=FRotationMatrix::MakeFromXZ(Aim,Up).ToQuat();
             const float ShoulderHalfWidth=FVector::Distance(Pose[ShoulderR].GetLocation(),Pose[ShoulderL].GetLocation())*.5f;
@@ -173,7 +173,7 @@ void UERPostureMesh::FinalizeBoneTransform()
             const int32 RH=Ref.FindBoneIndex(PalmR->BoneName);
             const float ParentScale=BodyScale*(PalmR->GetSocketLocalTransform()*Pose[RH]).GetScale3D().X;
             Gun=ERWorldWeaponPose::Attachment(*Data,ParentScale)*PalmR->GetSocketLocalTransform()*Pose[RH];Gun.SetScale3D(FVector(Data->WorldWeaponScale*Unit));
-            const FVector Contact=ERWorldWeaponPose::SupportContact(*Data,C->GetTeamAppearance());
+            const FVector Contact=ERWorldWeaponPose::SupportContact(*Data,C ? C->GetTeamAppearance():PreviewAppearance);
             const FQuat PalmRotation=Pistol ? FRotationMatrix::MakeFromXZ(FVector::ForwardVector,FVector::RightVector).ToQuat():Data->WorldLeftPalmRotation.Quaternion();
             FitPalm(true,Contact,PalmRotation);
         }

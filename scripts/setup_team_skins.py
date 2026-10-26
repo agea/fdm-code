@@ -91,7 +91,7 @@ for team, choices in specs.items():
         bones = {str(b) for b in names if probe.get_bone_index(b)>=0}
         hide_bones = list(base.hidden_bones)
         if team=='Alpha': hide_bones += ['q_weapon_l','q_weapon_r','grenade','ult_root','weapon_l','weapon_r']
-        hide_words = ['pistol','grenade','sim'] if team=='Alpha' else ['weapons','bones','teddybear']
+        hide_words = ['pistol','grenade','sim'] if team=='Alpha' else ['weapons','teddybear']
         materials, hidden = [], []
         for slot_index, slot in enumerate(mesh.materials):
             slot_name, original = str(slot.material_slot_name), slot.material_interface
@@ -156,3 +156,7 @@ bp=load('/Game/EclipseRecoil/Core/BP_ERPlayerController')
 ue.get_default_object(bp.generated_class()).set_editor_property('skin_catalog', assets.load_blueprint_class('/Game/EclipseRecoil/Core/BP_ERCharacter'))
 ue.BlueprintEditorLibrary.compile_blueprint(bp);save(bp)
 ue.log('ER_SKINS_SETUP_COMPLETE')
+
+# Preserve the current cloth and Drongo-mask policy after an explicit skin rebuild.
+if all(len(skins[t])==10 for t in ['Alpha','Omega']):
+    runpy.run_path(str(Path(__file__).with_name('setup_field_clothing.py')))

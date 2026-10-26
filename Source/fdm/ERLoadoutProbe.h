@@ -15,6 +15,8 @@ private:
     UPROPERTY(Replicated) int32 Phase=0;
     UPROPERTY() TObjectPtr<class AERPlayerController> Host;
     UPROPERTY() TObjectPtr<class AERPlayerController> Client;
+    float PreviewYawAtStart=0;
+    int32 OriginalTeam=0, OriginalDeaths=0;
     int32 Acknowledged=0,Seen=0,GalleryStep=0;
     double Deadline=0;
     bool Failed=false;

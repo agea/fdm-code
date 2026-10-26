@@ -35,6 +35,8 @@ public:
     UPROPERTY(Replicated) int32 SkinIndex = 0;
     const FERTeamAppearance& GetTeamAppearance() const;
     UFUNCTION(BlueprintCallable, Category="Team appearance|Editor")
+    static bool BuildDrongoMask(class UStaticMesh* TargetMesh, class USkeletalMesh* SourceMesh);
+    UFUNCTION(BlueprintCallable, Category="Team appearance|Editor")
     static bool BuildFieldGear(class UStaticMesh* Mesh, bool bHelmet, bool bOutwardFacing = false);
     UFUNCTION(BlueprintCallable, Category="Team appearance|Editor")
     static FERAppearanceAttachment MakeFieldAttachment(class UStaticMesh* Gear, class UMaterialInterface* Material, class USkeletalMesh* Character, FName Bone, FVector Offset, FVector Scale);

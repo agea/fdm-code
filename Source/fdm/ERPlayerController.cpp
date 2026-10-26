@@ -128,6 +128,7 @@ void UERGameInstance::Init()
         GConfig->GetInt(TEXT("EclipseRecoil.Loadout"), Pair.Key, *Pair.Value, GGameUserSettingsIni);
         *Pair.Value = FMath::Clamp(*Pair.Value, 0, 20);
     }
+    GConfig->GetString(TEXT("EclipseRecoil.Server"), TEXT("InternetServerName"), InternetServerName, GGameUserSettingsIni);
     GConfig->GetInt(TEXT("EclipseRecoil.Server"), TEXT("MaxPlayers"), MaxPlayers, GGameUserSettingsIni);
     MaxPlayers = ERServer::ValidMaxPlayers(MaxPlayers);
     DiscoveryTicker = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateUObject(this, &UERGameInstance::TickDiscovery), .1f);
@@ -209,6 +210,8 @@ void UERGameInstance::SaveMusicVolume()
 }
 void UERGameInstance::SaveServerSettings()
 {
+    InternetServerName = UEROnline::SanitizeServerName(InternetServerName);
+    GConfig->SetString(TEXT("EclipseRecoil.Server"), TEXT("InternetServerName"), *InternetServerName, GGameUserSettingsIni);
     MaxPlayers = ERServer::ValidMaxPlayers(MaxPlayers);
     GConfig->SetInt(TEXT("EclipseRecoil.Server"), TEXT("MaxPlayers"), MaxPlayers, GGameUserSettingsIni);
     GConfig->Flush(false, GGameUserSettingsIni);
@@ -1335,4 +1338,20 @@ void AERPlayerController::ClientLoadoutAccepted_Implementation(FName Preset,FNam
     auto* GI=GetGameInstance<UERGameInstance>();if(!GI)return;
     const auto Kit=ERLoadouts::Resolve(Preset,Variant);
     GI->LoadoutPreset=Kit.Preset;GI->LoadoutVariant=Kit.Variant;GI->SaveLoadout();bLoadoutPending=false;
+}
+
+void AERPlayerController::ServerChangeTeam_Implementation(int32 Team, bool Suicide)
+{
+    const auto* Mode=GetWorld()->GetAuthGameMode<AERGameMode>();
+    auto* PS=GetPlayerState<AERPlayerState>();
+    if(!Mode || Mode->IsLobby() || !Mode->IsMatchInProgress() || !PS || Team<0 || Team>1)return;
+    const EERTeam Wanted=Team==1?EERTeam::Omega:EERTeam::Alpha;
+    PS->PendingTeam=Wanted==PS->Team?EERTeam::None:Wanted;
+    PS->ForceNetUpdate();
+    if(Suicide && PS->PendingTeam!=EERTeam::None)
+        if(auto* C=Cast<AERCharacter>(GetPawn()); C && !C->Health->bDead)
+        {
+            C->Health->ProtectionEndServerTime=0;
+            C->Health->ReceiveDamage(10000,this);
+        }
 }

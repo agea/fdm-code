@@ -37,6 +37,7 @@ public:
     int32 SmokeCount = 2;
     int32 StunCount = 2;
     bool bInternetMenu = true;
+    FString InternetServerName = TEXT("Respawn & Rage");
     int32 SessionMode = 0; // local, listen server, client
     // Server-only session history; survives seamless map travel, never saved.
     TArray<FName> RoundMapHistory;
@@ -141,6 +142,8 @@ public:
     UFUNCTION(Client, Reliable) void ClientLoadoutAccepted(FName Preset, FName Variant);
     UFUNCTION(Server, Reliable) void ServerSetPrimary(int32 Index);
     UFUNCTION(Server, Reliable) void ServerSetSkins(int32 Alpha, int32 Omega);
+    int32 RequestedTeam = 0;
+    UFUNCTION(Server, Reliable) void ServerChangeTeam(int32 Team, bool Suicide);
     UFUNCTION(Server, Reliable) void ServerLobbyTeam(int32 Team);
     UFUNCTION(Server, Reliable) void ServerLobbyVote(int32 Map);
     UFUNCTION(Server, Reliable) void ServerLobbyReady(bool Ready);

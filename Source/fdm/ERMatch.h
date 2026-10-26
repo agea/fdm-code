@@ -17,6 +17,7 @@ class FDM_API AERPlayerState : public APlayerState
     GENERATED_BODY()
 public:
     UPROPERTY(Replicated, BlueprintReadOnly) EERTeam Team = EERTeam::None;
+    UPROPERTY(Replicated, BlueprintReadOnly) EERTeam PendingTeam = EERTeam::None;
     UPROPERTY(Replicated, BlueprintReadOnly) int32 Kills = 0;
     UPROPERTY(Replicated, BlueprintReadOnly) int32 Deaths = 0;
     UPROPERTY(Replicated, BlueprintReadOnly) int32 TeamKills = 0;

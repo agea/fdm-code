@@ -1081,3 +1081,28 @@ Claymore activation rays (23 October2026): `setup_claymore_lasers.py` creates
 material with a `Color` parameter. The native actor uses two engine cylinders,
 no collision or shadows, tinted with ERRecon team colors. This adds no changes
 to zhezhela's mesh or textures. `setup_loadouts.py` also runs this targeted setup.
+
+
+## Player menu (26 October 2026)
+
+Runtime Slate page in ERMenu.cpp combines player name, team and existing loadout
+portraits, icons and preview. The in-match team-choice dialog and replicated
+PendingTeam require no new content packages or imported art.
+
+
+Player animated preview reuses each appearance's existing retargeted
+MF_Unarmed_Walk_Fwd and primary weapon, with the shared world-hand pose.
+No secondary display weapons, plinths, new animations or saved asset edits.
+The transient render target is768x1024, with a45-second camera orbit.
+
+
+## Field clothing and Drongo masks (26 October 2026)
+
+Owned PhaseRecon/Assault/Patrol/Engineer/Support skeletal packages now embed
+one Chaos skirt asset each; mixed shoe sections stay fixed. Four owned Twinblast
+cloth assets have bounded6cm travel. Original art and gameplay physics unchanged.
+SM_ER_DrongoMask in Characters/Teams/Gear reuses head-region triangles and original
+UVs from the owned GDC Drongo, with existing owned material bindings. Scavenger
+and Smuggler attach it to head in player, target and corpse catalogs. GDC variants
+restore their original mask/head-gear visibility. Setup scripts retain ZIP backups
+under Saved/AssetBackups and do not modify acquired packages.

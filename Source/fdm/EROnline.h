@@ -12,6 +12,8 @@ class FDM_API UEROnline : public UGameInstanceSubsystem
 {
     GENERATED_BODY()
 public:
+    static void SetDiscoveryFilter(FOnlineSessionSearch& Search);
+    static FString SanitizeServerName(const FString& Name);
     void Host();
     void Search();
     void Join(int32 Index);

@@ -9,7 +9,7 @@ TEST_RESULTS.md.
 ## Player flow
 
 - **Start Server** → **Connection: Internet (Epic Online Services)** → choose
-  human capacity and optional test bots → **Start Server & Enter Lobby**.
+  a server name, human capacity and optional test bots → **Start Server & Enter Lobby**.
 - **Play Online** → **Connection: Internet (Epic Online Services)** →
   **Search Servers** → select a compatible public server.
 - Internet play signs in automatically with EOS Connect Device ID. No Epic
@@ -64,7 +64,7 @@ for an external token, which is unsuitable for Device ID.
 `scripts/prepare-eos-guest.py` generates a project override under the ignored
 `Plugins/OnlineSubsystemEOS/` from the **locally licensed UE 5.8.3 installation**.
 It checks the exact engine version and SHA-256 of both patched engine files,
-adds only the project extension snippets from `scripts/eos-guest`, and leaves
+applies the reviewed public-slot mapping correction and adds the project extension snippets from `scripts/eos-guest`, and leaves
 the installed engine untouched. Epic's copied sources and build outputs must
 never be added to the public repository. Preparation is repeatable and preserves
 unchanged file timestamps and compiled outputs. Build/editor entry points and
@@ -95,12 +95,39 @@ configurable capacity. The requested capacity is sent unchanged to EOS; backend
 validation/quotas still apply, and a rejected create operation reports failure.
 The Exit Game button allows up to five seconds for session destruction before
 requesting process exit; LAN discovery is suppressed during that interval.
+The browser advertises the chosen server name (trimmed, at most 48 characters,
+with a default for empty input) and persists it with server settings. EOS create
+and search explicitly share the RespawnAndRage bucket rather than inheriting
+Unreal's engine changelist bucket; RR_VERSION still excludes incompatible game
+versions. Update both host and client: older builds use the implicit bucket.
 Game/build-version filters exclude incompatible search results. Only the P2P
 endpoint resolved from a successfully joined session is used for Internet travel.
 The lobby-to-match travel preserves `EROnline=1`, and Internet hosts do not
 advertise through the LAN discovery beacon. Exit, cancellation and failed travel
 clean up the online session. Late asynchronous create/join completions after
 cancellation destroy their session rather than travelling to it.
+
+## UE 5.8.3 discovery correction (26 October)
+
+A real simultaneous host/browser reproduced the empty list: EOS search returned
+one result while the game's filtered results contained zero. In stock
+`FOnlineSessionEOS::AddSearchResult`, EOS public capacity and open public slots
+are assigned to Unreal's private fields. `NumOpenPublicConnections` stays zero,
+so the browser's full-server filter drops every session. The preparation script
+checks the session source SHA-256 and corrects those two assignments in the
+ignored project plugin. The installed engine stays unchanged.
+
+The same service run also returned HTTP 403 / `policy_missing_action` for
+`matchmaking:managePlayers`. Local RegisteredPlayers does not prove that backend
+registration succeeded. With explicit user approval, the portal policy `p2p`
+was changed from the read-only Peer2Peer template to Custom, preserving its
+existing features/actions and User required condition and adding only
+`matchmaking:managePlayers`. Guest Device ID still satisfies authentication;
+no Epic account or EAS is required. The immediate first registration still
+received the old policy error, but subsequent hosts and a fresh full lifecycle
+launch completed without that denial. The first log therefore still makes the
+script's aggregate policy warning INCOMPLETE; the clean relaunch is separate
+evidence. Do not claim successful remote admission from this same-device test.
 
 ## Verification
 
@@ -122,7 +149,7 @@ The service probe runs the real EOS lifecycle twice with the same OS user.
 It checks that the identity has a Product User ID and **no Epic Account ID**,
 creates a public session, finds its own advertised session, resolves its P2P
 endpoint, registers the host, leaves/destroys, cancels an in-flight create,
-rehosts and READY-travels to Depot. It also invokes the same refresh handler
+rehosts and READY-travels to Central Building. It also invokes the same refresh handler
 used by EOS auth expiration and requires a successful real Connect response.
 This tests refresh directly; it does not wait for natural token expiration.
 The second process must reuse the Device ID and the same hashed Product User ID.
@@ -132,6 +159,12 @@ Both launches require PASS, cleanup from Exit Game while hosting and process
 exit0. The probe releases interface refs before the owned EOS instance, which
 is destroyed while EOSShared is still loaded. A previous real SDK shutdown
 crash is covered by this process-exit requirement.
+
+The service script also starts a simultaneous second game process using the
+normal browser search and a deliberately different Unreal BuildIdOverride. It
+must find the named host, proving discovery does not depend on the engine build
+ID. Both processes retain the existing same-device guest identity; this checks
+server visibility but intentionally does not attempt JoinSession as that user.
 
 The current test scope remains this Mac. Verify host/search/join with distinct
 Device IDs on two computers on different Internet connections before claiming

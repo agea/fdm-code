@@ -12,7 +12,7 @@ void AERPlayerState::CopyProperties(APlayerState* Target)
     if (auto* PS = Cast<AERPlayerState>(Target))
     {
         PS->LoadoutPreset=LoadoutPreset; PS->LoadoutVariant=LoadoutVariant;
-        PS->Team = Team; PS->PrimaryWeapon = PrimaryWeapon;
+        PS->Team = Team; PS->PendingTeam = PendingTeam; PS->PrimaryWeapon = PrimaryWeapon;
         PS->AlphaSkin = AlphaSkin; PS->OmegaSkin = OmegaSkin;
         PS->SpareMagazines = SpareMagazines; PS->HECount = HECount;
         PS->SmokeCount = SmokeCount; PS->StunCount = StunCount;

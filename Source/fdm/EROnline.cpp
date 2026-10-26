@@ -4,6 +4,7 @@
 #include "ERMatch.h"
 #include "OnlineSubsystem.h"
 #include "OnlineSubsystemUtils.h"
+#include "OnlineSubsystemEOSTypesPublic.h"
 #include "Online/OnlineSessionNames.h"
 #include "EOSSettings.h"
 #include "Engine/LocalPlayer.h"
@@ -69,6 +70,20 @@ bool UEROnline::Configure()
     if (!Identity.IsValid() || !Sessions.IsValid()) { Fail(TEXT("Epic Online Services is unavailable.")); return false; }
     return true;
 }
+FString UEROnline::SanitizeServerName(const FString& Name)
+{
+    FString Clean;
+    for (const TCHAR C : Name.TrimStartAndEnd())
+        if (!FChar::IsControl(C) && Clean.Len() < 48) Clean.AppendChar(C);
+    Clean.TrimStartAndEndInline();
+    return Clean.IsEmpty() ? TEXT("Respawn & Rage") : Clean;
+}
+void UEROnline::SetDiscoveryFilter(FOnlineSessionSearch& Search)
+{
+    // OSS EOS otherwise uses the engine build ID as its implicit bucket, which
+    // can differ across platforms. RR_VERSION remains the compatibility gate.
+    Search.QuerySettings.Set(OSSEOS_BUCKET_ID_ATTRIBUTE_KEY, FString(TEXT("RespawnAndRage")), EOnlineComparisonOp::Equals);
+}
 void UEROnline::Host() { Begin(true); }
 void UEROnline::Search() { Begin(false); }
 void UEROnline::Begin(bool Hosting)
@@ -110,6 +125,7 @@ void UEROnline::Continue()
     {
         GI->SaveServerSettings();
         FOnlineSessionSettings Settings;
+        Settings.Set(OSSEOS_BUCKET_ID_ATTRIBUTE_KEY, FString(TEXT("RespawnAndRage")), EOnlineDataAdvertisementType::ViaOnlineService);
         Settings.bIsLANMatch = false;
         Settings.bShouldAdvertise = true;
         Settings.bAllowJoinInProgress = true;
@@ -117,6 +133,7 @@ void UEROnline::Continue()
         Settings.bUsesPresence = false;
         Settings.NumPublicConnections = GI->MaxPlayers;
         Settings.NumPrivateConnections = 0;
+        Settings.Set(FName(TEXT("RR_SERVER_NAME")), SanitizeServerName(GI->InternetServerName), EOnlineDataAdvertisementType::ViaOnlineService);
         Settings.Set(GameKey, FString(TEXT("RespawnAndRage")), EOnlineDataAdvertisementType::ViaOnlineService);
         Settings.Set(FName(TEXT("RR_HOST")), AERGameMode::SanitizeName(GI->LocalName), EOnlineDataAdvertisementType::ViaOnlineService);
         Settings.Set(VersionKey, GI->BuildVersion, EOnlineDataAdvertisementType::ViaOnlineService);
@@ -130,6 +147,7 @@ void UEROnline::Continue()
     else
     {
         Query = MakeShared<FOnlineSessionSearch>();
+        SetDiscoveryFilter(*Query);
         Query->bIsLanQuery = false;
         Query->MaxSearchResults = 100;
         Query->TimeoutInSeconds = 30;
@@ -173,7 +191,7 @@ void UEROnline::FindComplete(bool Success)
         if (Game == TEXT("RespawnAndRage") && Version == GI->BuildVersion && Result.Session.NumOpenPublicConnections > 0)
             Results.Add(Result);
     }
-    Status = Results.IsEmpty() ? TEXT("No compatible Internet servers found. Start one on another computer, then search again.") : FString::Printf(TEXT("%d Internet server(s) found. Choose a server to join."), Results.Num());
+    Status = Results.IsEmpty() ? TEXT("No compatible Internet servers found. Check that the host is online and running the same game version, then search again.") : FString::Printf(TEXT("%d Internet server(s) found. Choose a server to join."), Results.Num());
     UE_LOG(LogTemp, Display, TEXT("ER_ONLINE_SEARCH results=%d"), Results.Num());
 }
 void UEROnline::Join(int32 Index)

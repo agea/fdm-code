@@ -4,7 +4,13 @@ from pathlib import Path
 import argparse,os,subprocess,time,re
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--network',action='store_true')
+parser.add_argument('--player-team',action='store_true',help='Verify remote deferred team change, cancellation, protected suicide and respawn')
 parser.add_argument('--render',action='store_true')
+parser.add_argument('--drongo-masks',action='store_true',help='Capture the two restored masks plus the helmet variant')
+parser.add_argument('--clothing',action='store_true',help='Capture front/back walking clothing and masks on all affected skins')
+parser.add_argument('--layout-only',action='store_true',help='Capture one Player page with the largest equipment list')
+parser.add_argument('--width',type=int,default=1440)
+parser.add_argument('--height',type=int,default=1000)
 parser.add_argument('--mines',action='store_true')
 args=parser.parse_args()
 project=Path(__file__).resolve().parents[1]
@@ -23,9 +29,13 @@ try:
     capture_started=time.time()
     tag='loadout-'+('render' if args.render else 'network')
     hostlog=logs/(tag+'-host.log');clientlog=logs/(tag+'-client.log')
-    hostflags=['-windowed','-ResX=1440','-ResY=1000','-ERLoadoutGallery'] if args.render else ['-nullrhi']
+    hostflags=['-windowed',f'-ResX={args.width}',f'-ResY={args.height}','-ERLoadoutGallery'] if args.render else ['-nullrhi']
     if args.mines:hostflags.append('-ERLoadoutMines')
+    if args.player_team:hostflags.append('-ERPlayerTeamProbe')
     if args.render and args.mines:hostflags.append('-ERClaymoreLaserCapture')
+    if args.layout_only:hostflags.append('-ERPlayerLayoutCapture')
+    if args.clothing:hostflags.append('-ERClothingGallery')
+    if args.drongo_masks:hostflags.append('-ERDrongoMaskGallery')
     files.append(hostlog.open('w'))
     host=subprocess.Popen(common+['/Game/EclipseRecoil/Maps/L_Depot?listen?Name=LoadoutHost','-game','-ERLoadoutProbe','-port=17825','-ExecCmds=t.MaxFPS 60,r.DynamicRes.OperationMode 0,r.ScreenPercentage 100']+hostflags,stdout=files[-1],stderr=subprocess.STDOUT);processes.append(host)
     deadline=time.monotonic()+60
@@ -40,10 +50,12 @@ try:
     all_remote=set(range(1,16)).issubset({int(i) for i in re.findall(r'ER_LOADOUT_OBSERVED side=client phase=(\d+)\b',remote)})
     print('ER_LOADOUT_REMOTE_ALL15',all_remote)
     success=host.returncode==0 and 'ER_LOADOUT_COMPLETE result=PASS' in server and 'ER_LOADOUT_FAIL' not in server and all_remote
+    if args.player_team:
+        success &= 'ER_PLAYER_TEAM_COMPLETE result=PASS' in server and 'ER_PLAYER_TEAM_REMOTE result=PASS' in remote
     if args.mines:
         success &= 'ER_LOADOUT_MINES_REMOTE absolute_deadlines=PASS' in remote and 'ER_LOADOUT_MINES staggered_expiry_death_respawn_variant=PASS' in server
     if args.render:
-        captures=all((logs/'Loadouts'/f'Loadout_{i}.png').exists() and (logs/'Loadouts'/f'Loadout_{i}.png').stat().st_mtime>=capture_started for i in range(14));print('ER_LOADOUT_CAPTURES',captures);success &= captures
+        captures=all((logs/'Loadouts'/f'{"Clothing" if args.clothing or args.drongo_masks else "Loadout"}_{i}.png').exists() and (logs/'Loadouts'/f'{"Clothing" if args.clothing or args.drongo_masks else "Loadout"}_{i}.png').stat().st_mtime>=capture_started for i in (range(10,16) if args.drongo_masks else range(28) if args.clothing else [3] if args.layout_only else range(14)));print('ER_LOADOUT_CAPTURES',captures);success &= captures
         material_ok=not any('Claymore/' in line and 'Failed to compile Material' in line for line in server.splitlines())
         print('ER_CLAYMORE_METAL_MATERIAL',material_ok);success &= material_ok
         if args.mines:

@@ -42,6 +42,10 @@ public:
     UPROPERTY(VisibleAnywhere) TObjectPtr<class UERWounds> Wounds;
     AERCharacter(const FObjectInitializer& ObjectInitializer = FObjectInitializer::Get());
     UFUNCTION(BlueprintCallable, Category="Training|Editor")
+    static bool ValidateFieldClothing(class USkeletalMesh* TargetMesh, bool Skirt);
+    UFUNCTION(BlueprintCallable, Category="Training|Editor")
+    static bool ConfigureFieldClothing(class USkeletalMesh* TargetMesh, bool Skirt);
+    UFUNCTION(BlueprintCallable, Category="Training|Editor")
     static bool CopyTrainingGripSockets(class USkeletalMesh* TargetMesh, class USkeletalMesh* SourceMesh);
     UFUNCTION(BlueprintCallable, Category="Training|Editor")
     static bool SetMercenaryAnimationSkeleton(class UAnimSequence* Animation, class USkeletalMesh* TargetMesh);

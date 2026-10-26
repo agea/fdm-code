@@ -1,5 +1,64 @@
 # Respawn & Rage — sviluppo Unreal
 
+## Abiti in movimento e maschera Drongo — 26 ottobre 2026
+
+Le cinque gonne Phase ricevono un asset Chaos cloth ricavato esclusivamente
+dalla sezione originale leather_skirt: cintura e scarpe fisse, libertà crescente
+verso l'orlo (massimo22cm), collisione con il physics asset esistente e damping.
+Le quattro giacche/cappotti Twinblast con cloth mantengono il proprio asset,
+con libertà massima6cm e richiamo all'animazione per limitarne le deformazioni.
+Non cambiano mesh importate, clip retargettate, impugnature o physics asset.
+setup_field_clothing.py modifica soltanto le copie possedute e i tre cataloghi,
+con backup ZIP; ConfigureFieldClothing/ValidateFieldClothing sono utility editor.
+
+Drongo deve sempre avere la maschera, anche con casco: ripristinate le parti
+originali nascoste del GDC. Scavenger e Smuggler, che non includono la geometria,
+riusano SM_ER_DrongoMask estratta dalle sole parti della testa del GDC, con UV,
+normali e materiali esistenti; accessorio senza collisione sul bone head.
+setup_drongo_masks.py aggiorna giocatori, target e cadaveri. I generatori di skin
+preservano questa scelta. La galleria --render --clothing riprende davanti/dietro
+quattro Twinblast, cinque Drongo e cinque Phase; --drongo-masks controlla le due
+maschere riusate e la variante con casco.
+
+
+## Rotazione manuale anteprima Player — 26 ottobre 2026
+
+Tasto sinistro e trascinamento sull'anteprima ruotano la camera orizzontalmente.
+La cattura Slate mantiene il gesto anche fuori dal pannello; rilascio, perdita
+cattura e distruzione del widget ripristinano l'orbita automatica. Durante il
+gesto l'orbita automatica è sospesa, mentre la camminata continua. Sensibilità
+indipendente dalla scala del layout; nessuna modifica al pawn di gioco.
+
+
+## Player: spazio e anteprima animata — 26 ottobre 2026
+
+La pagina Player usa due colonne: tutte le impostazioni e azioni a sinistra,
+anteprima a destra alta quanto la pagina. Il layout1600x900 si adatta al viewport;
+le sole opzioni scorrono sui display piccoli; stato e pulsanti restano fissi
+in basso. Nome e squadra sono affiancati nella colonna sinistra. L'anteprima mostra esclusivamente
+il personaggio e la primaria, senza scaffali, armi secondarie o altri oggetti.
+Riutilizza la camminata retargettata della famiglia scelta e l'impugnatura world
+tramite ingressi cosmetici di UERPostureMesh, senza creare pawn di gioco.
+Il personaggio cammina sul posto; la camera orbita8 gradi/s (45s/giro), mantenendo
+l'intera figura e l'arma nell'inquadratura. Due luci locali seguono la camera.
+La scena viene eliminata alla chiusura del menu. Nessuna modifica ad asset salvati.
+
+
+## Menu Player e cambio squadra — 26 ottobre 2026
+
+Player unifica nome, squadra e i quindici loadout nelle schermate principale,
+offline e lobby/pausa. Il vecchio comando ERMenu 5 apre la stessa pagina di
+ERMenu 6. Il nome si salva alla conferma del campo; il loadout mantiene la
+conferma esplicita per il prossimo spawn. Cambiare squadra da vivi apre la
+scelta suicidio / prossimo respawn / annulla. PendingTeam replica la scelta
+senza cambiare squadra, aspetto o attribuzione dei colpi della vita corrente.
+RestartPlayer applica la squadra prima della scelta dello spawn e del kit,
+rimuovendo le vecchie claymore. Il suicidio autorizzato dal server attraversa
+ReceiveDamage, conteggio morte e attesa respawn ordinari, anche se protetti.
+Riselezionare la squadra attuale annulla il cambio in sospeso. Nessun nuovo asset.
+Verifica LAN dedicata: test-loadouts.py --network --player-team.
+
+
 ## Durata cadaveri — 26 ottobre 2026
 
 Il server elimina ogni cadavere 30 secondi dopo la sua creazione, insieme alle
