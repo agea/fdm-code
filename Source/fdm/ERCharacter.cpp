@@ -65,6 +65,29 @@ FTransform AERCharacter::GetWeaponReferenceBone(USkeletalMesh* WeaponMesh, FName
     while ((Index = Ref.GetParentIndex(Index)) != INDEX_NONE) Result *= Ref.GetRefBonePose()[Index];
     return Result;
 }
+bool AERCharacter::ConfigureKnifeGripEditor(USkeletalMesh* PreviewMesh,UAnimSequence* Pose,
+    USkeletalMesh* KnifeMesh,FTransform KnifeRelativeToRoot)
+{
+#if WITH_EDITOR
+    // Only isolated editing copies: never touch the runtime skin/skeleton sockets.
+    if(!PreviewMesh || !Pose || !KnifeMesh ||
+        !PreviewMesh->GetPathName().Contains(TEXT("/KnifeGripEditing/")) ||
+        !Pose->GetPathName().Contains(TEXT("/KnifeGripEditing/")))return false;
+    PreviewMesh->Modify();
+    const FName Name(TEXT("Knife_Edit_Reference"));
+    auto* Socket=const_cast<USkeletalMeshSocket*>(PreviewMesh->FindSocket(Name));
+    if(!Socket){Socket=NewObject<USkeletalMeshSocket>(PreviewMesh);Socket->SocketName=Name;PreviewMesh->AddSocket(Socket);}
+    Socket->BoneName=TEXT("root");Socket->RelativeLocation=KnifeRelativeToRoot.GetTranslation();
+    Socket->RelativeRotation=KnifeRelativeToRoot.Rotator();Socket->RelativeScale=KnifeRelativeToRoot.GetScale3D();
+    PreviewMesh->RebuildSocketMap();
+    FPreviewAssetAttachContainer Attached;Attached.AddAttachedObject(KnifeMesh,Name);
+    PreviewMesh->SetPreviewAttachedAssetContainer(Attached);
+    Pose->Modify();Pose->SetPreviewMesh(PreviewMesh);PreviewMesh->MarkPackageDirty();Pose->MarkPackageDirty();
+    return true;
+#else
+    return false;
+#endif
+}
 TArray<FVector> AERCharacter::GetPresentationVertices(USkeletalMesh* PresentationMesh, FName Bone)
 {
     TArray<FVector> Result;
@@ -816,6 +839,15 @@ float AERCharacter::TakeDamage(float Damage, const FDamageEvent& Event, AControl
         Facts.SourceLife = Cast<APawn>(Gun->GetOwner());
         Facts.Melee = Gun->Data->Payload == EERPayload::Melee;
         Facts.LastBullet = Gun->Data->Payload == EERPayload::Bullet && Gun->MagazineAmmo == 0;
+        if (Facts.Melee && Event.IsOfType(FPointDamageEvent::ClassID))
+        {
+            const auto& Point = static_cast<const FPointDamageEvent&>(Event);
+            Damage *= ERWeaponBallistics::MeleeMultiplier(Point.HitInfo.BoneName);
+            if (const AActor* Attacker = Gun->GetOwner())
+                Damage += ERWeaponBallistics::MeleeRearBonus(Point.HitInfo.BoneName,
+                    GetActorForwardVector(), Attacker->GetActorLocation()-GetActorLocation());
+            Facts.Headshot = ERWeaponBallistics::ZoneForBone(Point.HitInfo.BoneName) == ERWeaponBallistics::EHitZone::Head;
+        }
         if (Gun->Data->Payload == EERPayload::Bullet && Event.IsOfType(FPointDamageEvent::ClassID))
         {
             bBullet=true;

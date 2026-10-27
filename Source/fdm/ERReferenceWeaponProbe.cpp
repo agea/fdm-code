@@ -22,6 +22,8 @@
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 #include "ShaderCompiler.h"
+#include "Animation/AnimSequence.h"
+#include "Animation/AnimSingleNodeInstance.h"
 #include "HAL/IConsoleManager.h"
 
 AERReferenceWeaponProbe::AERReferenceWeaponProbe()
@@ -67,7 +69,8 @@ void AERReferenceWeaponProbe::Tick(float DeltaTime)
         auto* PC=Cast<AERPlayerController>(GetWorld()->GetFirstPlayerController());
         auto* C=PC?Cast<AERCharacter>(PC->GetPawn()):nullptr;
         if(!C || !C->Weapon || C->Inventory.Num()!=10)return;
-        if(Gallery)PC->SetControlRotation(FRotator(0,180,0));
+        if(Gallery)PC->SetControlRotation(FRotator(
+            FParse::Param(FCommandLine::Get(),TEXT("ERKnifeGallery")) ? -35.f : 0.f,180,0));
         if(ClientPhase!=Phase)
         {
             ClientPhase=Phase;ClientChangedAt=GetWorld()->GetTimeSeconds();ReloadStartedAt=0;
@@ -88,9 +91,30 @@ void AERReferenceWeaponProbe::Tick(float DeltaTime)
             (!Gallery || !GShaderCompilingManager || !GShaderCompilingManager->IsCompiling()))
         {
             CapturedPhase=Phase;
+            if(Gallery && Phase==1)ClientChangedAt=GetWorld()->GetTimeSeconds();
             UE_LOG(LogTemp,Display,TEXT("ER_REFERENCE_REMOTE slot=%d mesh=%s armor=%.0f"),Phase-1,*GetNameSafe(C->FirstPersonRifle->GetSkeletalMeshAsset()),C->Health->Armor);
             if(Gallery)FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir()/FString::Printf(TEXT("Testing/ReferenceWeapons/Slot_%02d.png"),Phase-1),true,false);
-            ServerAcknowledgeSlot(Phase);
+            if(!Gallery || Phase!=1)ServerAcknowledgeSlot(Phase);
+        }
+        if(Gallery && Phase==1 && CapturedPhase==1)
+        {
+            const double Elapsed=GetWorld()->GetTimeSeconds()-ClientChangedAt;
+            if(Elapsed>.7 && CapturedReload!=-2)
+            {
+                CapturedReload=-2;
+                C->FirstPersonBody->PlayAnimation(C->Weapon->Data->FireAnimation,false);
+                C->FirstPersonBody->GetSingleNodeInstance()->SetPosition(2.f/30.f,false);
+                C->FirstPersonBody->SetPlayRate(0.f);
+                C->FirstPersonBody->TickAnimation(0.f,false);
+                C->FirstPersonBody->RefreshBoneTransforms();
+                FScreenshotRequest::RequestScreenshot(FPaths::ProjectSavedDir()/TEXT("Testing/ReferenceWeapons/Knife_Contact.png"),true,false);
+            }
+            if(Elapsed>1.2)
+            {
+                C->FirstPersonBody->PlayAnimation(C->Weapon->Data->IdleAnimation,true);
+                C->FirstPersonBody->SetPlayRate(1.f);
+                ServerAcknowledgeSlot(Phase);
+            }
         }
         if(Gallery && Phase>=40 && Phase<=46 && CapturedReload!=Phase && C->Weapon==C->Inventory[Phase-39] && C->Weapon->bReloading)
         {
@@ -229,6 +253,22 @@ void AERReferenceWeaponProbe::Tick(float DeltaTime)
                 *H->WorldRifle->GetComponentLocation().ToString(),*H->GetMesh()->GetClass()->GetName());
             Check(Error<1.f,
                 FString::Printf(TEXT("world_support_palm_contact_%d"),Phase-1));
+        }
+        if(Phase==1 && FParse::Param(FCommandLine::Get(),TEXT("ERKnifeGallery")))
+        {
+            const auto* Data=H->Weapon->Data.Get();
+            Check(Data && FMath::IsNearlyEqual(Data->HitscanRange,160.f) &&
+                FMath::IsNearlyEqual(Data->Damage,40.f) && FMath::IsNearlyEqual(Data->ShotInterval,.5f),
+                TEXT("knife_preserves_160cm_damage_and_cooldown"));
+            Check(Data && Data->FireAnimation && FMath::IsNearlyEqual(Data->FireAnimation->GetPlayLength(),.3f,.001f),
+                TEXT("knife_fast_300ms_gesture"));
+            Host->SetControlRotation(FRotator(80,0,0));
+            H->Weapon->StartFire();H->Weapon->StopFire();
+            Check(H->Weapon->MagazineAmmo==1 && H->Weapon->LastShotTraceCount==1 &&
+                FVector::Distance(H->Weapon->LastShotTraceStart,H->Weapon->LastShotTraceEnd)<=160.01f,
+                TEXT("knife_authoritative_bounded_query_without_ammo_consumption"));
+            UE_LOG(LogTemp,Display,TEXT("ER_REFERENCE_KNIFE_COMPLETE result=%s"),Failed?TEXT("FAIL"):TEXT("PASS"));
+            FPlatformMisc::RequestExitWithStatus(false,Failed?1:0);return;
         }
         if(Phase<10){Advance(Phase+1,Gallery?2.f:.8f);return;}
         C->ServerSelectWeapon(-1);C->ServerSelectWeapon(10);

@@ -28,6 +28,7 @@ class DesktopWorkspaceTests(unittest.TestCase):
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text('fixture')
         (plugin / 'PCGEx.uplugin').write_text(json.dumps({'Installed': True, 'Modules': [{'Name': 'PCGEx'}]}))
+        (project / '.git').mkdir()
         return project, engine, plugin
 
     @unittest.skipIf(os.name == 'nt', 'Shared Content junction creation needs a Windows integration run')
@@ -36,7 +37,7 @@ class DesktopWorkspaceTests(unittest.TestCase):
             root = Path(temporary)
             project, engine, original_plugin = self.fixture(root)
             workspace = root / 'builds with spaces/project'
-            with patch.object(module.subprocess, 'check_output', return_value='a' * 40):
+            with patch.object(module.subprocess, 'check_output', side_effect=['', '2026-10-20T23:30:00-07:00', 'a' * 40]):
                 result = module.prepare(project, engine, workspace)
             self.assertEqual(result, workspace.resolve() / 'RespawnAndRage.uproject')
             self.assertEqual((workspace / 'Content/map.uasset').read_text(), 'fixture')

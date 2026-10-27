@@ -486,3 +486,10 @@ update that configuration in the isolated snapshot and use `--resume <run>
 --recook-only`; this reuses linked binaries after the object cleanup described
 above. Validate actual packaged map startup, rather than treating UAT success
 as evidence that every playable map is present.
+
+Release source identity: Mac and Windows releases require a clean Git working tree,
+including untracked files and dirty submodules (also for resume/upload retries).
+Commit or stash changes before running them. GameVersion uses the HEAD commit
+committer date in its recorded timezone, followed by the eight-character hash;
+isolated workspaces preserve that date in Build/SourceCommitDate.txt. Operational
+log timestamps and build directory names still use the actual execution time.

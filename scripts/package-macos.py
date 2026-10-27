@@ -77,6 +77,8 @@ if a.check:
     raise SystemExit(0 if free >= minimum else 2)
 if free < minimum:
     raise RuntimeError(f'Need at least {minimum_gib} GiB free before starting; actual cook may need more')
+if not a.resume:
+    subprocess.run([sys.executable, str(project / 'scripts/stamp-build-version.py'), '--check-clean'], check=True)
 if a.resume:
     run_dir = a.resume.resolve()
     if not run_dir.is_relative_to(workspace) or not (run_dir / 'receipt.json').is_file():
@@ -126,6 +128,8 @@ else:
     (snapshot / 'Build').mkdir(exist_ok=True)
     (snapshot / 'Build/SourceCommit.txt').write_text(
         subprocess.check_output(['git', '-C', str(project), 'rev-parse', 'HEAD'], text=True).strip() + '\n')
+    (snapshot / 'Build/SourceCommitDate.txt').write_text(
+        subprocess.check_output(['git', '-C', str(project), 'show', '-s', '--format=%cI', 'HEAD'], text=True).strip() + '\n')
     (snapshot / 'scripts').mkdir(exist_ok=True)
     shutil.copy2(project / 'scripts/stamp-build-version.py', snapshot / 'scripts/stamp-build-version.py')
 subprocess.run([sys.executable, str(project / 'scripts/prepare-eos-guest.py'),

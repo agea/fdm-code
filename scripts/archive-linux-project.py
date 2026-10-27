@@ -83,7 +83,7 @@ def main():
             return None
         if 'Plugins' in parts and any(p in ('Binaries', 'Intermediate') for p in parts):
             return None
-        if member.name in ('Build/GameVersion.txt', 'Build/SourceCommit.txt'):
+        if member.name in ('Build/GameVersion.txt', 'Build/SourceCommit.txt', 'Build/SourceCommitDate.txt'):
             return None
         return member
 
@@ -99,6 +99,8 @@ def main():
                 archive.add(project / name, arcname=name, filter=source_only)
         archive.add(project / 'scripts/stamp-build-version.py', arcname='scripts/stamp-build-version.py')
         add_bytes('Build/SourceCommit.txt', commit + '\n')
+        commit_date = subprocess.check_output(['git', '-C', str(project), 'show', '-s', '--format=%cI', 'HEAD'], text=True).strip()
+        add_bytes('Build/SourceCommitDate.txt', commit_date + '\n')
         add_bytes('Build/ExternalPlugins.json', json.dumps(manifest, indent=2) + '\n')
         for name in ('background.jpg', 'icon.png', 'Credits.txt'):
             archive.add(project / 'Branding' / name, arcname='Branding/' + name)

@@ -1106,3 +1106,14 @@ UVs from the owned GDC Drongo, with existing owned material bindings. Scavenger
 and Smuggler attach it to head in player, target and corpse catalogs. GDC variants
 restore their original mask/head-gear visibility. Setup scripts retain ZIP backups
 under Saved/AssetBackups and do not modify acquired packages.
+
+Drongo mask refinement (27 October 2026): the Breacher/Marksman shared rigid
+mask excludes both `headHose` bone chains during extraction (mask revision3).
+The authored face shell, UVs and material bindings remain intact. Rerunning
+setup_drongo_masks.py regenerates the corrected accessory and retains its
+head attachments in character, training-target and corpse catalogs.
+
+Follow-up: loadout role names are independent of appearance indices. GDC
+appearances0/2/4 have an embedded mask and do not use SM_ER_DrongoMask.
+setup_drongo_masks.py now hides both upper hose root bones on these appearances
+and the legacy Omega fallback in all three catalogs, after field-clothing setup.

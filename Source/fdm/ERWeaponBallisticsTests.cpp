@@ -6,6 +6,20 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FERWeaponBallisticsTest, "EclipseRecoil.Weapons
     EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 bool FERWeaponBallisticsTest::RunTest(const FString&)
 {
+    for(const FName Bone : {FName("head"), FName("neck_01")})
+        TestEqual(TEXT("Knife head damage"),40*ERWeaponBallistics::MeleeMultiplier(Bone),80.f);
+    for(const FName Bone : {FName("spine_03"), FName("spine_01"), FName("pelvis"), FName(NAME_None)})
+        TestEqual(TEXT("Knife torso and unknown fallback damage"),40*ERWeaponBallistics::MeleeMultiplier(Bone),40.f);
+    for(const FName Bone : {FName("upperarm_l"), FName("lowerarm_r"), FName("hand_l"), FName("index_01_r"), FName("thigh_l"), FName("calf_r"), FName("foot_l"), FName("ball_r")})
+        TestEqual(TEXT("Knife limb damage"),40*ERWeaponBallistics::MeleeMultiplier(Bone),25.f);
+    for(const FName Bone : {FName("head"), FName("spine_03"), FName("pelvis")})
+    {
+        TestEqual(TEXT("Knife rear head/torso bonus"),ERWeaponBallistics::MeleeRearBonus(Bone,FVector::ForwardVector,-FVector::ForwardVector),20.f);
+        TestEqual(TEXT("Knife front has no bonus"),ERWeaponBallistics::MeleeRearBonus(Bone,FVector::ForwardVector,FVector::ForwardVector),0.f);
+        TestEqual(TEXT("Knife side has no bonus"),ERWeaponBallistics::MeleeRearBonus(Bone,FVector::ForwardVector,FVector::RightVector),0.f);
+    }
+    TestEqual(TEXT("Knife rear limbs have no bonus"),ERWeaponBallistics::MeleeRearBonus(FName("upperarm_l"),FVector::ForwardVector,-FVector::ForwardVector),0.f);
+    TestEqual(TEXT("Knife unknown bone has no rear bonus"),ERWeaponBallistics::MeleeRearBonus(NAME_None,FVector::ForwardVector,-FVector::ForwardVector),0.f);
     TestEqual(TEXT("Source 500 units maps to 1270cm"), ERWeaponBallistics::AtRange(100,.85f,1270),85.f);
     TestEqual(TEXT("Zero range preserves source damage"), ERWeaponBallistics::AtRange(53,.85f,0),53.f);
     TestTrue(TEXT("Two range intervals compound"), FMath::IsNearlyEqual(ERWeaponBallistics::AtRange(100,.85f,2540),72.25f));

@@ -72,6 +72,9 @@ public:
     UFUNCTION(BlueprintCallable, Category="Presentation|Editor")
     static bool SetPalmContactSocket(class USkeletalMesh* PresentationMesh, FName Name, FName Bone, FTransform Transform);
     UFUNCTION(BlueprintCallable, Category="Presentation|Editor")
+    static bool ConfigureKnifeGripEditor(class USkeletalMesh* PreviewMesh, class UAnimSequence* Pose,
+        class USkeletalMesh* KnifeMesh, FTransform KnifeRelativeToRoot);
+    UFUNCTION(BlueprintCallable, Category="Presentation|Editor")
     static FVector GetWeaponSurfaceContact(class USkeletalMesh* WeaponMesh, FVector Start, FVector End, class UAnimSequence* Animation = nullptr);
     UFUNCTION(BlueprintCallable, Category="First person|Editor")
     static bool BuildFirstPersonForearms(class USkeletalMesh* Destination, class USkeletalMesh* SkinMesh,

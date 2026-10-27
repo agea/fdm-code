@@ -1,3 +1,71 @@
+Knife location damage (27 October, latest): supersedes uniform40 damage.
+Server anatomical trace uses ERShotTrace::Pellet with cover retained. Base40:
+head/neck80, torso40, arms/hands/legs25. Rear120-degree ground-plane sector
+(attacker direction dot victim forward < -0.5) adds20 only to head/neck and
+known torso bones, before existing armor handling. Unknown bones keep40 with
+no rear bonus. Preserve160cm reach,0.5s cooldown and approved presentation.
+
+Drongo embedded-mask follow-up (27 October): Breacher loadout can use GDC
+appearance0, not only the extracted Scavenger accessory. setup_drongo_masks.py
+also hides headHose_top_l_01/headHose_top_r_01 on GDC skins0/2/4 and the
+Omega fallback in character/target/corpse catalogs. Preserve this after field
+clothing rebuilds; keep mask face geometry and all other bones visible.
+
+Drongo Breacher/Marksman masks (27 October, latest): omit both upper headHose
+bone chains from the extracted rigid SM_ER_DrongoMask (revision3). Preserve
+the face shell, original UVs/materials and head attachments in all three
+character/target/corpse catalogs. setup_drongo_masks.py retains ZIP rollback.
+
+Knife manual wrist pose (27 October, latest): user's numeric Bone panel rotation
+for hand_r is Roll=-46.2194, Pitch=-10.9159, Yaw=-8.93675 degrees. Saving the
+animation asset did not key the live preview modification. apply_manual_knife_grip.py
+records those exact local bone values in A_Knife_ManualGrip and activates owned
+ManualReady/ManualStab clips. Preserve every other local ready-pose bone, mesh,
+material, scale, gameplay field and the existing knife trajectory; compensate
+the FPS attachment for the wrist rotation. Read-only ManualBaseline and
+ManualMotionReference plus a verified private ZIP retain rollback inputs.
+ERKnifeManualGripApproved metadata takes precedence over all automatic grip
+fitting; reruns/imports must preserve the manual pose without accumulating it.
+Do not infer a new pose from a screenshot or run the automatic finger fitter
+over this user correction. Verify compressed ready/start/end and real game binding.
+
+Knife grip revision4 (27 October): FPS knife scale0.65 (35% smaller),
+hand tilted8deg upward and thumb clearance0.5cm with a slightly more open wrap.
+Fit fingers against the scaled handle: source stations and reach/clearance must
+convert between mesh-local cm and world cm. FirstPersonGripTransform carries
+the absolute0.65 scale; do not scale the hand, change world GripTransform or
+restore unit scale in compressed-pose validation. Retain half forearm pivot,
+the existing attack/return timing and160cm gameplay range. This supersedes the
+earlier unit-size blade invariant only; retain its attachment-anchor trajectory.
+
+Knife grip revision3 (27 October): use exactly half the revision2
+forearm pivot rotation. Seat the hand higher/nearer the guard and align its
+anatomical frame with the source closed grip at frame107. extract_knife_grip.py
+reads original FBX fingers via Blender into a private derived receipt, preserving
+source inputs. fit_knife_fingers.py fits all five chains to real handle triangles
+with measured fingertip geometry and unchanged phalanx lengths; cache the local
+grip across ready/stab. Preserve approved knife trajectory, animation timing,
+160cm range and other gameplay. Earlier fixed90deg and bottom-centre endpoint
+instructions below are superseded by this midpoint/source-anatomy fit. Verify
+compressed recovery, fingertip contacts and real Metal ready/contact captures.
+
+Knife grip revision2 (27 October): rotate the FPS fist90deg around the knife's
+authored handle frame and seat the handle in the curled-finger cavity. Preserve
+the approved blade transform/trajectory with a knife-only ER_Palm_R FPS attachment;
+do not change world GripTransform or shared skin sockets. Pivot the forearm about
+the seated wrist to exit below bottom-centre (u=.5), retaining segment lengths.
+fit_knife_grip.py postprocesses the regenerated owned ready/stab clips; never
+accumulate transforms on saved corrected clips. Preserve timings and gameplay.
+
+Knife presentation (27 October): retain 160cm melee range by explicit follow-up.
+Use source frames107–110 (about3.53–3.63s) for the ready/forward contact poses,
+67ms outward stroke and300ms complete gesture, with the assembly12cm farther
+forward. Preserve40 damage and0.5s cooldown. setup_knife_presentation.py backs up
+the knife packages and fits owned Ready/Stab clips from the preserved base idle;
+the importer applies the same fit. Preserve source art, other weapons, FPS skin
+geometry and the unused left arm. Verify compressed recovery/forward reach and
+the reference Metal gallery ready/contact captures plus host/client combat.
+
 Movement revision (26 October, latest): all game modes use +50% locomotion
 speeds: run 15km/h, Shift walk 7.5km/h, sprint 27km/h, crouch 150cm/s,
 prone 82.5cm/s, posture transition 67.5cm/s, ladders 216/270cm/s.

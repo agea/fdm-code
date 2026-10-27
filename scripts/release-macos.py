@@ -385,6 +385,7 @@ def main(argv=None):
         if path.is_relative_to(PROJECT) or PROJECT.is_relative_to(path):
             parser.error('Use build/release directories outside the source checkout')
     try:
+        helper('stamp-build-version').ensure_clean(PROJECT)
         release(args)
     except (OSError, ValueError, KeyError, RuntimeError, subprocess.CalledProcessError) as error:
         print(str(error), file=sys.stderr)

@@ -124,8 +124,16 @@ bool AERCorpse::BuildDrongoMask(UStaticMesh* TargetMesh,USkeletalMesh* SourceMes
         for(const auto Weight:Weights.Get(Vertex))
         {
             int32 Index=BoneMap.IsValidIndex(Weight.GetBoneIndex())?BoneMap[Weight.GetBoneIndex()]:INDEX_NONE;
-            while(Index!=INDEX_NONE && Index!=HeadBone)Index=Ref.GetParentIndex(Index);
-            if(Index==HeadBone)Total+=Weight.GetWeight();
+            // The mask's two upper hoses are articulated children of head.
+            // Exclude their entire bone chains rather than baking the long
+            // reference-pose tubes into the rigid Breacher/Marksman accessory.
+            bool bHeadHose = false;
+            while(Index!=INDEX_NONE && Index!=HeadBone)
+            {
+                bHeadHose |= Ref.GetBoneName(Index).ToString().StartsWith(TEXT("headHose"), ESearchCase::IgnoreCase);
+                Index=Ref.GetParentIndex(Index);
+            }
+            if(Index==HeadBone && !bHeadHose)Total+=Weight.GetWeight();
         }
         return Total;
     };

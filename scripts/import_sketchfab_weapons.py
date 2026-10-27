@@ -272,6 +272,8 @@ for profile in sorted(profiles,key=lambda item:item['key']!='Assault'):
             frames.append(dict(root=[[1,0,0,-.018*weight],[0,1,0,0],[0,0,1,.003*weight],[0,0,0,1]]))
         settings['fire_animation']=retarget(settings['idle_animation'],folder+'/'+key+'/A_'+key+'_Hands_Fire',frames,60,True)
     settings.update(runpy.run_path(str(project/'scripts/weapon_gameplay_overrides.py'))['OVERRIDES'].get(key,{}))
+    if key=='Knife':
+        runpy.run_path(str(project/'scripts/setup_knife_presentation.py'))['fit'](settings)
     for prop,value in settings.items():data.set_editor_property(prop,value)
     save(data);catalog.append(data)
     report.append(dict(key=key,model=mesh.get_path_name(),data=data.get_path_name(),row=profile.get('row'),

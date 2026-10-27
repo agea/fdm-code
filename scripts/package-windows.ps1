@@ -442,6 +442,7 @@ try {
     if ($Butler -match '[/\\]') { $Butler = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Butler) }
     if ($ButlerIdentity) { $ButlerIdentity = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($ButlerIdentity) }
     if ($Check -and $InitAssets) { throw 'Use -Check or -InitAssets separately; -Check does not change asset checkouts.' }
+    Invoke-Native 'python.exe' @((Join-Path $PSScriptRoot 'stamp-build-version.py'), '--check-clean')
     if ($UploadOnly) {
         if ($NoUpload -or $InitAssets) { throw '-UploadOnly cannot be combined with -NoUpload or -InitAssets.' }
         $runDirectory = (Resolve-Path -LiteralPath $UploadOnly).ProviderPath

@@ -16,6 +16,25 @@ inline float ZoneMultiplier(EHitZone Zone, float HeadshotMultiplier = 4.f)
 {
     switch(Zone) { case EHitZone::Head:return HeadshotMultiplier; case EHitZone::Stomach:return 1.25f; case EHitZone::Legs:return .75f; default:return 1; }
 }
+// Knife keeps its 40-point torso baseline; limbs reward less than precise head hits.
+inline float MeleeMultiplier(FName Bone)
+{
+    if(ZoneForBone(Bone)==EHitZone::Head) return 2.f;
+    const FString Name=Bone.ToString().ToLower();
+    if(ZoneForBone(Bone)==EHitZone::Legs || Name.Contains(TEXT("arm")) ||
+        Name.Contains(TEXT("hand")) || Name.Contains(TEXT("thumb")) ||
+        Name.Contains(TEXT("index")) || Name.Contains(TEXT("middle")) ||
+        Name.Contains(TEXT("ring")) || Name.Contains(TEXT("pinky"))) return .625f;
+    return 1.f;
+}
+// Rear 120-degree sector, measured on the ground plane. Unknown bones get no bonus.
+inline float MeleeRearBonus(FName Bone, const FVector& VictimForward, const FVector& ToAttacker)
+{
+    const FString Name=Bone.ToString().ToLower();
+    const bool Torso=Name==TEXT("pelvis") || Name.StartsWith(TEXT("spine"));
+    const bool Eligible=ZoneForBone(Bone)==EHitZone::Head || Torso;
+    return Eligible && FVector::DotProduct(VictimForward.GetSafeNormal2D(),ToAttacker.GetSafeNormal2D())<-.5f ? 20.f : 0.f;
+}
 inline FVector PelletDirection(const FVector& Aim,int32 Index,int32 Count,float Spread,FRandomStream& Random)
 {
     // Six stable radial slots, plus a small independent disk jitter. No guaranteed centre pellet.

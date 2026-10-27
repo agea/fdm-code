@@ -22,10 +22,15 @@ def prepare(project, engine, destination):
     spec = importlib.util.spec_from_file_location('archive_plugins', Path(__file__).with_name('archive-linux-project.py'))
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    version_spec = importlib.util.spec_from_file_location('stamp_version', Path(__file__).with_name('stamp-build-version.py'))
+    version = importlib.util.module_from_spec(version_spec)
+    version_spec.loader.exec_module(version)
+    version.ensure_clean(project)
+    commit_date = version.source_date(project).isoformat()
     marketplace = module.marketplace_plugins(project, engine)
     commit = subprocess.check_output(['git', '-C', str(project), 'rev-parse', 'HEAD'], text=True).strip()
     ignore = shutil.ignore_patterns('.git', '__pycache__', '.DS_Store', 'Binaries', 'Intermediate',
-                                   'GameVersion.txt', 'SourceCommit.txt')
+                                   'GameVersion.txt', 'SourceCommit.txt', 'SourceCommitDate.txt')
     destination.mkdir(parents=True)
     shutil.copy2(project / 'RespawnAndRage.uproject', destination)
     for folder in ('Source', 'Config', 'Build', 'Plugins'):
@@ -40,6 +45,7 @@ def prepare(project, engine, destination):
     shutil.copy2(project / 'scripts/stamp-build-version.py', destination / 'scripts')
     (destination / 'Build').mkdir(exist_ok=True)
     (destination / 'Build/SourceCommit.txt').write_text(commit + '\n')
+    (destination / 'Build/SourceCommitDate.txt').write_text(commit_date + '\n')
     for descriptor in marketplace:
         target = destination / 'Plugins' / descriptor.stem
         shutil.copytree(descriptor.parent, target, ignore=ignore)

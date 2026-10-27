@@ -494,7 +494,7 @@ void AERWeapon::TryFire()
         LastShotTraceStart = Eye;
         LastShotTraceEnd = Eye + Aim.Vector() * FMath::Clamp(Data->HitscanRange, 1.f, 180.f);
         LastShotTraceCount = 1;
-        if (GetWorld()->LineTraceSingleByChannel(Hit, Eye, LastShotTraceEnd, ECC_GameTraceChannel1, Params))
+        if (ERShotTrace::Pellet(GetWorld(), Hit, Eye, LastShotTraceEnd, Params))
         {
             LastShotTraceEnd = Hit.ImpactPoint;
             UGameplayStatics::ApplyPointDamage(Hit.GetActor(), Data->Damage, Aim.Vector(), Hit,

@@ -6704,3 +6704,141 @@ registrata come regressione complessivamente superata.
   aggregate INCOMPLETE warning includes the earlier first-call error, so this
   is not recorded as a wholly clean two-launch policy run.
 - Distinct-identity JoinSession and two-network connectivity remain untested.
+
+
+### Knife ready/stab presentation — 27 October 2026
+
+- Editor arm64 Development build succeeded. Python compilation and git diff
+  whitespace checks passed.
+- setup_knife_presentation.py passed with source frames 107–110, 67ms outward
+  stroke, 300ms total gesture and 12cm view advance. Compressed evaluation
+  verified 16.42cm forward palm travel, matching start/end positions and unchanged
+  left-arm local poses. Retargeted palm contact errors remained below 0.001cm.
+- Saved data retains 160cm range (explicit user follow-up), 40 damage, 0.5s
+  cooldown, melee payload and one unconsumed ammunition unit. Verified ZIP backup
+  and both original viewer screenshots remain in the private weapons mount.
+- test-reference-weapons.py --knife --render exited 0: two actual local UE peers,
+  remote key selection, bounded authoritative melee query, unchanged gameplay
+  fields and 300ms clip passed. Both Metal ready/contact captures were generated
+  and visually inspected; the ready pose exposes the blade at lower left and
+  the contact pose extends forward. No weapon material compilation errors.
+  Evidence: Saved/Testing/reference-weapons-knife-render-{host,client}.log and
+  Saved/Testing/ReferenceWeapons/{Slot_00,Knife_Contact}.png.
+- The broader --render run exited 1: three existing pistol-only framing/grip
+  checks failed (bore convergence, reference tip framing, thumb wrap). Pistol
+  packages were not edited. The first version of the capture harness also
+  requested both knife screenshots in one frame; the corrected harness passed
+  the dedicated run above. Do not report the full arsenal suite as passing.
+
+
+### Knife fist/forearm correction — 27 October 2026
+
+- Applied knife-only grip revision2 through Unreal: quarter-turn of the fist,
+  handle seated in the curled-finger cavity and compensating FPS palm attachment.
+  The forearm pivots about the seated wrist toward bottom-centre u=0.5, with
+  its elbow endpoint below the viewport (v=1.211 at 16:9). No shared mesh/socket
+  or world GripTransform edits. Source motion and gameplay values stay intact.
+- Every generated sample preserved the approved blade transform within
+  0.000009cm; forearm pivot error below 0.000006cm and segment-length error
+  below 0.000001cm. Compressed start/end and unused left-arm checks passed.
+- test-reference-weapons.py --knife --render exited0 again with two local peers:
+  remote equip, 160cm range, 40 damage, 0.5s cooldown, 300ms gesture, bounded
+  authoritative query, no ammo consumption and both fresh Metal captures PASS.
+  Inspected Slot_00.png and Knife_Contact.png: the forearm now drops below the
+  screen near its centre and the handle lies between the curled fingers.
+- Python compilation and git diff whitespace checks passed. This change does
+  not alter the three pistol failures recorded in the earlier full-arsenal run.
+
+
+### Knife grip revision3 — 27 October 2026
+
+- User rejected the full downward forearm pivot and open/rearward finger pose.
+  Applied a 50% quaternion pivot, raised/advanced the hand toward the guard,
+  and replaced the inherited pistol finger pose with all five source chains.
+- extract_knife_grip.py read frame107 of the original FBX through Blender and
+  preserved the original inputs. The derived component-space mesh bounds match
+  the Unreal mesh. fit_knife_fingers.py adapts each chain using this skin's
+  measured fingertip and phalanx lengths, closing onto actual handle triangles.
+  Local grip keys remain constant through ready/stab/recovery.
+- Unreal generation passed: approved blade-position error below0.000016cm,
+  seated-wrist pivot error below0.000008cm, forearm length error below0.000001cm.
+  Raw fingertip closure errors below0.001cm; compressed ready/contact/recovery
+  fingertip error below0.0011cm. Unused left-arm and recovery checks passed.
+- Editor arm64 Development build passed; Python compilation and git diff
+  whitespace checks passed. test-reference-weapons.py --knife --render exited0
+  twice, including the final downward35deg camera capture: remote equip,
+  160cm/40damage/0.5s cooldown, 300ms gesture, authoritative query, no ammo
+  consumption, weapon shaders and fresh ready/contact images all PASS.
+- Inspected both Metal poses: the forearm now leaves toward the lower right
+  between the earlier two positions, the fist sits nearer the guard and the
+  five fingers are closed. The final ready capture contains a transient sky
+  shader-preparation overlay; the subsequent contact capture is clear. These
+  captures do not establish subjective acceptance of the user's selected skin.
+  Evidence remains Saved/Testing/ReferenceWeapons/{Slot_00,Knife_Contact}.png
+  and reference-weapons-knife-render-{host,client}.log.
+
+
+### Smaller knife and thumb clearance — 27 October 2026
+
+- User requested a smaller knife to fit the hand. FPS attachment now carries
+  absolute scale0.65 (35% reduction), with hand tilted8deg upward. Thumb target
+  has0.5cm clearance and a more open wrap; other fingertips retain0.12cm.
+  Source stations, reach and surface clearance correctly convert scaled mesh
+  cm to world cm. Hand/finger geometry and lengths remain unchanged.
+- Unreal generation/validation passed: compressed fingertip fit error below
+  0.001cm, attachment anchor error below0.000017cm, wrist pivot error below
+  0.00001cm. Retains half forearm pivot, source attack/return timing and all
+  gameplay values (160cm/40damage/0.5s cooldown). No world attachment changes.
+- test-reference-weapons.py --knife --render exited0 with two local peers: remote
+  equip, bounded query, no ammo use, 300ms gesture, preserved gameplay, fresh
+  Metal ready/contact captures and weapon shaders PASS. Inspected both poses:
+  the knife is visibly smaller relative to the unchanged hand.
+- Python compilation and git diff whitespace checks passed. Original request
+  image is preserved privately as References/knife-size-thumb-request-2026-10-27.png.
+
+
+### Manual wrist pose connected to gameplay — 27 October 2026
+
+- Initial audit showed saved ManualGrip and ManualBaseline had identical RAW
+  and COMPRESSED poses at both keys. The editor's unkeyed Bone panel had
+  hand_r local rotation Roll=-46.2194, Pitch=-10.9159, Yaw=-8.93675. Recorded
+  these numeric skeletal values explicitly; no geometric pose was inferred
+  from the picture. Position/scale and all other local ready bones stay intact.
+- apply_manual_knife_grip.py creates owned ManualReady/ManualStab and updates
+  the actual DA_Knife idle/fire bindings. Preserved original assets in a verified
+  private ZIP and read-only ManualMotionReference. The compensating FPS grip
+  preserves the knife trajectory (maximum error below0.000007cm). Gameplay,
+  mesh, view offset, world grip and knife mechanical clips remain unchanged.
+- Reapplication passed without accumulation. Compressed ready/start/end retain
+  the exact wrist rotation; all other local ready-pose bones match baseline.
+  Manual metadata prevents import/setup from overwriting this correction.
+- test-reference-weapons.py --knife --render exited0 on two fresh UE peers:
+  remote equip, 160cm range, 40 damage, 0.5s cooldown, 300ms gesture, bounded
+  authoritative query, no ammo consumption and fresh Metal captures PASS.
+  Inspected ready/contact captures; the latter has a transient general shader
+  preparation notice, with no weapon material compile failure. This verifies
+  the fresh project launch; an already running game retains cached assets.
+- Python compilation and git diff whitespace checks passed. The earlier full
+  arsenal pistol failures are outside this wrist-only correction.
+
+## 27 October 2026 — Breacher/Marksman mask upper tubes
+
+Editor arm64 Development build passed. Unreal Python regenerated the shared
+SM_ER_DrongoMask at revision3, omitting headHose-chain weights, and exited0
+with zero errors/warnings. The unrelated PCGExtendedToolkit failed to load on
+the first commandlet launch; the successful asset-only run disabled that plugin
+for that process. No project plugin settings changed.
+OBJ connectivity measurements before/after: 11,963 -> 11,579 triangles; both
+upper tubes shrink from208 to16 triangles (short attachment bases). Their long
+axis extent shrinks from34.17cm to2.27cm. The other two components retain their
+33,087/1,554 corner counts and bounds. Character, target and corpse catalogs
+retain exactly one head attachment per affected skin; ZIP backup CRC verified.
+No in-game render was captured for this correction.
+
+Drongo follow-up: the Breacher loadout was using the GDC embedded mask, outside
+that accessory-only change. setup_drongo_masks.py now saves both upper hose-root
+bones in HiddenBones for GDC appearance indices0/2/4 and the legacy Omega
+fallback in all three Blueprint catalogs. Unreal commandlet exited0; assertions
+passed for all nine appearance entries and the backup CRC. The existing
+FERTeamAppearance::ApplyTo and corpse path apply these hidden bones to meshes.
+No new visual capture; the earlier accessory-only result did not cover Breacher.

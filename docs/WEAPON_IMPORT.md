@@ -79,7 +79,42 @@ The HUD displays HP and AP. Direct environmental damage retains its existing
 behavior. Tests for the original 36-damage fixture use the legacy catalog.
 
 Knife attacks use a 160cm server trace, respect the first obstruction, have a
-cooldown and consume no ammunition. The Milkor launches a replicated physical
+cooldown and consume no ammunition. The 27 October presentation uses the source
+ready/contact poses around the supplied 3.57–3.61s viewer references
+(frames 107–110, approximately 3.53–3.63s on the source 30Hz grid): a 67ms
+forward stroke and 200ms eased return after a 33ms contact hold. The fitted
+assembly sits 12cm farther forward. `setup_knife_presentation.py` preserves the
+base idle, original files and unused support arm, verifies compressed poses and
+backs up the knife packages before saving owned ready/stab derivatives. The
+160cm range, 40 damage and 0.5s cooldown remain unchanged by explicit request.
+The reference Metal gallery captures both ready and contact poses.
+The subsequent grip correction rotates the fist 90 degrees around the weapon
+frame, seats the handle between palm and curled fingers, and swings the forearm
+around the seated wrist to leave through the bottom centre of the viewport.
+`fit_knife_grip.py` preserves the approved blade transform at every sample and
+both arm segment lengths. The compensating attachment uses the existing FPS
+`ER_Palm_R` socket; shared skin sockets and the world weapon attachment stay intact.
+The subsequent revision3 uses half that forearm rotation and a higher seat nearer
+the guard. It aligns the hand with the original source grip, then fits all five
+finger chains to the handle triangles using measured fingertip geometry and
+unchanged phalanx lengths. `extract_knife_grip.py` reads the original FBX through
+Blender into a private derived JSON; `fit_knife_fingers.py` generates the closed
+grip once and retains it across the ready/stab keys. This supersedes the fixed
+quarter-turn and bottom-centre endpoint of revision2.
+Revision4 reduces the FPS knife to65% of its former dimensions, tilts the hand
+8 degrees upward and opens the thumb with0.5cm clearance. Finger targets account
+for the scaled handle while retaining measured hand/finger lengths. The existing
+half forearm pivot, attack timing, attachment-anchor trajectory, world attachment
+and160cm gameplay range remain unchanged.
+The user's later manual wrist correction takes precedence over this generator.
+`apply_manual_knife_grip.py` records hand_r local rotation
+(Roll -46.2194, Pitch -10.9159, Yaw -8.93675 degrees), recovered from the numeric
+Bone panel because ordinary Save had left it in preview only. It binds the real
+knife data asset to ManualReady/ManualStab, preserving every other local ready
+bone and compensating the FPS attachment to retain the knife trajectory. A saved
+`ERKnifeManualGripApproved` flag makes subsequent imports/setups reuse this
+manual correction rather than running the automatic grip fitter again.
+The Milkor launches a replicated physical
 `LaunchedHE`, using the supplied `GL_slug1` geometry. Its 1750cm/s launch speed
 exceeds the 880cm/s thrown HE/smoke speed; gravity, bouncing/tumbling and the
 3.5s fuse remain authoritative. Impacts never detonate this payload. HE damage still checks static cover and

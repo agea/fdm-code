@@ -43,7 +43,7 @@ def source_rotation(matrix):
     q=[0,0,0,0];q[i]=s/4;q[j]=(r[i][j]+r[j][i])/s;q[k]=(r[i][k]+r[k][i])/s;q[3]=(r[k][j]-r[j][k])/s
     return tuple(q)
 
-def retarget(idle,destination,motion,fps,one_handed=False,right_socket='HandGrip_R',weapon_origin=None,weapon_scale=None,motion_basis=(0,0,0,1)):
+def retarget(idle,destination,motion,fps,one_handed=False,right_socket='HandGrip_R',weapon_origin=None,weapon_scale=None,motion_basis=(0,0,0,1),preserve_support_hand=False):
     # The existing fitted pose uses a 30Hz compression target. Resample onto
     # that exact grid; half samples at 60Hz can assert in UE's compressor.
     output_fps=30
@@ -74,6 +74,7 @@ def retarget(idle,destination,motion,fps,one_handed=False,right_socket='HandGrip
     for frame in motion:
         pose=ue.AnimPoseExtensions.get_anim_pose_at_time(idle,0,options)
         for side,arm in arms.items():
+            if side=='l' and preserve_support_hand:continue
             bones=arm['bones'];shoulder,elbow,hand=[xyz(b.translation) for b in bones]
             original_shoulder=shoulder
             root=frame['root']
