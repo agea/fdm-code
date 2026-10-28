@@ -31,8 +31,8 @@ void AERGameMode::CheckLobby()
         if (!PS || PS->IsABot() || PS->IsInactive() || PS->IsOnlyASpectator()) continue;
         ++Humans; Ready += PS->bLobbyReady; Votes.Add(PS->MapVote);
     }
-    if (!ERLobby::HasQuorum(Humans, Ready)) return;
-    const auto Leaders = ERMaps::LobbyLeaders(Votes);
+    if (!ERLobby::HasQuorum(Humans, Ready,ERServer::Get(GetWorld(),"Match.ReadyPercent"))) return;
+    const auto Leaders = ERMaps::LobbyLeaders(Votes,&ERServer::Rules(GetWorld()));
     if (Leaders.IsEmpty()) return;
     const int32 Map = Leaders[FMath::RandHelper(Leaders.Num())];
     bLobbyTravelPending = true;
@@ -46,7 +46,7 @@ void AERGameMode::CheckLobby()
         const auto& Entry = ERMaps::At(Map);
         FString URL = FString(Entry.Package) + FString::Printf(TEXT("?listen?ERAlphaBots=%d?EROmegaBots=%d?ERBotMode=Patrol?ERMaxPlayers=%d?MaxPlayers=%d"), AlphaBotCount, OmegaBotCount, MaxHumanPlayers, MaxHumanPlayers);
         if (GetGameState<AERGameState>()->bOnline) URL += TEXT("?EROnline=1");
-        if (Entry.Procedural) URL += FString::Printf(TEXT("?MapSeed=%d"), FMath::Rand());
+        if (Entry.Procedural) URL += FString::Printf(TEXT("?MapSeed=%d"), ERServer::Get(GetWorld(),"Map.FixedSeed")>0?int32(ERServer::Get(GetWorld(),"Map.Seed")):FMath::Rand());
         if (!GetWorld()->ServerTravel(URL, true))
         {
             bLobbyTravelPending = false;
@@ -74,7 +74,7 @@ void AERPlayerController::ServerLobbyVote_Implementation(int32 Map)
     const auto* Mode = GetWorld()->GetAuthGameMode<AERGameMode>();
     const auto* State = GetWorld()->GetGameState<AERGameState>();
     if (!Mode || !Mode->IsLobby() || !State || State->bLobbyStarting || Map < -1 || Map >= ERMaps::All().Num()) return;
-    if (Map >= 0 && !ERMaps::At(Map).InRotation) return;
+    if (Map >= 0 && !ERMaps::Enabled(Map,&ERServer::Rules(GetWorld()))) return;
     if (auto* PS = GetPlayerState<AERPlayerState>()) { PS->MapVote = Map; PS->ForceNetUpdate(); }
 }
 void AERPlayerController::ServerLobbyReady_Implementation(bool Ready)

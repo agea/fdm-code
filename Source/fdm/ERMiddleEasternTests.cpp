@@ -50,6 +50,17 @@ bool FERAlleysLayoutTest::RunTest(const FString& Parameters)
         TestTrue(TEXT("graded terrain and multiple roof accesses"),L.GradedTerrain && L.RooftopRoutes.Num()>=2 && L.GroundRoutes.Num()==2);
         int32 Houses=L.Houses.Num();
         TestTrue(TEXT("requested house variants form actual parcels"),Houses>12);
+        if(T->Town.ProceduralHouses)
+        {
+            TestFalse(TEXT("nearby low-rise roofs expose crossing routes"),L.RoofTransfers.IsEmpty());
+            int32 Entrances=0;
+            for(const auto& H:L.Houses)
+            {
+                TestTrue(TEXT("every house is generated without a fitted imported mesh"),!H.Mesh && !H.StructureName.IsNone());
+                Entrances+=H.Entrances.Num();
+            }
+            TestTrue(TEXT("street-facing module entrances are recorded"),Entrances>=4);
+        }
         TestTrue(TEXT("three-sand ground material bound"),L.GroundSurface && (T->ThemeLibrary ? T->ThemeLibrary->Themes[L.ThemeIndex].Grounds.Contains(L.GroundSurface):L.GroundSurface==T->Town.GroundSurface));
         if(T->Town.LowCoverAndUnderpass)
         {
@@ -155,6 +166,34 @@ bool FERAlleysCollisionTest::RunTest(const FString& Parameters)
             TestTrue(TEXT("roof landing is supported by the actual house mesh"),(Base && Base->GetStaticMesh() && Base->GetStaticMesh()->GetName().Contains(TEXT("House_"))) || (HitRoof && Hit.GetComponent()->ComponentHasTag(TEXT("ERDestructibleShell"))));
         }
         TArray<FVector> Interior;TestTrue(TEXT("actual source opening admits a standing player into a house"),ERProcedural::FindAlleyInteriorRoute(World,L,Interior));
+        if(T->Town.ProceduralHouses)
+        {
+            TArray<FVector> RimRoute;TestTrue(TEXT("remaining low rim has physical standing support"),ERProcedural::FindAlleyRoofRimRoute(World,L,RimRoute));
+            int32 Doors=0;
+            for(const auto& House:L.Houses)for(const auto& Entry:House.Entrances)
+            {
+                ++Doors;
+                for(int32 I=1;I<Entry.Num();++I)
+                    if(World->SweepSingleByChannel(Hit,Entry[I-1]+FVector(0,0,20),Entry[I]+FVector(0,0,20),FQuat::Identity,ECC_Pawn,Capsule,Q))
+                        AddError(FString::Printf(TEXT("module entry blocked seed=%d house=%s from=%s to=%s component=%s"),Seed,*House.StructureName.ToString(),*Entry[I-1].ToString(),*Entry[I].ToString(),Hit.GetComponent() ? *Hit.GetComponent()->GetName():TEXT("none")));
+                for(const auto& Point:Entry)
+                    TestTrue(TEXT("door and flat interior have physical footing"),World->LineTraceSingleByChannel(Hit,Point,Point-FVector(0,0,150),ECC_WorldStatic,Q) && Hit.ImpactNormal.Z>.7);
+            }
+            TestTrue(TEXT("all recorded street doors were physically checked"),Doors>=4);
+            for(const auto& Transfer:L.RoofTransfers)
+            {
+                for(int32 I=0;I<Transfer.Num();++I)
+                {
+                    const auto Point=Transfer[I];
+                    if(World->OverlapBlockingTestByChannel(Point,FQuat::Identity,ECC_Pawn,Capsule,Q))
+                        AddError(FString::Printf(TEXT("roof transfer standing clearance seed=%d point=%s route=%s -> %s"),Seed,*Point.ToString(),*Transfer[1].ToString(),*Transfer[2].ToString()));
+                    TestTrue(TEXT("roof crossing has actual deck support through the rim opening"),World->LineTraceSingleByChannel(Hit,Point,Point-FVector(0,0,120),ECC_WorldStatic,Q) && FMath::Abs(Hit.ImpactPoint.Z-(Point.Z-100))<1);
+                }
+                const float Clearance=FMath::Max(Transfer[1].Z,Transfer[2].Z)+10;
+                auto A=Transfer[1],B=Transfer[2];A.Z=B.Z=Clearance;
+                TestFalse(TEXT("no hidden roof lip obstructs the short jump"),World->SweepTestByChannel(A,B,FQuat::Identity,ECC_Pawn,Capsule,Q));
+            }
+        }
         for(const auto& Route:L.GroundRoutes)
         {
             float Low=10000,High=-10000;

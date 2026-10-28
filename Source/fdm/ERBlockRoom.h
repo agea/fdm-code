@@ -1,5 +1,6 @@
 #pragma once
 #include "CoreMinimal.h"
+#include "ERServerSettings.h"
 #include "GameFramework/Actor.h"
 #include "ERBlockWorld.h"
 #include "ERBlockCombat.h"
@@ -27,14 +28,14 @@ struct FERBlockCollapseSettings
     UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="0.1",ClampMax="20")) float DebrisSettleAfter=2;
 };
 
-// Protocol 9: bounded compressed skin masks; 5cm cells with complete shard-payload witnesses. BlockCount holds the cell count, PageVersions the
+// Protocol 10: material-rule snapshot and bounded compressed skin masks; 5cm cells with complete shard-payload witnesses. BlockCount holds the cell count, PageVersions the
 // versions of the chunk-mask shards (AERCellNetShard).
 USTRUCT()
 struct FERBlockNetworkDescriptor
 {
     GENERATED_BODY()
     UPROPERTY() uint32 Epoch=0;
-    UPROPERTY() uint32 Protocol=9;
+    UPROPERTY() uint32 Protocol=10;
     UPROPERTY() uint32 LayoutDigest=0;
     UPROPERTY() uint32 Sequence=0;
     UPROPERTY() int32 BlockCount=0;
@@ -45,6 +46,7 @@ struct FERBlockNetworkDescriptor
     UPROPERTY() TArray<uint32> PageVersions;
     UPROPERTY() bool Cells=true;
     UPROPERTY() FERCellSettings CellSettings;
+    UPROPERTY() FERServerRules Rules;
 };
 // Cosmetic falling fragment of a detached component (panel-local box).
 USTRUCT()
@@ -69,6 +71,8 @@ public:
     // BlockSize.Y is the wall slot thickness, Height the wall height.
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Blocks") FERBlockRoomConfig Config;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Blocks") TObjectPtr<UERBlockMaterialCatalog> MaterialCatalog;
+    UPROPERTY() FERServerRules MaterialRules;
+    UPROPERTY(Transient) TObjectPtr<UERBlockMaterialCatalog> AuthoredMaterialCatalog;
     // Cube used by floors, slabs and debris.
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Blocks") TObjectPtr<class UStaticMesh> BlockMesh;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Blocks") TObjectPtr<class UMaterialInterface> FloorSurface;

@@ -55,6 +55,16 @@ void AERBlockRoom::BeginPlay()
 }
 bool AERBlockRoom::BuildCellWorld(const TArray<FERCellPanelDesc>& Panels)
 {
+    if(HasAuthority()){MaterialRules=ERServer::Rules(GetWorld());MaterialRules.Ready=true;}
+    const bool HasMaterialOverrides=MaterialRules.Values.ContainsByPredicate([](const auto& V)
+    {const FString Key=V.Key.ToString();return Key.StartsWith(TEXT("Structure.")) || Key.StartsWith(TEXT("Material."));});
+    if(HasMaterialOverrides && MaterialCatalog)
+    {
+        if(!AuthoredMaterialCatalog)AuthoredMaterialCatalog=MaterialCatalog;
+        MaterialCatalog=DuplicateObject<UERBlockMaterialCatalog>(AuthoredMaterialCatalog,this);
+        ERServer::TuneMaterials(MaterialCatalog,MaterialRules);
+    }
+    else if(AuthoredMaterialCatalog)MaterialCatalog=AuthoredMaterialCatalog;
     FString Error;
     if (!MaterialCatalog || !CellWorld.Build(Panels, CellSettings, MaterialCatalog, Error))
     {

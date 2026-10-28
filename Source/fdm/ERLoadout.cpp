@@ -1,4 +1,5 @@
 #include "ERLoadout.h"
+#include "ERServerSettings.h"
 #include "ERCharacter.h"
 #include "ERWeapon.h"
 #include "Misc/ConfigCacheIni.h"
@@ -24,7 +25,7 @@ FString ERLoadouts::WeaponName(int32 I)
     const TCHAR* Names[]={TEXT("Knife"),TEXT("Pistol"),TEXT("SMG"),TEXT("Shotgun"),TEXT("Assault Rifle"),TEXT("Marksman Rifle"),TEXT("Sniper Rifle"),TEXT("Milkor"),TEXT("HE"),TEXT("Smoke"),TEXT("Claymore")};
     return I>=0 && I<11 ? Names[I]:TEXT("Unknown");
 }
-FERResolvedLoadout ERLoadouts::Resolve(FName Preset,FName Variant,bool Omega,const AERCharacter* Catalog)
+FERResolvedLoadout ERLoadouts::Resolve(FName Preset,FName Variant,bool Omega,const AERCharacter* Catalog,const FERServerRules* Rules)
 {
     int32 P=Presets().IndexOfByKey(Preset),V=Variants().IndexOfByKey(Variant);
     // Invalid pairs always fall back together, on every caller.
@@ -33,6 +34,7 @@ FERResolvedLoadout ERLoadouts::Resolve(FName Preset,FName Variant,bool Omega,con
     const int32 Loaded[]={7,30,20,5,6},Reserve[]={28,90,40,15,0},Alpha[]={8,1,2,3,9},OmegaSkins[]={2,6,3,5,8};
     FERResolvedLoadout R;R.bOmega=Omega;R.Preset=Presets()[P];R.Variant=Variants()[V];R.Role=Roles[P];
     const FString Section=TEXT("RespawnAndRage.Loadout.")+R.Preset.ToString();
+    if(Rules){R.StartingHealth=Rules->Get("Health.Start");R.StartingArmor=Rules->Get("Health.Armor");R.Helmet=Rules->Get("Health.Helmet")>0;}
     R.Skin=FMath::Clamp(Setting(Section,Omega?TEXT("OmegaSkin"):TEXT("AlphaSkin"),Omega?OmegaSkins[P]:Alpha[P]),0,9);
     const TCHAR* AlphaNames[]={TEXT("Belica · Armored"),TEXT("Twinblast · Assault"),TEXT("Twinblast · Patrol"),TEXT("Twinblast · Recon"),TEXT("Belica · Support")};
     const TCHAR* OmegaNames[]={TEXT("Drongo · Assault"),TEXT("Phase · Assault"),TEXT("Drongo · Smuggler"),TEXT("Phase · Recon"),TEXT("Phase · Engineer")};
@@ -57,6 +59,21 @@ FERResolvedLoadout ERLoadouts::Resolve(FName Preset,FName Variant,bool Omega,con
         // Double carried supplies, preserving firearm magazine capacities and melee.
         if(Item.WeaponKey>=8) { Item.Loaded*=2;Item.Reserve*=2; }
         else if(Item.WeaponKey!=0) Item.Reserve=Item.Loaded+2*Item.Reserve;
+        if(Rules)
+        {
+            const FString Prefix=TEXT("Kit.")+R.Preset.ToString()+TEXT(".")+R.Variant.ToString()+TEXT(".");
+            const int32 Index=&Item-R.Items.GetData();
+            if(Index<2)
+            {
+                Item.Loaded=int32(Rules->Get(FName(*(Prefix+(Index==0?TEXT("PrimaryLoaded"):TEXT("SecondaryLoaded")))),Item.Loaded));
+                Item.Reserve=int32(Rules->Get(FName(*(Prefix+(Index==0?TEXT("PrimaryReserve"):TEXT("SecondaryReserve")))),Item.Reserve));
+            }
+            else if(Item.WeaponKey>=8)
+            {
+                const TCHAR* Name=Item.WeaponKey==8?TEXT("HE"):Item.WeaponKey==9?TEXT("Smoke"):TEXT("Claymore");
+                Item.Loaded=int32(Rules->Get(FName(*(Prefix+Name)),Item.Loaded));Item.Reserve=0;
+            }
+        }
         Item.WeaponId=WeaponAssetName(Item.WeaponKey);
         if(Catalog)
         {
@@ -65,7 +82,9 @@ FERResolvedLoadout ERLoadouts::Resolve(FName Preset,FName Variant,bool Omega,con
             if(Item.Data && Item.WeaponKey>0 && Item.WeaponKey<8)
             {
                 const int32 Total=Item.Loaded+Item.Reserve;
-                Item.Loaded=FMath::Min(Item.Loaded,Item.Data->MagazineSize);
+                const FString WeaponName=Item.WeaponId.ToString().RightChop(3);
+                const int32 Capacity=Rules?int32(Rules->Get(FName(*(TEXT("Weapon.")+WeaponName+TEXT(".MagazineSize"))),Item.Data->MagazineSize)):Item.Data->MagazineSize;
+                Item.Loaded=FMath::Min(Item.Loaded,Capacity);
                 Item.Reserve=Total-Item.Loaded;
             }
         }
@@ -83,5 +102,5 @@ FString FERResolvedLoadout::Summary() const
         else S+=FString::Printf(TEXT("%s: %s x%d\n"),I==2?TEXT("Melee"):TEXT("Utility"),*Name,Item.Loaded+Item.Reserve);
     }
     if(Items.Num()==3)S+=TEXT("Utility: None\n");
-    return S+TEXT("100 HP · 100 armor · Helmet");
+    return S+FString::Printf(TEXT("%.0f HP · %.0f armor%s"),StartingHealth,StartingArmor,Helmet?TEXT(" · Helmet"):TEXT(""));
 }

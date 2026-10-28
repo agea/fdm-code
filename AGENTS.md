@@ -1,3 +1,101 @@
+Server gameplay settings (28 October, latest user request): expose existing
+numeric gameplay tuning through saved host settings and a replicated server
+snapshot; no new gameplay systems. This supersedes the earlier Claymore
+lethality requirement: remove the forced lethal damage uplift. Claymore damage
+uses ordinary distance/cone/cover/armor, with sensor radius proportional to blast
+radius; lasers follow the effective sensor. Remove HE's hidden armor-ratio floor
+while preserving authored defaults. Keep local client preferences separate from
+hosted rules and never mutate authored weapon/material assets. Cell protocol10
+includes material tuning atomically in the descriptor. See docs/SERVER_SETTINGS.md.
+
+Alley procedural houses (28 October, latest): supersedes the requirement to
+retain imported house geometry in playable Alleys. Town.ProceduralHouses uses
+native dimensioned masonry modules with160×240cm doors, flat15cm ground slabs,
+clear interiors, windows and flat roofs. Use both flush roofs and low25cm-high,
+40cm-wide rims, with180cm gaps at stairs and adjacent roof crossings. Remaining
+rims can be stepped onto. Nearby low-rise roofs record transfers in both halves; retain paired exterior switchback stairs,
+streets, towers, terrain, lower passage and destructible architecture. One
+procedural skin/body per house uses existing5cm damage/support/snapshots and
+shared theme finishes. Original art stays immutable in the private library.
+setup_alley_modules.py saves only DA_MiddleEasternAlleys (geometry marker7,
+recipe8 after shared themes), verifies rollback and68 protected packages.
+Validate516 seeds, all recorded street doors and roof caps, real pawn entry,
+stairs/rim/jumps in both directions, damage/fall/support, Metal and initial/late
+LAN reconstruction. See docs/MIDDLE_EASTERN_ALLEYS.md.
+
+Village lateral cover (28 October, latest): raise the two short flank stops
+from125cm to240cm. One-block variants have four700cm-wide side walls; two-block
+variants have four580cm-wide walls; denser plans keep two260cm-wide walls.
+Use24cm massive timber with2mm metal faces/caps, shared themes and normal damage.
+Sparse layouts reserve another3m per spawn approach for the wider cover and
+standing bypasses, keeping stair entries and spawn structures clear. Preserve
+half-turn symmetry. Store actual bounds/bypasses in VillageSideWalls and
+VillageSideBypasses, use them to route both flanks around every inner end.
+setup_village_side_walls.py advances only DA_Village to revision8 with verified
+rollback/protected hashes. Check516 layouts, standing LOS at164/220cm, hide
+positions, full flank sweeps, stair approaches and15 physical cases including
+240/260/280cm deck heights. Real pawn must walk a local bypass and damage the
+wall; retain Metal/initial+late LAN damage/support/regeneration checks.
+
+Shared themes (28 October, latest): every production template (Central Building,
+Alleys, Fire Training, Rooms, Village) samples Industrial, Desert and Jungle
+from the same cosmetic seed stream. This supersedes the Jungle-only Village
+constraint and Jungle exclusion below. Themes change finishes/ground, not
+geometry, physics, calibration or damage. Village retains source UV materials
+and gray cladding only in Jungle; other palettes recolor those panels too.
+Preserve foliage/panorama slots, and match the exterior ground to the selected
+playable ground. Keep Jungle shell/frame/ladder/deck/cargo roles distinct using
+existing materials. setup_shared_jungle.py saves only DA_MapThemes with verified
+rollback and protected recipe/map/material hashes. Verify all5 templates ×32
+seeds, the destruction suite, real Metal Jungle/Village-other-theme views and
+initial/late LAN palette changes. The legacy Village.Theme field remains only
+for serialization compatibility; selection belongs to ThemeLibrary.
+
+Village variation (28 October, latest): supersedes fixed two-block counts and
+36–40m bounds below. Recipe7 samples1..5 blocks, rectangular arena dimensions
+from their actual footprint,20..30m widths,6..8m depths and paired X offsets.
+Odd counts use one self-symmetric origin block. Keep two dogleg ground routes
+and three enclosed bays per block. Structures have1..3 storeys with a total
+budget of10 platform floors; real ladder wells and side landings serve upper
+floors without blocking hut doors. Bases choose open gallery, covered porch or
+barracks, paired for both teams; gallery/lookout/shack dimensions also vary.
+Keep ten supported starts/team, timber/metal calibration and sealed palisade.
+setup_village_variety.py backs up/saves only DA_Village through Unreal. Test
+516 deterministic symmetric layouts, all count/base/floor choices, physical
+corridors/doors/ladders, real stairs/tunnel/upper ladder, damage/regeneration,
+Metal captures and initial/late LAN peers. See docs/VILLAGE.md.
+
+Village ground corridors (28 October, latest user correction): the hatched
+areas of the two central blocks are the only initial ground crossings. Each
+block has two angled dogleg passages between three enclosed timber bays;
+upper end-room doors retain their access. Infill reaches the deck underside
+with12cm wood walls and massive corner/door frames. Use visible destructible
+construction, allowing ordinary later breaches. Keep four VillagePassages and
+six VillageClosedGround outlines, half-turn pairing, middle lane and flanks.
+setup_village_passages.py advances only DA_Village to revision6 with verified
+rollback and other-package hashes. Test all four routes with standing capsules,
+closed bay boundaries/straight shortcuts, upper rooms, and a real pawn tunnel
+traversal; retain damage/support/regeneration and initial/late LAN checks.
+Native ground-plan SVG shows the passages hidden by the upper deck captures.
+
+Village topology (28 October, latest user revision): follow the supplied plan
+and gameplay screenshot in private SourceAssets/Village/references. Four central
+huts sit on two staggered 2.4m timber rows around two low stores, with gray
+metal-clad massive timber cover and open doors/underpasses. Each spawn has a
+2m rear gallery and a 3m corner lookout with real stair access, plus one long
+side shack with a walkable3m roof/timber ladder. Keep ten starts/team and
+half-turn gameplay symmetry. Remove exterior house instances and middle-lane
+cross bridges. The perimeter is irregular 3.8–4.4m timber logs; hidden 11m
+continuations block locomotion only, leaving shot apertures. Keep 5cm cells,
+2cm wood depth and 2mm metal sheets/shared HP unchanged. Background uses Greg
+Zaal's CC0 J&E Gray Park panorama named by the linked sky dome, on an original
+query-free sphere, plus exterior trees; no dedicated-server decoration.
+setup_village_topology.py backs up only owned recipe/material changes, preserves
+other maps/themes/catalogs, clears ExteriorHouses and validates 516 saved seeds.
+Validate physical cover/doors, spawn/platform support, ladder landings,
+perimeter and flanks; real central/gallery/lookout stair climbs, Metal views
+and initial/late LAN damage/support/regeneration. See docs/VILLAGE.md.
+
 Knife location damage (27 October, latest): supersedes uniform40 damage.
 Server anatomical trace uses ERShotTrace::Pellet with cover retained. Base40:
 head/neck80, torso40, arms/hands/legs25. Rear120-degree ground-plane sector

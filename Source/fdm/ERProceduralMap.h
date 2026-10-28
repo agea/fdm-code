@@ -8,7 +8,15 @@ struct FERLayoutRect { FVector2D Min, Max; int32 Room = INDEX_NONE; float Z=0; i
 struct FERLayoutWall { FVector Start; FVector Direction; float Length = 0; EERBlockMaterial Material; };
 struct FERLayoutOpening { int32 Wall = INDEX_NONE; float Along = 0, Width = 0, Sill = 0, Height = 0; bool bWindow = false; };
 struct FERLayoutFixedPiece { FTransform Transform; EERBlockMaterial Material; class UStaticMesh* Mesh=nullptr; FRotator MeshRotation=FRotator::ZeroRotator; bool Roof=false; bool VisualOnly=false; class UMaterialInterface* Surface=nullptr; bool PawnBarrier=false; bool MeshCollision=false; bool CollisionOnly=false; };
-struct FERLayoutHouse { FTransform Frame; class UStaticMesh* Mesh=nullptr; bool RoofAccess=false; };
+struct FERLayoutHouse
+{
+    FTransform Frame; class UStaticMesh* Mesh=nullptr; bool RoofAccess=false;
+    FName StructureName;
+    TArray<TArray<FVector>> Entrances;
+    TArray<int32> EntranceFaces;
+    TArray<FVector> RoofMouths;
+    float RimHeight=0;
+};
 struct FERLayoutTownGate { FTransform Frame; float Gap=110,Width=300,Angle=25; TArray<FVector> Passage; };
 struct FERLayoutLadder { FTransform Frame; float Height=430,DeckHeight=320; };
 struct FERAlleyRamp { FBox Bounds; FVector Entry,Exit; };
@@ -42,6 +50,13 @@ struct FERTemplateBase
     int32 StepCount=0;
     FVector Point(FVector Local) const { return Frame.TransformPosition(Local); }
 };
+struct FERVillageBlock
+{
+    FTransform Frame;
+    FVector2D Size;
+    int32 Storeys=1;
+    bool SelfSymmetric=false;
+};
 struct FERProceduralLayout
 {
     TArray<FERLayoutRect> Rooms, Corridors;
@@ -65,6 +80,7 @@ struct FERProceduralLayout
     TArray<FVector> UpperRoute,LowerRoute;
     TArray<FERLayoutHouse> Houses;
     TArray<TArray<FVector>> RooftopRoutes,GroundRoutes;
+    TArray<TArray<FVector>> RoofTransfers;
     TArray<FBox> TerrainPads;
     bool GradedTerrain=false;
     bool SeededDistrict=false;
@@ -102,6 +118,17 @@ struct FERProceduralLayout
     TArray<FBox> Plazas;             // Reserved empty squares (both halves).
     TArray<int32> ElevatedAccesses;  // Independent ladders/stairs per elevated deck.
     TArray<FName> FeatureNames;
+    // Village ground floor: paired enclosed bay outlines and the only initial
+    // standing routes through every central block. Upper huts stay separate.
+    TArray<TArray<FVector2D>> VillageClosedGround;
+    TArray<TArray<FVector>> VillagePassages;
+    TArray<FERVillageBlock> VillageBlocks;
+    TArray<FBox> VillageSideWalls;
+    TArray<TArray<FVector>> VillageSideBypasses;
+    TArray<FBox> VillageFloorHoles;
+    TArray<FERLayoutLadder> VillageUpperLadders;
+    TArray<int32> VillageAccessFlights;
+    int32 VillageBaseVariant=0;
     TArray<FBox> WarehouseBaseCourts,WarehouseCatwalks;
     int32 RoomsTheme=0;
     int32 ThemeIndex=INDEX_NONE,ThemeRevision=0;
@@ -126,6 +153,8 @@ namespace ERProcedural
     bool BuildTemplateVariants(const class UERMapTemplate& Template,int32 Seed,TArray<struct FERMapTemplatePiece>& Pieces,FERProceduralLayout& Layout,TArray<FVector>& Patrol);
     bool BuildDustTown(const class UERMapTemplate& Template,int32 Seed,TArray<struct FERMapTemplatePiece>& Pieces,FERProceduralLayout& Layout,TArray<FVector>& Patrol);
     bool BuildAlleyDistrict(const class UERMapTemplate& Template,int32 Seed,TArray<struct FERMapTemplatePiece>& Pieces,FERProceduralLayout& Layout,TArray<FVector>& Patrol);
+    void AddAlleyHouseModule(const UERMapTemplate& Template,const FTransform& Frame,FVector Size,bool RoofAccess,const TArray<int32>& StreetFaces,FERProceduralLayout& Layout);
+    void FinishAlleyHouseModules(const UERMapTemplate& Template,const TArray<FERMapTemplatePiece>& Pieces,FERProceduralLayout& Layout);
     bool PlanAlleyUnderpass(const UERMapTemplate& Template,int32 Seed,FVector Base,TArray<FERMapTemplatePiece>& Pieces,FERProceduralLayout& Layout);
     bool BuildAlleyLowCover(const UERMapTemplate& Template,int32 Seed,TArray<FERMapTemplatePiece>& Pieces,FERProceduralLayout& Layout);
     float AlleyRampHeight(const FERAlleyRamp& Ramp,FVector2D Position);
@@ -133,8 +162,10 @@ namespace ERProcedural
     float AlleyBaseHeight(FVector Arena,FVector2D Position,bool Balanced=false);
     void BuildAlleyTerrain(class UDynamicMeshComponent* Component,const FERProceduralLayout& Layout);
     bool FindAlleyInteriorRoute(class UWorld* World,const FERProceduralLayout& Layout,TArray<FVector>& Route);
+    bool FindAlleyRoofRimRoute(class UWorld* World,const FERProceduralLayout& Layout,TArray<FVector>& Route);
     bool BuildCentralBuilding(const class UERMapTemplate& Template,int32 Seed,TArray<struct FERMapTemplatePiece>& Pieces,FERProceduralLayout& Layout,TArray<FVector>& Patrol,int32 CrossingOverride=0);
     bool BuildRooms(const FERProceduralConfig& Config,const FERBlockRoomConfig& Blocks,FERProceduralLayout& Out,const FERCellSettings& Cells);
+    bool BuildVillage(const FERProceduralConfig& Config,const FERBlockRoomConfig& Blocks,FERProceduralLayout& Out,const FERCellSettings& Cells);
     float RoomsFloorHeight(const FERProceduralLayout& Layout,FVector2D Position);
     void BuildRoomsShell(class AERProceduralMap* Map,const FERProceduralLayout& Layout,TArray<TObjectPtr<class UDynamicMeshComponent>>& Components);
     // Attempts 0..FireTrainingAttempts-1 sample the seed; the last is the verified reference layout.

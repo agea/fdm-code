@@ -36,12 +36,12 @@ FLinearColor ERRecon::TeamColor(EERTeam Team)
 {
     return Team == EERTeam::Omega ? FLinearColor(1,.25f,.1f) : FLinearColor(.2f,.65f,1);
 }
-bool ERRecon::InSightCone(const FVector& Eye, const FVector& Forward, const FVector& Target, float Range, bool Panoramic)
+bool ERRecon::InSightCone(const FVector& Eye, const FVector& Forward, const FVector& Target, float Range, bool Panoramic, float FullAngle)
 {
     const FVector Delta = Target - Eye;
     // Drone optics cover a ground footprint; altitude must not shrink it.
     if ((Panoramic ? Delta.SizeSquared2D() : Delta.SizeSquared()) > FMath::Square(Range)) return false;
-    return Panoramic || Delta.SizeSquared() < 1 || FVector::DotProduct(Forward, Delta.GetSafeNormal()) >= .5;
+    return Panoramic || Delta.SizeSquared() < 1 || FVector::DotProduct(Forward, Delta.GetSafeNormal()) >= FMath::Cos(FMath::DegreesToRadians(FullAngle*.5f));
 }
 bool ERRecon::IsExplored(const TArray<uint8>& Bits, int32 Cell)
 {
@@ -337,7 +337,7 @@ void AERReconDirector::ConfigureMap()
 void AERReconDirector::LaunchDrone(int32 Index)
 {
     auto& Team = Teams[Index];
-    if (Team.Drone.IsValid() || !Team.Base.IsValid() || Team.Launched >= ERRecon::Stock) return;
+    if (Team.Drone.IsValid() || !Team.Base.IsValid() || Team.Launched >= int32(ERServer::Get(GetWorld(),"Recon.Stock"))) return;
     const FVector Launch = Team.Base->GetActorLocation()+FVector(0,0,80);
     FTransform Transform(FRotator::ZeroRotator,Launch);
     const TSubclassOf<AERReconDrone> Class = DroneClass ? DroneClass.Get() : AERReconDrone::StaticClass();
@@ -369,13 +369,13 @@ void AERReconDirector::DroneDestroyed(AERReconDrone* Drone)
     auto& Team = Teams[TeamIndex(Drone->Flight.Team)];
     if (Team.Drone.Get() != Drone) return;
     Team.Drone.Reset();
-    Team.NextLaunch = Team.Launched < ERRecon::Stock ? ServerTime(GetWorld())+ERRecon::ReplacementSeconds : 0;
+    Team.NextLaunch = Team.Launched < int32(ERServer::Get(GetWorld(),"Recon.Stock")) ? ServerTime(GetWorld())+ERServer::Get(GetWorld(),"Recon.Replacement") : 0;
     // Immediately remove drone-only contacts; explored terrain remains.
     UpdateVisibility();
-    UE_LOG(LogTemp,Display,TEXT("ER_RECON_DOWN team=%d remaining=%d next=%.2f"),TeamIndex(Drone->Flight.Team),ERRecon::Stock-Team.Launched,Team.NextLaunch);
+    UE_LOG(LogTemp,Display,TEXT("ER_RECON_DOWN team=%d remaining=%d next=%.2f"),TeamIndex(Drone->Flight.Team),int32(ERServer::Get(GetWorld(),"Recon.Stock"))-Team.Launched,Team.NextLaunch);
 }
 AERReconDrone* AERReconDirector::ActiveDrone(EERTeam Team) const { return Teams[TeamIndex(Team)].Drone.Get(); }
-int32 AERReconDirector::Remaining(EERTeam Team) const { const auto& T=Teams[TeamIndex(Team)]; return ERRecon::Stock-T.Launched+(T.Drone.IsValid()?1:0); }
+int32 AERReconDirector::Remaining(EERTeam Team) const { const auto& T=Teams[TeamIndex(Team)]; return int32(ERServer::Get(GetWorld(),"Recon.Stock"))-T.Launched+(T.Drone.IsValid()?1:0); }
 double AERReconDirector::NextLaunch(EERTeam Team) const { return Teams[TeamIndex(Team)].NextLaunch; }
 FVector AERReconDirector::CellPosition(int32 Cell) const
 {
@@ -403,7 +403,7 @@ bool AERReconDirector::CanSee(const FVector& Eye, const FVector& Forward, const 
 {
     TArray<AERSmokeCloud*> Clouds;
     for (TActorIterator<AERSmokeCloud> It(GetWorld()); It; ++It) Clouds.Add(*It);
-    return ERRecon::InSightCone(Eye,Forward,Target,SightRange(Drone),Drone) && SightClear(Eye,Target,SightQuery(),Clouds);
+    return ERRecon::InSightCone(Eye,Forward,Target,SightRange(Drone),Drone,ERServer::Get(GetWorld(),"Recon.PlayerAngle")) && SightClear(Eye,Target,SightQuery(),Clouds);
 }
 bool AERReconDirector::SightClear(const FVector& Eye, const FVector& Target, const FCollisionQueryParams& Query, const TArray<AERSmokeCloud*>& Clouds) const
 {
@@ -445,7 +445,7 @@ void AERReconDirector::UpdateVisibility()
                 // can reveal an upper storey from their own elevation; no ray
                 // bypasses a roof/wall to spot a person beneath it.
                 const FVector Target(Ground.X,Ground.Y,Source.Drone ? SurfaceHeights[Cell] : Source.Eye.Z-25);
-                if (!ERRecon::InSightCone(Source.Eye,Source.Forward,Target,SightRange(Source.Drone),Source.Drone)) continue;
+                if (!ERRecon::InSightCone(Source.Eye,Source.Forward,Target,SightRange(Source.Drone),Source.Drone,ERServer::Get(GetWorld(),"Recon.PlayerAngle"))) continue;
                 --TraceBudget;
                 if (SightClear(Source.Eye,Target,Query,Clouds)) { ERRecon::Explore(Teams[Index].Explored,Cell); break; }
             }
@@ -474,7 +474,7 @@ void AERReconDirector::UpdateVisibility()
                     if (Visible) break;
                     // Two samples allow partial cover; both still use real cover queries.
                     for (const FVector Target : {Head,Player->GetActorLocation()})
-                        if (ERRecon::InSightCone(Source.Eye,Source.Forward,Target,SightRange(Source.Drone),Source.Drone) &&
+                        if (ERRecon::InSightCone(Source.Eye,Source.Forward,Target,SightRange(Source.Drone),Source.Drone,ERServer::Get(GetWorld(),"Recon.PlayerAngle")) &&
                             SightClear(Source.Eye,Target,Query,Clouds)) { Visible=true; break; }
                 }
                 if (!Visible) continue;

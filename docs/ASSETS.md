@@ -1117,3 +1117,13 @@ Follow-up: loadout role names are independent of appearance indices. GDC
 appearances0/2/4 have an embedded mask and do not use SM_ER_DrongoMask.
 setup_drongo_masks.py now hides both upper hose root bones on these appearances
 and the legacy Omega fallback in all three catalogs, after field-clothing setup.
+
+28 ottobre2026 — Alleys usa moduli edilizi procedurali al posto delle dodici
+case adattate ai lotti. Nessun nuovo download: geometria C++ con porte160×240cm,
+pavimenti piani, finestre e tetti a filo o con bordo25×40cm interrotto; finiture dei temi condivisi.
+Una skin distruttibile per casa riusa celle, supporti e snapshot esistenti.
+`setup_alley_modules.py` salva la sola ricetta (8, marker geometria7), con backup
+verificato in `Saved/AlleyTraversalBackup/before-procedural-houses.zip` e68
+package protetti. Le mesh, texture e13 strutture derivate originali rimangono
+immutate nella libreria privata. Ricevuta in
+`SourceAssets/MiddleEasternAlleys/procedural-houses-receipt.json`.

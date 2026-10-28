@@ -22,9 +22,23 @@ The default builds both targets and uploads to `windows-x86_64` and
 toolchain. Use `-TargetPlatform Windows` or `-TargetPlatform Linux` for one
 platform. Run `butler login` once; add `-NoUpload` to keep packages local.
 
+## Village e temi condivisi — 28 October 2026
+
+**Village** adds a Shoots-inspired timber village: one to five symmetric blocks with up to three storeys, variable spawn bases, elevated
+wooden platforms, three central stair approaches per side and opposed spawns.
+The Jungle theme combines massive wood, rusty corrugated sheet metal and grass.
+Rear spawn galleries, corner lookouts and long side shacks frame the
+staggered blocks, with two huts per floor. Each central ground block is
+enclosed around two angled passage routes; gray metal-clad timber provides cover. An irregular
+log palisade contains play; exterior trees and a panoramic sky form the backdrop.
+Industrial, Desert and Jungle are shared by all five procedural templates;
+the same seed chooses the same theme on every template. Village also receives
+Industrial/Desert finishes, including its imported structures and terrain.
+See [Village](docs/VILLAGE.md) for construction, assets and validation.
+
 ## Map variety — 26 October 2026
 
-Servers rotate randomly through all four production templates once per cycle,
+Servers rotate randomly through all five production templates once per cycle,
 then start a fresh random cycle, avoiding consecutive repeats at the boundary.
 
 **Rooms · Indoor** adds an enclosed 3v3 / 4v4 template: two symmetric bases,
@@ -47,14 +61,15 @@ barrier parapets and ladder access. Timber corridors/rooms, stacked steel
 containers and low cover remain paired by a 180° rotation. See
 [the Fire Training template](docs/FIRE_TRAINING.md).
 
-## Middle Eastern Alleys — 22 October 2026
+## Middle Eastern Alleys — 28 October 2026
 
 The match menu also offers **Middle Eastern Alleys · Desert**: seeded districts
 with2–4 main approaches, zero/one/two central walls, low cover in open plazas, winding streets and climbable
 watchtowers. A winding lower passage has paired ramps and breachable brick road sections. Gameplay spaces have counterparts rotated180°, including terrain
 and paired3.2m routes above walkable underpasses. It uses the requested three
-Sketchfab sand textures and twelve mud/concrete house variants. Accessible house openings use the
-original shell collision; exterior stairs reach several roofs, and sloping sand
+Sketchfab sand textures and procedural mud/concrete houses with fixed-size doors,
+clear interiors and flat roofs. Flush roofs and low interrupted rims preserve rooftop traversal;
+exterior stairs reach several roofs, and sloping sand
 connects different ground elevations. See [the alley template](docs/MIDDLE_EASTERN_ALLEYS.md)
 for assets, regeneration and validation. Existing team deathmatch rules apply.
 
@@ -630,3 +645,10 @@ until stock is exhausted. Unseen enemy positions disappear; explored terrain
 remains. Smoke blocks new sightings and terrain discovery; drone hits emit
 five temporary source-model fragments with gravity. See [minimap/recon](docs/MINIMAP_RECON.md) for visibility rules, source
 credits, rebuild steps and verification.
+
+
+Server gameplay can be configured from **Start Server → Gameplay settings**,
+with basic/advanced categories, Standard resets and saved presets. Connected
+players can inspect the active server rules from the lobby or pause menu.
+See [server settings](docs/SERVER_SETTINGS.md) for configuration keys, runtime
+behavior and validation commands.

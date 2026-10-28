@@ -29,6 +29,9 @@ public:
     bool bPreviousSprintHeld = false;
     double SprintRequestUntil = 0;
     UPROPERTY(ReplicatedUsing=OnRep_Locomotion) FERLocomotionState Locomotion;
+    void ApplyServerSettings();
+    double SprintDuration() const;
+    double RecoveryDuration() const;
     static constexpr double MaxSprintDuration = 15.0;
     static constexpr double RecoveryRatio = 20.0 / MaxSprintDuration;
     bool IsSprinting() const;

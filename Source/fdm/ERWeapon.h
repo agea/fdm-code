@@ -115,7 +115,10 @@ class FDM_API AERWeapon : public AActor
     GENERATED_BODY()
 public:
     AERWeapon();
-    UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadWrite) TObjectPtr<UERWeaponData> Data;
+    UPROPERTY(ReplicatedUsing=OnRep_Data, EditDefaultsOnly, BlueprintReadWrite) TObjectPtr<UERWeaponData> Data;
+    UFUNCTION() void OnRep_Data();
+    const UERWeaponData* Tuned() const;
+    void RefreshTuning();
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) TSubclassOf<class AERProjectile> ProjectileClass;
     UFUNCTION(NetMulticast, Unreliable) void MulticastImpact(FVector_NetQuantize Position, FVector_NetQuantizeNormal Normal, float Roll, uint8 Variant);
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category="Shot feedback") TArray<TObjectPtr<class UMaterialInterface>> ImpactDecalVariants;
@@ -132,7 +135,8 @@ public:
     UPROPERTY(Replicated) double ClaymorePlacementStarted = 0;
     UFUNCTION() void OnRep_PlacingClaymore();
     double ClaymorePlacementElapsed() const;
-    bool IsClaymorePlacementLow() const { return bPlacingClaymore && ClaymorePlacementElapsed()<1.6; }
+    double ClaymorePlacementPhase() const;
+    bool IsClaymorePlacementLow() const { return bPlacingClaymore && ClaymorePlacementPhase()<1.6; }
     void OnGrenadeDetonated(AERProjectile* Projectile);
     UPROPERTY(Replicated, BlueprintReadOnly) float BloomAtLastShot = 0;
     UPROPERTY(Replicated, BlueprintReadOnly) double LastSpreadShotServerTime = -100;
@@ -189,6 +193,8 @@ public:
     void Cancel();
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 private:
+    UPROPERTY(Transient) TObjectPtr<UERWeaponData> TunedData;
+    UPROPERTY(Transient) TObjectPtr<UERWeaponData> TuningSource;
     FTimerHandle FireTimer, ReloadTimer;
     double NextAllowedShotTime = 0;
     bool bWantsFire = false;

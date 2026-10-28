@@ -37,7 +37,7 @@ bool BuildTemplate(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERP
     if(T->Town.Enabled && (T->Variation.Enabled || !BuildDustTown(*T,C.Seed,Pieces,L,Patrol)))return false;
     if(T->Variation.Enabled && !BuildTemplateVariants(*T,C.Seed,Pieces,L,Patrol))return false;
     const bool BreakArchitecture=Alleys && T->Town.DestructibleArchitecture;
-    if(BreakArchitecture)for(const auto& Mesh:T->Town.BuildingMeshes)
+    if(BreakArchitecture && !T->Town.ProceduralHouses)for(const auto& Mesh:T->Town.BuildingMeshes)
         if(!T->Town.BuildingStructures.ContainsByPredicate([&](const auto& S){return S && S->Source==Mesh && S->GeometryCRC && S->Corners.Num()%3==0;}))return false;
     const FVector Size=L.ArenaSize,Half=Size*.5;
     L.Corridors.Add({FVector2D(-Half.X,-Half.Y),FVector2D(Half.X,Half.Y)});
@@ -143,6 +143,7 @@ bool BuildTemplate(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERP
     }
     if(BreakArchitecture)for(const auto& House:L.Houses)
     {
+        if(!House.StructureName.IsNone())continue; // already generated as one module skin
         const UERDestructibleMesh* Source=nullptr;for(const auto& S:T->Town.BuildingStructures)if(S && S->Source==House.Mesh){Source=S;break;}
         if(!Source)return false;
         auto& P=L.Panels.AddDefaulted_GetRef();P.Id=Wall++*8;

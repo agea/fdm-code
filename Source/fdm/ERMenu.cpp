@@ -7,6 +7,7 @@
 #include "ERMenuPreview.h"
 #include "ERInterfaceStyle.h"
 #include "ERMapCatalog.h"
+#include "ERLobbyRules.h"
 #include "ERWeapon.h"
 #include "Engine/GameViewportClient.h"
 #include "Engine/Engine.h"
@@ -27,7 +28,10 @@
 #include "Widgets/Layout/SSafeZone.h"
 #include "Widgets/Layout/SScrollBox.h"
 #include "Widgets/Layout/SWrapBox.h"
+#include "Widgets/Layout/SExpandableArea.h"
 #include "Widgets/Input/SButton.h"
+#include "Widgets/Input/SCheckBox.h"
+#include "Misc/ConfigCacheIni.h"
 #include "Widgets/Input/SComboButton.h"
 #include "Widgets/Input/SEditableTextBox.h"
 #include "Widgets/Input/SSlider.h"
@@ -69,6 +73,28 @@ public:
 private:
     TWeakObjectPtr<AERMenuPreview> Preview;
 };
+float ServerSettingDefault(const FERServerSetting& S,const AERCharacter* Catalog)
+{
+    if(!S.AssetDefault)return S.Default;
+    if(!S.Weapon.IsNone() && Catalog)
+        for(const auto D:Catalog->ReferenceArsenal)if(D && D->GetFName()==S.Weapon)
+            return ERServer::ReadNumber(D,D->GetClass(),S.Property)/S.Factor;
+    if(S.Key.ToString().StartsWith(TEXT("Kit.")))
+    {
+        TArray<FString> Parts;S.Key.ToString().ParseIntoArray(Parts,TEXT("."));
+        if(Parts.Num()==4)
+        {
+            const auto Kit=ERLoadouts::Resolve(FName(*Parts[1]),FName(*Parts[2]),false,Catalog);
+            if(Parts[3]==TEXT("PrimaryLoaded"))return Kit.Items[0].Loaded;
+            if(Parts[3]==TEXT("PrimaryReserve"))return Kit.Items[0].Reserve;
+            if(Parts[3]==TEXT("SecondaryLoaded"))return Kit.Items[1].Loaded;
+            if(Parts[3]==TEXT("SecondaryReserve"))return Kit.Items[1].Reserve;
+            const int32 Key=Parts[3]==TEXT("HE")?8:Parts[3]==TEXT("Smoke")?9:10;
+            for(const auto& Item:Kit.Items)if(Item.WeaponKey==Key)return Item.Loaded+Item.Reserve;
+        }
+    }
+    return S.Default;
+}
 FString LoadoutVariantName(FName Variant)
 {
     return Variant==FName("gunner")?TEXT("Gunner"):Variant==FName("offense")?TEXT("Offense"):TEXT("Defense");
@@ -135,9 +161,10 @@ void Choice(TSharedRef<SVerticalBox> Panel, const FString& Title, TArray<FString
         .MenuContent()[SNew(SBox).MaxDesiredHeight(420)[SNew(SScrollBox) + SScrollBox::Slot()[Items]]]);
 }
 }
-void AERPlayerController::ERMenu(int32 Page) { OpenMenuPage(FMath::Clamp(Page, 0, 8)); }
+void AERPlayerController::ERMenu(int32 Page) { OpenMenuPage(FMath::Clamp(Page, 0, 10)); }
 void AERPlayerController::OpenMenuPage(int32 Page)
 {
+    if(Page==10 && MenuPage!=10)ServerRulesParent=MenuPage;
     if (Page == 5) Page = 6; // Compatibility with existing menu commands.
     if ((Page == 5 || Page == 6 || Page == 7) && MenuPage != 5 && MenuPage != 6 && MenuPage != 7 && MenuPage != 9) SubmenuParent = MenuPage;
     if(Page==6 && MenuPage!=6 && MenuPage!=9)
@@ -176,7 +203,7 @@ void AERPlayerController::ShowMenu(bool bShow)
     auto PlayerFooter=SNew(SVerticalBox);
     auto Go = [this](int32 Page) { return [this, Page]() { OpenMenuPage(Page); return FReply::Handled(); }; };
     auto* Online = GI->GetSubsystem<UEROnline>();
-    auto Back = [this, GI, Online]() { Online->Cancel(); GI->CancelLANSearch(); OpenMenuPage(MenuPage == 5 || MenuPage == 6 || MenuPage == 7 ? SubmenuParent : MenuPage == 9 ? 6 : MenuPage == 8 ? 4 : 0); return FReply::Handled(); };
+    auto Back = [this, GI, Online]() { Online->Cancel(); GI->CancelLANSearch(); OpenMenuPage(MenuPage==10 ? ServerRulesParent : MenuPage == 5 || MenuPage == 6 || MenuPage == 7 ? SubmenuParent : MenuPage == 9 ? 6 : MenuPage == 8 ? 4 : 0); return FReply::Handled(); };
     auto SaveSupplies = [this, GI]() { GI->SaveProfile(); ServerSetSupplies(GI->SpareMagazines, GI->HECount, GI->SmokeCount, GI->StunCount); };
     TFunction<TSharedRef<SVerticalBox>()> Field=[Panel]() { return Panel; };
     auto IntChoice = [&Field](const FString& Label, TArray<FString> Labels, int32* Value)
@@ -195,6 +222,7 @@ void AERPlayerController::ShowMenu(bool bShow)
         {
             Focus = Button(TEXT("Resume"), [this]() { ShowMenu(false); return FReply::Handled(); }, true); Add(Panel, Focus.ToSharedRef());
             Add(Panel, Button(TEXT("Player"), Go(6), true));
+            Add(Panel, Button(TEXT("Server rules"),Go(10)));
             Add(Panel, Button(TEXT("Main Menu"), [GI]() { GI->ReturnToMenu(); return FReply::Handled(); }, true));
         }
         if(Main)Add(Panel, Button(TEXT("Player"), Go(6), true));
@@ -204,12 +232,12 @@ void AERPlayerController::ShowMenu(bool bShow)
     }
     else
     {
-        const TCHAR* Titles[] = {TEXT("MULTIPLAYER LOBBY"), TEXT("PLAY OFFLINE"), TEXT("START SERVER"), TEXT("PLAY ONLINE"), TEXT("SETUP"), TEXT("PLAYER"), TEXT("PLAYER"), TEXT("CREDITS"), TEXT("PERFORMANCE"), TEXT("CHANGE TEAM")};
+        const TCHAR* Titles[] = {TEXT("MULTIPLAYER LOBBY"), TEXT("PLAY OFFLINE"), TEXT("START SERVER"), TEXT("PLAY ONLINE"), TEXT("SETUP"), TEXT("PLAYER"), TEXT("PLAYER"), TEXT("CREDITS"), TEXT("PERFORMANCE"), TEXT("CHANGE TEAM"),TEXT("SERVER GAMEPLAY SETTINGS")};
         Focus = Button(MenuPage == 0 ? TEXT("Leave Server") : TEXT("Back"), MenuPage == 0 ? TFunction<FReply()>([GI]() { GI->ReturnToMenu(); return FReply::Handled(); }) : TFunction<FReply()>(Back));
         if (MenuPage != 7)
         {
-            Add(Panel, Text(Titles[FMath::Clamp(MenuPage, 0, 9)], 36));
-            if(MenuPage!=6)Add(Panel, Focus.ToSharedRef());
+            Add(Panel, Text(Titles[FMath::Clamp(MenuPage, 0, 10)], 36));
+            if(MenuPage!=6 && MenuPage!=10)Add(Panel, Focus.ToSharedRef());
         }
         if (MenuPage == 0 && Lobby)
         {
@@ -219,7 +247,7 @@ void AERPlayerController::ShowMenu(bool bShow)
                 int32 Humans = 0, Ready = 0;
                 if (GS) for (auto Item : GS->PlayerArray) if (const auto* PS = Cast<AERPlayerState>(Item); PS && !PS->IsABot() && !PS->IsInactive())
                 { ++Humans; Ready += PS->bLobbyReady; }
-                return FText::FromString(GS && GS->bLobbyStarting ? TEXT("Starting match · generating map...") : FString::Printf(TEXT("%s · %d / %d players    |    READY %d / %d needed"), GS && GS->bOnline ? TEXT("INTERNET") : TEXT("LAN"), Humans, GS ? GS->ServerMaxPlayers : GI->MaxPlayers, Ready, Humans / 2 + 1));
+                return FText::FromString(GS && GS->bLobbyStarting ? TEXT("Starting match · generating map...") : FString::Printf(TEXT("%s · %d / %d players    |    READY %d / %d needed"), GS && GS->bOnline ? TEXT("INTERNET") : TEXT("LAN"), Humans, GS ? GS->ServerMaxPlayers : GI->MaxPlayers, Ready, ERLobby::RequiredReady(Humans,ERServer::Get(GetWorld(),"Match.ReadyPercent"))));
             });
             Add(Panel, Status);
             auto Body = SNew(SHorizontalBox);
@@ -242,10 +270,12 @@ void AERPlayerController::ShowMenu(bool bShow)
             }
             auto Actions = SNew(SVerticalBox);
             Add(Actions, Button(TEXT("Player"), Go(6)));
+            Add(Actions, Button(TEXT("Server rules"),Go(10)));
+            Add(Actions, Text(ERServer::Rules(GetWorld()).IsStandard()?TEXT("Standard gameplay"):FString::Printf(TEXT("Custom gameplay · %d overrides"),ERServer::Rules(GetWorld()).Values.Num()),20));
             Add(Actions, Text(TEXT("Vote for the first map"), 25));
             for (int32 I = 0; I < ERMaps::All().Num(); ++I)
             {
-                if (!ERMaps::At(I).InRotation) continue;
+                if (!ERMaps::Enabled(I,&ERServer::Rules(GetWorld()))) continue;
                 Add(Actions, SNew(SButton).ContentPadding(7).OnClicked_Lambda([this, I]() { ServerLobbyVote(I); return FReply::Handled(); })
                     [SNew(STextBlock).Font(MenuFont(25)).AutoWrapText(true).Text_Lambda([this, I]()
                     {
@@ -275,6 +305,7 @@ void AERPlayerController::ShowMenu(bool bShow)
             IntChoice(TEXT("Omega bots"), BotCounts, &GI->OmegaBots);
             IntChoice(TEXT("Bot behavior"), {TEXT("Stationary targets"), TEXT("Movement only"), TEXT("Movement and combat")}, &GI->BotBehavior);
             Add(Panel, Button(TEXT("Player"), Go(6)));
+            Add(Panel, Button(TEXT("Gameplay settings"),Go(10)));
             Add(Panel, Button(TEXT("Start Match"), [GI]() { GI->StartSession(); return FReply::Handled(); }));
         }
         else if (MenuPage == 2)
@@ -305,7 +336,76 @@ void AERPlayerController::ShowMenu(bool bShow)
             Add(Panel, SNew(STextBlock).Font(MenuFont(20)).AutoWrapText(true)
                 .Visibility_Lambda([Online]() { return Online->Status.IsEmpty() ? EVisibility::Collapsed : EVisibility::Visible; })
                 .Text_Lambda([Online]() { return FText::FromString(Online->Status); }));
+            Add(Panel, Button(TEXT("Gameplay settings"),Go(10)));
             Add(Panel, Button(TEXT("Start Server & Enter Lobby"), [GI, Online]() { if (GI->bInternetMenu) Online->Host(); else { Online->Cancel(); GI->StartLANServer(); } return FReply::Handled(); }));
+        }
+        else if(MenuPage==10)
+        {
+            auto Compact=[](const FString& Label,TFunction<FReply()> Action)->TSharedRef<SWidget>
+            {auto LabelText=Text(Label,21);LabelText->SetAutoWrapText(false);return SNew(SButton).ContentPadding(FMargin(12,6)).OnClicked_Lambda(MoveTemp(Action))[LabelText];};
+            auto RulesBack=Compact(TEXT("Back"),Back);Focus=RulesBack;Add(Panel,RulesBack);
+            const bool Editable=Main && !Lobby;
+            const FERServerRules* Rules=Editable?&GI->ServerRules:&ERServer::Rules(GetWorld());
+            Add(Panel,Text(Editable?TEXT("Saved for your next hosted match. Modified values are marked *."):TEXT("Active server rules · read only"),21));
+            Add(Panel,Text(Rules->IsStandard()?TEXT("Standard gameplay"):FString::Printf(TEXT("Custom gameplay · %d overrides"),Rules->Values.Num()),22));
+            TArray<FString> Sections;
+            for(const auto& S:ERServer::Settings())Sections.AddUnique(S.Section);
+            Choice(Panel,TEXT("Category"),Sections,[this,Sections](){return FMath::Max(0,Sections.IndexOfByKey(ServerRulesSection));},
+                [this,Sections](int32 I){ServerRulesSection=Sections[I];OpenMenuPage(10);});
+            Add(Panel,SNew(SCheckBox).IsChecked(bServerRulesAdvanced?ECheckBoxState::Checked:ECheckBoxState::Unchecked)
+                .OnCheckStateChanged_Lambda([this](ECheckBoxState State){bServerRulesAdvanced=State==ECheckBoxState::Checked;OpenMenuPage(10);})[SNew(STextBlock).Font(MenuFont(22)).Text(FText::FromString(TEXT("Show advanced settings")))]);
+            auto Management=SNew(SVerticalBox);
+            const auto Fields=Columns(Panel);
+            for(const auto& Definition:ERServer::Settings())
+            {
+                if(Definition.Section!=ServerRulesSection || (Definition.Advanced && !bServerRulesAdvanced))continue;
+                const auto* S=&Definition;
+                const float Base=ServerSettingDefault(*S,Catalog);
+                auto Cell=Fields();
+                Add(Cell,Text(S->Label+(Rules->Has(S->Key)?TEXT(" *"):TEXT(""))+(S->Unit.IsEmpty()?TEXT(""):TEXT(" · ")+S->Unit),22));
+                auto Row=SNew(SHorizontalBox);
+                if(S->Unit==TEXT("on/off"))
+                    Row->AddSlot().FillWidth(1)[SNew(SCheckBox).IsEnabled(Editable)
+                        .IsChecked_Lambda([Rules,S](){return Rules->Get(S->Key)>0?ECheckBoxState::Checked:ECheckBoxState::Unchecked;})
+                        .OnCheckStateChanged_Lambda([this,GI,S,Editable](ECheckBoxState State){if(Editable){GI->ServerRules.Set(S->Key,State==ECheckBoxState::Checked?1.f:0.f);GI->SaveServerSettings();OpenMenuPage(10);}})
+                        [Text(TEXT("Enabled"),22)]];
+                else Row->AddSlot().FillWidth(1)[SNew(SNumericEntryBox<float>).Font(MenuFont(25)).MinValue(S->Min).MaxValue(S->Max)
+                    .MinSliderValue(S->Min).MaxSliderValue(S->Max).AllowSpin(Editable).IsEnabled(Editable)
+                    .MinFractionalDigits(0).MaxFractionalDigits(S->Integer?0:3)
+                    .UndeterminedString(FText::FromString(TEXT("Standard (asset)")))
+                    .Value_Lambda([Rules,S,Base](){return TOptional<float>(Rules->Get(S->Key,Base));})
+                    .OnValueChanged_Lambda([GI,S,Editable](float V){if(Editable)GI->ServerRules.Set(S->Key,V);})
+                    .OnValueCommitted_Lambda([this,GI,S,Editable](float V,ETextCommit::Type){if(Editable){GI->ServerRules.Set(S->Key,V);GI->SaveServerSettings();OpenMenuPage(10);}})];
+                if(Editable)Row->AddSlot().AutoWidth().Padding(8,0,0,0)[Compact(TEXT("Standard"),[this,GI,S](){GI->ServerRules.Reset(S->Key);GI->SaveServerSettings();OpenMenuPage(10);return FReply::Handled();})];
+                Add(Cell,Row);
+                if(S->Key==FName("Claymore.TriggerPercent"))Add(Cell,SNew(STextBlock).Font(MenuFont(20)).Text_Lambda([Rules](){return FText::FromString(FString::Printf(TEXT("Effective trigger radius: %.2f m"),Rules->Get("Claymore.DamageRadius")*Rules->Get("Claymore.TriggerPercent")*.01f));}));
+            }
+            if(Editable)
+            {
+                auto Resets=SNew(SHorizontalBox);
+                Resets->AddSlot().AutoWidth().Padding(0,0,12,0)[Compact(TEXT("Reset category"),[this,GI](){for(const auto& S:ERServer::Settings())if(S.Section==ServerRulesSection)GI->ServerRules.Reset(S.Key);GI->SaveServerSettings();OpenMenuPage(10);return FReply::Handled();})];
+                Resets->AddSlot().AutoWidth()[Compact(TEXT("Reset all to Standard"),[this,GI](){GI->ServerRules.Values.Reset();GI->SaveServerSettings();OpenMenuPage(10);return FReply::Handled();})];
+                Add(Management,Resets);
+                Add(Management,SNew(SEditableTextBox).Font(MenuFont(24)).HintText(FText::FromString(TEXT("Preset name"))).Text(FText::FromString(ServerPresetName))
+                    .OnTextChanged_Lambda([this](const FText& T){ServerPresetName=T.ToString().Left(32);}));
+                TArray<FString> Presets;GConfig->GetArray(TEXT("RespawnAndRage.ServerPresets"),TEXT("Names"),Presets,GGameUserSettingsIni);
+                auto PresetActions=SNew(SHorizontalBox);
+                PresetActions->AddSlot().AutoWidth().Padding(0,0,12,0)[Compact(TEXT("Save preset"),[this,GI]()
+                {
+                    FString Name;for(TCHAR C:ServerPresetName)if(FChar::IsAlnum(C) || C==TCHAR(' ') || C==TCHAR('-') || C==TCHAR('_'))Name.AppendChar(C);
+                    Name.TrimStartAndEndInline();if(Name.IsEmpty())return FReply::Handled();
+                    ServerPresetName=Name;GI->SaveServerSettings();
+                    ERServer::Save(GI->ServerRules,GGameUserSettingsIni,TEXT("RespawnAndRage.ServerPreset.")+Name);
+                    TArray<FString> Names;GConfig->GetArray(TEXT("RespawnAndRage.ServerPresets"),TEXT("Names"),Names,GGameUserSettingsIni);Names.AddUnique(Name);
+                    GConfig->SetArray(TEXT("RespawnAndRage.ServerPresets"),TEXT("Names"),Names,GGameUserSettingsIni);GConfig->Flush(false,GGameUserSettingsIni);OpenMenuPage(10);return FReply::Handled();
+                })];
+                Add(Management,PresetActions);
+                if(!Presets.IsEmpty())Choice(Management,TEXT("Load saved preset"),Presets,
+                    [this,Presets](){return FMath::Max(0,Presets.IndexOfByKey(ServerPresetName));},
+                    [this,GI,Presets](int32 I){ServerPresetName=Presets[I];ERServer::Load(GI->ServerRules,GGameUserSettingsIni,TEXT("RespawnAndRage.ServerPreset.")+ServerPresetName);GI->SaveServerSettings();OpenMenuPage(10);});
+            }
+            if(Editable)Add(Panel,SNew(SExpandableArea).InitiallyCollapsed(true)
+                .HeaderContent()[Text(TEXT("Presets and reset"),22)].BodyContent()[Management]);
         }
         else if (MenuPage == 3)
         {
@@ -521,7 +621,7 @@ void AERPlayerController::ShowMenu(bool bShow)
                 Variants->AddSlot().AutoHeight().Padding(0,3)
                     [SNew(SBox).Visibility_Lambda([this,Slot]() {return ResolveMenuLoadout(DraftPreset,DraftVariant).Items.IsValidIndex(Slot)?EVisibility::Visible:EVisibility::Collapsed;})[Row]];
             }
-            Add(Variants,Text(TEXT("100 HP  ·  100 armor  ·  Helmet"),17));
+            Add(Variants,SNew(STextBlock).Font(MenuFont(17)).Text_Lambda([this](){const auto K=ResolveMenuLoadout(DraftPreset,DraftVariant);return FText::FromString(FString::Printf(TEXT("%.0f HP · %.0f armor%s"),K.StartingHealth,K.StartingArmor,K.Helmet?TEXT(" · Helmet"):TEXT("")));}));
             Body->AddSlot().FillWidth(1.2f).Padding(20,0,0,0)[Variants];Add(Panel,Body);
             Add(PlayerFooter,SNew(STextBlock).Font(MenuFont(19)).AutoWrapText(true).Text_Lambda([this,GI]()
             {
@@ -633,7 +733,7 @@ FERResolvedLoadout AERPlayerController::ResolveMenuLoadout(FName Preset,FName Va
     const auto* PS=(!IsMenuLevel() || IsInLobby())?GetPlayerState<AERPlayerState>():nullptr;
     const bool Omega=PS && PS->Team!=EERTeam::None?(PS->PendingTeam!=EERTeam::None?PS->PendingTeam:PS->Team)==EERTeam::Omega:GI->PlayerTeam==1;
     const auto* Catalog=SkinCatalog?SkinCatalog->GetDefaultObject<AERCharacter>():nullptr;
-    const auto Local=ERLoadouts::Resolve(Preset,Variant,Omega,Catalog);
+    const auto Local=ERLoadouts::Resolve(Preset,Variant,Omega,Catalog,IsMenuLevel() && !IsInLobby()?&GI->ServerRules:&ERServer::Rules(GetWorld()));
     if(!IsMenuLevel() || IsInLobby())if(const auto* State=GetWorld()->GetGameState<AERGameState>())
         if(const auto* Server=State->LoadoutCatalog.FindByPredicate([&](const auto& Kit) { return Kit.Preset==Local.Preset && Kit.Variant==Local.Variant && Kit.bOmega==Omega; }))return *Server;
     return Local;

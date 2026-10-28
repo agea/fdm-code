@@ -49,7 +49,7 @@ void UERGameInstance::StartLANServer()
 {
     CancelLANSearch();
     SaveProfile();
-    SaveServerSettings();
+    CommitServerRules();
     LastError.Empty();
     SessionMode = 1;
     // Packaged games do not use play.command. Explicitly select IPv4 any-address

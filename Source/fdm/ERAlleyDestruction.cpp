@@ -30,7 +30,7 @@ bool ERAlleyDestruction::FindWall(AERProceduralMap* Map,FBreach& Out)
             };
             if(!Stand(A) || !Stand(B) || FMath::Abs(A.Z-B.Z)>35)continue;
             A.Z=B.Z=FMath::Max(A.Z,B.Z)+3;FHitResult Hit;FERCellId Cell;
-            if(!W->LineTraceSingleByChannel(Hit,A,B,ECC_GameTraceChannel1,Q) || Hit.GetActor()!=Map || !Hit.GetComponent()->ComponentHasTag(H.Mesh->GetFName()) || !Map->ResolveCell(Hit,Cell))continue;
+            if(!W->LineTraceSingleByChannel(Hit,A,B,ECC_GameTraceChannel1,Q) || Hit.GetActor()!=Map || !Hit.GetComponent()->ComponentHasTag(H.Mesh ? H.Mesh->GetFName():H.StructureName) || !Map->ResolveCell(Hit,Cell))continue;
             if(!W->SweepTestByChannel(A,B,FQuat::Identity,ECC_Pawn,Capsule,Q))continue;
             auto Without=Q;Without.AddIgnoredComponent(Hit.GetComponent());
             // The new hole belongs to one building. Reject routes where the
@@ -84,7 +84,7 @@ bool ERAlleyDestruction::FindRoof(AERProceduralMap* Map,FVector& Point,FERCellId
         for(float X:{0.f,-.2f,.2f})for(float Y:{0.f,-.2f,.2f})
         {
             const auto P=F.TransformPosition({Size.X*X,Size.Y*Y,Size.Z+150});FHitResult Hit;
-            if(!Map->GetWorld()->LineTraceSingleByChannel(Hit,P,P-FVector(0,0,Size.Z*.5+200),ECC_GameTraceChannel1,Q) || Hit.GetActor()!=Map || !Hit.GetComponent()->ComponentHasTag(H.Mesh->GetFName()) || Hit.ImpactNormal.Z<.85 || !Map->ResolveCell(Hit,Cell))continue;
+            if(!Map->GetWorld()->LineTraceSingleByChannel(Hit,P,P-FVector(0,0,Size.Z*.5+200),ECC_GameTraceChannel1,Q) || Hit.GetActor()!=Map || !Hit.GetComponent()->ComponentHasTag(H.Mesh ? H.Mesh->GetFName():H.StructureName) || Hit.ImpactNormal.Z<.85 || !Map->ResolveCell(Hit,Cell))continue;
             Point=Hit.ImpactPoint;
             if(Map->GetWorld()->OverlapBlockingTestByChannel(Point+FVector(0,0,98),FQuat::Identity,ECC_Pawn,FCollisionShape::MakeCapsule(34,92.5),Q))continue;
             return true;

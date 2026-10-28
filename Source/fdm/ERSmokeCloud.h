@@ -21,9 +21,12 @@ public:
     // Local playback gain: existing .65 multiplied by -10 dB. WAV/HE unchanged.
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, meta=(ClampMin="0")) float ReleaseVolume = .65f * .31622777f;
     UPROPERTY(Transient) TObjectPtr<class UAudioComponent> ReleaseAudio;
-    UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) FVector SimSize = FVector(880,880,400);
+    UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadWrite) FVector SimSize = FVector(880,880,400);
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) int32 GridResolution = 40;
-    UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) float Duration = 12;
+    UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadWrite) float Duration = 12;
+    UPROPERTY(Replicated) float GrowthSeconds=2.2f;
+    UPROPERTY(Replicated) float FadeSeconds=4.f;
+    UPROPERTY(Replicated) float DensityScale=1.f;
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, ReplicatedUsing=OnRep_SmokeColor) FLinearColor SmokeColor = FLinearColor(.33f,.33f,.33f,1);
     UFUNCTION() void OnRep_SmokeColor();
     static FLinearColor ColorForTeam(EERTeam Team);
@@ -54,7 +57,7 @@ public:
     UFUNCTION(BlueprintCallable, Category="Respawn & Rage|Editor")
     static bool PrepareOwnedSystem(UNiagaraSystem* SmokeSystem);
 private:
-    struct FShotCut { FVector Start, End; double Until; float Radius, Lifetime; };
+    struct FShotCut { FVector Start, End; double Until; float Radius, Lifetime; bool Blast=false, Projectile=false; };
     TArray<FShotCut> ShotCuts;
     float RecoveredRadius(const FShotCut& Cut, double Now) const;
     float ReconDensity(const FVector& Position, float Age) const;

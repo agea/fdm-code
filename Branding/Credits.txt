@@ -230,3 +230,45 @@ Claymore M18
 https://sketchfab.com/3d-models/claymore-m18-0e44b2adeb974830804c3ec68c0920f0
 Creative Commons Attribution 4.0: https://creativecommons.org/licenses/by/4.0/
 Changes: normalized units, origin/orientation, rigid skeletal derivative and Unreal materials.
+
+Village / Jungle - imported Sketchfab assets
+
+Jungle House 3D Model Free
+by iGauravRajput (https://sketchfab.com/iGauravRajput)
+https://sketchfab.com/3d-models/jungle-house-3d-model-free-315070c84e284b3485b978b125a3e213
+License: CC BY 4.0 - http://creativecommons.org/licenses/by/4.0/
+Changes: Decimated backdrop mesh, reprojected original color on a new 2K UV atlas; exterior only.
+
+Rusty roof Wooden house 1 3d model free
+by iGauravRajput (https://sketchfab.com/iGauravRajput)
+https://sketchfab.com/3d-models/rusty-roof-wooden-house-1-3d-model-free-ba768313ebf84f18b08956611adbd41f
+License: CC BY 4.0 - http://creativecommons.org/licenses/by/4.0/
+Changes: Decimated backdrop mesh, reprojected original color on a new 2K UV atlas; exterior only.
+
+Old Building
+by YadroGames (https://sketchfab.com/yadrogames)
+https://sketchfab.com/3d-models/old-building-f72b3723f2a34b6691455947fef598d6
+License: CC BY 4.0 - http://creativecommons.org/licenses/by/4.0/
+Changes: Wooden room with UV-preserving standing through-openings and a cleared interior passage; upper roof removed and replaced with calibrated gameplay metal/timber; cell destruction.
+
+Wooden Bridge Pack
+by padmadev_designs (https://sketchfab.com/padmadev_designs)
+https://sketchfab.com/3d-models/wooden-bridge-pack-bbcda64fe4fa4af29edf096c6e039ae2
+License: CC BY 4.0 - http://creativecommons.org/licenses/by/4.0/
+Changes: Selected individual module 20; fitted to gameplay crossing; original UVs, cell destruction, added solid timber rails.
+
+tree low-poly
+by Ricardo Sanchez (https://sketchfab.com/380660711785)
+https://sketchfab.com/3d-models/tree-low-poly-4cd243eb74c74b3ea2190ebcec0439fb
+License: CC BY 4.0 - http://creativecommons.org/licenses/by/4.0/
+Changes: Original 850-triangle geometry, centered and combined material slots; masked leaves, exterior instancing.
+
+Village panoramic background — J&E Gray Park
+by Greg Zaal / Poly Haven
+https://polyhaven.com/a/je_gray_park
+CC0 1.0: https://creativecommons.org/publicdomain/zero/1.0/
+Adaptation: panorama reduced to4096x2048 and mapped onto an original unlit, query-free sphere.
+Reference sky dome demo by fangzhangmnm: https://sketchfab.com/3d-models/sky-dome-demo-a5778d3c90e644e2be1062895ccd44aa
+The source panorama is the one cited by that dome; its mesh is not imported.
+
+Current Village topology revision5 removes all exterior house instances; optimized house packages and original sources remain preserved. Bridge module20 forms the paired corner lookouts.

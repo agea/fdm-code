@@ -51,6 +51,8 @@ protected:
 private:
     double AimClockReceiptTime = -1;
 public:
+    UPROPERTY(ReplicatedUsing=OnRep_ServerRules) FERServerRules ServerRules;
+    UFUNCTION() void OnRep_ServerRules();
     UPROPERTY(ReplicatedUsing=OnRep_LoadoutCatalog) TArray<FERResolvedLoadout> LoadoutCatalog;
     UFUNCTION() void OnRep_LoadoutCatalog();
     UPROPERTY(Replicated, BlueprintReadOnly) int32 ServerMaxPlayers = ERServer::DefaultMaxPlayers;

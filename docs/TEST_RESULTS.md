@@ -1,5 +1,114 @@
 ## 23 October 2026 — Fire Training revision3 (naves, height, length, plazas)
 
+## Village lateral cover — 28 October2026, recipe8
+
+- Mac arm64 Development build: PASS (`Saved/village-side-walls-build.log`).
+- Layout:516 seeds /490 dimension-and-position combinations, deterministic
+  half-turn symmetry, calibrated timber/sheets and construction budgets PASS.
+  Lateral walls are240cm high,24cm timber with2mm metal faces/top caps.
+  One central block: four700cm walls; two blocks: four580cm walls; denser
+  variants: two260cm walls. Sparse approaches reserve another3m per team.
+- Physical:15 cases with240/260/280cm decks PASS. Standing sightlines blocked
+  at164cm and220cm, standing hide positions clear, all local side-wall bypasses
+  and both full flanks clear, all stair entries clear. Doors, designated doglegs,
+  cover pockets, ladders, spawn support and sealed perimeter regressions PASS.
+- Real pawn/Metal: PASS, including walking around an inner wall end and damaging
+  the wall, three stair types, ground tunnel and upper ladder. Damage/support
+  settles; regenerated structures have zero detached cells. Six captures include
+  the new SideCover view; OneBlock screenshots inspected.
+- LAN/Metal: PASS, initial and late peers match intact/damaged/regenerated
+  geometry through one→two central blocks, with adaptive widths/counts. Both
+  client types validate snapshots and boundary collision. Six TwoBlocks captures
+  inspected. Captures are retained under Saved/Testing/SideWalls/.
+- Migration advances only DA_Village to revision8. Verified revision7 rollback;
+  rerun preserves33 owned packages;13 other recipe/map/theme/catalog hashes
+  unchanged. Prior validation is archived in validation-before-side-walls.json.
+- Limits: local Mac host/clients; no two-PC, human balance or FPS/GPU benchmark.
+
+Receipt: private SourceAssets/Village/side-walls-validation.json.
+
+## Temi condivisi — 28 October2026, Jungle su tutti i template
+
+- Editor Mac arm64 Development: PASS (`Saved/shared-jungle-build.log`).
+- All23 destruction automation tests: PASS. SharedMapThemes checks five
+  templates ×32 seeds, all15 theme/template combinations, identical theme
+  choice for a seed, deterministic finishes/terrain and unchanged geometry,
+  cell calibration, openings, support flags, meshes and collision descriptors.
+- Jungle has complete and distinct shell/ladder/deck roles using existing
+  materials, with original cargo paint preserved. Village's source UV skins
+  and gray cladding remain authored only in Jungle; other palettes recolor
+  them as well. Its exterior ground matches the sampled playable terrain.
+- Metal: PASS. Central Building seed0 uses Jungle, with six material captures
+  and rendered material bindings/cover access verified. Village seed73 uses
+  Industrial, climbs stairs/upper ladder and takes timber/imported-skin damage;
+  regeneration to seed42 uses Desert, with supported structures and five
+  inspected captures. Capture copies: Saved/Testing/SharedThemes/.
+- LAN: PASS. Host, initial and late client match intact/damaged Desert seed42
+  and regenerated Jungle seed0, epoch1→2. Both client types validate cells and
+  sealed boundary collision after the palette change.
+- Migration saves only DA_MapThemes, revision6. Rerun:51 packages byte-identical;
+  all50 protected recipe/map/material packages unchanged. Verified rollback ZIP
+  and receipts retained in private SourceAssets/MapTemplates/shared-jungle*.json.
+- Limits: local Mac host/clients, no physical two-PC or measured GPU/FPS test.
+
+## Village / Jungle — 28 October2026, procedural variety / recipe7
+
+- Editor Mac arm64 Development build: PASS (`Saved/village-variety-build.log`).
+- VillageLayout: PASS,516 seeds /490 dimension-and-position combinations;
+  all1..5 block counts, three base styles and1..3 storeys exercised. Odd counts
+  have one origin block with internal180-degree symmetry. Whole construction
+  remains paired and within the existing panel budget; invalid recipes fail atomically.
+- VillagePhysics: PASS,15 seeds spanning all counts, heights and bases. Standing
+  doglegs, sealed bay walls, blocked straight shortcuts, hut doors, cover pockets,
+  ladder wells/landings, supported spawns, cross lanes and flanks verified.
+  Successive upper flights alternate sides; supports avoid their clearance.
+- Metal: PASS; a real pawn climbs central/gallery/lookout stairs, crosses a
+  dogleg and climbs an upper-storey ladder. Timber/imported skin damage, settled
+  support and regeneration pass, with zero detached cells before damage and after
+  regeneration. Five captures inspected; native ground/variety diagrams retained.
+- Local LAN: PASS; initial client phases1/2/3 and late client phases2/3 match
+  host through regeneration from seed42 (one three-storey block) to seed73
+  (three multi-storey blocks). Digests:3099681889, 1565892504, 1741584418;
+  epoch1→2. The tall map has over8M logical cells. Village with imported skins
+  now uses the existing96M architecture descriptor allowance; cell-world budgets
+  are still checked. Ordinary rooms keep8M. NetworkTransactions regression: PASS,
+  including invalid payloads/protocol, late joins, new epochs and oversized rooms.
+- Migration rerun:33 owned packages byte-identical;13 other map/theme/catalog
+  packages unchanged. Revision6 rollback and prior validation preserved.
+- Limits: local Mac host/clients only; no two-PC or human balance/FPS benchmark.
+
+Receipts: private `SourceAssets/Village/validation.json`, `variety-receipt.json`,
+`variety-idempotency.json`; generated footprints: `Saved/Testing/Village-Variety.svg`.
+
+## Village / Jungle — 28 October2026, ground passages / recipe6
+
+- Editor Mac arm64 Development build: PASS (`Saved/village-passages-build.log`).
+- Saved recipe and VillageLayout: PASS,516 seeds /149 compositions.
+- VillagePhysics: PASS, six seeds. All four standing dogleg routes are clear;
+  six bay outlines have real visible collision; every sampled straight crossing
+  through the central blocks is blocked. Upper hut doors, crouched cover,
+  spawn support, ladder landings, middle lane, flank bypasses and sealed arena
+  perimeter remain valid. Ground infill is destructible12cm timber,234cm high.
+- Metal: PASS; real pawn climbs all three stair types and traverses a ground
+  corridor, with timber/imported-skin damage, settled support and regeneration.
+  Intact and regenerated structures have zero detached cells. Five game captures
+  retained; the Underpass view now shows the designated corridor and its bend.
+- Ground-only SVG exported from actual closed-bay polygons and passage routes,
+  aligned with the supplied top view; PNG preview includes the full legend.
+- Local LAN: PASS, initial and late clients match all applicable phases.
+  Digests:1855390049 intact,3195355842 after settled damage,1344665644 regenerated;
+  epoch1→2. The client boundary check passes through damage and regeneration.
+- Migration rerun:32 owned packages byte-identical.13 other map/theme/catalog
+  package hashes unchanged; prior recipe5 retained in a verified rollback ZIP.
+- The earlier theme regression passed four templates ×32 seeds; this correction
+  changes only Village construction/routes and layout memory accounting.
+- Limits: local Mac host/clients only; no two-PC or human balance/FPS benchmark.
+  The pre-passage validation record and original source assets remain preserved.
+
+Receipts: private `SourceAssets/Village/validation.json`,
+`ground-passages-receipt.json`, `ground-passages-idempotency.json`.
+
+
 ## Phase/Twinblast clothing and mandatory Drongo mask — 26 October 2026
 
 - Editor Mac Development arm64 build: PASS (Unreal5.8).
@@ -6842,3 +6951,71 @@ fallback in all three Blueprint catalogs. Unreal commandlet exited0; assertions
 passed for all nine appearance entries and the backup CRC. The existing
 FERTeamAppearance::ApplyTo and corpse path apply these hidden bones to meshes.
 No new visual capture; the earlier accessory-only result did not cover Breacher.
+
+
+## Alleys procedural houses — 28 October2026
+
+- UE5.8.3 Editor Mac Development arm64 build: PASS. The final follow-up build
+  changes only opt-in gallery framing, after a wall obscured its first camera.
+- `setup_alley_modules.py`: PASS,516 candidate seeds, verified rollback ZIP,
+  saved recipe8 / geometry marker7. A rerun preserves the exact owned recipe
+  hash and68 protected map/recipe/theme/catalog/source-art packages.
+- `test-destruction.py`: all23 automation tests PASS, including shared themes,
+  original combat calibration, other map archetypes and network transactions.
+  Alleys samples512 layouts and six real physics worlds. Every recorded street
+  entry has standing clearance and footing; roof crossings have deck support,
+  standing clearance and unobstructed openings. Remaining low rims have a real
+  standing landing. All intact structures retain support.
+- `test-dust-template.py --alleys --render --network`: PASS. Real pawn enters
+  and leaves a house, climbs both external switchbacks, steps onto a25cm rim
+  and jumps between adjacent roofs in both directions. District route, all
+  tower ladders, both lower-passage directions, road breach/fall and seed
+  regeneration pass. Initial/late clients match phases1/6/7, with no unresolved
+  movement bases or unsupported replicated objects.
+- `test-dust-template.py --alleys --architecture --render --network`: PASS.
+  Actual firearm removes locally weakened cells; standard HE damages masonry.
+  Controlled facade cut admits the real pawn; a controlled roof cut causes a
+  real fall. Removing lower/lateral support detaches the upper house. Both
+  initial and late peers match intact/damaged/regenerated snapshots. Large
+  controlled cuts do not establish a default weapon/grenade count for a door.
+- Rendered breach and roof/fall views were inspected. Logs and reports:
+  `Saved/Testing/alley-modules-*`, `alleys-network-metal-*`, and
+  `destruction-automation.log`. Network launches use loopback on this Mac;
+  physical two-PC LAN and subjective competitive playtesting were not run.
+- `test-dust-template.py --alleys --modules`: PASS after final camera correction.
+  All three current Metal captures were inspected: exterior doors/windows,
+  clear interior/floor and flat roofs with interrupted low rims. Images:
+  `MiddleEasternModules-Houses.png`, `MiddleEasternModules-Interior.png`,
+  `MiddleEasternModules-Roof-Rims.png`. The private
+  `procedural-houses-validation.json` records all23 tests, both network reports,
+  protected hashes, recipe idempotency and the reviewed image hashes.
+
+
+## Server gameplay settings — 28 October 2026
+
+- `scripts/build-editor.command`: PASS, UE5.8.3 Mac Development Editor arm64.
+- `python3 scripts/test-server-settings.py --regressions`: PASS, all21 native
+  tests (settings validation/persistence/weapon-kit/material-prediction isolation,
+  loadout catalog/Claymore lifecycle, reference ballistics, lobby/preferences/
+  rotation, player/HUD, recon/smoke and four cell tests including network transactions).
+- `python3 scripts/test-server-settings.py --network`: PASS, separate local host
+  and client. Host values override conflicting client ini values; server movement,
+  weapon tuning, resolved kit quantities, smoke dimensions/lifetime, mine sensor
+  and a modified-material initial/late cell-map snapshot agree. The low-damage
+  mine detonates once and leaves the armored target alive. Both remote phases
+  acknowledged; host exited0.
+- `python3 scripts/test-server-settings.py --render`: PASS, actual Metal1440×1000
+  captures inspected for Match, Claymore and advanced Assault settings. Numeric
+  defaults/units and reset buttons are readable; longer categories scroll and
+  preset/reset management is collapsed below the fields. Outputs:
+  `Saved/Testing/ServerRules-{Menu,Claymore,Weapon}.png`.
+- `python3 scripts/test-movement.py`: PASS, real host/autonomous client; all20
+  blocks, run/walk, jump/vault/climb, posture and server eye,15s sprint/20s
+  recovery, partial stamina restart, real dispersion and both sprint input gestures.
+- `python3 scripts/test-loadouts.py --network --mines`: PASS, all15 remote kit
+  observations, placement/lasers, independent60s expiry, owner death/respawn,
+  changed kit and posthumous kill attribution. The final fixture now uses a
+  wounded armored victim, without assuming guaranteed full-health lethality.
+
+All listed runners returned0. These are local Mac Editor/Metal/LAN checks;
+no packaging, release upload or external EOS service claim is made here.

@@ -54,7 +54,7 @@ inline float GrenadeDamage(float Peak, float DistanceCm, float InnerCm, float Ou
     const float Tail=1.f-FMath::Clamp((DistanceCm-InnerCm)/(OuterCm-InnerCm),0.f,1.f);
     return FMath::Max(0.f,Peak)*Tail*Tail;
 }
-inline float GrenadeArmorRatio(float Ratio) { return FMath::Clamp(Ratio,1.6f,2.f); }
+inline float GrenadeArmorRatio(float Ratio) { return FMath::Clamp(Ratio,0.f,2.f); }
 // CS Source units are inches. RangeModifier applies every 500 units (12.7m).
 inline float AtRange(float Damage, float Modifier, float DistanceCm)
 {

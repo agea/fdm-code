@@ -12,7 +12,7 @@ namespace ERRecon
     constexpr int32 Stock = 5;
     constexpr double ReplacementSeconds = 30;
     FLinearColor TeamColor(EERTeam Team);
-    bool InSightCone(const FVector& Eye, const FVector& Forward, const FVector& Target, float Range, bool Panoramic);
+    bool InSightCone(const FVector& Eye, const FVector& Forward, const FVector& Target, float Range, bool Panoramic, float FullAngle=120);
     bool IsExplored(const TArray<uint8>& Bits, int32 Cell);
     void Explore(TArray<uint8>& Bits, int32 Cell);
 }
@@ -185,6 +185,6 @@ private:
     void ClearFleet();
     void ClearDebris();
     bool SightClear(const FVector& Eye, const FVector& Target, const FCollisionQueryParams& Query, const TArray<class AERSmokeCloud*>& Clouds) const;
-    float SightRange(bool Drone) const { return Drone ? 4200.f : FMath::Max(Frame.Span,3000.f); }
+    float SightRange(bool Drone) const { return Drone ? ERServer::Get(GetWorld(),"Recon.Range")*100 : FMath::Max(Frame.Span,3000.f); }
     FCollisionQueryParams SightQuery() const;
 };

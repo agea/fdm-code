@@ -1,9 +1,35 @@
 # Middle Eastern Alleys
 
-22 October 2026. Select **Middle Eastern Alleys · Desert** in the match menu.
+28 October 2026. Select **Middle Eastern Alleys · Desert** in the match menu.
 The new production template is `Art/MapTemplates/DA_MiddleEasternAlleys`, with
 level `Maps/L_MiddleEasternAlleys`. Central Building and Depot remain available.
 
+
+Current geometry marker7 replaces fitted imported houses with native procedural
+masonry. The saved recipe is8 after the shared-theme migration. Doors remain
+160×240cm regardless of frontage; interiors have a single flat15cm floor and
+no imported thresholds, furniture or stairs. Exterior switchback stairs remain.
+Roofs vary between flush decks and25cm-high,40cm-wide masonry rims. The rims
+have180cm openings at stair landings and adjacent roof crossings; remaining
+flat caps are reachable with the normal30cm step.
+Roof decks, openings and rim collision all use the same generated triangles.
+Windows and plaster/brick/concrete finishes retain the town's architectural
+style; Industrial, Desert and Jungle still use the shared cosmetic selection.
+
+One generated hollow skin/body per house reuses the existing5cm damage,
+structural support and alive-mask snapshots. Source art and all13 baked source
+structures remain unchanged in the private library. The arch still uses its
+original baked structure. `Town.ProceduralHouses` selects the new generation;
+`setup_alley_modules.py` verifies a rollback ZIP and516 candidate seeds before
+saving only the owned recipe, protecting68 other packages. Earlier migration
+scripts preserve this completed geometry marker. `RoofTransfers` records the
+actual low-rise crossings through the rim openings; module entrance metadata
+records street-to-interior routes. Native physics checks exercise every such
+route in six seeded worlds. The normal gameplay probe additionally walks onto
+a remaining low rim and performs real jumps across a nearby roof in both directions.
+
+The revision6 description below documents the retained damage system and its
+legacy source-house mode; it no longer describes the playable house geometry.
 
 Revision6 makes imported houses, arches, internal masonry, low stone cover and
 added roof decks damageable. The original12 house meshes and their two atlases
@@ -178,3 +204,10 @@ Reproducible travel URL:
 ```text
 /Game/EclipseRecoil/Maps/L_MiddleEasternAlleys?MapSeed=42
 ```
+
+
+Procedural house gallery: `test-dust-template.py --alleys --modules` captures
+`Saved/Testing/MiddleEasternModules-{Houses,Interior,Roof-Rims}.png`. The normal
+traversal probe includes an actual step onto a remaining low rim and jumps
+through roof openings in both directions. Executed tests are in TEST_RESULTS.md;
+source receipt/validation are in private SourceAssets/MiddleEasternAlleys.

@@ -11,6 +11,11 @@ bool BuildAlleyLowCover(const UERMapTemplate& T,int32 Seed,TArray<FERMapTemplate
     TArray<FBox> Occupied;
     for(const auto& P:Pieces)if(!P.VisualOnly && P.Center.Z+P.Size.Z*.5f>1)
         Occupied.Add(FBox(-P.Size*.5,P.Size*.5).TransformBy(FTransform(FRotator(0,P.RotationYaw,0),P.Center)).ExpandBy(FVector(70,70,0)));
+    if(V.ProceduralHouses)for(const auto& H:L.Houses)
+    {
+        const auto S=H.Frame.GetScale3D();
+        Occupied.Add(FBox(-FVector(S.X,S.Y,0)*.5,FVector(S.X,S.Y,0)*.5+FVector(0,0,S.Z)).TransformBy(FTransform(H.Frame.GetRotation(),H.Frame.GetLocation())).ExpandBy(FVector(70,70,0)));
+    }
     for(const auto& Ramp:L.UnderpassRamps)Occupied.Add(FBox(FVector(Ramp.Bounds.Min.X-120,Ramp.Bounds.Min.Y-120,-1000),FVector(Ramp.Bounds.Max.X+120,Ramp.Bounds.Max.Y+120,2000)));
     for(const auto& H:L.UnderpassBreaches)Occupied.Add(FBox(FVector(H.Min.X-120,H.Min.Y-120,-1000),FVector(H.Max.X+120,H.Max.Y+120,2000)));
     for(const auto& G:L.TownGates)
@@ -18,6 +23,8 @@ bool BuildAlleyLowCover(const UERMapTemplate& T,int32 Seed,TArray<FERMapTemplate
     auto Clear=[&](FBox B)
     {
         for(const auto& Other:Occupied)if(B.Intersect(Other))return false;
+        for(const auto& House:L.Houses)for(const auto& Entry:House.Entrances)for(int32 I=1;I<Entry.Num();++I)
+            if(FMath::LineBoxIntersection(B.ExpandBy(FVector(60,60,100)),Entry[I-1],Entry[I],Entry[I]-Entry[I-1]))return false;
         for(const auto* Starts:{&L.AlphaSpawns,&L.OmegaSpawns})for(const auto& S:*Starts)if(B.ExpandBy(FVector(450,450,200)).IsInsideOrOn(S.GetLocation()))return false;
         for(const auto* Paths:{&L.RoomAccessRoutes,&L.RooftopRoutes,&L.StairRoutes})for(const auto& Path:*Paths)for(int32 I=1;I<Path.Num();++I)
         {
@@ -32,7 +39,8 @@ bool BuildAlleyLowCover(const UERMapTemplate& T,int32 Seed,TArray<FERMapTemplate
     {
         TArray<FVector> Candidates;
         const float Core=L.DistrictWallCount==1 ? 1600.f:FMath::Max(1100.f,L.DistrictOpenHalfDepth-100);
-        for(float Y=-Half.Y+800;Y<=-250;Y+=200)for(float X=-Half.X+300;X<Half.X-250;X+=200)
+        const float Grid=V.ProceduralHouses ? 100:200;
+        for(float Y=-Half.Y+800;Y<=-250;Y+=Grid)for(float X=-Half.X+300;X<Half.X-250;X+=Grid)
         {
             if((FMath::Abs(Y)<Core)!=(Region==0))continue;
             Candidates.Add({X,Y,-1});

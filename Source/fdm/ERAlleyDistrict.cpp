@@ -47,7 +47,8 @@ bool BuildAlleyDistrict(const UERMapTemplate& T,int32 Seed,TArray<FERMapTemplate
        V.ArenaMax.X>9500 || V.ArenaMax.Y>11000 || V.ArenaMin.X>V.ArenaMax.X || V.ArenaMin.Y>V.ArenaMax.Y ||
        !FMath::IsFinite(V.AxisWarp) || V.AxisWarp<0 || V.AxisWarp>3 || V.BuildingHeight.ContainsNaN() ||
        V.BuildingHeight.X<400 || V.BuildingHeight.Y>800 || V.BuildingHeight.X>V.BuildingHeight.Y ||
-       !V.WallSurface || !V.RoofSurface || !V.GroundSurface || !V.IronSurface || !V.ArchMesh || V.BuildingMeshes.IsEmpty() || V.BuildingMeshes.Num()>16)return false;
+       !V.WallSurface || !V.RoofSurface || !V.GroundSurface || !V.IronSurface || !V.ArchMesh ||
+       (V.ProceduralHouses ? !V.DestructibleArchitecture:V.BuildingMeshes.IsEmpty()) || V.BuildingMeshes.Num()>16)return false;
     for(const auto& Mesh:V.BuildingMeshes)if(!Mesh || Mesh->GetBoundingBox().GetSize().GetMin()<1)return false;
     FRandomStream R(Seed),Art(int32(HashCombine(uint32(Seed),0x44495354u)));
     auto Pick=[&](float A,float B,float Grid=50.f){return R.RandRange(FMath::CeilToInt(A/Grid),FMath::FloorToInt(B/Grid))*Grid;};
@@ -255,12 +256,31 @@ bool BuildAlleyDistrict(const UERMapTemplate& T,int32 Seed,TArray<FERMapTemplate
         }
         if(HasHouse)
         {
-            auto* Mesh=V.BuildingMeshes[Art.RandRange(0,V.BuildingMeshes.Num()-1)].Get();
+            auto* Mesh=V.ProceduralHouses ? nullptr:V.BuildingMeshes[Art.RandRange(0,V.BuildingMeshes.Num()-1)].Get();
             for(int32 Copy=0;Copy<2;++Copy)
             {
-                const FVector P(HouseCenter,Z);auto& B=Box((Copy ? Opposite(P):P)+FVector(0,0,Height*.5f),FVector(HouseSize,Height),nullptr);
-                B.FixedMesh=Mesh;B.MeshCollision=true;B.MeshRotation.Yaw=Yaw+Copy*180;
+                const FVector P(HouseCenter,Z);
                 const bool Swap=int32(Yaw/90)%2!=0;
+                if(V.ProceduralHouses)
+                {
+                    const FTransform Module(FRotator(0,Yaw+Copy*180,0),Copy ? Opposite(P):P);
+                    const FVector Size(Swap ? HouseSize.Y:HouseSize.X,Swap ? HouseSize.X:HouseSize.Y,Height);
+                    TArray<int32> StreetFaces;
+                    for(int32 Face=0;Face<4;++Face)
+                    {
+                        bool Clear=true;
+                        for(float Distance:{40.f,85.f,130.f})for(float Along:{-80.f,0.f,80.f})
+                        {
+                            FVector Outside=FVector::ZeroVector;Outside[Face/2]=(Face%2 ? 1:-1)*(Size[Face/2]*.5+Distance);Outside[1-Face/2]=Along;
+                            const auto Point=FVector2D(Module.TransformPosition(Outside));
+                            Clear&=Roads.ContainsByPredicate([&](const auto& Road){return Road.Contains(Point);});
+                        }
+                        if(Clear)StreetFaces.Add(Face);
+                    }
+                    AddAlleyHouseModule(T,Module,Size,Access,StreetFaces,L);continue;
+                }
+                auto& B=Box((Copy ? Opposite(P):P)+FVector(0,0,Height*.5f),FVector(HouseSize,Height),nullptr);
+                B.FixedMesh=Mesh;B.MeshCollision=true;B.MeshRotation.Yaw=Yaw+Copy*180;
                 L.Houses.Add({FTransform(FRotator(0,Yaw+Copy*180,0),Copy ? Opposite(P):P,FVector(Swap ? HouseSize.Y:HouseSize.X,Swap ? HouseSize.X:HouseSize.Y,Height)),Mesh,Access});
             }
         }
@@ -277,7 +297,7 @@ bool BuildAlleyDistrict(const UERMapTemplate& T,int32 Seed,TArray<FERMapTemplate
             Route.Add(P({70,200+Run+60,Height*.5f+100}));Route.Add(P({230,200+Run+60,Height*.5f+100}));
             for(int32 I=0;I<N;++I){const float H=(N+I+1)*Rise;Solid({230,200+Run-(I+.5f)*30,H*.5f},{120,30,H});Route.Add(P({230,200+Run-(I+.5f)*30,H+100}));}
             const float Far=300+(W-300)*.15f;Solid({(170+Far)*.5f,140,Height-10},{Far-170,120,20});
-            Route.Add(P({230,140,Height+100}));Route.Add(P({Far,140,Height+100}));Route.Add(P({Far+50,140,Height*.94f+100}));
+            Route.Add(P({230,140,Height+100}));Route.Add(P({Far,140,Height+100}));Route.Add(P({Far+50,140,(V.ProceduralHouses ? Height:Height*.94f)+100}));
             L.RooftopRoutes.Add(Route);TArray<FVector> Mate;for(auto Q:Route)Mate.Add(Opposite(Q));L.RooftopRoutes.Add(Mate);
         }
     }
@@ -285,6 +305,44 @@ bool BuildAlleyDistrict(const UERMapTemplate& T,int32 Seed,TArray<FERMapTemplate
     {
         FString Sizes;for(const auto& P:Houses)if((P.Max-P.Min).GetMin()>240)Sizes+=(P.Max-P.Min).ToString()+TEXT(";");
         UE_LOG(LogTemp,Warning,TEXT("ER_DISTRICT_REJECT seed=%d stairs=0 lots=%s"),Seed,*Sizes);return false;
+    }
+    if(V.ProceduralHouses)
+    {
+        // Record nearby, low-rise roof crossings including both flat rim caps.
+        // Larger changes of height remain distinct buildings, as before.
+        for(int32 A=0;A<L.Houses.Num();++A)for(int32 B=A+1;B<L.Houses.Num();++B)
+        {
+            auto Bounds=[](const FERLayoutHouse& H)
+            {const auto S=H.Frame.GetScale3D();return FBox(-FVector(S.X,S.Y,0)*.5,FVector(S.X,S.Y,0)*.5+FVector(0,0,S.Z)).TransformBy(FTransform(H.Frame.GetRotation(),H.Frame.GetLocation()));};
+            const auto One=Bounds(L.Houses[A]),Two=Bounds(L.Houses[B]);
+            if(FMath::Abs(One.Max.Z-Two.Max.Z)>50)continue;
+            for(int32 Axis=0;Axis<2;++Axis)
+            {
+                const auto& Left=One.GetCenter()[Axis]<Two.GetCenter()[Axis] ? One:Two;
+                const auto& Right=One.GetCenter()[Axis]<Two.GetCenter()[Axis] ? Two:One;
+                const int32 Along=1-Axis;const float Gap=Right.Min[Axis]-Left.Max[Axis];
+                const float Lo=FMath::Max(Left.Min[Along],Right.Min[Along]),Hi=FMath::Min(Left.Max[Along],Right.Max[Along]);
+                if(Gap<-.1 || Gap>180 || Hi-Lo<260)continue;
+                FVector P0=Left.GetCenter(),P1=P0,P2=Right.GetCenter(),P3=P2;
+                P0[Along]=P1[Along]=P2[Along]=P3[Along]=(Lo+Hi)*.5;
+                P0[Axis]=Left.Max[Axis]-130;P1[Axis]=Left.Max[Axis]-50;
+                P2[Axis]=Right.Min[Axis]+50;P3[Axis]=Right.Min[Axis]+130;
+                P0.Z=P1.Z=Left.Max.Z+100;P2.Z=P3.Z=Right.Max.Z+100;
+                bool Clear=true;
+                for(const auto& Piece:Pieces)if(!Piece.VisualOnly)
+                {
+                    const FTransform F(FRotator(0,Piece.RotationYaw,0),Piece.Center);
+                    const auto Obstacle=FBox(-Piece.Size*.5,Piece.Size*.5).ExpandBy(FVector(35,35,93));
+                    auto From=P1,To=P2;From.Z=To.Z=FMath::Max(P1.Z,P2.Z)+10;
+                    From=F.InverseTransformPosition(From);To=F.InverseTransformPosition(To);
+                    if(FMath::LineBoxIntersection(Obstacle,From,To,To-From)){Clear=false;break;}
+                }
+                if(!Clear)continue;
+                L.Houses[A].RoofMouths.Add(One.GetCenter()[Axis]<Two.GetCenter()[Axis] ? P1:P2);
+                L.Houses[B].RoofMouths.Add(One.GetCenter()[Axis]<Two.GetCenter()[Axis] ? P2:P1);
+                L.RoofTransfers.Add({P0,P1,P2,P3});
+            }
+        }
     }
     // Preserve a genuine 3.2m over/under crossing in the paired market squares.
     L.TownCrossing=PlazaCenters[0];
@@ -393,6 +451,7 @@ bool BuildAlleyDistrict(const UERMapTemplate& T,int32 Seed,TArray<FERMapTemplate
         FVector P=Base+FVector((I%5-2)*140,(I/5 ? 1:-1)*90,100);P.Z+=AlleyGroundHeight(L,FVector2D(P));
         L.AlphaSpawns.Add(FTransform(FRotator(0,90,0),P));L.OmegaSpawns.Add(FTransform(FRotator(0,270,0),Opposite(P)));
     }
+    if(V.ProceduralHouses)FinishAlleyHouseModules(T,Pieces,L);
     if(!BuildAlleyLowCover(T,Seed,Pieces,L))return false;
     return Pieces.Num()<1800 && L.Houses.Num()>12;
 }

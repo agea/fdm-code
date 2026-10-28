@@ -35,8 +35,8 @@ bool FERWeaponBallisticsTest::RunTest(const FString&)
     TestEqual(TEXT("Full penetration armor is untouched"),Armor,100.f);
     const float Inner=ERWeaponBallistics::GrenadeDamage(140,200,200,600);
     Armor=100;
-    TestTrue(TEXT("Full armor cannot survive an exposed inner blast"),ERWeaponBallistics::AbsorbArmor(Inner,ERWeaponBallistics::GrenadeArmorRatio(1),Armor)>=100);
-    TestTrue(TEXT("Blast armor is consumed without the bullet 50-percent reduction"),FMath::IsNearlyEqual(Armor,86.f));
+    TestEqual(TEXT("Configured blast armor penetration is respected without a hidden minimum"),ERWeaponBallistics::AbsorbArmor(Inner,ERWeaponBallistics::GrenadeArmorRatio(1),Armor),70.f);
+    TestTrue(TEXT("Blast uses the configured armor absorption"),FMath::IsNearlyEqual(Armor,65.f));
     TestEqual(TEXT("Four metre fragmentation tail"),ERWeaponBallistics::GrenadeDamage(140,400,200,600),35.f);
     TestEqual(TEXT("Exactly six metres is zero damage"),ERWeaponBallistics::GrenadeDamage(140,600,200,600),0.f);
     TestEqual(TEXT("Beyond six metres is zero damage"),ERWeaponBallistics::GrenadeDamage(140,800,200,600),0.f);

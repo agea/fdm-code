@@ -131,6 +131,10 @@ void UERGameInstance::Init()
     GConfig->GetString(TEXT("EclipseRecoil.Server"), TEXT("InternetServerName"), InternetServerName, GGameUserSettingsIni);
     GConfig->GetInt(TEXT("EclipseRecoil.Server"), TEXT("MaxPlayers"), MaxPlayers, GGameUserSettingsIni);
     MaxPlayers = ERServer::ValidMaxPlayers(MaxPlayers);
+    ERServer::Load(SessionRules,GGameIni,TEXT("RespawnAndRage.ServerRules"));
+    ERServer::Load(ServerRules,GGameUserSettingsIni,TEXT("RespawnAndRage.ServerRules"));
+    // Game.ini remains the source for direct/dedicated launches.
+    for(const auto& V:SessionRules.Values)if(!ServerRules.Has(V.Key))ServerRules.Set(V.Key,V.Value);
     DiscoveryTicker = FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateUObject(this, &UERGameInstance::TickDiscovery), .1f);
     NetworkFailureHandle = GEngine->OnNetworkFailure().AddUObject(this, &UERGameInstance::NetworkFailure);
     TravelFailureHandle = GEngine->OnTravelFailure().AddUObject(this, &UERGameInstance::TravelFailure);
@@ -208,8 +212,14 @@ void UERGameInstance::SaveMusicVolume()
     GConfig->SetFloat(TEXT("EclipseRecoil.Audio"), TEXT("MusicVolume"), MusicVolume, GGameUserSettingsIni);
     GConfig->Flush(false, GGameUserSettingsIni);
 }
+void UERGameInstance::CommitServerRules()
+{
+    ServerRules.Normalize();SessionRules=ServerRules;SessionRules.Ready=true;SaveServerSettings();
+}
 void UERGameInstance::SaveServerSettings()
 {
+    ServerRules.Normalize();
+    ERServer::Save(ServerRules,GGameUserSettingsIni,TEXT("RespawnAndRage.ServerRules"));
     InternetServerName = UEROnline::SanitizeServerName(InternetServerName);
     GConfig->SetString(TEXT("EclipseRecoil.Server"), TEXT("InternetServerName"), *InternetServerName, GGameUserSettingsIni);
     MaxPlayers = ERServer::ValidMaxPlayers(MaxPlayers);
@@ -234,6 +244,7 @@ int32 UERGameInstance::GetStartingWeapon() const
 void UERGameInstance::StartSession()
 {
     if (SessionMode == 2) { Join(ServerAddress); return; }
+    CommitServerRules();
     RoundMapHistory.Reset();
     SaveProfile();
     LastError.Empty();
@@ -245,11 +256,12 @@ void UERGameInstance::StartSession()
     Options += FString::Printf(TEXT("?Primary=%d?AlphaSkin=%d?OmegaSkin=%d?Team=%d?ERAlphaBots=%d?EROmegaBots=%d?ERBotMode=%s"),
         GetStartingWeapon(), AlphaSkin, OmegaSkin, FMath::Clamp(PlayerTeam,0,1), FMath::Clamp(AlphaBots,0,10), FMath::Clamp(OmegaBots,0,10), Behaviors[FMath::Clamp(BotBehavior,0,2)]);
     Options += FString::Printf(TEXT("?Magazines=%d?HE=%d?Smoke=%d?Stun=%d"), SpareMagazines, HECount, SmokeCount, StunCount);
-    if(Map.Procedural)Options+=FString::Printf(TEXT("?MapSeed=%d"),FMath::Rand());
+    if(Map.Procedural)Options+=FString::Printf(TEXT("?MapSeed=%d"),SessionRules.Get("Map.FixedSeed")>0?int32(SessionRules.Get("Map.Seed")):FMath::Rand());
     UGameplayStatics::OpenLevel(GetWorld(), FName(Map.Package), true, Options);
 }
 void UERGameInstance::Host(int32 BotCount, bool bStationaryTarget)
 {
+    CommitServerRules();
     LastError.Empty();
     FString Options = TEXT("listen?Name=") + AERGameMode::SanitizeName(LocalName);
     if (BotCount > 0) Options += FString::Printf(TEXT("?ERBots=%d?ERBotMode=%s"), FMath::Clamp(BotCount,1,bStationaryTarget ? 2 * ERSkins::Count : 3), bStationaryTarget ? TEXT("Target") : TEXT("Patrol"));
@@ -576,7 +588,7 @@ void AERPlayerController::Look(const FInputActionValue& Value)
     if (!FMath::IsFinite(Input.X) || !FMath::IsFinite(Input.Y)) return;
     const float Gain = ERMouseResponse::Gain(Input, FApp::GetDeltaTime(), GI ? GI->GetMouseAcceleration() : .5f);
     const auto* C = Cast<AERCharacter>(GetPawn());
-    const float ZoomGain = C && C->Weapon && !C->IsWeaponStowed() ? (C->Weapon->Data && C->Weapon->Data->ScopeMode==1 ? FMath::Lerp(90.f,C->Weapon->Data->ZoomFOV,C->GetIronAimBlend()) : C->Weapon->GetScopeFOV())/90.f : 1.f;
+    const float ZoomGain = C && C->Weapon && !C->IsWeaponStowed() ? (C->Weapon->Data && C->Weapon->Data->ScopeMode==1 ? FMath::Lerp(90.f,C->Weapon->Tuned()->ZoomFOV,C->GetIronAimBlend()) : C->Weapon->GetScopeFOV())/90.f : 1.f;
     const FVector2D Axis = Input * Gain * (GI ? GI->GetMouseLookMultiplier() : 0.16f / 0.18f) * ZoomGain;
     AddYawInput(Axis.X); AddPitchInput(-Axis.Y);
 #if !UE_BUILD_SHIPPING
@@ -1066,7 +1078,7 @@ void AERHUD::DrawHUD()
     DrawInflictedDamage();
     const FLinearColor AlphaColor=ERRecon::TeamColor(EERTeam::Alpha), OmegaColor=ERRecon::TeamColor(EERTeam::Omega);
     DrawHUDText(FString::Printf(TEXT("%02d"),GS->AlphaScore),Layout.Position(555,20).X,Layout.Position(555,20).Y,AlphaColor,1.45f,true);
-    DrawHUDText(TEXT("50"),W/2,Layout.Position(640,27).Y,FLinearColor(.8f,.82f,.85f),1.f,true);
+    DrawHUDText(FString::FromInt(int32(ERServer::Get(GetWorld(),"Match.ScoreLimit"))),W/2,Layout.Position(640,27).Y,FLinearColor(.8f,.82f,.85f),1.f,true);
     DrawHUDText(FString::Printf(TEXT("%02d"),GS->OmegaScore),Layout.Position(725,20).X,Layout.Position(725,20).Y,OmegaColor,1.45f,true);
     FString Status = TEXT("Waiting for players");
     if (GS->IsMatchInProgress())
@@ -1096,7 +1108,7 @@ void AERHUD::DrawHUD()
         }
         if (const auto* Weapon = Character->Weapon.Get())
         {
-            const int32 Capacity = Weapon->Data ? FMath::Clamp(Weapon->Data->MagazineSize, 1, 120) : 30;
+            const int32 Capacity = Weapon->Data ? FMath::Clamp(Weapon->Tuned()->MagazineSize, 1, 120) : 30;
             const int32 Remaining = FMath::Clamp(Weapon->MagazineAmmo, 0, Capacity);
             const float Scale = HUDScale;
             const float HalfFov = FMath::DegreesToRadians(PC->PlayerCameraManager ? PC->PlayerCameraManager->GetFOVAngle() * .5f : 45.f);

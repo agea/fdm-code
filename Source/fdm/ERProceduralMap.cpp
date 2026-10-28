@@ -111,6 +111,7 @@ static bool BuildLevel(const FERProceduralConfig& C, const FERBlockRoomConfig& B
 }
 bool ERProcedural::BuildGeometry(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProceduralLayout& Out,const FERCellSettings& Cells)
 {
+    if(C.TemplateAsset && C.TemplateAsset->Archetype==EERMapArchetype::Village) return BuildVillage(C,B,Out,Cells);
     if(C.TemplateAsset && C.TemplateAsset->Archetype==EERMapArchetype::Rooms) return BuildRooms(C,B,Out,Cells);
     if(C.TemplateAsset && C.TemplateAsset->Archetype==EERMapArchetype::FireTraining)
     {
@@ -179,7 +180,7 @@ bool ERProcedural::ApplyMapTheme(const FERProceduralConfig& C,FERProceduralLayou
 {
     if(!C.TemplateAsset || !C.TemplateAsset->ThemeLibrary)return true;
     const auto& Library=*C.TemplateAsset->ThemeLibrary;
-    if(Library.Revision<1 || (Library.Themes.Num()<2 || Library.Themes.Num()>3))return false;
+    if(Library.Revision<1 || Library.Themes.IsEmpty() || Library.Themes.Num()>8)return false;
     TSet<FName> Names;
     for(const auto& P:Library.Themes)
     {
@@ -192,6 +193,7 @@ bool ERProcedural::ApplyMapTheme(const FERProceduralConfig& C,FERProceduralLayou
     }
     // The same cosmetic stream for every archetype, separate from geometry RNG.
     FRandomStream Cosmetic(int32(HashCombine(uint32(C.Seed),0x524f4f4du)));
+    const bool Village=C.TemplateAsset->Archetype==EERMapArchetype::Village;
     const int32 Index=Cosmetic.RandRange(0,Library.Themes.Num()-1);
     const auto& P=Library.Themes[Index];
     L.ThemeIndex=Index;L.ThemeRevision=Library.Revision;L.ThemeName=P.Name;L.ThemeCeiling=P.Ceiling;
@@ -200,7 +202,10 @@ bool ERProcedural::ApplyMapTheme(const FERProceduralConfig& C,FERProceduralLayou
     for(auto& Panel:L.Panels)
     {
         const bool Cargo=P.PreserveCargoPaint && Panel.Material==EERBlockMaterial::Metal && Panel.Strength>1 && Panel.Surface;
-        if(!Cargo)Panel.Surface=P.Materials[uint8(Panel.Material)];
+        // Jungle retains Village's original UV skins and gray cladding. Other
+        // palettes recolor these pieces too, using the shared material finish.
+        const bool VillageSkin=Village && P.Name==TEXT("Jungle") && Panel.Surface;
+        if(!Cargo && !VillageSkin)Panel.Surface=P.Materials[uint8(Panel.Material)];
         if(P.LadderSteel && Panel.Material==EERBlockMaterial::Metal && Panel.Strength==1)
         {
             const FVector Center=Panel.Transform.TransformPosition(Panel.Size*.5);
@@ -213,10 +218,16 @@ bool ERProcedural::ApplyMapTheme(const FERProceduralConfig& C,FERProceduralLayou
                 {Panel.Surface=P.LadderSteel;break;}
             }
         }
-        if(!Panel.Skin.IsEmpty())Panel.InteriorSurface=Panel.Surface;
+        if(!Panel.Skin.IsEmpty())Panel.InteriorSurface=VillageSkin ? P.Materials[uint8(Panel.Material)].Get():Panel.Surface;
     }
+    L.GroundSurface=P.Grounds[Cosmetic.RandRange(0,P.Grounds.Num()-1)];
     for(auto& Piece:L.FixedPieces)
     {
+        if(Village && Piece.VisualOnly)
+        {
+            if(!Piece.Mesh)Piece.Surface=L.GroundSurface; // match the playable floor
+            continue; // foliage retains its own material slots
+        }
         // Preserve emissive fixtures and their authored material slots.
         if(Piece.CollisionOnly || (Piece.VisualOnly && !Piece.Mesh) || (Piece.Mesh && Piece.Mesh->GetName().Contains(TEXT("Lamp"))))continue;
         Piece.Surface=Piece.Roof ? P.Ceiling.Get():P.Materials[uint8(Piece.Material)].Get();
@@ -232,7 +243,6 @@ bool ERProcedural::ApplyMapTheme(const FERProceduralConfig& C,FERProceduralLayou
             if(Size.Z<=30 && Size.X>=100 && Size.Y>=100 && (Piece.Material==EERBlockMaterial::Metal || Piece.Material==EERBlockMaterial::Concrete))Piece.Surface=P.DeckSteel;
         }
     }
-    L.GroundSurface=P.Grounds[Cosmetic.RandRange(0,P.Grounds.Num()-1)];
     for(auto& Face:L.RoomShell)
     {
         const FVector Normal=FVector::CrossProduct(Face.B-Face.A,Face.C-Face.A).GetSafeNormal();
@@ -374,6 +384,12 @@ SIZE_T AERProceduralMap::GetLayoutBytes() const
 {
     SIZE_T Bytes=Layout.FixedPieces.GetAllocatedSize()+Layout.AlphaSpawns.GetAllocatedSize()+Layout.OmegaSpawns.GetAllocatedSize()+Layout.Rooms.GetAllocatedSize()+Layout.Corridors.GetAllocatedSize()+Layout.Walls.GetAllocatedSize()+Layout.Openings.GetAllocatedSize()+Layout.Routes.GetAllocatedSize()+Layout.Panels.GetAllocatedSize()+Layout.Steps.GetAllocatedSize()+Layout.StairSupports.GetAllocatedSize()+Layout.StairRoutes.GetAllocatedSize();
     for(const auto& Route:Layout.StairRoutes) Bytes+=Route.GetAllocatedSize();
+    Bytes+=Layout.VillageSideWalls.GetAllocatedSize()+Layout.VillageSideBypasses.GetAllocatedSize();
+    for(const auto& Route:Layout.VillageSideBypasses)Bytes+=Route.GetAllocatedSize();
+    Bytes+=Layout.VillageBlocks.GetAllocatedSize()+Layout.VillageFloorHoles.GetAllocatedSize()+Layout.VillageUpperLadders.GetAllocatedSize()+Layout.VillageAccessFlights.GetAllocatedSize();
+    Bytes+=Layout.VillageClosedGround.GetAllocatedSize()+Layout.VillagePassages.GetAllocatedSize();
+    for(const auto& Polygon:Layout.VillageClosedGround)Bytes+=Polygon.GetAllocatedSize();
+    for(const auto& Route:Layout.VillagePassages)Bytes+=Route.GetAllocatedSize();
     Bytes+=Layout.RoomNodes.GetAllocatedSize()+Layout.RoomLinks.GetAllocatedSize()+Layout.RoomShell.GetAllocatedSize()+Layout.RoomLightPoints.GetAllocatedSize();
     for(const auto& Node:Layout.RoomNodes)Bytes+=Node.Polygon.GetAllocatedSize();
     Bytes+=Layout.Bases.GetAllocatedSize()+Layout.ModuleKinds.GetAllocatedSize()+Layout.RoomAccessRoutes.GetAllocatedSize();
@@ -381,6 +397,12 @@ SIZE_T AERProceduralMap::GetLayoutBytes() const
     for(const auto& Gate:Layout.TownGates)Bytes+=Gate.Passage.GetAllocatedSize();
     for(const auto& Route:Layout.RoomAccessRoutes)Bytes+=Route.GetAllocatedSize();
     Bytes+=Layout.Houses.GetAllocatedSize()+Layout.TerrainPads.GetAllocatedSize()+Layout.Ladders.GetAllocatedSize()+Layout.DistrictTowers.GetAllocatedSize()+Layout.DistrictTowerHeights.GetAllocatedSize();
+    for(const auto& House:Layout.Houses)
+    {
+        Bytes+=House.Entrances.GetAllocatedSize()+House.EntranceFaces.GetAllocatedSize()+House.RoofMouths.GetAllocatedSize();
+        for(const auto& Entry:House.Entrances)Bytes+=Entry.GetAllocatedSize();
+    }
+    for(const auto& Route:Layout.RoofTransfers)Bytes+=Route.GetAllocatedSize();
     Bytes+=Layout.UnderpassRamps.GetAllocatedSize()+Layout.UnderpassBreaches.GetAllocatedSize()+Layout.LowCovers.GetAllocatedSize()+Layout.UnderpassRoute.GetAllocatedSize()+Layout.UnderpassApproach.GetAllocatedSize();
     for(const auto* Routes:{&Layout.RooftopRoutes,&Layout.GroundRoutes,&Layout.DistrictRoutes})
     {Bytes+=Routes->GetAllocatedSize();for(const auto& Route:*Routes)Bytes+=Route.GetAllocatedSize();}
@@ -454,8 +476,9 @@ void AERProceduralMap::ConfigureTemplateFloors()
     if(ClosedRooms)ERProcedural::BuildRoomsShell(this,Layout,RoomsShell);
     for(const auto& Piece:Layout.FixedPieces)
     {
+        if(Template->Archetype==EERMapArchetype::Village && Piece.VisualOnly && GetNetMode()==NM_DedicatedServer)continue;
         if(Piece.Roof && !bCeilings)continue;
-        if(Piece.CollisionOnly){FixedCollision->AddInstance(Piece.Transform);continue;}
+        if(Piece.CollisionOnly){(Piece.PawnBarrier ? FenceCollision:FixedCollision)->AddInstance(Piece.Transform);continue;}
         if(Piece.PawnBarrier)
         {
             FenceCollision->AddInstance(Piece.Transform);
@@ -484,6 +507,8 @@ void AERProceduralMap::ConfigureTemplateFloors()
             Group->SetNetAddressable();
             Group->SetupAttachment(RootComponent);Group->SetStaticMesh(Asset);Group->SetCollisionProfileName(Visual ? TEXT("NoCollision"):TEXT("BlockAll"));
             if(Visual)Group->ComponentTags.Add(TEXT("ERTemplateVisual"));
+            if(Visual && Template->Archetype==EERMapArchetype::Village)
+            {Group->SetCastShadow(false);if(Piece.Mesh && !Piece.Mesh->GetName().Contains(TEXT("SkyDome")))Group->SetCullDistances(7000,12000);}
             if(Piece.Roof)Group->ComponentTags.Add(TEXT("ERTemplateRoof"));
             Group->SetCanEverAffectNavigation(false);
             if(Piece.Surface)for(int32 Slot=0;Slot<FMath::Max(1,Asset->GetStaticMaterials().Num());++Slot)Group->SetMaterial(Slot,Surface);
@@ -529,7 +554,7 @@ void AERProceduralMap::ConfigureTemplateFloors()
             Light->SetCastShadows(false);Light->SetLightColor(FLinearColor(1,.94,.85));
             Light->RegisterComponent();WarehouseLights.Add(Light);
         }
-    if(HasAuthority() && Layout.Routes.Num()>1 && (Template->Archetype==EERMapArchetype::CentralBuilding || Template->Archetype==EERMapArchetype::MiddleEasternAlleys || Template->Archetype==EERMapArchetype::FireTraining || ClosedRooms))
+    if(HasAuthority() && Layout.Routes.Num()>1 && (Template->Archetype==EERMapArchetype::CentralBuilding || Template->Archetype==EERMapArchetype::MiddleEasternAlleys || Template->Archetype==EERMapArchetype::FireTraining || Template->Archetype==EERMapArchetype::Village || ClosedRooms))
     {
         // Crossing rules have different route lengths. Never leave saved
         // placeholder points at the origin or feed bots obsolete waypoints.
@@ -634,6 +659,14 @@ uint32 AERProceduralMap::GetTemplateGeometryDigest() const
         for(const auto& Route:Layout.DistrictRoutes)for(const auto& P:Route)MixVector(P);
         for(const auto& P:Layout.TerrainPads){MixVector(P.Min);MixVector(P.Max);}
         for(const auto* Routes:{&Layout.RooftopRoutes,&Layout.GroundRoutes})for(const auto& Route:*Routes)for(const auto& P:Route)MixVector(P);
+        for(const auto& House:Layout.Houses)
+        {
+            H=HashCombine(H,FCrc::StrCrc32(*House.StructureName.ToString()));
+            H=HashCombine(H,GetTypeHash(House.RimHeight));
+            for(const auto& Mouth:House.RoofMouths)MixVector(Mouth);
+            for(const auto& Route:House.Entrances)for(const auto& P:Route)MixVector(P);
+        }
+        for(const auto& Route:Layout.RoofTransfers)for(const auto& P:Route)MixVector(P);
         MixVector(Layout.TownCrossing);
         for(const auto* Paths:{&Layout.RoomAccessRoutes,&Layout.StairRoutes})for(const auto& Route:*Paths)for(const auto& P:Route)MixVector(P);
         for(const auto& P:Layout.UpperRoute)MixVector(P);

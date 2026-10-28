@@ -75,6 +75,10 @@ void AERSmokeCloud::BeginPlay()
     Super::BeginPlay();
     if(HasAuthority())
     {
+        Duration=ERServer::Get(GetWorld(),"Smoke.Duration");
+        GrowthSeconds=ERServer::Get(GetWorld(),"Smoke.Growth");FadeSeconds=ERServer::Get(GetWorld(),"Smoke.Fade");DensityScale=ERServer::Get(GetWorld(),"Smoke.Density");
+        const float Radius=ERServer::Get(GetWorld(),"Smoke.Radius")*100;
+        SimSize=FVector(Radius*2,Radius*2,ERServer::Get(GetWorld(),"Smoke.Height")*100);
         StartedAtServerTime=ServerNow(); SetLifeSpan(Duration);
         ShapePhase=FVector(FMath::FRandRange(0.f,100.f),FMath::FRandRange(0.f,100.f),FMath::FRandRange(0.f,100.f));
     }
@@ -89,7 +93,7 @@ void AERSmokeCloud::BeginPlay()
     }
     SetActorEnableCollision(false);
     Fumes->Deactivate(); Fumes->SetComponentTickEnabled(false);
-    SimSize=SimSize.GetAbs().BoundToBox(FVector(200,200,100),FVector(880,880,400));
+    SimSize=SimSize.GetAbs().BoundToBox(FVector(200,200,100),FVector(2400,2400,1000));
     VolumeOrigin=GetActorLocation();
     FHitResult Floor;
     FCollisionQueryParams Query(SCENE_QUERY_STAT(ERSmokeFloor),false,this);
@@ -195,11 +199,11 @@ float AERSmokeCloud::ReconDensity(const FVector& Position, float Age) const
     const float Boundary=.88f+.07f*Lobes+.04f*Sway;
     const float Patch=.5f+.5f*FMath::Sin(Dir.X*3.1+ShapePhase.X)*FMath::Cos(Dir.Y*4.3+ShapePhase.Y)*FMath::Sin(Dir.Z*2.7+ShapePhase.Z);
     const float Delay=.22f*Patch;
-    const float Growth=FMath::Clamp((FMath::Clamp(Age/2.2f,0.f,1.f)-Delay)/(1-Delay),0.f,1.f);
+    const float Growth=FMath::Clamp((FMath::Clamp(Age/GrowthSeconds,0.f,1.f)-Delay)/(1-Delay),0.f,1.f);
     const float Edge=FMath::Clamp((Growth*Boundary-Length)/.2f,0.f,1.f);
     // Mean of the shader's two visual noise factors. Geometry, contour phase,
     // growth, expiry and cuts are authoritative; texture noise remains cosmetic.
-    float Density=Occupied*Edge*.725f*.825f*FMath::Clamp((Duration-Age)/4.f,0.f,1.f);
+    float Density=DensityScale*Occupied*Edge*.725f*.825f*FMath::Clamp((Duration-Age)/FadeSeconds,0.f,1.f);
     const double Now=GetWorld()->GetTimeSeconds();
     for (const auto& Cut:ShotCuts)
     {
@@ -264,21 +268,24 @@ void AERSmokeCloud::AddShot(const FVector& Start,const FVector& End,float Radius
 {
     if(ServerNow()-StartedAtServerTime>=Duration || (End-Start).IsNearlyZero()) return;
     const FVector Center=VolumeOrigin+FVector(0,0,SimSize.Z*.5f);
-    Radius=FMath::Clamp(Radius,1.f,400.f);
-    Lifetime=Radius>=100.f ? FMath::Max(.1f,Duration-float(ServerNow()-StartedAtServerTime)) : FMath::Clamp(Lifetime,.1f,4.f);
+    const bool Blast=Radius>=100.f,Projectile=Radius>12.f && !Blast;
+    if(Radius<=12.f){Radius=ERServer::Get(GetWorld(),"Smoke.ShotRadius")*100;Lifetime=ERServer::Get(GetWorld(),"Smoke.ShotLifetime");}
+    else if(Radius>=100.f)Radius*=ERServer::Get(GetWorld(),"Smoke.BlastRadius");
+    Radius=FMath::Clamp(Radius,1.f,1200.f);
+    Lifetime=Blast ? FMath::Max(.1f,Duration-float(ServerNow()-StartedAtServerTime)) : FMath::Clamp(Lifetime,.1f,10.f);
     if(!FMath::LineBoxIntersection(FBox(Center-SimSize*.5f,Center+SimSize*.5f).ExpandBy(Radius),Start,End,End-Start)) return;
     if(ShotCuts.Num()>=4)
     {
         // Short projectile wakes must not immediately erase a large blast pocket.
-        int32 Replace=ShotCuts.IndexOfByPredicate([](const FShotCut& Cut){return Cut.Radius<100.f;});
-        if(Replace==INDEX_NONE) { if(Radius<100.f) return;Replace=0; }
+        int32 Replace=ShotCuts.IndexOfByPredicate([](const FShotCut& Cut){return !Cut.Blast;});
+        if(Replace==INDEX_NONE) { if(!Blast) return;Replace=0; }
         ShotCuts.RemoveAt(Replace);
     }
-    ShotCuts.Add({Start,End,GetWorld()->GetTimeSeconds()+Lifetime,Radius,Lifetime});
+    ShotCuts.Add({Start,End,GetWorld()->GetTimeSeconds()+Lifetime,Radius,Lifetime,Blast,Projectile});
     if(ShotCuts.Num()>4) ShotCuts.RemoveAt(0,ShotCuts.Num()-4);
     ++ShotInteractionCount;
-    if(Radius>=100.f) { ++BlastInteractionCount;LastBlastRadius=Radius;LastBlastLifetime=Lifetime; }
-    else if(Radius>12.f) ++ProjectileInteractionCount;
+    if(Blast) { ++BlastInteractionCount;LastBlastRadius=Radius;LastBlastLifetime=Lifetime; }
+    else if(Projectile) ++ProjectileInteractionCount;
 }
 
 float AERSmokeCloud::RecoveredRadius(const FShotCut& Cut,double Now) const
@@ -286,16 +293,16 @@ float AERSmokeCloud::RecoveredRadius(const FShotCut& Cut,double Now) const
     if(Now>=Cut.Until) return 0;
     const float Remaining=FMath::Clamp(float(Cut.Until-Now)/Cut.Lifetime,0.f,1.f);
     // Blast dispersal barely refills before cloud expiry; bullet wakes close slowly.
-    return Cut.Radius*(Cut.Radius>=100.f ? .95f+.05f*Remaining : FMath::Sqrt(Remaining));
+    return Cut.Radius*(Cut.Blast ? .95f+.05f*Remaining : FMath::Sqrt(Remaining));
 }
 float AERSmokeCloud::GetActiveBlastRadius() const
 {
-    float Radius=0;for(const auto& Cut:ShotCuts) if(Cut.Radius>=100.f) Radius=FMath::Max(Radius,RecoveredRadius(Cut,GetWorld()->GetTimeSeconds()));
+    float Radius=0;for(const auto& Cut:ShotCuts) if(Cut.Blast) Radius=FMath::Max(Radius,RecoveredRadius(Cut,GetWorld()->GetTimeSeconds()));
     return Radius;
 }
 float AERSmokeCloud::GetActiveShotRadius() const
 {
-    float Radius=0;for(const auto& Cut:ShotCuts) if(Cut.Radius<=12.f) Radius=FMath::Max(Radius,RecoveredRadius(Cut,GetWorld()->GetTimeSeconds()));
+    float Radius=0;for(const auto& Cut:ShotCuts) if(!Cut.Blast && !Cut.Projectile) Radius=FMath::Max(Radius,RecoveredRadius(Cut,GetWorld()->GetTimeSeconds()));
     return Radius;
 }
 
@@ -322,8 +329,8 @@ void AERSmokeCloud::Tick(float DeltaSeconds)
     const float Age=FMath::Max(0.f,float(ServerNow()-StartedAtServerTime));
     if(Age>=1.f && Age-DeltaSeconds<1.f)
         UE_LOG(LogTemp,Display,TEXT("ER_SMOKE_RENDER mesh=%s material=%s visible=%d location=%s scale=%s bounds=%s"),*GetNameSafe(Volume->GetStaticMesh()),*GetNameSafe(Volume->GetMaterial(0)),Volume->IsVisible(),*Volume->GetComponentLocation().ToString(),*Volume->GetComponentScale().ToString(),*Volume->Bounds.GetBox().ToString());
-    VolumeInstance->SetScalarParameterValue(TEXT("Growth"),FMath::Clamp(Age/2.2f,0.f,1.f));
-    VolumeInstance->SetScalarParameterValue(TEXT("Fade"),FMath::Clamp((Duration-Age)/4.f,0.f,1.f));
+    VolumeInstance->SetScalarParameterValue(TEXT("Growth"),FMath::Clamp(Age/GrowthSeconds,0.f,1.f));
+    VolumeInstance->SetScalarParameterValue(TEXT("Fade"),DensityScale*FMath::Clamp((Duration-Age)/FadeSeconds,0.f,1.f));
     VolumeInstance->SetScalarParameterValue(TEXT("SmokeAge"),Age);
     VolumeInstance->SetVectorParameterValue(TEXT("ShapePhase"),FLinearColor(ShapePhase));
     for(int32 I=0;I<4;++I)
@@ -343,6 +350,8 @@ void AERSmokeCloud::EndPlay(const EEndPlayReason::Type Reason)
 void AERSmokeCloud::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
     Super::GetLifetimeReplicatedProps(OutLifetimeProps); DOREPLIFETIME(AERSmokeCloud,StartedAtServerTime);
+    DOREPLIFETIME(AERSmokeCloud,GrowthSeconds);DOREPLIFETIME(AERSmokeCloud,FadeSeconds);DOREPLIFETIME(AERSmokeCloud,DensityScale);
+    DOREPLIFETIME(AERSmokeCloud,Duration);DOREPLIFETIME(AERSmokeCloud,SimSize);
     DOREPLIFETIME(AERSmokeCloud,ShapePhase);
     DOREPLIFETIME(AERSmokeCloud,SmokeColor);
 }

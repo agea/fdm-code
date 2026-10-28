@@ -103,7 +103,17 @@ void AERClaymore::BeginPlay()
     Super::BeginPlay();
     Body->SetReceivesDecals(false);Front->SetReceivesDecals(false);
     LaserLeft->SetReceivesDecals(false);LaserRight->SetReceivesDecals(false);
-    if(HasAuthority())ArmAt=GetWorld()->GetTimeSeconds()+ArmDelay;
+    if(HasAuthority())
+    {
+        DamageRadius=ERServer::Get(GetWorld(),"Claymore.DamageRadius")*100;
+        DetectionRange=DamageRadius*ERServer::Get(GetWorld(),"Claymore.TriggerPercent")*.01f;
+        ConeHalfAngle=ERServer::Get(GetWorld(),"Claymore.DamageAngle")*.5f;
+        DetectionHalfAngle=FMath::Min(ConeHalfAngle,ERServer::Get(GetWorld(),"Claymore.DetectionAngle")*.5f);
+        PeakDamage=ERServer::Get(GetWorld(),"Claymore.Damage");ArmorRatio=ERServer::Get(GetWorld(),"Claymore.ArmorRatio");
+        ArmDelay=ERServer::Get(GetWorld(),"Claymore.ArmDelay");Lifetime=ERServer::Get(GetWorld(),"Claymore.Lifetime");
+        StructuralRadius=ERServer::Get(GetWorld(),"Claymore.StructuralRadius")*100;StructuralDamage=ERServer::Get(GetWorld(),"Claymore.StructuralDamage");
+        ArmAt=GetWorld()->GetTimeSeconds()+ArmDelay;
+    }
     UpdateLasers();
 }
 bool AERClaymore::HasSupport() const
@@ -120,7 +130,7 @@ bool AERClaymore::TriggerTarget(AERCharacter* T) const
     if(!T || T->Health->bDead)return false;
     const FVector Delta=T->GetActorLocation()-GetActorLocation();
     const FVector Flat=FVector::VectorPlaneProject(Delta,GetActorUpVector());
-    if(Flat.SizeSquared()>FMath::Square(DetectionRange) || Flat.IsNearlyZero() ||
+    if(Delta.SizeSquared()>=FMath::Square(DamageRadius) || Flat.SizeSquared()>FMath::Square(DetectionRange) || Flat.IsNearlyZero() ||
         FMath::Abs(FVector::DotProduct(Delta,GetActorUpVector()))>200 ||
         FVector::DotProduct(Flat.GetSafeNormal(),GetActorForwardVector())+KINDA_SMALL_NUMBER<FMath::Cos(FMath::DegreesToRadians(DetectionHalfAngle)))return false;
     FHitResult H;FCollisionQueryParams Q(SCENE_QUERY_STAT(ERClaymoreTriggerLOS),true,this);Q.AddIgnoredActor(T);
@@ -200,14 +210,6 @@ void AERClaymore::Detonate()
         const FVector Direction=(T->GetActorLocation()-GetActorLocation()).GetSafeNormal();
         const FHitResult H(T,T->GetCapsuleComponent(),T->GetActorLocation(),-Direction);
         float Damage=ERWeaponBallistics::GrenadeDamage(PeakDamage,FVector::Distance(GetActorLocation(),T->GetActorLocation()),0,DamageRadius);
-        const auto* TargetState=T->GetPlayerState<AERPlayerState>();
-        if(TargetState && uint8(TargetState->Team)!=PlacedTeam && !T->Health->IsProtected() && TriggerTarget(T))
-        {
-            // Anyone who can trigger the mine receives lethal damage even at
-            // the sector edge with full armor. Keep the normal damage pipeline
-            // for armor, death events and the persistent owner's kill credit.
-            Damage=FMath::Max(Damage,T->Health->Health+2.f*T->Health->Armor+1.f);
-        }
         UGameplayStatics::ApplyPointDamage(T,Damage,Direction,H,Controller,this,UDamageType::StaticClass());
     }
     // Dedicated structural profile; front-biased origin, no HE profile inheritance.

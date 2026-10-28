@@ -2,7 +2,8 @@
 #include "CoreMinimal.h"
 namespace ERLobby
 {
-inline bool HasQuorum(int32 Humans, int32 Ready) { return Humans > 0 && Ready >= Humans / 2 + 1; }
+inline int32 RequiredReady(int32 Humans,float Percent=50) { return Humans>0?FMath::Min(Humans,FMath::FloorToInt(Humans*FMath::Clamp(Percent,0.f,100.f)*.01f)+1):0; }
+inline bool HasQuorum(int32 Humans,int32 Ready,float Percent=50) { return Humans>0 && Ready>=RequiredReady(Humans,Percent); }
 inline TArray<int32> LeadingMaps(TConstArrayView<int32> Votes, int32 MapCount)
 {
     TArray<int32> Counts; Counts.Init(0, MapCount);

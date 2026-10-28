@@ -23,7 +23,7 @@ void AERReconDirector::DrawMinimap(AERHUD* HUD, AERPlayerController* PC)
     const FERHUDLayout Layout(FVector2D(Canvas->SizeX,Canvas->SizeY));
     const float Scale=Layout.Scale, Radius=Layout.MinimapRadius();
     const FVector2D Center=Layout.MinimapCenter();
-    constexpr float ViewSpan=8000.f; // Fixed 80m diameter, independent of map extent.
+    const float ViewSpan=ERServer::Get(GetWorld(),"Recon.MinimapRadius")*200;
     // Look ahead in the same yaw basis used by terrain, fog and contacts.
     // The owner sits 65% of the radius below center, leaving 35% to the rim.
     const float ViewYaw=PC->GetControlRotation().Yaw;

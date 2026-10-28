@@ -13,8 +13,10 @@ p.add_argument('--plans', action='store_true', help='Capture four square aerial 
 p.add_argument('--seed', type=int, default=42, help='Starting seed for the gameplay probe')
 p.add_argument('--passage', action='store_true', help='Capture the lower passage, ramp and intact/breached road')
 p.add_argument('--tower', action='store_true', help='Capture the district watchtower and ladder only')
+p.add_argument('--modules', action='store_true', help='Capture procedural house exteriors, interiors and climbable roof rims')
 args = p.parse_args()
-if sum([args.plans,args.tower,args.passage])>1:p.error('--plans, --tower and --passage are separate captures')
+if sum([args.plans,args.tower,args.passage,args.modules])>1:p.error('--plans, --tower, --passage and --modules are separate captures')
+if args.modules:args.gallery=True
 if args.passage:args.gallery=True
 if args.tower:args.gallery=True
 if args.plans:args.gallery=True
@@ -32,6 +34,7 @@ if args.architecture:label += '-architecture'
 if args.plans:label += '-plans'
 if args.tower:label += '-tower'
 if args.passage:label += '-passage'
+if args.modules:label += '-modules'
 children, handles, paths = [], [], {}
 receipt=out/(label+'-late-ready')
 if args.network:receipt.unlink(missing_ok=True)
@@ -39,8 +42,11 @@ initial_receipt=out/(label+'-initial-ready')
 if args.network and args.architecture:initial_receipt.unlink(missing_ok=True)
 
 architecture_images=[out/('MiddleEasternDestruction-'+name+'.png') for name in ['Facade-Intact','Facade-Breached','Roof-Intact','Roof-Breached','House-Collapsed']]
+module_images=[out/('MiddleEasternModules-'+name+'.png') for name in ['Houses','Interior','Roof-Rims']]
 if args.architecture and args.render:
     for image in architecture_images:image.unlink(missing_ok=True)
+if args.modules:
+    for image in module_images:image.unlink(missing_ok=True)
 
 def launch(role, url, render=False, extra=()):
     paths[role] = out / (label + '-' + role + '.log')
@@ -60,6 +66,7 @@ def launch(role, url, render=False, extra=()):
         if args.plans:command.extend(['-ERAlleyPlans','-forceres'])
         if args.tower:command.append('-ERAlleyTowerOnly')
         if args.passage:command.append('-ERAlleyPassageOnly')
+        if args.modules:command.append('-ERAlleyModulesOnly')
     child = subprocess.Popen(command + list(extra), cwd=root, stdout=handle, stderr=subprocess.STDOUT)
     children.append(child)
     return child
@@ -138,6 +145,10 @@ try:
     if args.architecture and args.render:
         report['architecture_images']=[str(path) for path in architecture_images]
         good &= all(path.is_file() for path in architecture_images)
+        report['result']='PASS' if good else 'FAIL'
+    if args.modules:
+        report['module_images']=[str(path) for path in module_images]
+        good &= all(Path(path).is_file() for path in report['module_images'])
         report['result']='PASS' if good else 'FAIL'
     (out / (label + '-report.json')).write_text(json.dumps(report, indent=2) + '\n')
     raise SystemExit(0 if good else 1)

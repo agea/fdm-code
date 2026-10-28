@@ -6,20 +6,21 @@
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FERMapThemeTest,"EclipseRecoil.Destruction.SharedMapThemes",EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
 bool FERMapThemeTest::RunTest(const FString& Parameters)
 {
-    TArray<int32> Expected;TSet<int32> Seen;
-    for(const TCHAR* Name:{TEXT("CentralBuilding"),TEXT("MiddleEasternAlleys"),TEXT("FireTraining"),TEXT("Rooms")})
+    TArray<int32> Expected;TSet<int32> Seen;TSet<FName> SampleNames;
+    for(const TCHAR* Name:{TEXT("CentralBuilding"),TEXT("MiddleEasternAlleys"),TEXT("FireTraining"),TEXT("Rooms"),TEXT("Village")})
     {
         auto* Saved=LoadObject<UERMapTemplate>(nullptr,*FString::Printf(TEXT("/Game/EclipseRecoil/Art/MapTemplates/DA_%s"),Name));
         if(!TestNotNull(TEXT("production recipe"),Saved) || !TestNotNull(TEXT("shared library bound"),Saved->ThemeLibrary.Get()))return false;
         auto* Raw=DuplicateObject<UERMapTemplate>(Saved,GetTransientPackage());Raw->ThemeLibrary=nullptr;
-        FERProceduralConfig C;FERBlockRoomConfig B;
+        FERProceduralConfig C;FERBlockRoomConfig B;TSet<int32> TemplateSeen;
         for(int32 Seed=0;Seed<32;++Seed)
         {
             C.Seed=Seed;C.TemplateAsset=Raw;FERProceduralLayout Before,After,Again;
             if(!TestTrue(TEXT("original geometry builds"),ERProcedural::Build(C,B,Before)))return false;
             C.TemplateAsset=Saved;
             if(!TestTrue(TEXT("themed geometry builds"),ERProcedural::Build(C,B,After)))return false;
-            Seen.Add(After.ThemeIndex);
+            Seen.Add(After.ThemeIndex);TemplateSeen.Add(After.ThemeIndex);
+            if(!SampleNames.Contains(After.ThemeName)){SampleNames.Add(After.ThemeName);AddInfo(FString::Printf(TEXT("ER_SHARED_THEME_SAMPLE theme=%s seed=%d"),*After.ThemeName.ToString(),Seed));}
             const auto& Palette=Saved->ThemeLibrary->Themes[After.ThemeIndex];
             if(Palette.ShellSteel)
             {
@@ -55,6 +56,8 @@ bool FERMapThemeTest::RunTest(const FString& Parameters)
                 if(!TestTrue(TEXT("construction geometry, calibration, openings and support unchanged"),A.Id==D.Id && A.Material==D.Material && A.Strength==D.Strength && A.Transform.Equals(D.Transform) && A.Size==D.Size && A.Cell==D.Cell && A.Holes==D.Holes && A.bAnchorBottom==D.bAnchorBottom && A.bAnchored==D.bAnchored && A.bIndestructible==D.bIndestructible && A.SkinCRC==D.SkinCRC && A.Skin.Num()==D.Skin.Num()))return false;
                 if(Palette.PreserveCargoPaint && D.Material==EERBlockMaterial::Metal && D.Strength>1)
                     TestEqual(TEXT("reinforced cargo keeps its authored paint"),D.Surface,A.Surface);
+                else if(Saved->Archetype==EERMapArchetype::Village && Palette.Name==TEXT("Jungle") && A.Surface)
+                    TestEqual(TEXT("Jungle retains original Village skin and gray cover"),D.Surface,A.Surface);
                 else TestTrue(TEXT("finish follows physical material or ladder role"),D.Surface==Palette.Materials[uint8(D.Material)] ||
                     (Palette.LadderSteel && D.Material==EERBlockMaterial::Metal && D.Surface==Palette.LadderSteel));
             }
@@ -63,10 +66,11 @@ bool FERMapThemeTest::RunTest(const FString& Parameters)
             {
                 const auto& A=Before.FixedPieces[I];const auto& D=After.FixedPieces[I];
                 TestTrue(TEXT("original mesh, dimensions and collision retained"),A.Transform.Equals(D.Transform) && A.Mesh==D.Mesh && A.Material==D.Material && A.Roof==D.Roof && A.VisualOnly==D.VisualOnly && A.MeshCollision==D.MeshCollision && A.CollisionOnly==D.CollisionOnly);
-                if(Palette.LadderSteel && D.PawnBarrier)TestEqual(TEXT("parapets use the ladder/detail finish"),D.Surface,Palette.LadderSteel.Get());
+                if(Saved->Archetype==EERMapArchetype::Village && D.VisualOnly && !D.Mesh)TestEqual(TEXT("Village exterior ground matches selected terrain"),D.Surface,After.GroundSurface);
+                if(Palette.LadderSteel && D.PawnBarrier && !D.CollisionOnly)TestEqual(TEXT("parapets use the ladder/detail finish"),D.Surface,Palette.LadderSteel.Get());
                 if(Palette.ShellSteel && D.Mesh && D.Mesh->GetName().Contains(TEXT("SideWallBay")))TestEqual(TEXT("warehouse wall sheets retain a dedicated finish"),D.Surface,Palette.ShellSteel.Get());
             }
-            if(Palette.LadderSteel)for(const auto& Ladder:After.Ladders)
+            if(Palette.LadderSteel && Saved->Archetype!=EERMapArchetype::Village)for(const auto& Ladder:After.Ladders)
             {
                 const FVector Rung=Ladder.Frame.TransformPosition({0,0,25});
                 const auto* Panel=After.Panels.FindByPredicate([&](const auto& D){return D.Material==EERBlockMaterial::Metal && FVector::DistSquared(D.Transform.TransformPosition(D.Size*.5),Rung)<9;});
@@ -77,6 +81,7 @@ bool FERMapThemeTest::RunTest(const FString& Parameters)
             TestTrue(TEXT("repeat theme and ground"),Again.ThemeIndex==After.ThemeIndex && Again.GroundSurface==After.GroundSurface);
             for(int32 I=0;I<After.Panels.Num();++I)TestEqual(TEXT("role finishes deterministic"),Again.Panels[I].Surface,After.Panels[I].Surface);
         }
+        TestEqual(TEXT("every theme sampled on this template"),TemplateSeen.Num(),Saved->ThemeLibrary->Themes.Num());
         auto* Invalid=DuplicateObject<UERMapTemplate>(Saved,GetTransientPackage());Invalid->ThemeLibrary=DuplicateObject<UERMapThemeLibrary>(Saved->ThemeLibrary,GetTransientPackage());
         Invalid->ThemeLibrary->Themes.Last().Materials.Reset();C.TemplateAsset=Invalid;
         FERProceduralLayout Prior;Prior.ThemeName=TEXT("unchanged");
@@ -86,7 +91,7 @@ bool FERMapThemeTest::RunTest(const FString& Parameters)
         if(Invalid->ThemeLibrary->Themes.Last().ShellSteel)
         {Invalid->ThemeLibrary->Themes.Last().DeckSteel=nullptr;TestFalse(TEXT("partial steel role palette rejected"),ERProcedural::Build(C,B,Prior));}
     }
-    TestEqual(TEXT("all themes sampled"),Seen.Num(),2);
-    AddInfo(TEXT("ER_SHARED_MAP_THEMES templates=4 seeds=32 geometry=unchanged deterministic=PASS"));return true;
+    TestEqual(TEXT("all themes sampled"),Seen.Num(),3);
+    AddInfo(TEXT("ER_SHARED_MAP_THEMES templates=5 seeds=32 themes=3 geometry=unchanged deterministic=PASS"));return true;
 }
 #endif

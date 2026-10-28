@@ -374,7 +374,7 @@ bool AERLoadoutProbe::TickMines()
         Host->UnPossess();C->Destroy();
         Check(!Host->GetPawn(),TEXT("owner_pawn_not_destroyed_before_mine_trigger"));
         MineKillBaseline=PS->Kills;
-        auto* Target=CastChecked<AERCharacter>(Client->GetPawn());Target->Health->ProtectionEndServerTime=0;Target->Health->Health=100;Target->Health->Armor=100;Target->Health->bHelmet=true;
+        auto* Target=CastChecked<AERCharacter>(Client->GetPawn());Target->Health->ProtectionEndServerTime=0;Target->Health->Health=40;Target->Health->Armor=100;Target->Health->bHelmet=true;
         const FVector SectorEdge=FVector::ForwardVector.RotateAngleAxis(29.9f,FVector::UpVector)*199.f;
         Target->TeleportTo(Mines.Last()->GetActorLocation()+SectorEdge+FVector(0,0,82.5),FRotator::ZeroRotator);
         MineWaitUntil=Now+1;MineStep=12;return false;
@@ -383,7 +383,7 @@ bool AERLoadoutProbe::TickMines()
     {
         if(Now<MineWaitUntil)return false;
         const auto* Target=CastChecked<AERCharacter>(Client->GetPawn());
-        Check(Target->Health->bDead && PS->Kills==MineKillBaseline+1,TEXT("full_health_armor_trigger_edge_kill_attribution_after_owner_death"));
+        Check(Target->Health->bDead && PS->Kills==MineKillBaseline+1,TEXT("wounded_armored_trigger_edge_kill_attribution_after_owner_death"));
         Check(Mines.Last()->State==EERClaymoreState::Terminal && PS->ActiveClaymores==0,TEXT("single_detonation_counter"));
         UE_LOG(LogTemp,Display,TEXT("ER_LOADOUT_MINES posthumous_kill=PASS"));MineWaitUntil=Now+3.3;MineStep=13;return false;
     }

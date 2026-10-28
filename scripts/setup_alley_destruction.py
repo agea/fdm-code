@@ -6,14 +6,14 @@ import unreal as ue
 root=Path(ue.Paths.project_dir()).resolve();assets=ue.EditorAssetLibrary
 private=root/'Assets/maps/Content/EclipseRecoil'
 template=assets.load_asset('/Game/EclipseRecoil/Art/MapTemplates/DA_MiddleEasternAlleys')
-if not template or assets.get_metadata_tag(template,'ERAlleyDistrictRevision') not in ('5','6'):
+if not template or assets.get_metadata_tag(template,'ERAlleyDistrictRevision') not in ('5','6','7'):
     raise RuntimeError('Prepare revision5 passages first')
 sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
 protected=[private/p for p in ['Maps/L_Depot.umap','Maps/L_CentralBuilding.umap','Maps/L_MiddleEasternAlleys.umap','Art/MapTemplates/DA_CentralBuilding.uasset','Art/Destruction/DA_ER_BlockMaterials.uasset']]
 protected+=list((private/'Art/MiddleEasternAlleys').glob('*.uasset'))
 before={str(p):sha(p) for p in protected}
 package=private/'Art/MapTemplates/DA_MiddleEasternAlleys.uasset'
-if assets.get_metadata_tag(template,'ERAlleyDistrictRevision')=='6':
+if assets.get_metadata_tag(template,'ERAlleyDistrictRevision')in ('6','7'):
     print('ER_ALLEY_DESTRUCTION_PRESERVED')
 else:
     backup=root/'Saved/AlleyTraversalBackup/revision5.zip';backup.parent.mkdir(parents=True,exist_ok=True)

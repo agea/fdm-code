@@ -1,4 +1,5 @@
 #include "ERMovement.h"
+#include "ERServerSettings.h"
 #include "ERCharacter.h"
 #include "ERWeapon.h"
 #include "ERLadder.h"
@@ -72,17 +73,30 @@ UERMovement::UERMovement()
     BrakingDecelerationWalking = 850;
     MaxStepHeight = 30; JumpZVelocity = 460; GravityScale = 1.8f; AirControl = .2f;
 }
+void UERMovement::ApplyServerSettings()
+{
+    MaxWalkSpeed=ERServer::Get(GetWorld(),"Move.Run")/ .036f;
+    MaxWalkSpeedCrouched=ERServer::Get(GetWorld(),"Move.Crouch")/.036f;
+    MaxAcceleration=ERServer::Get(GetWorld(),"Move.Acceleration");
+    BrakingDecelerationWalking=ERServer::Get(GetWorld(),"Move.Braking");
+    GroundFriction=ERServer::Get(GetWorld(),"Move.Friction");
+    MaxStepHeight=ERServer::Get(GetWorld(),"Move.Step")*100;
+    JumpZVelocity=ERServer::Get(GetWorld(),"Move.Jump")*100;
+    GravityScale=ERServer::Get(GetWorld(),"Move.Gravity");AirControl=ERServer::Get(GetWorld(),"Move.AirControl");
+}
+double UERMovement::SprintDuration() const { return ERServer::Get(GetWorld(),"Move.SprintDuration"); }
+double UERMovement::RecoveryDuration() const { return ERServer::Get(GetWorld(),"Move.Recovery"); }
 float UERMovement::GetMaxSpeed() const
 {
     const auto* C=Cast<AERCharacter>(CharacterOwner);
     if(C && C->Weapon && C->Weapon->bPlacingClaymore)return 0;
     if (IsOnLadder()) return LadderSpeed();
     if (IsMantling()) return 0;
-    if (IsChangingPosture()) return 67.5f;
-    if (IsProne()) return 82.5f;
-    if (Locomotion.HalfHeight < 92.f) return MaxWalkSpeedCrouched;
-    if (IsSprinting()) return 2700.f / 3.6f;
-    return bWalkHeld ? 750.f / 3.6f : Super::GetMaxSpeed();
+    if (IsChangingPosture()) return ERServer::Get(GetWorld(),"Move.Posture")/.036f;
+    if (IsProne()) return ERServer::Get(GetWorld(),"Move.Prone")/.036f;
+    if (Locomotion.HalfHeight < 92.f) return ERServer::Get(GetWorld(),"Move.Crouch")/.036f;
+    if (IsSprinting()) return ERServer::Get(GetWorld(),"Move.Sprint")/.036f;
+    return bWalkHeld ? ERServer::Get(GetWorld(),"Move.Walk")/.036f : ERServer::Get(GetWorld(),"Move.Run")/.036f;
 }
 void UERMovement::UpdateFromCompressedFlags(uint8 Flags)
 {
@@ -104,6 +118,7 @@ bool UERMovement::FindLedge(FVector& Destination, float& Height) const
     const float Half = Capsule->GetScaledCapsuleHalfHeight(), Radius = Capsule->GetScaledCapsuleRadius();
     const FVector Position = UpdatedComponent->GetComponentLocation();
     const FVector Feet = Position - FVector(0,0,Half);
+    const float Step=ERServer::Get(GetWorld(),"Move.Step")*100,Vault=ERServer::Get(GetWorld(),"Move.Vault")*100,Climb=ERServer::Get(GetWorld(),"Move.Climb")*100;
     const FVector Forward = CharacterOwner->GetActorForwardVector().GetSafeNormal2D();
     FCollisionQueryParams Params(SCENE_QUERY_STAT(ERLedge), false, CharacterOwner);
     FHitResult Wall, Top;
@@ -113,14 +128,14 @@ bool UERMovement::FindLedge(FVector& Destination, float& Height) const
     auto SampleTop = [&](float Along,FHitResult& Hit)
     {
         const FVector P=Feet+Forward*Along;
-        return GetWorld()->LineTraceSingleByChannel(Hit,P+FVector(0,0,150),P+FVector(0,0,30.1f),ECC_Visibility,Params) && IsWalkable(Hit);
+        return GetWorld()->LineTraceSingleByChannel(Hit,P+FVector(0,0,Climb),P+FVector(0,0,Step+.1f),ECC_Visibility,Params) && IsWalkable(Hit);
     };
     // Start just inside the face. A fixed probe55cm beyond it skips thin
     // parapets completely, even when they have a valid walkable top.
     const float Near=FVector::DotProduct(Wall.ImpactPoint-Feet,Forward)+2,Preferred=Radius+55;
     if(!SampleTop(Near,Top))return false;
     Height = Top.ImpactPoint.Z - Feet.Z;
-    if (Height <= 30 || Height > 150 || (Height > 80 && !bClimbHeld) || (IsFalling() && !bClimbHeld)) return false;
+    if (Height <= Step || Height > Climb || (Height > Vault && !bClimbHeld) || (IsFalling() && !bClimbHeld)) return false;
     // Keep the old landing distance on broad obstacles. On a narrow top,
     // stop at its first edge and land inside the supported strip. Sampling
     // the interval also prevents choosing a different platform across a gap.
@@ -169,8 +184,8 @@ void UERMovement::UpdateCharacterStateBeforeMovement(float DeltaSeconds)
     FVector Destination; float Height;
     if (!FindLedge(Destination, Height)) return;
     TraversalStart = UpdatedComponent->GetComponentLocation(); TraversalEnd = Destination;
-    TraversalElapsed = 0; bHighClimb = Height > 80;
-    TraversalDuration = bHighClimb ? .75f + Height*.002f : .30f + Height*.003f;
+    TraversalElapsed = 0; bHighClimb = Height > ERServer::Get(GetWorld(),"Move.Vault")*100;
+    TraversalDuration = (bHighClimb ? .75f + Height*.002f : .30f + Height*.003f)*ERServer::Get(GetWorld(),"Move.TraversalTime");
     Velocity = FVector::ZeroVector;
     SetMovementMode(MOVE_Custom, 1);
 }
@@ -214,8 +229,8 @@ float UERMovement::GetSprintRemaining() const { return FMath::Max(0.f, float(Loc
 float UERMovement::GetRecoveryRemaining() const { return IsSprinting() ? 0.f : FMath::Max(0.f, float(Locomotion.RecoverUntil - ServerTime())); }
 float UERMovement::GetStaminaFraction() const
 {
-    if (IsSprinting()) return FMath::Clamp(GetSprintRemaining() / float(MaxSprintDuration), 0.f, 1.f);
-    return FMath::Clamp(1.f - GetRecoveryRemaining() / float(MaxSprintDuration * RecoveryRatio), 0.f, 1.f);
+    if (IsSprinting()) return FMath::Clamp(GetSprintRemaining() / float(SprintDuration()), 0.f, 1.f);
+    return FMath::Clamp(1.f - GetRecoveryRemaining() / float(RecoveryDuration()), 0.f, 1.f);
 }
 bool UERMovement::IsChangingPosture() const
 {
@@ -242,16 +257,16 @@ void UERMovement::UpdateSprint()
     // The gesture can arrive one saved move before its forward acceleration.
     if (bSprintHeld && SprintRequestUntil > Now && Allowed && GetStaminaFraction() > .001f)
     {
-        Locomotion.SprintUntil = Now + MaxSprintDuration * GetStaminaFraction();
-        Locomotion.RecoverUntil = Locomotion.SprintUntil + RecoveryRatio * MaxSprintDuration;
+        Locomotion.SprintUntil = Now + SprintDuration() * GetStaminaFraction();
+        Locomotion.RecoverUntil = Locomotion.SprintUntil + RecoveryDuration();
         SprintRequestUntil = 0;
     }
     if (IsSprinting() && (!bSprintHeld || !Allowed))
     {
         // Include stamina already spent before this gesture; interruptions never refill it.
-        const double Spent = MaxSprintDuration - GetSprintRemaining();
+        const double Spent = SprintDuration() - GetSprintRemaining();
         Locomotion.SprintUntil = Now;
-        Locomotion.RecoverUntil = Now + RecoveryRatio * Spent;
+        Locomotion.RecoverUntil = Now + RecoveryDuration() / SprintDuration() * Spent;
     }
     bPreviousSprintHeld = bSprintHeld;
 }
@@ -266,7 +281,7 @@ void UERMovement::UpdatePosture(float DeltaSeconds)
     const float Old = Capsule->GetUnscaledCapsuleHalfHeight();
     const float Target = bProneWanted ? 34.f : (bWantsToCrouch ? 62.5f : 92.5f);
     const bool ProneTransition = bProneWanted || Locomotion.ProneBlend > 0;
-    const float Rate = ProneTransition ? 58.5f / 1.1f : 30.f / .4f;
+    const float Rate = ProneTransition ? 58.5f / ERServer::Get(GetWorld(),"Move.ProneTime") : 30.f / ERServer::Get(GetWorld(),"Move.CrouchTime");
     const float Next = FMath::FInterpConstantTo(Old, Target, DeltaSeconds, Rate);
     const float Scale = Capsule->GetShapeScale();
     const FVector Shift(0, 0, (Next - Old) * Scale);
@@ -281,7 +296,7 @@ void UERMovement::UpdatePosture(float DeltaSeconds)
     Capsule->SetCapsuleHalfHeight(Next, true);
     UpdatedComponent->MoveComponent(Shift, UpdatedComponent->GetComponentQuat(), false);
     Locomotion.HalfHeight = Next;
-    Locomotion.ProneBlend = FMath::FInterpConstantTo(Locomotion.ProneBlend, bProneWanted ? 1.f : 0.f, DeltaSeconds, 1.f / 1.1f);
+    Locomotion.ProneBlend = FMath::FInterpConstantTo(Locomotion.ProneBlend, bProneWanted ? 1.f : 0.f, DeltaSeconds, 1.f / ERServer::Get(GetWorld(),"Move.ProneTime"));
     CharacterOwner->bIsCrouched = !bProneWanted && Next < 92.f;
     bForceNextFloorCheck = true;
     ApplyPosturePresentation();
@@ -369,7 +384,7 @@ bool UERMovement::CanClimbLadder() const
 float UERMovement::LadderSpeed() const
 {
     const auto* C=Cast<AERCharacter>(CharacterOwner);
-    return C && C->CanHoldWeaponOnLadder() ? 216.f:270.f;
+    return ERServer::Get(GetWorld(),C && C->CanHoldWeaponOnLadder()?FName("Move.LadderLight"):FName("Move.LadderHeavy"))/.036f;
 }
 AERLadder* UERMovement::FindLadder(bool Entry) const
 {

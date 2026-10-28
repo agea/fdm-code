@@ -27,6 +27,9 @@ public:
     void StartLANServer();
     int32 MaxPlayers = ERServer::DefaultMaxPlayers;
     void SaveServerSettings();
+    UPROPERTY() FERServerRules ServerRules; // Saved draft for the next hosted session.
+    UPROPERTY() FERServerRules SessionRules; // Immutable through the current session/travel.
+    void CommitServerRules();
     void FindLANServer();
     void CancelLANSearch();
     bool IsSearchingLAN() const { return SearchDeadline > 0; }
@@ -168,6 +171,7 @@ public:
 private:
     friend class UERGameInstance;
     friend class AERLobbyProbe;
+    friend class AERServerSettingsProbe;
     friend class AERLoadoutProbe;
     friend class AERGameState;
     FName DraftPreset, DraftVariant;
@@ -179,6 +183,10 @@ private:
     void RefreshLoadoutPreview();
     FERResolvedLoadout ResolveMenuLoadout(FName Preset,FName Variant) const;
     int32 SubmenuParent = 0;
+    int32 ServerRulesParent = 2;
+    FString ServerRulesSection = TEXT("Match");
+    bool bServerRulesAdvanced = false;
+    FString ServerPresetName = TEXT("Custom");
     int32 MenuPage = 0; // home, offline, server, search, setup, character, loadout
     bool bShowingLobby = false;
     void OpenMenuPage(int32 Page);

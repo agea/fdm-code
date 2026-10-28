@@ -125,13 +125,44 @@ void BuildAlleyTerrain(UDynamicMeshComponent* Component,const FERProceduralLayou
     }
     Component->SetMesh(MoveTemp(Mesh));Component->UpdateCollision(false);
 }
+bool FindAlleyRoofRimRoute(UWorld* World,const FERProceduralLayout& L,TArray<FVector>& Route)
+{
+    FCollisionQueryParams Q(SCENE_QUERY_STAT(ERAlleyRoofRim),false);
+    for(TActorIterator<APawn> It(World);It;++It)Q.AddIgnoredActor(*It);
+    const auto Capsule=FCollisionShape::MakeCapsule(34,92.5);
+    for(const auto& H:L.Houses)if(H.RimHeight>0)
+    {
+        const auto Size=H.Frame.GetScale3D();const FTransform Frame(H.Frame.GetRotation(),H.Frame.GetLocation());
+        for(int32 Face=0;Face<4;++Face)for(float Fraction:{-.3f,0.f,.3f})
+        {
+            const int32 Axis=Face/2;const float Sign=Face%2 ? 1:-1;
+            FVector A(0,0,Size.Z+100),B=A;A[1-Axis]=B[1-Axis]=Size[1-Axis]*Fraction;
+            A[Axis]=Sign*(Size[Axis]*.5-130);B[Axis]=Sign*(Size[Axis]*.5-20);B.Z+=H.RimHeight;
+            A=Frame.TransformPosition(A);B=Frame.TransformPosition(B);
+            FHitResult Hit;
+            if(World->OverlapBlockingTestByChannel(A,FQuat::Identity,ECC_Pawn,Capsule,Q) || World->OverlapBlockingTestByChannel(B,FQuat::Identity,ECC_Pawn,Capsule,Q))continue;
+            if(!World->LineTraceSingleByChannel(Hit,A,A-FVector(0,0,120),ECC_WorldStatic,Q) || FMath::Abs(Hit.ImpactPoint.Z-(A.Z-100))>1)continue;
+            if(!World->LineTraceSingleByChannel(Hit,B,B-FVector(0,0,120),ECC_WorldStatic,Q) || !Hit.GetComponent()->ComponentHasTag(H.StructureName) || FMath::Abs(Hit.ImpactPoint.Z-(B.Z-100))>1)continue;
+            if(World->SweepTestByChannel(A+FVector(0,0,30),B+FVector(0,0,30),FQuat::Identity,ECC_Pawn,Capsule,Q))continue;
+            Route={A,B};return true;
+        }
+    }
+    return false;
+}
 bool FindAlleyInteriorRoute(UWorld* World,const FERProceduralLayout& L,TArray<FVector>& Route)
 {
     FCollisionQueryParams Q(SCENE_QUERY_STAT(ERAlleyDoor),false);
     for(TActorIterator<APawn> It(World);It;++It)Q.AddIgnoredActor(*It);
     const auto Capsule=FCollisionShape::MakeCapsule(34,92.5);
+    for(const auto& House:L.Houses)for(const auto& Entry:House.Entrances)
+    {
+        bool Clear=true;FHitResult Hit;
+        for(int32 I=1;I<Entry.Num();++I)Clear&=!World->SweepSingleByChannel(Hit,Entry[I-1],Entry[I],FQuat::Identity,ECC_Pawn,Capsule,Q);
+        if(Clear){Route=Entry;for(int32 I=Entry.Num()-2;I>=0;--I)Route.Add(Entry[I]);return true;}
+    }
     for(bool Covered:{true,false})for(const auto& House:L.Houses)
     {
+        if(!House.Mesh)continue;
         const FVector Size=House.Frame.GetScale3D();
         auto Point=[&](FVector P){return House.Frame.TransformPosition(P);};
         for(int32 Axis=0;Axis<2;++Axis)for(float Sign:{-1.f,1.f})for(float Along:{-.35f,-.25f,-.15f,-.05f,.05f,.15f,.25f,.35f})

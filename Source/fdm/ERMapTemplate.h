@@ -8,7 +8,36 @@ UENUM(BlueprintType)
 enum class EERTemplateSymmetry : uint8 { None, HalfTurn };
 
 UENUM(BlueprintType)
-enum class EERMapArchetype : uint8 { LegacyAssembly, CentralBuilding, MiddleEasternAlleys, FireTraining, Rooms };
+enum class EERMapArchetype : uint8 { LegacyAssembly, CentralBuilding, MiddleEasternAlleys, FireTraining, Rooms, Village };
+
+// Shoots-inspired timber village; dimensions and decoration have separate RNGs.
+USTRUCT(BlueprintType)
+struct FERVillageRecipe
+{
+    GENERATED_BODY()
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) FVector2D ArenaMin=FVector2D(3400,4400);
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) FVector2D ArenaMax=FVector2D(5600,13200);
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) int32 MinCentralBlocks=1;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) int32 MaxCentralBlocks=5;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) FVector2D BlockWidth=FVector2D(2000,3000);
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) FVector2D BlockDepth=FVector2D(600,800);
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) int32 MinStoreys=1;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) int32 MaxStoreys=3;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) int32 StoreyBudget=10;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) float DeckHeight=240;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) float PerimeterHeight=1100;
+    // Legacy serialized field; palette selection now belongs to ThemeLibrary.
+    UPROPERTY() FName Theme=TEXT("Jungle");
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<TObjectPtr<class UStaticMesh>> ExteriorTrees;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> FoliageSurface;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> TrunkSurface;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UERDestructibleMesh> StorageStructure;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UERDestructibleMesh> BridgeStructure;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<TObjectPtr<class UStaticMesh>> ExteriorHouses;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UStaticMesh> PalisadePoleMesh;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UStaticMesh> SkyDomeMesh;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> CoverSurface;
+};
 
 // Existing art only. A complete theme is sampled independently of the room graph.
 USTRUCT(BlueprintType)
@@ -190,6 +219,8 @@ struct FERDustTownVariation
     UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="0",ClampMax="2")) int32 MaxCentralWalls=1;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) bool LowCoverAndUnderpass=false;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) bool DestructibleArchitecture=false;
+    // Revision7: dimensioned masonry modules replace fitted imported houses.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) bool ProceduralHouses=false;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<TObjectPtr<class UERDestructibleMesh>> BuildingStructures;
 };
 
@@ -269,6 +300,7 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite) FERFireTrainingRecipe FireTraining;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UERMapThemeLibrary> ThemeLibrary;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) FERRoomsRecipe Rooms;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) FERVillageRecipe Village;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) FString TemplateId;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) FString SourceReference;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) int32 Revision=1;

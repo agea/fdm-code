@@ -260,10 +260,20 @@ float UERHealthComponent::ReceiveDamage(float Amount, AController* Killer, float
     auto* Character = Cast<AERCharacter>(GetOwner());
     auto* Mode = GetWorld()->GetAuthGameMode<AERGameMode>();
     if (!Character || !Character->HasAuthority() || !Mode || !Mode->IsMatchInProgress() || bDead || IsProtected() || Amount <= 0) return 0;
+    if(Killer)
+    {
+        if(Killer==Character->GetController())Amount*=ERServer::Get(GetWorld(),"Damage.Self");
+        else
+        {
+            const auto* VictimState=Character->GetPlayerState<AERPlayerState>();
+            const auto* AttackerState=Killer->GetPlayerState<AERPlayerState>();
+            if(VictimState && AttackerState && VictimState->Team==AttackerState->Team)Amount*=ERServer::Get(GetWorld(),"Damage.Friendly");
+        }
+    }
     const float ArmorBefore=Armor;
     Amount = ERWeaponBallistics::AbsorbArmor(Amount, ArmorRatio, Armor);
     const float Before = Health;
-    Health = FMath::Clamp(Health - Amount, 0.f, 100.f);
+    Health = FMath::Clamp(Health - Amount, 0.f, ERServer::Get(GetWorld(),"Health.Max"));
     const float HealthLost=Before-Health, ArmorLost=ArmorBefore-Armor;
     if (BulletHit && (HealthLost>0 || ArmorLost>0)) Character->Wounds->Record(Character->GetMesh(),*BulletHit,HealthLost<=0 && ArmorLost>0);
     if ((HealthLost>0 || ArmorLost>0) && Killer && Killer!=Character->Controller)
@@ -378,6 +388,7 @@ void AERCharacter::OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdj
 }
 void AERCharacter::BeginPlay()
 {
+    Cast<UERMovement>(GetCharacterMovement())->ApplyServerSettings();
     if(HasAuthority()) SpawnFacingYaw=GetActorRotation().Yaw;
     Super::BeginPlay();
     FirstPersonBodyBaseLocation = FirstPersonBody->GetRelativeLocation();
@@ -423,7 +434,10 @@ void AERCharacter::BeginPlay()
         GetMesh()->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
         GetMesh()->SetGenerateOverlapEvents(false);
         GetMesh()->VisibilityBasedAnimTickOption=EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
-        Health->ProtectionEndServerTime = GetWorld()->GetTimeSeconds() + 4;
+        Health->ProtectionEndServerTime = GetWorld()->GetTimeSeconds() + ERServer::Get(GetWorld(),"Health.Protection");
+        AimPunchTuning.BasePitch*=ERServer::Get(GetWorld(),"Damage.Punch");
+        AimPunchTuning.PitchPerHP*=ERServer::Get(GetWorld(),"Damage.Punch");
+        AimPunchTuning.HalfLife=ERServer::Get(GetWorld(),"Damage.PunchRecovery");
         // Direct map startup can assign the loadout before this pawn's BeginPlay.
         // Keep that weapon and its FPS pose instead of replacing it with the fallback.
         const auto* SpawnMode=GetWorld()->GetAuthGameMode<AERGameMode>();
@@ -755,7 +769,7 @@ void AERCharacter::CalcCamera(float DeltaTime, FMinimalViewInfo& OutResult)
     OutResult.PerspectiveNearClipPlane = 1.f;
     if (!Health->bDead && Weapon && !IsWeaponStowed())
         OutResult.FOV = Weapon->Data && Weapon->Data->ScopeMode==1 ?
-            FMath::Lerp(90.f,Weapon->Data->ZoomFOV,GetIronAimBlend()) : Weapon->GetScopeFOV();
+            FMath::Lerp(90.f,Weapon->Tuned()->ZoomFOV,GetIronAimBlend()) : Weapon->GetScopeFOV();
     if (IsLocallyControlled() && !Health->bDead)
     {
         const FVector Right = FRotationMatrix(FRotator(0,OutResult.Rotation.Yaw,0)).GetUnitAxis(EAxis::Y);
@@ -834,7 +848,7 @@ float AERCharacter::TakeDamage(float Damage, const FDamageEvent& Event, AControl
     float Ratio = 2.f;
     if (const auto* Gun = Cast<AERWeapon>(Causer); Gun && Gun->Data)
     {
-        Ratio = Gun->Data->ArmorRatio;
+        Ratio = Gun->Tuned()->ArmorRatio;
         Facts.HasSourceLife = true;
         Facts.SourceLife = Cast<APawn>(Gun->GetOwner());
         Facts.Melee = Gun->Data->Payload == EERPayload::Melee;
@@ -842,10 +856,17 @@ float AERCharacter::TakeDamage(float Damage, const FDamageEvent& Event, AControl
         if (Facts.Melee && Event.IsOfType(FPointDamageEvent::ClassID))
         {
             const auto& Point = static_cast<const FPointDamageEvent&>(Event);
-            Damage *= ERWeaponBallistics::MeleeMultiplier(Point.HitInfo.BoneName);
+            const auto MeleeZone=ERWeaponBallistics::ZoneForBone(Point.HitInfo.BoneName);
+            const float BaseMultiplier=ERWeaponBallistics::MeleeMultiplier(Point.HitInfo.BoneName);
+            Damage *= MeleeZone==ERWeaponBallistics::EHitZone::Head?ERServer::Get(GetWorld(),"Knife.Head"):
+                BaseMultiplier<1.f?ERServer::Get(GetWorld(),"Knife.Limbs"):1.f;
             if (const AActor* Attacker = Gun->GetOwner())
-                Damage += ERWeaponBallistics::MeleeRearBonus(Point.HitInfo.BoneName,
-                    GetActorForwardVector(), Attacker->GetActorLocation()-GetActorLocation());
+            {
+                const FVector ToAttacker=(Attacker->GetActorLocation()-GetActorLocation()).GetSafeNormal2D();
+                const bool KnownTorso=ERWeaponBallistics::MeleeRearBonus(Point.HitInfo.BoneName,GetActorForwardVector(),-GetActorForwardVector())>0;
+                if(KnownTorso && FVector::DotProduct(GetActorForwardVector().GetSafeNormal2D(),ToAttacker)<-FMath::Cos(FMath::DegreesToRadians(ERServer::Get(GetWorld(),"Knife.RearAngle")*.5f)))
+                    Damage+=ERServer::Get(GetWorld(),"Knife.RearBonus");
+            }
             Facts.Headshot = ERWeaponBallistics::ZoneForBone(Point.HitInfo.BoneName) == ERWeaponBallistics::EHitZone::Head;
         }
         if (Gun->Data->Payload == EERPayload::Bullet && Event.IsOfType(FPointDamageEvent::ClassID))
@@ -857,11 +878,12 @@ float AERCharacter::TakeDamage(float Damage, const FDamageEvent& Event, AControl
             if(Gun->Data->bUseBodyHitZones)
             {
                 const auto Zone=ERWeaponBallistics::ZoneForBone(Point.HitInfo.BoneName);
-                Damage*=ERWeaponBallistics::ZoneMultiplier(Zone, Gun->Data->HeadshotMultiplier);
+                Damage*=ERWeaponBallistics::ZoneMultiplier(Zone, Gun->Tuned()->HeadshotMultiplier);
+                if(Zone!=ERWeaponBallistics::EHitZone::Head)Damage*=ERServer::Get(GetWorld(),Zone==ERWeaponBallistics::EHitZone::Legs?FName("Damage.Legs"):ERWeaponBallistics::MeleeMultiplier(Point.HitInfo.BoneName)<1.f?FName("Damage.Arms"):FName("Damage.Body"));
                 if(Zone==ERWeaponBallistics::EHitZone::Legs ||
                     (Zone==ERWeaponBallistics::EHitZone::Head && !Health->bHelmet)) Ratio=2.f;
             }
-            Damage = ERWeaponBallistics::AtRange(Damage, Gun->Data->RangeModifier,
+            Damage = ERWeaponBallistics::AtRange(Damage, Gun->Tuned()->RangeModifier,
                 FVector::Distance(Gun->LastShotTraceStart, Point.HitInfo.ImpactPoint));
         }
     }
@@ -940,7 +962,10 @@ float AERCharacter::FallDamage(float DownSpeed,float Gravity)
 void AERCharacter::Landed(const FHitResult& Hit)
 {
     const float DownSpeed=Cast<UERMovement>(GetCharacterMovement())->LandingSpeed();
-    const float Damage=FallDamage(DownSpeed,FMath::Abs(GetCharacterMovement()->GetGravityZ()));
+    const float Gravity=FMath::Abs(GetCharacterMovement()->GetGravityZ());
+    const float Height=Gravity>0?DownSpeed*DownSpeed/(2*Gravity):0;
+    const float Safe=ERServer::Get(GetWorld(),"Damage.FallSafe")*100,Lethal=ERServer::Get(GetWorld(),"Damage.FallLethal")*100;
+    const float Damage=FMath::Clamp((Height-Safe)/FMath::Max(1.f,Lethal-Safe),0.f,1.f)*ERServer::Get(GetWorld(),"Health.Max")*ERServer::Get(GetWorld(),"Damage.Fall");
     if(HasAuthority())for(auto Item:Inventory)if(Item)Item->NotifyAccuracyLanding(DownSpeed);
     Super::Landed(Hit);
     if(HasAuthority() && Damage>0)
@@ -956,7 +981,7 @@ void AERCharacter::FellOutOfWorld(const UDamageType& Type)
     if (HasAuthority() && !Health->bDead)
     {
         Health->ProtectionEndServerTime = 0;
-        Health->ReceiveDamage(100, nullptr);
+        Health->ReceiveDamage(Health->Health+2*Health->Armor, nullptr);
     }
 }
 void AERCharacter::ApplyDeathVisuals()
@@ -997,7 +1022,7 @@ void AERCharacter::SetGrenadeInputHeld(bool bHeld)
     if(Health->bDead || !Weapon || !Weapon->Data || !AERWeapon::IsHandGrenade(Weapon->Data->Payload) ||
         Weapon->MagazineAmmo<=0 || Weapon->bReloading || Weapon->IsGrenadeHandHidden() || Cast<UERMovement>(GetCharacterMovement())->bHighClimb) return;
     bLocalGrenadeInputHeld=true;
-    LocalGrenadeCookDeadline=GetWorld()->GetTimeSeconds()+Weapon->Data->FuseDuration;
+    LocalGrenadeCookDeadline=GetWorld()->GetTimeSeconds()+Weapon->Tuned()->FuseDuration;
 }
 void AERCharacter::ServerStopFire_Implementation() { if (Weapon) Weapon->StopFire(); }
 void AERCharacter::ServerReload_Implementation() { if (!Health->bDead && Weapon && !Weapon->bPlacingClaymore && !Cast<UERMovement>(GetCharacterMovement())->bHighClimb) Weapon->Reload(); }
@@ -1017,11 +1042,11 @@ void AERCharacter::InitializeLoadout(int32 Primary)
     if(bPresetInventory)
     {
         const auto* PS=GetPlayerState<AERPlayerState>();
-        const auto Kit=ERLoadouts::Resolve(PS?PS->LoadoutPreset:FName(),PS?PS->LoadoutVariant:FName(),PS && PS->Team==EERTeam::Omega,this);
+        const auto Kit=ERLoadouts::Resolve(PS?PS->LoadoutPreset:FName(),PS?PS->LoadoutVariant:FName(),PS && PS->Team==EERTeam::Omega,this,&ERServer::Rules(GetWorld()));
         for(const auto& Entry:Kit.Items)if(!Entry.Data)
         { UE_LOG(LogTemp,Error,TEXT("ER_LOADOUT_INVALID_CATALOG missing=%d"),Entry.WeaponKey);return; }
         ActivePreset=Kit.Preset;ActiveVariant=Kit.Variant;
-        Health->Health=100;Health->Armor=100;Health->bHelmet=true;
+        Health->Health=ERServer::Get(GetWorld(),"Health.Start");Health->Armor=ERServer::Get(GetWorld(),"Health.Armor");Health->bHelmet=ERServer::Get(GetWorld(),"Health.Helmet")>0;
         for(const auto& Entry:Kit.Items)
         {
             if(!Entry.Data)

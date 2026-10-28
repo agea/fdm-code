@@ -39,7 +39,7 @@ void AERHUD::DrawVitals(const AERCharacter* Character)
     // 206 x 66 reference units: same footprint as the previous three bar rows.
     const float Diameter=66.f*Scale, Step=70.f*Scale;
     const float Top=Canvas->SizeY-Edge.Y-Diameter;
-    const float Fractions[]={Character->Health->Health/100.f,Character->Health->Armor/100.f,Movement->GetStaminaFraction()};
+    const float Fractions[]={Character->Health->Health/ERServer::Get(GetWorld(),"Health.Max"),Character->Health->Armor/FMath::Max(1.f,ERServer::Get(GetWorld(),"Health.Armor")),Movement->GetStaminaFraction()};
     for(int32 Icon=0;Icon<3;++Icon)
     {
         auto DrawLayer=[&](int32 Layer)

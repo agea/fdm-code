@@ -56,6 +56,20 @@ AERWeapon::AERWeapon()
     SetRootComponent(CreateDefaultSubobject<USceneComponent>(TEXT("Root")));
     ProjectileClass = AERProjectile::StaticClass();
 }
+const UERWeaponData* AERWeapon::Tuned() const
+{
+    if(!Data)return nullptr;
+    if(TuningSource==Data && TunedData)return TunedData;
+    const auto& Rules=ERServer::Rules(GetWorld());
+    if(Rules.IsStandard())return Data;
+    auto* Self=const_cast<AERWeapon*>(this);
+    Self->TuningSource=Data;
+    Self->TunedData=DuplicateObject<UERWeaponData>(Data,Self);
+    ERServer::TuneWeapon(Self->TunedData,Rules,Data->GetFName());
+    return Self->TunedData;
+}
+void AERWeapon::RefreshTuning() { TunedData=nullptr;TuningSource=nullptr; }
+void AERWeapon::OnRep_Data() { RefreshTuning(); }
 void AERWeapon::BeginPlay()
 {
     Super::BeginPlay();
@@ -70,7 +84,7 @@ void AERWeapon::BeginPlay()
     }
     if (HasAuthority())
     {
-        MagazineAmmo = Data->MagazineSize; ReserveAmmo = Data->InitialReserve;
+        MagazineAmmo = Tuned()->MagazineSize; ReserveAmmo = Tuned()->InitialReserve;
         ShotRandom.Initialize(FMath::Rand());
         RecoilRandom.Initialize(FMath::Rand());
         // Initial map spawns can precede world BeginPlay. Apply supplies here,
@@ -80,34 +94,34 @@ void AERWeapon::BeginPlay()
         if(InitialLoaded>=0)
         {
             // Grenades/mines are carried stacks, not firearm magazines.
-            const bool Utility=IsHandGrenade(Data->Payload) || Data->Payload==EERPayload::Claymore;
-            MagazineAmmo=Utility?FMath::Max(0,InitialLoaded):FMath::Clamp(InitialLoaded,0,Data->MagazineSize);
+            const bool Utility=IsHandGrenade(Tuned()->Payload) || Tuned()->Payload==EERPayload::Claymore;
+            MagazineAmmo=Utility?FMath::Max(0,InitialLoaded):FMath::Clamp(InitialLoaded,0,Tuned()->MagazineSize);
             ReserveAmmo=FMath::Max(0,InitialReserve);
         }
         else if (PS)
         {
-            const int32 Count = Data->Payload == EERPayload::HE ? PS->HECount : Data->Payload == EERPayload::Smoke ? PS->SmokeCount : Data->Payload == EERPayload::Stun ? PS->StunCount : -1;
-            if (Count >= 0) { MagazineAmmo = FMath::Min(Count, Data->MagazineSize); ReserveAmmo = FMath::Max(0, Count - MagazineAmmo); }
-            else if (PS->SpareMagazines >= 0 && Data->Payload != EERPayload::Melee)
-                ReserveAmmo = Data->MagazineSize * PS->SpareMagazines;
+            const int32 Count = Tuned()->Payload == EERPayload::HE ? PS->HECount : Tuned()->Payload == EERPayload::Smoke ? PS->SmokeCount : Tuned()->Payload == EERPayload::Stun ? PS->StunCount : -1;
+            if (Count >= 0) { MagazineAmmo = FMath::Min(Count, Tuned()->MagazineSize); ReserveAmmo = FMath::Max(0, Count - MagazineAmmo); }
+            else if (PS->SpareMagazines >= 0 && Tuned()->Payload != EERPayload::Melee)
+                ReserveAmmo = Tuned()->MagazineSize * PS->SpareMagazines;
         }
     }
 }
 float AERWeapon::GetBloomDegrees() const
 {
     if (!Data || !GetWorld()) return 0;
-    if (Data->bUseWorksheetAccuracy) return ERWeaponAccuracy::Degrees(GetFiringInaccuracy());
+    if (Tuned()->bUseWorksheetAccuracy) return ERWeaponAccuracy::Degrees(GetFiringInaccuracy());
     const auto* State = GetWorld()->GetGameState<AERGameState>();
     const double Now = State ? State->GetServerWorldTimeSeconds() : GetWorld()->GetTimeSeconds();
     const bool Low=HasOpticalScope() && ScopeLevel && IsPrecisionCrouched();
-    const float Delay=Low?FMath::Min(.025f,Data->BloomRecoveryDelay):Data->BloomRecoveryDelay;
+    const float Delay=Low?FMath::Min(.025f,Tuned()->BloomRecoveryDelay):Tuned()->BloomRecoveryDelay;
     const float RecoveringTime = FMath::Max(0.f, float(Now - LastSpreadShotServerTime) - Delay);
-    return FMath::Clamp(BloomAtLastShot - RecoveringTime * Data->BloomRecoveryDegreesPerSecond*(Low?4.f:1.f), 0.f, Data->MaxBloomDegrees);
+    return FMath::Clamp(BloomAtLastShot - RecoveringTime * Tuned()->BloomRecoveryDegreesPerSecond*(Low?4.f:1.f), 0.f, Tuned()->MaxBloomDegrees);
 }
 const FERWeaponAccuracyMode& AERWeapon::GetAccuracyMode() const
-{ return HasOpticalScope() && ScopeLevel ? Data->ScopedAccuracy : Data->HipAccuracy; }
+{ return HasOpticalScope() && ScopeLevel ? Tuned()->ScopedAccuracy : Tuned()->HipAccuracy; }
 const FERWeaponRecoilMode& AERWeapon::GetRecoilMode() const
-{ return HasOpticalScope() && ScopeLevel ? Data->ScopedRecoil : Data->HipRecoil; }
+{ return HasOpticalScope() && ScopeLevel ? Tuned()->ScopedRecoil : Tuned()->HipRecoil; }
 float AERWeapon::GetAccuracyLowBlend() const
 {
     const auto* C=Cast<AERCharacter>(GetOwner());
@@ -116,7 +130,7 @@ float AERWeapon::GetAccuracyLowBlend() const
 }
 float AERWeapon::GetFiringInaccuracy() const
 {
-    if(!Data || !Data->bUseWorksheetAccuracy || !GetWorld())return 0;
+    if(!Data || !Tuned()->bUseWorksheetAccuracy || !GetWorld())return 0;
     const auto* GS=GetWorld()->GetGameState<AERGameState>();
     const double Now=GS?GS->GetServerWorldTimeSeconds():GetWorld()->GetTimeSeconds();
     return ERWeaponAccuracy::Recover(FiringInaccuracyAtLastShot,Now-AccuracyRecoveryServerTime,AccuracyRecoveryTime);
@@ -139,7 +153,7 @@ float AERWeapon::GetWorksheetInaccuracy() const
 }
 void AERWeapon::NotifyAccuracyLanding(float DownSpeedCm)
 {
-    if(!HasAuthority() || !Data || !Data->bUseWorksheetAccuracy)return;
+    if(!HasAuthority() || !Data || !Tuned()->bUseWorksheetAccuracy)return;
     AccuracyLandingSpeed=FMath::Max(0.f,DownSpeedCm)/2.54f;
     AccuracyLandingImpulse=GetAccuracyMode().Jump+GetAccuracyMode().Land*AccuracyLandingSpeed;
     AccuracyLandingRecoveryTime=ERWeaponAccuracy::Recovery(GetAccuracyMode(),GetAccuracyLowBlend(),0);
@@ -147,7 +161,7 @@ void AERWeapon::NotifyAccuracyLanding(float DownSpeedCm)
 }
 void AERWeapon::UpdateAccuracyRecovery()
 {
-    if(!HasAuthority() || !Data || !Data->bUseWorksheetAccuracy)return;
+    if(!HasAuthority() || !Data || !Tuned()->bUseWorksheetAccuracy)return;
     const double Now=GetWorld()->GetTimeSeconds();
     const float Time=ERWeaponAccuracy::Recovery(GetAccuracyMode(),GetAccuracyLowBlend(),AccuracyBurstShots);
     const float LandingTime=ERWeaponAccuracy::Recovery(GetAccuracyMode(),GetAccuracyLowBlend(),0);
@@ -173,7 +187,7 @@ void AERWeapon::ServerClearScope_Implementation() { ClearScope(); }
 void AERWeapon::ServerCycleScope_Implementation()
 {
     const auto* C = Cast<AERCharacter>(GetOwner());
-    if (!CanFight() || !C || C->Weapon != this || bReloading || !Data->ScopeMode ||
+    if (!CanFight() || !C || C->Weapon != this || bReloading || !Tuned()->ScopeMode ||
         Cast<UERMovement>(C->GetCharacterMovement())->bHighClimb) return;
     ScopeLevel = (ScopeLevel + 1) % (HasOpticalScope() ? 3 : 2);
     ScopeChangedServerTime = GetWorld()->GetTimeSeconds();
@@ -202,7 +216,7 @@ void AERWeapon::UpdateScopeMotion()
 float AERWeapon::GetScopeBlur() const
 {
     if(!ScopeLevel)return 0;
-    if(HasOpticalScope() && Data->bUnscopeAfterShot && IsPrecisionCrouched())return GetScopeSettle();
+    if(HasOpticalScope() && Tuned()->bUnscopeAfterShot && IsPrecisionCrouched())return GetScopeSettle();
     return FMath::Max(GetScopeSettle(),FMath::Clamp(GetBloomDegrees()/1.5f,0.f,1.f));
 }
 float AERWeapon::GetScopeSettle() const
@@ -215,25 +229,25 @@ float AERWeapon::GetScopeSettle() const
     const float Speed=C?C->GetVelocity().Size2D():0.f;
     const bool Moving=C && (Speed>5.f || C->GetCharacterMovement()->IsFalling());
     if(HasOpticalScope() && !Low && Moving)
-        return Data->bUnscopeAfterShot?1.f:FMath::Clamp(.35f+Speed/277.78f,.35f,1.f);
+        return Tuned()->bUnscopeAfterShot?1.f:FMath::Clamp(.35f+Speed/277.78f,.35f,1.f);
     const double Start=Low?ScopeChangedServerTime:FMath::Max(ScopeChangedServerTime,LastScopeMotionServerTime);
-    const float Duration=Low?.025f:Data->ScopeSettleDuration;
+    const float Duration=Low?.025f:Tuned()->ScopeSettleDuration;
     return FMath::Clamp(1.f - float(Now-Start)/FMath::Max(.01f,Duration),0.f,1.f);
 }
 float AERWeapon::GetScopeFOV() const
 {
-    return ScopeLevel && Data ? (HasOpticalScope() ? (ScopeLevel == 1 ? 40.f : 10.f) : Data->ZoomFOV) : 90.f;
+    return ScopeLevel && Data ? (HasOpticalScope() ? (ScopeLevel == 1 ? 40.f : 10.f) : Tuned()->ZoomFOV) : 90.f;
 }
 FVector AERWeapon::GetLaunchVelocity(const FVector& Direction) const
 {
     if (!Data) return FVector::ZeroVector;
     // Launcher sights indicate the target; the barrel gives the grenade a small lob.
     FRotator LaunchAim=Direction.Rotation();
-    if(Data->Payload==EERPayload::LaunchedHE)
+    if(Tuned()->Payload==EERPayload::LaunchedHE)
         LaunchAim.Pitch=FMath::Clamp(LaunchAim.Pitch+6.f,-89.f,89.f);
-    FVector Velocity=LaunchAim.Vector()*Data->ProjectileSpeed;
-    const float Range=FMath::Clamp(Data->LaunchRangeMultiplier,1.f,2.f) *
-        (ScopeLevel ? FMath::Clamp(Data->ScopedLaunchRangeMultiplier,1.f,2.f) : 1.f);
+    FVector Velocity=LaunchAim.Vector()*Tuned()->ProjectileSpeed;
+    const float Range=FMath::Clamp(Tuned()->LaunchRangeMultiplier,1.f,2.f) *
+        (ScopeLevel ? FMath::Clamp(Tuned()->ScopedLaunchRangeMultiplier,1.f,2.f) : 1.f);
     // Horizontal range bonus preserves the gravity arc's vertical clock and original fuse.
     Velocity.X*=Range;Velocity.Y*=Range;
     return Velocity;
@@ -242,30 +256,31 @@ float AERWeapon::GetSpreadDegrees() const
 {
     const auto* Character = Cast<AERCharacter>(GetOwner());
     if (!Data || !Character) return 0;
-    if(Data->bUseWorksheetAccuracy)
+    if(Tuned()->bUseWorksheetAccuracy)
         return ERWeaponAccuracy::Degrees(GetAccuracyMode().Spread+GetWorksheetInaccuracy());
     const float Speed = Character->GetVelocity().Size2D();
-    const float SpeedFraction = FMath::Clamp(Speed / (1500.f / 3.6f), 0.f, 1.f);
+    const float Run=ERServer::Get(GetWorld(),"Move.Run")/.036f,SprintSpeed=ERServer::Get(GetWorld(),"Move.Sprint")/.036f;
+    const float SpeedFraction = FMath::Clamp(Speed / Run, 0.f, 1.f);
     // Extra physical speed beyond the normal run widens every weapon's cone.
     // Apply after the ordinary cap so sprint also penalizes already-inaccurate rifles.
-    const float Sprint = 1.5f * FMath::GetMappedRangeValueClamped(FVector2D(1500.f / 3.6f,2700.f / 3.6f),FVector2D(0,1),Speed);
+    const float Sprint = ERServer::Get(GetWorld(),"Weapons.SprintSpread") * FMath::GetMappedRangeValueClamped(FVector2D(Run,FMath::Max(Run+1.f,SprintSpeed)),FVector2D(0,1),Speed);
     const auto* Movement = Cast<UERMovement>(Character->GetCharacterMovement());
-    const float Ladder = Movement->IsOnLadder() && Data->bOneHanded && Data->Payload==EERPayload::Bullet ?
-        Data->LadderMovingSpreadDegrees * FMath::Clamp((FMath::Abs(Character->GetVelocity().Z)-5.f)/(216.f-5.f),0.f,1.f) : 0.f;
-    const float LowPosture = FMath::GetMappedRangeValueClamped(FVector2D(62.5f,92.5f), FVector2D(Data->CrouchSpreadMultiplier,1.f), Movement->Locomotion.HalfHeight);
-    const float Posture = FMath::Lerp(LowPosture, Data->CrouchSpreadMultiplier * .65f, Movement->Locomotion.ProneBlend);
-    const float Air = Character->GetCharacterMovement()->IsFalling() ? Data->AirborneSpreadDegrees : 0.f;
+    const float Ladder = Movement->IsOnLadder() && Tuned()->bOneHanded && Tuned()->Payload==EERPayload::Bullet ?
+        Tuned()->LadderMovingSpreadDegrees * FMath::Clamp((FMath::Abs(Character->GetVelocity().Z)-5.f)/(216.f-5.f),0.f,1.f) : 0.f;
+    const float LowPosture = FMath::GetMappedRangeValueClamped(FVector2D(62.5f,92.5f), FVector2D(Tuned()->CrouchSpreadMultiplier,1.f), Movement->Locomotion.HalfHeight);
+    const float Posture = FMath::Lerp(LowPosture, Tuned()->CrouchSpreadMultiplier * .65f, Movement->Locomotion.ProneBlend);
+    const float Air = Character->GetCharacterMovement()->IsFalling() ? Tuned()->AirborneSpreadDegrees : 0.f;
     if (HasOpticalScope())
     {
-        const float Base = ScopeLevel ? Data->NoScopeSpreadDegrees * GetScopeSettle() : Data->NoScopeSpreadDegrees;
+        const float Base = ScopeLevel ? Tuned()->NoScopeSpreadDegrees * GetScopeSettle() : Tuned()->NoScopeSpreadDegrees;
         const bool Low=ScopeLevel && IsPrecisionCrouched();
-        const float LowMotion=Data->ScopedLowMovingSpreadDegrees*SpeedFraction*FMath::Lerp(1.f,.65f,Movement->Locomotion.ProneBlend);
-        const float Motion=Low?LowMotion:Data->ScopedRunningSpreadDegrees*SpeedFraction*Posture;
+        const float LowMotion=Tuned()->ScopedLowMovingSpreadDegrees*SpeedFraction*FMath::Lerp(1.f,.65f,Movement->Locomotion.ProneBlend);
+        const float Motion=Low?LowMotion:Tuned()->ScopedRunningSpreadDegrees*SpeedFraction*Posture;
         // Keep the bolt rifle's recovered low-posture burst behavior, with real motion spread.
-        const float Bloom=Low && Data->bUnscopeAfterShot?0.f:GetBloomDegrees();
+        const float Bloom=Low && Tuned()->bUnscopeAfterShot?0.f:GetBloomDegrees();
         return FMath::Clamp(Base + Motion + Air + Ladder + Bloom,0.f,10.f) + Sprint;
     }
-    return FMath::Clamp((Data->StandingSpreadDegrees + Data->RunningSpreadDegrees * SpeedFraction) * Posture + Air + Ladder + GetBloomDegrees(), 0.f, 10.f) + Sprint;
+    return FMath::Clamp((Tuned()->StandingSpreadDegrees + Tuned()->RunningSpreadDegrees * SpeedFraction) * Posture + Air + Ladder + GetBloomDegrees(), 0.f, 10.f) + Sprint;
 }
 bool AERWeapon::CanFight() const
 {
@@ -277,8 +292,8 @@ bool AERWeapon::IsHandGrenade(EERPayload Kind)
 { return Kind==EERPayload::HE || Kind==EERPayload::Smoke || Kind==EERPayload::Stun; }
 bool AERWeapon::IsGrenadeHandHidden() const
 {
-    if(Data && Data->Payload==EERPayload::Claymore)return MagazineAmmo<=0;
-    if(!Data || !IsHandGrenade(Data->Payload)) return false;
+    if(Data && Tuned()->Payload==EERPayload::Claymore)return MagazineAmmo<=0;
+    if(!Data || !IsHandGrenade(Tuned()->Payload)) return false;
     const auto* State=GetWorld()->GetGameState<AERGameState>();
     const double Now=State?State->GetServerWorldTimeSeconds():GetWorld()->GetTimeSeconds();
     return bCookingGrenade || MagazineAmmo<=0 || Now<GrenadeRecoveryEndServerTime;
@@ -286,7 +301,7 @@ bool AERWeapon::IsGrenadeHandHidden() const
 void AERWeapon::StartFire()
 {
     if (!CanFight() || bReloading || bPlacingClaymore || MagazineAmmo <= 0 || bWantsFire) return;
-    if(Data->Payload==EERPayload::Claymore)
+    if(Tuned()->Payload==EERPayload::Claymore)
     {
         auto* C=CastChecked<AERCharacter>(GetOwner());
         auto* Movement=CastChecked<UERMovement>(C->GetCharacterMovement());
@@ -303,7 +318,7 @@ void AERWeapon::StartFire()
         ClearScope();ForceNetUpdate();
         return;
     }
-    if(IsHandGrenade(Data->Payload))
+    if(IsHandGrenade(Tuned()->Payload))
     {
         if(GetWorld()->GetTimeSeconds()<NextAllowedShotTime) return;
         bWantsFire=true;ArmGrenade();return;
@@ -311,6 +326,8 @@ void AERWeapon::StartFire()
     bNewAccuracyBurst=true;
     bWantsFire = true; TryFire();
 }
+double AERWeapon::ClaymorePlacementPhase() const
+{ return ClaymorePlacementElapsed()*2.2/ERServer::Get(GetWorld(),"Claymore.Placement"); }
 double AERWeapon::ClaymorePlacementElapsed() const
 {
     const auto* GS=GetWorld()->GetGameState<AERGameState>();
@@ -332,7 +349,7 @@ void AERWeapon::UpdateClaymorePlacement()
     if(!HasAuthority() || !bPlacingClaymore)return;
     auto* C=Cast<AERCharacter>(GetOwner());
     if(!CanFight() || !C || !C->GetCharacterMovement()->IsMovingOnGround()) { EndClaymorePlacement();return; }
-    const double Elapsed=ClaymorePlacementElapsed();
+    const double Elapsed=ClaymorePlacementPhase();
     if(!bClaymoreDeposited && Elapsed>=1.3)
     {
         bClaymoreDeposited=true;
@@ -353,14 +370,14 @@ void AERWeapon::ArmGrenade()
     const FTransform Transform(FRotator::ZeroRotator,AERProjectile::SafeHandPosition(Character,true));
     auto* P=GetWorld()->SpawnActorDeferred<AERProjectile>(ProjectileClass,Transform,this,Character,ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
     if(!P) { bWantsFire=false;return; }
-    P->Payload=Data->Payload;P->ThrownMesh=Data->ProjectileMesh?Data->ProjectileMesh:Data->Mesh;
-    P->Damage=Data->Damage;P->ExplosionRadius=Data->ExplosionRadius;P->ExplosionInnerRadius=Data->ExplosionInnerRadius;P->BlockExplosion=Data->BlockExplosion;
-    P->BlastArmorRatio=ERWeaponBallistics::GrenadeArmorRatio(Data->ArmorRatio);
-    P->FuseDuration=Data->FuseDuration;P->bHeld=true;
+    P->Payload=Tuned()->Payload;P->ThrownMesh=Tuned()->ProjectileMesh?Tuned()->ProjectileMesh:Tuned()->Mesh;
+    P->Damage=Tuned()->Damage;P->ExplosionRadius=Tuned()->ExplosionRadius;P->ExplosionInnerRadius=Tuned()->ExplosionInnerRadius;P->BlockExplosion=Tuned()->BlockExplosion;
+    P->BlastArmorRatio=ERWeaponBallistics::GrenadeArmorRatio(Tuned()->ArmorRatio);
+    P->FuseDuration=Tuned()->FuseDuration;P->bHeld=true;
     P->Movement->InitialSpeed=0;P->Movement->MaxSpeed=10000.f;P->Movement->Velocity=FVector::ZeroVector;
     CookedGrenade=P;bCookingGrenade=true;--MagazineAmmo;++AuthorizedShotCount;
     const double Now=GetWorld()->GetTimeSeconds();
-    NextAllowedShotTime=Now+Data->ShotInterval;Character->Health->ProtectionEndServerTime=0;
+    NextAllowedShotTime=Now+Tuned()->ShotInterval;Character->Health->ProtectionEndServerTime=0;
     UGameplayStatics::FinishSpawningActor(P,Transform);ForceNetUpdate();Character->ForceNetUpdate();
     UE_LOG(LogTemp,Display,TEXT("ER_GRENADE_ARM kind=%d fuse=%.2f ammo=%d"),int32(P->Payload),P->FuseDuration,MagazineAmmo);
 }
@@ -429,20 +446,20 @@ void AERWeapon::TryFire()
     Eye = Character->Camera->GetComponentLocation();
     FCollisionQueryParams Params(SCENE_QUERY_STAT(ERRifle), false, Character); Params.AddIgnoredActor(this);
     FHitResult ViewHit;
-    const FVector Far = Eye + Aim.Vector() * FMath::Max(1.f, Data->HitscanRange);
-    const bool bViewHit = Data->Payload == EERPayload::Bullet && Data->bUseBodyHitZones ?
+    const FVector Far = Eye + Aim.Vector() * FMath::Max(1.f, Tuned()->HitscanRange);
+    const bool bViewHit = Tuned()->Payload == EERPayload::Bullet && Tuned()->bUseBodyHitZones ?
         ERShotTrace::Pellet(GetWorld(), ViewHit, Eye, Far, Params) :
         GetWorld()->LineTraceSingleByChannel(ViewHit, Eye, Far, ECC_GameTraceChannel1, Params);
     const FVector Target = bViewHit ? ViewHit.ImpactPoint : Far;
     FVector IntendedMuzzle = Eye + Aim.RotateVector(FVector(45, 12, -12));
-    if(Data->Payload==EERPayload::LaunchedHE && Character->GetIronAimBlend()>0)
+    if(Tuned()->Payload==EERPayload::LaunchedHE && Character->GetIronAimBlend()>0)
     {
         // Use the raised rig in the authoritative aim frame, never a client camera
         // cache (remote pawns have no local camera manager view on the server).
         const FVector LocalMuzzle=Character->Camera->GetComponentTransform().InverseTransformPosition(Character->GetVisualMuzzle(true));
         FMinimalViewInfo View;
         View.Location=Eye;View.Rotation=Aim;
-        View.FOV=FMath::Lerp(90.f,Data->ZoomFOV,Character->GetIronAimBlend());
+        View.FOV=FMath::Lerp(90.f,Tuned()->ZoomFOV,Character->GetIronAimBlend());
         View.FirstPersonFOV=90.f;View.FirstPersonScale=.2f;
         // Keep full projectile depth while matching the viewmodel's screen position.
         const FVector RaisedMuzzle=View.TransformWorldToFirstPerson(Eye+Aim.RotateVector(LocalMuzzle),true);
@@ -450,18 +467,18 @@ void AERWeapon::TryFire()
     }
     LastShotAimDirection = (Target - IntendedMuzzle).GetSafeNormal();
     LastShotSpreadDegrees = GetSpreadDegrees();
-    const float ShotInaccuracy=Data->bUseWorksheetAccuracy ? GetWorksheetInaccuracy() : 0.f;
-    LastShotDirection = Data->bUseWorksheetAccuracy ?
+    const float ShotInaccuracy=Tuned()->bUseWorksheetAccuracy ? GetWorksheetInaccuracy() : 0.f;
+    LastShotDirection = Tuned()->bUseWorksheetAccuracy ?
         ERWeaponAccuracy::Sample(LastShotAimDirection,GetAccuracyMode().Spread,ShotInaccuracy,ShotRandom) :
         ShotRandom.VRandCone(LastShotAimDirection, FMath::DegreesToRadians(LastShotSpreadDegrees));
     FHitResult MuzzleHit;
     const bool bBlocked = GetWorld()->SweepSingleByChannel(MuzzleHit, Eye, IntendedMuzzle, FQuat::Identity, ECC_GameTraceChannel1, FCollisionShape::MakeSphere(3), Params);
-    if (Data->Payload != EERPayload::Melee) --MagazineAmmo;
-    NextAllowedShotTime = Now + Data->ShotInterval; Character->Health->ProtectionEndServerTime = 0;
+    if (Tuned()->Payload != EERPayload::Melee) --MagazineAmmo;
+    NextAllowedShotTime = Now + Tuned()->ShotInterval; Character->Health->ProtectionEndServerTime = 0;
     // Only an authorized shot changes burst buildup. Owners recover it against the server clock.
     const float MovingBurst=HasOpticalScope() && ScopeLevel && !IsPrecisionCrouched() ?
         1.f+FMath::Clamp(Character->GetVelocity().Size2D()/277.78f,0.f,1.f)*2.f : 1.f;
-    if(Data->bUseWorksheetAccuracy)
+    if(Tuned()->bUseWorksheetAccuracy)
     {
         const float Remaining=GetFiringInaccuracy();
         AccuracyBurstShots=bNewAccuracyBurst || Remaining<.0001f ? 1 : FMath::Min(AccuracyBurstShots+1,1000);
@@ -470,56 +487,56 @@ void AERWeapon::TryFire()
         AccuracyRecoveryTime=ERWeaponAccuracy::Recovery(GetAccuracyMode(),GetAccuracyLowBlend(),AccuracyBurstShots);
         AccuracyRecoveryServerTime=Now;
     }
-    else BloomAtLastShot = FMath::Min(GetBloomDegrees() + Data->BloomPerShotDegrees*GetScopeRecoilMultiplier()*MovingBurst, Data->MaxBloomDegrees);
+    else BloomAtLastShot = FMath::Min(GetBloomDegrees() + Tuned()->BloomPerShotDegrees*GetScopeRecoilMultiplier()*MovingBurst, Tuned()->MaxBloomDegrees);
     LastSpreadShotServerTime = Now;
-    if (Data->bUseWorksheetRecoil && Data->Payload==EERPayload::Bullet)
+    if (Tuned()->bUseWorksheetRecoil && Tuned()->Payload==EERPayload::Bullet)
     {
         if (Now-LastRecoilShotTime>ERWeaponRecoil::PatternResetSeconds) RecoilShotIndex=0;
-        LastRecoilImpulse=ERWeaponRecoil::Sample(GetRecoilMode(),Data->bRandomRecoilPattern,
-            Data->RecoilPatternSeed,RecoilShotIndex++,RecoilRandom);
+        LastRecoilImpulse=ERWeaponRecoil::Sample(GetRecoilMode(),Tuned()->bRandomRecoilPattern,
+            Tuned()->RecoilPatternSeed,RecoilShotIndex++,RecoilRandom);
         LastRecoilShotTime=Now;
         // After sampling this bullet, before clearing an AWP's optical mode.
         // One impulse per shell, not per pellet or cosmetic multicast.
         Character->AddWeaponRecoil(LastRecoilImpulse);
     }
     ForceNetUpdate();
-    if (ScopeLevel && Data->bUnscopeAfterShot) ClearScope();
+    if (ScopeLevel && Tuned()->bUnscopeAfterShot) ClearScope();
     ++AuthorizedShotCount;
     LastShotTraceCount = 0;
     LastShotPelletHits.Reset();
-    if (Data->Payload == EERPayload::Melee)
+    if (Tuned()->Payload == EERPayload::Melee)
     {
         // Short, server-selected first-hit melee query; walls still block it.
         FHitResult Hit;
         LastShotTraceStart = Eye;
-        LastShotTraceEnd = Eye + Aim.Vector() * FMath::Clamp(Data->HitscanRange, 1.f, 180.f);
+        LastShotTraceEnd = Eye + Aim.Vector() * FMath::Max(1.f,Tuned()->HitscanRange);
         LastShotTraceCount = 1;
         if (ERShotTrace::Pellet(GetWorld(), Hit, Eye, LastShotTraceEnd, Params))
         {
             LastShotTraceEnd = Hit.ImpactPoint;
-            UGameplayStatics::ApplyPointDamage(Hit.GetActor(), Data->Damage, Aim.Vector(), Hit,
+            UGameplayStatics::ApplyPointDamage(Hit.GetActor(), Tuned()->Damage, Aim.Vector(), Hit,
                 Character->Controller, this, UDamageType::StaticClass());
         }
         Character->MulticastShot(Eye, LastShotTraceEnd, false, Data);
     }
-    else if (Data->Payload == EERPayload::Bullet)
+    else if (Tuned()->Payload == EERPayload::Bullet)
     {
-        const int32 PelletCount = FMath::Clamp(Data->Pellets, 1, 16);
+        const int32 PelletCount = FMath::Clamp(Tuned()->Pellets, 1, 16);
         FVector FeedbackEnd = IntendedMuzzle;
         // At contact distance the locomotion capsule may overlap the intended muzzle.
         // Start at the eye and still resolve anatomy instead of assigning a fake chest hit.
-        const bool ContactPawn=Data->bUseBodyHitZones && bBlocked && Cast<AERCharacter>(MuzzleHit.GetActor());
+        const bool ContactPawn=Tuned()->bUseBodyHitZones && bBlocked && Cast<AERCharacter>(MuzzleHit.GetActor());
         const FVector PelletStart=ContactPawn ? Eye : IntendedMuzzle;
         const bool PelletBlocked=bBlocked && !ContactPawn;
         for (int32 Pellet = 0; Pellet < PelletCount; ++Pellet)
         {
-            const FVector Direction = Data->bUseWorksheetAccuracy ? (Pellet==0 ? LastShotDirection :
-                ERWeaponAccuracy::Sample(LastShotAimDirection,GetAccuracyMode().Spread,ShotInaccuracy,ShotRandom)) : Data->bUseBodyHitZones && PelletCount > 1 ?
-                ERWeaponBallistics::PelletDirection(LastShotDirection,Pellet,PelletCount,Data->PelletSpreadDegrees,ShotRandom) :
+            const FVector Direction = Tuned()->bUseWorksheetAccuracy ? (Pellet==0 ? LastShotDirection :
+                ERWeaponAccuracy::Sample(LastShotAimDirection,GetAccuracyMode().Spread,ShotInaccuracy,ShotRandom)) : Tuned()->bUseBodyHitZones && PelletCount > 1 ?
+                ERWeaponBallistics::PelletDirection(LastShotDirection,Pellet,PelletCount,Tuned()->PelletSpreadDegrees,ShotRandom) :
                 (Pellet == 0 ? LastShotDirection : ShotRandom.VRandCone(LastShotAimDirection, FMath::DegreesToRadians(LastShotSpreadDegrees)));
             FHitResult Hit = MuzzleHit;
-            const FVector TraceEnd = PelletStart + Direction * FMath::Max(1.f, Data->HitscanRange);
-            const bool bHit = PelletBlocked || (Data->bUseBodyHitZones ? ERShotTrace::Pellet(GetWorld(),Hit,PelletStart,TraceEnd,Params) :
+            const FVector TraceEnd = PelletStart + Direction * FMath::Max(1.f, Tuned()->HitscanRange);
+            const bool bHit = PelletBlocked || (Tuned()->bUseBodyHitZones ? ERShotTrace::Pellet(GetWorld(),Hit,PelletStart,TraceEnd,Params) :
                 GetWorld()->LineTraceSingleByChannel(Hit, IntendedMuzzle, TraceEnd, ECC_GameTraceChannel1, Params));
             ++LastShotTraceCount;
             if (Pellet == 0)
@@ -533,8 +550,8 @@ void AERWeapon::TryFire()
                 auto* Room = Cast<AERBlockRoom>(Hit.GetActor());
                 if (!bBlocked && Room && Room->CanMutateBlocks())
                 {
-                    const auto Shot = ERBlockCombat::ContinueShot(GetWorld(), Hit, IntendedMuzzle, Direction, Data->HitscanRange,
-                        Data->Damage, Data->BlockShot, Params, Character->Controller, this);
+                    const auto Shot = ERBlockCombat::ContinueShot(GetWorld(), Hit, IntendedMuzzle, Direction, Tuned()->HitscanRange,
+                        Tuned()->Damage, Tuned()->BlockShot, Params, Character->Controller, this);
                     LastShotTraceCount += Shot.ExtraTraces;
                     if (Pellet == 0) LastShotTraceEnd = FeedbackEnd = Shot.End;
                     const auto& Terminal = Shot.TerminalHit;
@@ -544,14 +561,14 @@ void AERWeapon::TryFire()
                 else
                 {
                     // Ordinary maps and blocked muzzles retain their first-hit behaviour.
-                    UGameplayStatics::ApplyPointDamage(Hit.GetActor(), Data->Damage, Direction, Hit,
+                    UGameplayStatics::ApplyPointDamage(Hit.GetActor(), Tuned()->Damage, Direction, Hit,
                         Character->Controller, this, UDamageType::StaticClass());
                     if (Hit.GetActor() && !Hit.GetActor()->IsA<APawn>())
                         MulticastImpact(Hit.ImpactPoint, Hit.ImpactNormal, FMath::FRandRange(0.f, 360.f), uint8(FMath::RandRange(0, 3)));
                 }
             }
         }
-        const bool bTracer = Data->TracerEveryNShots > 0 && (AuthorizedShotCount - 1) % uint32(Data->TracerEveryNShots) == 0;
+        const bool bTracer = Tuned()->TracerEveryNShots > 0 && (AuthorizedShotCount - 1) % uint32(Tuned()->TracerEveryNShots) == 0;
         Character->MulticastShot(LastShotTraceStart, FeedbackEnd, bTracer, Data);
     }
     else
@@ -561,28 +578,28 @@ void AERWeapon::TryFire()
         auto* Projectile = GetWorld()->SpawnActorDeferred<AERProjectile>(ProjectileClass, FTransform(LastShotDirection.Rotation(), LaunchPosition), this, Character, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
         if (Projectile)
         {
-            Projectile->Damage = Data->Damage;
-            Projectile->Payload = Data->Payload;
-            Projectile->ThrownMesh = Data->ProjectileMesh ? Data->ProjectileMesh : (Data->bOneHanded ? Data->Mesh : nullptr);
-            Projectile->ExplosionRadius = Data->ExplosionRadius;
-            Projectile->ExplosionInnerRadius = Data->ExplosionInnerRadius;
-            Projectile->BlockExplosion = Data->BlockExplosion;
-            Projectile->BlastArmorRatio = ERWeaponBallistics::GrenadeArmorRatio(Data->ArmorRatio);
-            Projectile->FuseDuration = Data->FuseDuration;
+            Projectile->Damage = Tuned()->Damage;
+            Projectile->Payload = Tuned()->Payload;
+            Projectile->ThrownMesh = Tuned()->ProjectileMesh ? Tuned()->ProjectileMesh : (Tuned()->bOneHanded ? Tuned()->Mesh : nullptr);
+            Projectile->ExplosionRadius = Tuned()->ExplosionRadius;
+            Projectile->ExplosionInnerRadius = Tuned()->ExplosionInnerRadius;
+            Projectile->BlockExplosion = Tuned()->BlockExplosion;
+            Projectile->BlastArmorRatio = ERWeaponBallistics::GrenadeArmorRatio(Tuned()->ArmorRatio);
+            Projectile->FuseDuration = Tuned()->FuseDuration;
             const FVector LaunchVelocity=GetLaunchVelocity(LastShotDirection);
             Projectile->ReleasedFrom=LaunchPosition;
             Projectile->ReleasedVelocity=LaunchVelocity;
             Projectile->Movement->InitialSpeed = LaunchVelocity.Size();
             // Fuse projectiles must not hit different falling-speed caps when zoom changes range.
-            Projectile->Movement->MaxSpeed = AERProjectile::UsesFuse(Data->Payload) ? 10000.f : Data->ProjectileSpeed;
+            Projectile->Movement->MaxSpeed = AERProjectile::UsesFuse(Tuned()->Payload) ? 10000.f : Tuned()->ProjectileSpeed;
             Projectile->Movement->Velocity = LaunchVelocity;
-            Projectile->SetLifeSpan(Data->ProjectileLife);
+            Projectile->SetLifeSpan(Tuned()->ProjectileLife);
             UGameplayStatics::FinishSpawningActor(Projectile, Projectile->GetActorTransform());
         }
         Character->MulticastShot(IntendedMuzzle, IntendedMuzzle + LastShotDirection * 250, false, Data);
     }
     if (MagazineAmmo <= 0) StopFire();
-    else if (bWantsFire && Data->bAutomatic) GetWorldTimerManager().SetTimer(FireTimer, this, &AERWeapon::TryFire, Data->ShotInterval, false);
+    else if (bWantsFire && Tuned()->bAutomatic) GetWorldTimerManager().SetTimer(FireTimer, this, &AERWeapon::TryFire, Tuned()->ShotInterval, false);
 }
 void AERWeapon::MulticastImpact_Implementation(FVector_NetQuantize Position, FVector_NetQuantizeNormal Normal, float Roll, uint8 Variant)
 {
@@ -593,18 +610,18 @@ void AERWeapon::MulticastImpact_Implementation(FVector_NetQuantize Position, FVe
 }
 void AERWeapon::Reload()
 {
-    if (!CanFight() || bPlacingClaymore || bReloading || bCookingGrenade || MagazineAmmo >= Data->MagazineSize || Data->Payload == EERPayload::Melee) return;
+    if (!CanFight() || bPlacingClaymore || bReloading || bCookingGrenade || MagazineAmmo >= Tuned()->MagazineSize || Tuned()->Payload == EERPayload::Melee) return;
     // Only authority enters CanFight; labs replenish reserve, retaining reload timing.
-    if (!CastChecked<AERCharacter>(GetOwner())->bPresetInventory && GetWorld()->GetMapName().Contains(TEXT("Lab"))) ReserveAmmo = FMath::Max(ReserveAmmo, Data->MagazineSize);
+    if (!CastChecked<AERCharacter>(GetOwner())->bPresetInventory && GetWorld()->GetMapName().Contains(TEXT("Lab"))) ReserveAmmo = FMath::Max(ReserveAmmo, Tuned()->MagazineSize);
     if (ReserveAmmo <= 0) return;
     StopFire(); ClearScope(); bReloading = true;
-    GetWorldTimerManager().SetTimer(ReloadTimer, this, &AERWeapon::FinishReload, Data->ReloadDuration, false);
+    GetWorldTimerManager().SetTimer(ReloadTimer, this, &AERWeapon::FinishReload, Tuned()->ReloadDuration, false);
 }
 void AERWeapon::FinishReload()
 {
     if (CanFight() && bReloading)
     {
-        const int32 Transfer = FMath::Min(Data->MagazineSize - MagazineAmmo, ReserveAmmo);
+        const int32 Transfer = FMath::Min(Tuned()->MagazineSize - MagazineAmmo, ReserveAmmo);
         MagazineAmmo += Transfer; ReserveAmmo -= Transfer;
     }
     bReloading = false;

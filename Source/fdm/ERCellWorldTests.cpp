@@ -341,7 +341,7 @@ bool FERCellNetTransactionTest::RunTest(const FString& Parameters)
     auto* Client = World->SpawnActor<AERBlockRoom>(); Client->SetRole(ROLE_SimulatedProxy); Client->bNetworkBegunPlay = true;
     const int32 Shards = FMath::DivideAndRoundUp(Server->GetCellWorld().GetChunks().Num(), AERCellNetShard::Capacity);
     auto& N = Client->Network;
-    N.Epoch = 1; N.Protocol = 9; N.Cells = true; N.CellSettings = Server->CellSettings; N.Blocks = Server->Config;
+    N.Epoch = 1; N.Protocol = 10; N.Cells = true; N.CellSettings = Server->CellSettings; N.Blocks = Server->Config;
     N.BlockCount = int32(Server->GetCellWorld().GetCellCount()); N.LayoutDigest = Server->GetLayoutDigest(); N.Sequence = 1; N.PageVersions.Init(1, Shards);
     Client->OnRep_Network();
     TestTrue(TEXT("client built cells from the descriptor"), Client->GetCellWorld().GetCellCount() > 0 && !Client->bNetworkError);
@@ -403,10 +403,14 @@ bool FERCellNetTransactionTest::RunTest(const FString& Parameters)
     for (auto* S : Pages) { S->Chunks.Items.Reset(); S->Header.Epoch = 2; S->Header.Version = 1;S->Header.ChunkCount=0;S->Header.PayloadDigest=0; Client->ReceiveCellShard(S); }
     TestTrue(TEXT("new epoch ready"), Client->IsMapReady());
     TestEqual(TEXT("stale removals cleared"), Client->GetCellWorld().GetRemovedCount(), int64(0));
-    N.Epoch = 3; N.Protocol = 99;
+    N.Epoch = 3; N.Protocol = 109;
     AddExpectedError(TEXT("ER_BLOCK_NET_INCOMPATIBLE descriptor"), EAutomationExpectedErrorFlags::Contains, 1);
     Client->OnRep_Network();
     TestTrue(TEXT("protocol mismatch fails closed"), Client->bNetworkError);
+    N.Epoch=4;N.Protocol=10;N.BlockCount=8000001;
+    AddExpectedError(TEXT("ER_BLOCK_NET_INCOMPATIBLE descriptor"),EAutomationExpectedErrorFlags::Contains,1);
+    Client->OnRep_Network();
+    TestTrue(TEXT("ordinary rooms retain the 8M descriptor limit"),Client->bNetworkError);
     World->DestroyWorld(false);
     return true;
 }

@@ -123,7 +123,7 @@ void UEROnline::Continue()
     if (auto* Player = GI->GetFirstGamePlayer()) Player->SetCachedUniqueNetId(Identity->GetUniquePlayerId(0));
     if (bHostAfterLogin)
     {
-        GI->SaveServerSettings();
+        GI->CommitServerRules();
         FOnlineSessionSettings Settings;
         Settings.Set(OSSEOS_BUCKET_ID_ATTRIBUTE_KEY, FString(TEXT("RespawnAndRage")), EOnlineDataAdvertisementType::ViaOnlineService);
         Settings.bIsLANMatch = false;

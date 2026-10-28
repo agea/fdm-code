@@ -1,5 +1,46 @@
 # Respawn & Rage — sviluppo Unreal
 
+## Village: solo corridoi tratteggiati attraversabili — 28 ottobre2026
+
+Chiuse le campate sotto i due blocchi centrali, lasciando due corridoi obliqui
+per blocco secondo il riferimento. Pareti reali di legno da12cm fino al
+sottopiattaforma, angoli e telai massicci; resta possibile aprire brecce con la
+distruzione normale. Le stanze superiori conservano le loro porte. Aggiornati i
+percorsi laterali per aggirare i volumi chiusi. La pianta diagnostica del piano
+terra mostra le aree chiuse e i soli quattro passaggi. Ricetta6 con backup e
+migrazione idempotente; verificati516 seed, sei varianti fisiche, attraversamento
+reale e client iniziale/tardivo dopo danni e rigenerazione.
+
+## Village: topologia Shoots, palizzata e panorama — 28 ottobre2026, ultima revisione
+
+La nuova pianta fornita sostituisce la disposizione precedente: quattro baracche
+centrali sfalsate su due piattaforme, due depositi bassi e ripari grigi di legno
+massiccio rivestito in lamiera. Ogni spawn ha una galleria rialzata e una
+postazione d'angolo raggiungibili con scale, oltre a una baracca laterale con
+tetto praticabile e scala a pioli. Rimossi i ponti centrali e le case decorative
+esterne. Il recinto usa pali rastremati con altezze/inclinazioni variabili e un
+limite invisibile che blocca i personaggi ma lascia passare i colpi fra i pali.
+Sfondo: panorama originale J&E Gray Park (Greg Zaal / Poly Haven, CC0), citato
+dallo sky dome indicato; sfera originale senza collisioni/ombre e terreno di
+raccordo decorativo. Ricetta5 e migrazione idempotente con backup privati;
+materiali/HP condivisi e altri template protetti. Dettagli in VILLAGE.md.
+
+## Village e tema Jungle — 28 ottobre 2026
+
+Nuovo template Village ispirato ai riferimenti Shoots forniti: due fasce spawn,
+sei baracche centrali rialzate, tre scale per lato e passaggi inferiori in piedi.
+Legno massiccio con più celle di profondità calibrata, lamiera arrugginita,
+perimetro permanente e 64 alberi importati esterni senza collisione. Jungle si
+aggiunge alla libreria conservando la selezione dei temi delle altre mappe.
+Integrati i cinque ZIP forniti: modulo ponte20 con due attraversamenti rialzati,
+due magazzini Old Building adattati con porte passanti, quattro case esterne
+alleggerite a6k triangoli e albero da850 triangoli. Le nuove coperture originali
+usano legno massiccio. Ponti e magazzini hanno distruzione e collisioni dalla
+geometria reale; texture delle case riproiettate a2K, canali UV delle foglie unificati.
+Sorgenti, hash, derivati e crediti CC BY4 conservati privatamente. Importazione
+idempotente tramite Unreal, backup delle revisioni e verifica dei13 asset protetti.
+Dettagli in VILLAGE.md e risultati effettivi in TEST_RESULTS.md.
+
 ## Abiti in movimento e maschera Drongo — 26 ottobre 2026
 
 Le cinque gonne Phase ricevono un asset Chaos cloth ricavato esclusivamente
@@ -3207,3 +3248,94 @@ catalog is unchanged; recipes were backed up before the Unreal migration.
 Metal finish gallery also passed on Central Building seed42 with Desert, with
 five inspected captures and actual rendered material bindings checked against
 the selected shared palette.
+
+
+## Village procedural variety — 28 October2026
+
+Recipe7 adds independent rectangular arena dimensions,1..5 central blocks,
+20..30m widths,6..8m depths and paired horizontal offsets. Odd counts use a
+self-symmetric origin block. Every block retains two restricted ground
+corridors and three enclosed bays. One to three platform storeys have real
+ladder wells, alternating front/back access, supported decks and clear hut
+doors. Total central floors are capped at10. Bases choose paired open gallery,
+canopied porch or enclosed barracks, with varied galleries/lookouts/side shacks.
+All ten starts/team retain support. Timber/metal calibration is unchanged.
+
+The Village skin descriptor uses the existing96M architecture allowance;
+ordinary rooms keep8M and cell storage/chunk validation remains in force.
+The correction was exercised by LAN regeneration to the larger seed73 layout.
+Build,516 layout seeds,15 physical seeds, real stairs/tunnel/upper ladder,
+Metal damage/support/regeneration, network transactions and initial/late peers
+pass. Migration rerun preserves33 owned packages and13 protected packages.
+See docs/VILLAGE.md and private SourceAssets/Village/validation.json.
+
+
+## Temi condivisi — 28 October2026, Jungle su tutti i template
+
+Industrial, Desert and Jungle are now sampled by all five production templates
+from the same independent cosmetic stream. The Village-only Jungle constraint
+and Jungle exclusion on other templates are removed. Jungle's coordinated steel
+roles reuse existing gray sheets, galvanized access and dark deck finishes.
+Village imported skins/cladding follow Industrial/Desert too, while Jungle keeps
+their authored surfaces. Exterior terrain matches the selected playable ground.
+The legacy Village.Theme property is retained only for serialized compatibility.
+
+Only DA_MapThemes is saved, with rollback and50 protected-package hashes.
+All23 destruction tests, the5×32 theme matrix, real Metal Central-Jungle and
+Village Industrial→Desert, and initial/late LAN Desert→Jungle pass. Migration
+rerun preserves51 packages. See SourceAssets/MapTemplates/shared-jungle-validation.json.
+
+
+## Village lateral cover — 28 October2026, recipe8
+
+Village side walls rise from125cm to240cm. Sparse variants get four walls,
+700cm wide with one central block or580cm with two; denser maps retain two
+260cm walls. Timber cores remain24cm with2mm metal faces/top caps and ordinary
+damage. Standing bypasses route around each inner end. Sparse base approaches
+reserve another3m per side so widened barriers avoid stairs and spawn structures.
+Bounds and bypasses are transient metadata, included in native plans/manifest.
+
+Build,516 symmetric layouts,15 physical cases across three deck heights,
+real pawn side bypass/damage, Metal and initial/late LAN one→two blocks PASS.
+Only DA_Village advances to recipe8; verified rollback,33-package idempotency
+and13 protected hashes retained. See docs/VILLAGE.md and the private receipt.
+
+
+## Alleys procedural houses — 28 October2026
+
+La geometria delle case importate viene sostituita con moduli nativi in muratura,
+conservando lo stile, le finiture condivise e la distruttibilità. Porte160×240cm
+indipendenti dalla scala del lotto, pavimento piano15cm, finestre e tetti piani.
+I tetti alternano superfici a filo e muretti bassi25×40cm, con aperture180cm
+agli accessi e fra edifici vicini. I tratti residui sono raggiungibili col normale
+gradino da30cm. Nessun oggetto o scala importata negli interni.
+Le scale esterne esistenti mantengono accesso ai tetti; i passaggi fra tetti vicini
+con poco dislivello hanno metadati dedicati e verifiche fisiche.
+
+Una skin procedurale per edificio mantiene il percorso esistente di danno,
+supporti e rete. Ricetta8 (marker geometria7), sola DA_MiddleEasternAlleys salvata
+attraverso Unreal, rollback verificato e68 package protetti. Originali delle case,
+arco e libreria condivisa preservati. Esiti eseguiti in TEST_RESULTS.md.
+
+Build,516 candidate seeds, all23 destruction regressions, six Alleys physics
+worlds, real pawn entry/stairs/rim/bidirectional jumps and both Metal network
+probes (normal traversal and architecture damage/fall/collapse) pass. Initial
+and late peers match before/after damage and after seed regeneration on this
+Mac. See the procedural-house receipt and validation in private map sources.
+
+
+## Impostazioni del server — 28 ottobre 2026
+
+Configurazione centralizzata delle meccaniche esistenti: categorie base/avanzate,
+valori e unità, ripristino per voce/sezione/globale, preset locali nominati.
+La configurazione scelta all'avvio resta autorevole durante lobby e viaggi mappa;
+i client consultano le regole attive senza applicare le proprie preferenze.
+Armi e materiali usano copie runtime; kit, HUD, movimento e stamina leggono gli
+stessi valori del server. Il protocollo celle10 include la taratura materiali
+nel descrittore. Rotazione/voti filtrano le sole mappe di produzione abilitate.
+
+Rimossa la letalità forzata delle Claymore: danno ordinario con distanza, cono,
+coperture e armatura. Il sensore è una percentuale del raggio del danno; i laser
+replicano la sua geometria effettiva. Rimossa anche la soglia nascosta minima di
+penetrazione armatura delle HE. Nessuna nuova rigenerazione, respawn automatico,
+difficoltà bot o limite di mine. Dettagli e verifiche: SERVER_SETTINGS.md.
