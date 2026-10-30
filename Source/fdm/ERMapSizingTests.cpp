@@ -179,7 +179,7 @@ bool FERMapSizingTest::RunTest(const FString&)
             if(!TestTrue(*FString::Printf(TEXT("%s %dv%d seed%d builds valid geometry"),*Id,TeamSize,TeamSize,Seed),ERProcedural::Build(C,B,L)))return false;
             TestTrue(TEXT("actual arena dimensions in metres are positive and finite"),!L.ArenaSize.ContainsNaN() && L.ArenaSize.GetMin()>0);
             TestTrue(TEXT("500 square metres per expected player, within ten percent"),ERProcedural::ValidTeamArea(L.ArenaSize,TeamSize));
-            RoomCounts.Add(L.Rooms.Num());BlockCounts.Add(L.VillageBlocks.Num());Bounds.Add({FMath::RoundToInt(L.ArenaSize.X),FMath::RoundToInt(L.ArenaSize.Y)});
+            RoomCounts.Add(L.Rooms.Num());BlockCounts.Add(L.VillageBlocks.Num());Bounds.Add({FMath::RoundToInt32(L.ArenaSize.X),FMath::RoundToInt32(L.ArenaSize.Y)});
             TestTrue(TEXT("starts remain independent of expected team size"),L.AlphaSpawns.Num()>=8 && L.OmegaSpawns.Num()==L.AlphaSpawns.Num());
             for(int32 I=0;I<L.AlphaSpawns.Num();++I)
             {auto P=L.AlphaSpawns[I].GetLocation();P.X=-P.X;P.Y=-P.Y;TestTrue(TEXT("equal paired spawn distances"),P.Equals(L.OmegaSpawns[I].GetLocation(),.02));}

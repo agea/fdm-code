@@ -150,8 +150,8 @@ void AERFieldClothingProbe::TickPreview()
         Preview=GetWorld()->SpawnActor<AERMenuPreview>(FVector(0,0,-20000),FRotator::ZeroRotator);
         const int32 Selected=ChosenSkin();
         const bool Omega=Selected>=10;
-        const FName Role=Selected==18?FName("grenadier"):Selected==16?FName("rifleman"):FName("sniper");
-        const auto Kit=ERLoadouts::Resolve(Role,"gunner",Omega,Subject);
+        const FName LoadoutRole=Selected==18?FName("grenadier"):Selected==16?FName("rifleman"):FName("sniper");
+        const auto Kit=ERLoadouts::Resolve(LoadoutRole,"gunner",Omega,Subject);
         int32 CoatStudy=0;FParse::Value(FCommandLine::Get(),TEXT("EROfficerCoatStudy="),CoatStudy);
         const int32 Skin=CoatStudy?0:Selected>=0?Selected%10:Kit.Skin;
         const auto& Appearance=Omega?Subject->OmegaSkins[Skin]:Subject->AlphaSkins[Skin];

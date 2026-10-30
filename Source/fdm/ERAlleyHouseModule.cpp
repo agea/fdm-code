@@ -63,7 +63,7 @@ void FinishAlleyHouseModules(const UERMapTemplate& T,const TArray<FERMapTemplate
     P.Skin.Reset();
     for(int32 Face=0;Face<4;++Face)
     {
-        const int32 Axis=Face/2,Along=1-Axis;const bool Positive=Face%2;
+        const int32 Axis=Face/2,Along=1-Axis;const bool Positive=(Face%2)!=0;
         const float Length=Size[Along]-(Axis==1 ? 2*Wall:0),Start=Axis==1 ? Wall:0;
         if(Cap>0)
         {
