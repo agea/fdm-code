@@ -308,7 +308,7 @@ void AERReconDirector::ConfigureMap()
             if (!GetWorld()->LineTraceSingleByChannel(Ground,Spawn+Offset+FVector(0,0,120),Spawn+Offset-FVector(0,0,350),ECC_Visibility,Query) || Ground.ImpactNormal.Z < .8) continue;
             Placement = Ground.ImpactPoint+FVector(0,0,2);
             if (FMath::Abs(Placement.Z-(Spawn.Z-92.5)) > 100) continue;
-            const float LaunchTop=ClosedRooms ? Spawn.Z+Procedural->LayoutConfig.TemplateAsset->Rooms.CorridorHeight-120:Frame.Indoor>0 ? Frame.Indoor-20:Frame.Top+1200;
+            const float LaunchTop=ClosedRooms ? Spawn.Z+FMath::Max(560.f,Procedural->LayoutConfig.TemplateAsset->Rooms.CorridorHeight)-120:Frame.Indoor>0 ? Frame.Indoor-20:Frame.Top+1200;
             if (GetWorld()->LineTraceTestByChannel(Placement+FVector(0,0,70),FVector(Placement.X,Placement.Y,LaunchTop),ECC_Visibility,Query)) continue;
             Placed = !GetWorld()->OverlapBlockingTestByChannel(Placement+FVector(0,0,25),FQuat::Identity,ECC_Pawn,FCollisionShape::MakeBox(FVector(45,40,24)),Query);
             for (TActorIterator<AERTeamPlayerStart> It(GetWorld()); It && Placed; ++It)

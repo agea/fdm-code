@@ -34,7 +34,7 @@ bool BuildRooms(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProc
        B.BlockSize!=FVector(50,20,25) || !FMath::IsFinite(B.ChunkSize) || B.ChunkSize<100 ||
        R.MinLaneRooms<1 || R.MaxLaneRooms>4 || R.MinLaneRooms>R.MaxLaneRooms ||
        !FMath::IsFinite(R.CorridorWidth) || R.CorridorWidth<320 || R.CorridorWidth>400 ||
-       !FMath::IsFinite(R.CorridorHeight) || R.CorridorHeight<300 || R.CorridorHeight>360 ||
+       !FMath::IsFinite(R.CorridorHeight) || R.CorridorHeight<300 || R.CorridorHeight>700 ||
        !FMath::IsFinite(R.CornerCut) || R.CornerCut<30 || R.CornerCut>65 || R.Themes.Num()!=3 ||
        T->Town.Enabled || T->Variation.Enabled || !T->Pieces.IsEmpty() || T->RoofMesh || T->ShellWallMesh)return false;
     for(const auto& Theme:R.Themes)if(Theme.Name.IsNone() || !Theme.Wall || !Theme.Floor || !Theme.Ceiling || !Theme.Wood)return false;
@@ -47,7 +47,7 @@ bool BuildRooms(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProc
     if(!FMath::IsFinite(R.NominalRoomSize) || R.NominalRoomSize<0 || !FMath::IsFinite(S) || S<800 || S>2400 || !FMath::IsFinite(R.LaneSpacing) || R.LaneSpacing<800 || R.LaneSpacing>2400 ||
        !FMath::IsFinite(R.LaneOffset) || R.LaneOffset<400 || R.LaneOffset>1700 || !FMath::IsFinite(R.PlanMargin) || R.PlanMargin<300 || R.PlanMargin>1100)return false;
     const bool GroundOnly=T->SizingRoomsGroundOnly || N==1;
-    const float X=S+R.LaneOffset,Y=N==1 ? S+R.LaneSpacing:(N-1)*(S+R.LaneSpacing)*.5f,H=R.CorridorHeight;
+    const float X=S+R.LaneOffset,Y=N==1 ? S+R.LaneSpacing:(N-1)*(S+R.LaneSpacing)*.5f,H=FMath::Max(560.f,R.CorridorHeight);
     auto Turn=[](FVector P){return FVector(-P.X,-P.Y,P.Z);};
     auto Outline=[](FVector2D Size,float Cut)
     {
@@ -57,7 +57,7 @@ bool BuildRooms(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProc
     };
     auto Node=[&](FVector Center,FVector2D Size,float Cut,bool Base=false,bool Junction=false,bool Upper=false)
     {
-        FERRoomsNode V;V.Center=Center;V.Size=Size;V.Base=Base;V.Junction=Junction;V.Upper=Upper;V.Height=Upper ? 820:H;
+        FERRoomsNode V;V.Center=Center;V.Size=Size;V.Base=Base;V.Junction=Junction;V.Upper=Upper;V.Height=Upper ? 1040:H;
         V.Polygon=Outline(Size,Cut);
         return L.RoomNodes.Add(MoveTemp(V));
     };
@@ -192,11 +192,11 @@ bool BuildRooms(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProc
     int32 UpperLeft=2+UpperRow,UpperRight=Mirror(UpperLeft);
     if(!GroundOnly && N%2==0)
     {
-        const int32 J=JointPair({-X,0,720});
-        PairSegment(UpperLeft,J,400,0);UpperLeft=J;UpperRight=Mirror(J);
+        const int32 J=JointPair({-X,0,940});
+        PairSegment(UpperLeft,J,620,0);UpperLeft=J;UpperRight=Mirror(J);
     }
     if(N>1)Segment(SpineA,SpineB);
-    if(!GroundOnly)Segment(UpperLeft,UpperRight,N%2 ? 400:0,N%2 ? 400:0);
+    if(!GroundOnly)Segment(UpperLeft,UpperRight,N%2 ? 620:0,N%2 ? 620:0);
     if(N==1 && HallPassage)
     {
         const auto& Hall=L.RoomNodes[2];
@@ -305,24 +305,24 @@ bool BuildRooms(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProc
         }
         if(V.Upper)
         {
-            // A switchback of two smooth 200cm rises beside the unused outer
+            // A switchback of two smooth 310cm rises beside the unused outer
             // wall. Ground doors and the central crossing retain full headroom.
             const float Sign=Index<2+N ? 1.f:-1.f,A=V.Size.X*.5f-300;
             auto P=[&](float PX,float PY,float Z){return V.Center+FVector(PX*Sign,PY*Sign,Z);};
             const float Y1=-V.Size.Y*.5f+160,Y2=Y1+200;
-            Ramp(P(-A,Y1,0),P(A,Y1,200),160);Ramp(P(A,Y2,200),P(-A,Y2,400),160);
-            Box(P(A+80,(Y1+Y2)*.5f,190),{160,360,20},Theme.Floor);
+            Ramp(P(-A,Y1,0),P(A,Y1,310),160);Ramp(P(A,Y2,310),P(-A,Y2,620),160);
+            Box(P(A+80,(Y1+Y2)*.5f,300),{160,360,20},Theme.Floor);
             const float MinX=-V.Size.X*.5f+40,MaxX=-A,MinY=Y2-95,MaxY=V.Size.Y*.5f-180;
-            Box(P((MinX+MaxX)*.5f,(MinY+MaxY)*.5f,390),{MaxX-MinX,MaxY-MinY,20},Theme.Floor);
+            Box(P((MinX+MaxX)*.5f,(MinY+MaxY)*.5f,610),{MaxX-MinX,MaxY-MinY,20},Theme.Floor);
             // A short solid rail protects the gallery while leaving its entry open.
-            Box(P(MaxX-5,(Y2+100+MaxY)*.5f,450),{10,MaxY-Y2-100,100},Theme.Wood);
-            TArray<FVector> Route{P(-A-100,Y1,100),P(-A,Y1,100),P(A,Y1,300),P(A+80,Y1,300),P(A+80,Y2,300),P(A,Y2,300),P(-A,Y2,500),P(-A-60,Y2,500),P(-A-60,MaxY-80,500)};
+            Box(P(MaxX-5,(Y2+100+MaxY)*.5f,670),{10,MaxY-Y2-100,100},Theme.Wood);
+            TArray<FVector> Route{P(-A-100,Y1,100),P(-A,Y1,100),P(A,Y1,410),P(A+80,Y1,410),P(A+80,Y2,410),P(A,Y2,410),P(-A,Y2,720),P(-A-60,Y2,720),P(-A-60,MaxY-80,720)};
             GalleryPaths.Add(Index,Route);L.StairRoutes.Add(MoveTemp(Route));
             // Continue the landing around the north and inner walls. Upper
             // corridor mouths now open onto a supported gallery, not empty air.
-            Box(P(0,V.Size.Y*.5f-120,390),{V.Size.X-80,240,20},Theme.Floor);
-            Box(P(V.Size.X*.5f-120,(Y2+200+V.Size.Y*.5f-40)*.5f,390),{240,V.Size.Y*.5f-40-Y2-200,20},Theme.Floor);
-            FBox Deck(ForceInit);Deck+=P(MinX,MinY,380);Deck+=P(MaxX,MaxY,400);L.ElevatedDecks.Add(Deck);
+            Box(P(0,V.Size.Y*.5f-120,610),{V.Size.X-80,240,20},Theme.Floor);
+            Box(P(V.Size.X*.5f-120,(Y2+200+V.Size.Y*.5f-40)*.5f,610),{240,V.Size.Y*.5f-40-Y2-200,20},Theme.Floor);
+            FBox Deck(ForceInit);Deck+=P(MinX,MinY,600);Deck+=P(MaxX,MaxY,620);L.ElevatedDecks.Add(Deck);
         }
     }
     for(const auto& E:L.RoomLinks)
@@ -373,7 +373,7 @@ bool BuildRooms(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProc
             if(Portal.Z>V.Center.Z+200 && GalleryPaths.Contains(NodeIndex))
             {
                 Route.Append(GalleryPaths[NodeIndex]);const float Sign=NodeIndex<2+N ? 1.f:-1.f;
-                auto P=[&](float X0,float Y0){return V.Center+FVector(X0*Sign,Y0*Sign,500);};
+                auto P=[&](float X0,float Y0){return V.Center+FVector(X0*Sign,Y0*Sign,720);};
                 const FVector Local=(Portal-V.Center)*Sign;
                 Route.Add(P(-V.Size.X*.5f+140,V.Size.Y*.5f-140));
                 Route.Add(P(Local.X>V.Size.X*.4f ? V.Size.X*.5f-140:Local.X,V.Size.Y*.5f-140));
@@ -464,7 +464,7 @@ bool BuildRooms(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProc
     L.Routes={{L.Spawn,L.RoomNodes[AlphaBase].Center+FVector(0,0,100)},Patrol,{L.OmegaSpawns[0].GetLocation(),L.RoomNodes[OmegaBase].Center+FVector(0,0,100)}};
     if(N==1)L.Routes.Append(SpawnRoutes);
     if(N==1 && HallPassage)L.Routes.Add(L.RoomAccessRoutes.Last());
-    L.ArenaSize={2*(X+S*.5f+R.PlanMargin),2*Y+S+400,1300};
+    L.ArenaSize={2*(X+S*.5f+R.PlanMargin),2*Y+S+400,1700};
     for(const auto& RoomNode:L.RoomNodes)
         if(FMath::Abs(RoomNode.Center.X)+RoomNode.Size.X*.5+20>L.ArenaSize.X*.5 || FMath::Abs(RoomNode.Center.Y)+RoomNode.Size.Y*.5+20>L.ArenaSize.Y*.5)return false;
     // This sealed complex uses ground-level player sight; aerial recon remains

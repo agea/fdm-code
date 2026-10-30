@@ -34,7 +34,7 @@ bool ERProcedural::ConfigureTeamSize(UERMapTemplate& T,int32 TeamSize,int32 Seed
         Envelope(TeamSize==1 ? 1.f:1.25f,3200,3200);
         T.Town.ArenaMin=T.Town.ArenaMax=T.SizingArena;
         T.Town.MinAccesses=2;T.Town.MaxAccesses=TeamSize<=2 ? 2:TeamSize<=4 ? 3:4;
-        T.Town.MinCentralWalls=TeamSize<=4 ? 1:0;T.Town.MaxCentralWalls=TeamSize<=4 ? 1:2;
+        T.Town.MinCentralWalls=0;T.Town.MaxCentralWalls=TeamSize<=4 ? 1:2;
         T.Town.BuildingHeight={400,Grid(500,800)};
         if(TeamSize==1)T.Town.LowCoverAndUnderpass=false;
         break;

@@ -1,3 +1,48 @@
+Alleys/Rooms/hand throws (30 October, latest): team-sized Alleys allows zero
+central walls at every size; existing separators have paired two-sided ladders
+and a walkable crown, with reserved climb aprons before house lot partitioning.
+Procedural house floor/roof skins are separate bounded panels; retain parent
+structure tags, grounded wall support and unanchored roof support contacts.
+Shared themes choose house walls distinct from Stone perimeter finish and slab
+finishes distinct from both. Do not merge slab skins back into the wall panel.
+Rooms corridors have at least560cm headroom (legacy saved340 is upgraded at
+runtime), upper galleries rise620cm with310cm switchbacks; upper junctions,
+routes, room roofs and recon launch limit follow the added clearance.
+Hand throw clarification (latest): ERGrenadeBallistics preserves the original
+level-aim speed and arc: normalize(aim+Z*.35)*ProjectileSpeed, with the original
+horizontal-only range multiplier. Scale this velocity by 1+.2*clamp(pitch/45,-1,1):
++20% at upward45deg, -20% at downward45deg, capped beyond either angle.
+Normalize wrapped pitch. Add character velocity afterwards, preserving running
+and jumping momentum. No automatic45deg lob or blanket15% boost. Keep
+fuse/cooking and launcher tuning.
+Tests: RoomsLayout/Physics, SharedMapThemes, MiddleEasternAlleysLayout/Collision,
+MiddleEasternArchitecture and Weapons.HandThrow. This supersedes older hand
+throw arc and mandatory compact separator notes.
+
+Default settings (30 October, latest): smoke lifetime defaults to24s (was12s),
+with unchanged growth/fade/shape. Balanced is the fresh/default Performance
+preset; SetDefaults and legacy Defaults=1 select it. Preserve saved custom choices.
+
+Character ground contact (30 October, latest): world FeetOffset is calibrated
+from actual foot/ball vertices over the entire idle clip, not reference foot
+bones minus6cm. Previous skins sank5–10cm. Use
+scripts/setup_character_grounding.py after any explicit catalog rebuild; it
+backs up and updates only feet offsets in character/target/corpse catalogs and
+fallbacks. Preserve scale, meshes, animation, FPS, camera and capsule. The
+capsule floor clearance supplies the visible ground gap. Receipts and rollback
+ZIPs live in Saved/Testing/CharacterGrounding.
+
+Shotgun pellet tracers (latest,30 October): the authorized shot multicast
+carries up to16 server-resolved pellet endpoints, including penetration ends.
+Spawn one muzzle-anchored tracer for each endpoint, with one audio/recoil/flash
+event per cartridge. This supersedes single-tracer shotgun presentation.
+
+Tracer cadence (30 October, latest user request): every authorized bullet shot
+shows its tracer on all weapons. Default and saved TracerEveryNShots are now1,
+superseding the earlier one-in-three policy. Preserve rendered muzzle anchoring,
+server endpoints, duration, colours, shotgun one-event-per-cartridge and physical
+projectiles. setup_all_shot_tracers.py migrates only this presentation field.
+
 Competitive character-material safeguard (30 October): user reports orange
 Drongo skin in Central Building only at Competitive; Balanced/Quality look normal.
 Keep r.MaterialQualityLevel=1 (High) when Effects=0, independently of sg.EffectsQuality.

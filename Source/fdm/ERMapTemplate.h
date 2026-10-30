@@ -64,7 +64,7 @@ struct FERRoomsRecipe
     UPROPERTY(EditAnywhere, BlueprintReadWrite) float LaneOffset=1700;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) float PlanMargin=1100;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) float CorridorWidth=360;
-    UPROPERTY(EditAnywhere, BlueprintReadWrite) float CorridorHeight=340;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) float CorridorHeight=560;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) float CornerCut=55;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<FERRoomsTheme> Themes;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> LampSurface;

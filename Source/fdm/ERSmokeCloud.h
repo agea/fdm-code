@@ -23,7 +23,7 @@ public:
     UPROPERTY(Transient) TObjectPtr<class UAudioComponent> ReleaseAudio;
     UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadWrite) FVector SimSize = FVector(880,880,400);
     UPROPERTY(EditDefaultsOnly, BlueprintReadWrite) int32 GridResolution = 40;
-    UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadWrite) float Duration = 12;
+    UPROPERTY(Replicated, EditDefaultsOnly, BlueprintReadWrite) float Duration = 24;
     UPROPERTY(Replicated) float GrowthSeconds=2.2f;
     UPROPERTY(Replicated) float FadeSeconds=4.f;
     UPROPERTY(Replicated) float DensityScale=1.f;

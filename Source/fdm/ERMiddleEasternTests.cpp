@@ -119,6 +119,17 @@ bool FERAlleysCollisionTest::RunTest(const FString& Parameters)
             for(int32 Wall=0;Wall<L.DistrictWallCount;++Wall)
             {
                 const float Y=L.DistrictWallCount==1 ? 0:(Wall ? 1.f:-1.f)*L.DistrictWallOffset;
+                int32 Climbs=0;
+                for(const auto& Ladder:L.Ladders)if(FMath::IsNearlyEqual(Ladder.DeckHeight,1300.f) && FMath::Abs(Ladder.Frame.GetLocation().Y-Y)<200)
+                {
+                    ++Climbs;
+                    const FVector Exit=Ladder.Frame.TransformPosition({-100,0,1400});
+                    TestFalse(TEXT("wall roof ladder exit admits standing pawn"),World->OverlapBlockingTestByChannel(Exit,FQuat::Identity,ECC_Pawn,Capsule,Q));
+                    TestTrue(TEXT("wall roof ladder lands on a physical deck"),World->LineTraceSingleByChannel(Hit,Exit,Exit-FVector(0,0,150),ECC_WorldStatic,Q) && FMath::IsNearlyEqual(Hit.ImpactPoint.Z,1300.f,1.f));
+                    const FVector Across(Exit.X,Y*2-Exit.Y,Exit.Z);
+                    TestFalse(TEXT("pawn crosses wall over the roof"),World->SweepTestByChannel(Exit,Across,FQuat::Identity,ECC_Pawn,Capsule,Q));
+                }
+                TestEqual(TEXT("each wall has paired climbs on both sides"),Climbs,4);
                 int32 Passages=0;bool WasOpen=false;
                 for(float X=-L.ArenaSize.X*.5f+60;X<L.ArenaSize.X*.5f-60;X+=25)
                 {

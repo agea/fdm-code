@@ -138,7 +138,7 @@ if not edit.connect_material_property(rgb,'',ue.MaterialProperty.MP_EMISSIVE_COL
 if not edit.connect_material_property(alpha,'',ue.MaterialProperty.MP_OPACITY):raise RuntimeError('Opacity output')
 edit.recompile_material(mat);save(mat)
 smoke=load(ROOT+'/Smoke/BP_ERSmokeCloud');d=ue.get_default_object(smoke.generated_class())
-for key,value in dict(volume_material=mat,volume_mesh=load('/Engine/BasicShapes/Cube'),system=None,sim_size=ue.Vector(880,880,400),duration=12,smoke_color=ue.LinearColor(.30,.31,.32,1)).items():d.set_editor_property(key,value)
+for key,value in dict(volume_material=mat,volume_mesh=load('/Engine/BasicShapes/Cube'),system=None,sim_size=ue.Vector(880,880,400),duration=24,smoke_color=ue.LinearColor(.30,.31,.32,1)).items():d.set_editor_property(key,value)
 d.get_editor_property('fumes').set_asset(None)
 d.get_editor_property('volume').set_static_mesh(load('/Engine/BasicShapes/Cube'))
 d.get_editor_property('volume').set_material(0,mat)
@@ -146,7 +146,7 @@ ue.BlueprintEditorLibrary.compile_blueprint(smoke);save(smoke)
 projectile=load('/Game/EclipseRecoil/Weapons/BP_ERProjectile');d=ue.get_default_object(projectile.generated_class())
 d.set_editor_property('grenade_explosion_class',he.generated_class());d.set_editor_property('smoke_cloud_class',smoke.generated_class())
 ue.BlueprintEditorLibrary.compile_blueprint(projectile);save(projectile)
-report={'he':burst.get_path_name(),'he_scale':.55,'he_duration':3,'smoke_shape':'hemisphere','smoke_size_cm':[880,880,400],'containment_grid':[16,16,8],'raymarch_steps':48,'smoke_duration':12,'max_clouds':4,'max_bursts':8,'wall_test':'whole-cell overlap and neighbour sweep','dynamic_blocks':'revision refresh every .75s','global_fog_changed':False,'launcher_impact_detonation':False,'smoke_manual_opaque_depth_clip':True,'smoke_camera_inside':True,'he_fire_enabled':False,'he_flash_seconds':.065,'he_smoke_particles':3,'he_ground_chips':[3,6],'he_ground_trace_cm':60}
+report={'he':burst.get_path_name(),'he_scale':.55,'he_duration':3,'smoke_shape':'hemisphere','smoke_size_cm':[880,880,400],'containment_grid':[16,16,8],'raymarch_steps':48,'smoke_duration':24,'max_clouds':4,'max_bursts':8,'wall_test':'whole-cell overlap and neighbour sweep','dynamic_blocks':'revision refresh every .75s','global_fog_changed':False,'launcher_impact_detonation':False,'smoke_manual_opaque_depth_clip':True,'smoke_camera_inside':True,'he_fire_enabled':False,'he_flash_seconds':.065,'he_smoke_particles':3,'he_ground_chips':[3,6],'he_ground_trace_cm':60}
 out=Path(ue.Paths.project_dir())/'Assets/weapons/SourceAssets/EpicContentExamples';out.mkdir(parents=True,exist_ok=True)
 (out/'integration.json').write_text(json.dumps(report,indent=2)+'\n')
 ue.log('ER_GRENADE_EFFECTS_READY '+json.dumps(report))

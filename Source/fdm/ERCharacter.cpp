@@ -1215,9 +1215,11 @@ void AERCharacter::UpdateWeaponPresentation()
     MuzzleFlashUntil = 0;
     UE_LOG(LogTemp, Display, TEXT("ER_WEAPON_MODEL name=%s mesh=%s"), *Data->DisplayName, *Data->Mesh->GetPathName());
 }
-void AERCharacter::MulticastShot_Implementation(FVector_NetQuantize Start, FVector_NetQuantize End, bool bTracer, UERWeaponData* FiredData)
+void AERCharacter::MulticastShot_Implementation(FVector_NetQuantize Start, FVector_NetQuantize End, bool bTracer, UERWeaponData* FiredData, const TArray<FVector_NetQuantize>& PelletEnds)
 {
     ++ShotFeedbackCount;
+    if (FParse::Param(FCommandLine::Get(),TEXT("ERShotAudit")))
+        UE_LOG(LogTemp,Display,TEXT("ER_PELLET_TRACERS pawn=%s weapon=%s count=%d"),*GetName(),*GetNameSafe(FiredData),bTracer ? (PelletEnds.IsEmpty()?1:FMath::Min(PelletEnds.Num(),16)) : 0);
     const auto* Data = Weapon ? Weapon->Data.Get() : nullptr;
     // Smoke is also an authoritative recon occluder. Record authorized cuts on
     // dedicated servers before skipping presentation, exactly once per peer.
@@ -1232,7 +1234,13 @@ void AERCharacter::MulticastShot_Implementation(FVector_NetQuantize Start, FVect
             Component->SetPlayRate(FMath::Max(1.f, Data->WeaponFireAnimation->GetPlayLength() / FMath::Max(.01f, Data->ShotInterval)));
         }
     if (bTracer && Data && Data->Payload == EERPayload::Bullet)
-        AERAttachedTracer::Spawn(this, TracerSystem, End, bFirstPerson);
+    {
+        if (PelletEnds.IsEmpty())
+            AERAttachedTracer::Spawn(this, TracerSystem, End, bFirstPerson);
+        else
+            for (int32 I=0;I<FMath::Min(PelletEnds.Num(),16);++I)
+                AERAttachedTracer::Spawn(this, TracerSystem, PelletEnds[I], bFirstPerson);
+    }
     if (Data && Data->Payload == EERPayload::Bullet && ShotFeedbackCount % 2 == 1)
     {
         const FVector Forward = GetBaseAimRotation().Vector();

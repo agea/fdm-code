@@ -23,7 +23,7 @@ if not (a.network or a.render):
     raise SystemExit(0 if run.returncode==0 and all('Result={Success} Name={'+name+'}' in text for name in ['NoRepeat','Cadence','SavedAssets','SurfaceQueries','NoDeviceCleanup']) else 1)
 processes=[];handles=[];tag='audio-network'+('-render' if a.render else '')
 try:
-    flags=['-game','-ERAudioAudit','-ExecCmds=t.MaxFPS 60']
+    flags=['-game','-ERAudioAudit','-ERShotAudit','-ExecCmds=t.MaxFPS 60']
     if a.render:flags+=['-ini:Engine:Audio:UnfocusedVolumeMultiplier=1.0']
     flags+=['-windowed','-ResX=1280','-ResY=720'] if a.render else ['-nullrhi','-nosound']
     hostlog=logs/(tag+'-host.log');clientlog=logs/(tag+'-client.log')
@@ -45,6 +45,8 @@ try:
             valid &= index>=0 and (palette in ('DA_ER_Shot_Milkor','DA_ER_Shot_Sniper','DA_ER_Shot_Carbine','DA_ER_Shot_Shotgun') or last_index!=index)
             last[key]=index;counts[(palette,local)]=counts.get((palette,local),0)+1;distinct.setdefault(palette,set()).add(index)
         checks[peer+'_no_adjacent_repeat']=valid and bool(counts)
+        pellet_counts=[int(n) for n in re.findall(r'ER_PELLET_TRACERS pawn=\S+ weapon=DA_Shotgun count=(\d+)',txt)]
+        checks[peer+'_shotgun_per_pellet_tracers']=len(pellet_counts)>=40 and all(2<=n<=16 for n in pellet_counts)
         checks[peer+'_empty_trigger_owner_feedback']=txt.count('ER_EMPTY_TRIGGER_AUDIO weapon=')>=7
         checks[peer+'_spatial_steps']='ER_STEP_AUDIO' in txt and 'local=0 surface=' in txt
         if peer=='host':checks['owner_steps_2d']=bool(re.search(r'ER_STEP_AUDIO .*local=1 surface=',txt))

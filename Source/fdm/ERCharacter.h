@@ -177,7 +177,7 @@ public:
     FVector GetIronSightLocation() const;
     float GetIronAimBlend() const { return IronAimBlend*IronAimBlend*(3.f-2.f*IronAimBlend); }
     FVector GetRenderedMuzzle(bool bFirstPerson) const;
-    UFUNCTION(NetMulticast, Unreliable) void MulticastShot(FVector_NetQuantize Start, FVector_NetQuantize End, bool bTracer = true, class UERWeaponData* FiredData = nullptr);
+    UFUNCTION(NetMulticast, Unreliable) void MulticastShot(FVector_NetQuantize Start, FVector_NetQuantize End, bool bTracer, class UERWeaponData* FiredData, const TArray<FVector_NetQuantize>& PelletEnds);
     void ApplyDeathVisuals();
     virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 private:

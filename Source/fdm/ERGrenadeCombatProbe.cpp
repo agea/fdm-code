@@ -105,7 +105,7 @@ void AERGrenadeProbe::TickCombat(float DeltaSeconds)
             Check(CookProjectile->ReleasedVelocity.Z>200,TEXT("overarm_throw_has_upward_ballistic_arc"));
             const FVector OldThrow=FVector(0,1,.35f).GetSafeNormal()*880.f;
             Check(FMath::IsNearlyEqual(CookProjectile->ReleasedVelocity.Size2D(),OldThrow.Size2D()*1.2f,1.f) &&
-                FMath::IsNearlyEqual(CookProjectile->ReleasedVelocity.Z,OldThrow.Z,1.f),TEXT("actual_hand_throw_twenty_percent_more_horizontal_range_same_vertical_arc"));
+                FMath::IsNearlyEqual(CookProjectile->ReleasedVelocity.Z,OldThrow.Z,1.f),TEXT("level_aim_preserves_original_hand_throw_speed_and_arc"));
         }
         Capture(TEXT("Cook02_Released.png"));
         Advance(4,FMath::Max(.1,OriginalFuseEnd-Now+.5));

@@ -22,6 +22,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(FERServerRulesTest,"EclipseRecoil.ServerSetting
 bool FERServerRulesTest::RunTest(const FString&)
 {
     FERServerRules R;
+    TestEqual(TEXT("Standard smoke lifetime is doubled"),R.Get("Smoke.Duration"),24.f);
     TestEqual(TEXT("Latest sprint duration remains Standard"),R.Get("Move.SprintDuration"),15.f);
     TestEqual(TEXT("Actual weapon value is retained without override"),R.Get("Weapon.Shotgun.Damage",22),22.f);
     R.Set("Move.SprintDuration",7);R.Set("Move.Recovery",11);

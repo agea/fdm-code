@@ -31,7 +31,7 @@ bool FERRoomsLayoutTest::RunTest(const FString& Parameters)
             ++Degree[E.A];++Degree[E.B];
             const float Slope=FMath::Abs(E.Start.Z-E.End.Z)/FVector::Dist2D(E.Start,E.End);
             TestTrue(TEXT("walkable slopes <= 1:2"),Slope<=.5f);
-            TestTrue(TEXT("nonregular octagon retains a wide floor and standing height"),E.Width-2*E.Cut>=190 && E.Height-2*E.Cut>=170);
+            TestTrue(TEXT("nonregular octagon retains a wide floor and standing height"),E.Width-2*E.Cut>=190 && E.Height>=560 && E.Height-2*E.Cut>=430);
         }
         for(int32 I=0;I<L.RoomNodes.Num();++I)for(const auto& E:L.RoomLinks)
         {if(Connected.Contains(E.A))Connected.Add(E.B);if(Connected.Contains(E.B))Connected.Add(E.A);}

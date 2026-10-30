@@ -96,7 +96,7 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Hitscan", meta=(ClampMin="1")) float HitscanRange = 60000;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Hitscan|Blocks") FERBlockShotSettings BlockShot;
     // Zero disables tracers; one shows every shot. Server selects cosmetic cadence.
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Hitscan", meta=(ClampMin="0")) int32 TracerEveryNShots = 3;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Hitscan", meta=(ClampMin="0")) int32 TracerEveryNShots = 1;
     // Cone half-angles in degrees. Movement and burst penalties are additive.
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Accuracy", meta=(ClampMin="0", ClampMax="10")) float StandingSpreadDegrees = .18f;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Accuracy", meta=(ClampMin="0", ClampMax="1")) float CrouchSpreadMultiplier = .6f;

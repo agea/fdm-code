@@ -164,7 +164,7 @@ void AERArsenalProbe::Tick(float DeltaTime)
                 for(TActorIterator<AERSmokeCloud> It(GetWorld());It;++It)
                 {
                     const FVector Center=It->GetActorLocation()+FVector(0,0,120);
-                    C->MulticastShot(C->Camera->GetComponentLocation(),Center+(Center-C->Camera->GetComponentLocation()).GetSafeNormal()*1000);
+                    C->MulticastShot(C->Camera->GetComponentLocation(),Center+(Center-C->Camera->GetComponentLocation()).GetSafeNormal()*1000,true,nullptr,{});
                 }
             if (Phase==(SmokeGallery ? 6 : 5))
             {

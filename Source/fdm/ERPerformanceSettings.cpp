@@ -18,32 +18,6 @@ TArray<FOriginalValue>& Originals()
     return Values;
 }
 const int32 FrameCaps[]={60,90,120,144,0};
-int32 FrameCapIndex(int32 MaxFPS)
-{
-    for(int32 I=0;I<UE_ARRAY_COUNT(FrameCaps);++I) if(FrameCaps[I]==MaxFPS) return I;
-    return 1;
-}
-FSettings OriginalSettings()
-{
-    auto Value=[](const TCHAR* Name,int32 Fallback)
-    {
-        for(const auto& Original:Originals()) if(FCString::Strcmp(Original.Name,Name)==0) return FMath::RoundToInt(Original.Value);
-        return Fallback;
-    };
-    FSettings S;
-    S.Shadows=FMath::Clamp(Value(TEXT("sg.ShadowQuality"),2),0,3);
-    S.Effects=FMath::Clamp(Value(TEXT("sg.EffectsQuality"),2),0,3);
-    S.Textures=FMath::Clamp(Value(TEXT("sg.TextureQuality"),2),0,3);
-    S.GI=Value(TEXT("r.DynamicGlobalIlluminationMethod"),1)==1;
-    S.HardwareRT=Value(TEXT("r.Lumen.HardwareRayTracing"),1)!=0;
-    S.Reflections=Value(TEXT("r.ReflectionMethod"),1)==1 ? 2:Value(TEXT("r.ReflectionMethod"),1)==2 ? 1:0;
-    S.MotionBlur=Value(TEXT("r.DefaultFeature.MotionBlur"),0)!=0;
-    S.DepthOfField=Value(TEXT("r.DepthOfFieldQuality"),0)>0;
-    S.PostProcess=FMath::Clamp(Value(TEXT("sg.PostProcessQuality"),3),0,3);
-    S.LumenQuality=Value(TEXT("sg.GlobalIlluminationQuality"),3)>=3;
-    S.FrameCap=FrameCapIndex(Value(TEXT("t.MaxFPS"),90));
-    return S;
-}
 const TCHAR* Section=TEXT("EclipseRecoil.Performance");
 void Set(const TCHAR* Name, float Value)
 {
@@ -88,7 +62,7 @@ void FSettings::Load()
     LumenQuality=FMath::Clamp(LumenQuality,0,1);
     GConfig->GetInt(Section,TEXT("FrameCap"),FrameCap,GGameUserSettingsIni);
     FrameCap=FMath::Clamp(FrameCap,0,int32(UE_ARRAY_COUNT(FrameCaps))-1);
-    if(Defaults) *this=OriginalSettings();
+    if(Defaults) *this=FSettings();
 }
 void FSettings::Save() const
 {
@@ -184,7 +158,6 @@ void FSettings::ApplyPreset(EPreset Preset)
 void FSettings::PerformancePreset() { ApplyPreset(EPreset::Performance); }
 void FSettings::SetDefaults()
 {
-    *this=OriginalSettings();
-    Apply(); Save();
+    ApplyPreset(EPreset::Balanced);
 }
 }

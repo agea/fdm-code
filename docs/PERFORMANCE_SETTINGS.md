@@ -11,10 +11,9 @@ Preferences are local, applied immediately and saved in the existing
 GameUserSettings.ini under EclipseRecoil.Performance. Game/network state and
 source assets are unaffected.
 
-- Set default restores the renderer values captured before Performance overrides,
-  original cosmetic debris behavior and automatic resolution. A fresh profile
-  uses these original project defaults. Existing saved Performance choices are
-  preserved; selecting an individual option enters custom mode.
+- Set default selects Balanced, also used by fresh profiles and previously
+  saved default choices. Custom saved preferences are preserved; selecting an
+  individual option enters custom mode.
 - Automatic resolution preserves the existing 60 FPS governor and 1080p scene
   output cap. Manual resolution uses a 1–100% slider relative to the window;
   the UI remains at viewport resolution. Manual mode fixes the primary fraction,
@@ -39,7 +38,7 @@ source assets are unaffected.
   claim a dedicated VRAM amount on unified-memory GPUs.
 
 - Lumen quality (medium/high), post processing (AO/bloom scalability) and a
-  frame rate limit (60/90/120/144/unlimited; the project default is 90).
+  frame rate limit (60/90/120/144/unlimited; the default preset uses 90).
 - Decorative effects also bound local bullet holes (16/32/64/128), block impact
   effects (4/8/16/64) and turn cloth simulation off at minimum.
 
@@ -67,7 +66,7 @@ GPU validation is implied.
 30 ottobre2026: Competitive conserva la qualità High dei materiali
 (`r.MaterialQualityLevel=1`), mantenendo effetti/ombre/cloth al minimo e lo stesso
 budget texture. Le permutazioni Low dei materiali Paragon non vengono quindi
-selezionate da questo preset. Il valore originale viene ripristinato da Default;
+selezionate da questo preset. Default seleziona ora Balanced;
 Performance mantiene Medium, Balanced/Quality High. È una misura conservativa
 per la pelle arancione segnalata in Central Building: il difetto non è stato
 riprodotto localmente, quindi la risoluzione sulla scena dell'utente resta

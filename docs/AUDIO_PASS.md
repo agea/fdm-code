@@ -213,3 +213,20 @@ The original has a quiet lead before the main transient, which first exceeds
 at 48kHz and applies a 24-frame (0.5ms) fade-in before the transient. The main
 attack now arrives at about 2.27ms. The original WAV is preserved; no tail,
 bolt reload or gain was changed. Manifest and credits record the edit.
+
+## Per-pellet shotgun tracers — 30 October 2026
+
+`MulticastShot` carries a bounded list of up to 16 quantized pellet endpoints,
+resolved on authority from each actual trace and updated to the terminal
+penetration endpoint where applicable. Each peer spawns one existing
+muzzle-attached tracer per endpoint. Misses use that pellet's range endpoint;
+obstructed muzzles retain their actual collision endpoint. Single-bullet shots
+still show one tracer. Audio, recoil, animation, muzzle flash and ammo remain
+one event per cartridge. Smoke cutting retains its existing first-ray policy.
+`-ERShotAudit` logs received endpoint counts; the host/client audio integration
+checks at least 40 shotgun endpoint lists per peer, each with 2..16 entries.
+
+Validation: Editor Development build and `test-audio.py --network` passed.
+Both peers received all shotgun pellet endpoint lists; one-shot audio/recoil,
+empty-magazine feedback and other weapon regressions passed. This integration
+run was headless; no screenshot or subjective rendering claim is made.

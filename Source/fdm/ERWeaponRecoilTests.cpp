@@ -1,4 +1,5 @@
 #include "ERWeapon.h"
+#include "ERGrenadeBallistics.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
@@ -58,4 +59,29 @@ bool FERWorksheetRecoilTest::RunTest(const FString&)
     TestTrue(TEXT("recovers without drift or overshoot"),Rest.Angle.Size()<.00001&&Rest.Velocity.Size()<.00001);
     return true;
 }
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FERHandThrowTest,"EclipseRecoil.Weapons.HandThrow",
+    EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
+bool FERHandThrowTest::RunTest(const FString&)
+{
+    const FVector Standing=ERGrenadeBallistics::Throw(FRotator::ZeroRotator,880,1.2,FVector::ZeroVector);
+    auto Original=[](float Pitch)
+    {
+        FVector V=(FRotator(Pitch,0,0).Vector()+FVector(0,0,.35f)).GetSafeNormal()*880.f;
+        V.X*=1.2f;V.Y*=1.2f;return V;
+    };
+    TestTrue(TEXT("level view preserves original speed and arc"),Standing.Equals(Original(0),.01));
+    for(float Pitch:{-89.f,-45.f,-22.5f,0.f,22.5f,45.f,70.f,89.f})
+    {
+        const FVector Actual=ERGrenadeBallistics::Throw(FRotator(Pitch,0,0),880,1.2,FVector::ZeroVector);
+        const float Expected=1.f+.2f*FMath::Clamp(Pitch/45.f,-1.f,1.f);
+        TestTrue(TEXT("pitch scales original velocity without changing its direction"),Actual.Equals(Original(Pitch)*Expected,.01));
+    }
+    TestTrue(TEXT("wrapped downward pitch reduces effort"),ERGrenadeBallistics::Throw(FRotator(315,0,0),880,1.2,FVector::ZeroVector).Equals(Original(-45)*.8f,.01));
+    const FVector Running=ERGrenadeBallistics::Throw(FRotator::ZeroRotator,880,1.2,{500,0,0});
+    const FVector Jumping=ERGrenadeBallistics::Throw(FRotator::ZeroRotator,880,1.2,{500,0,420});
+    TestTrue(TEXT("running transfers horizontal momentum"),Running.X>Standing.X && Running.Z==Standing.Z);
+    TestTrue(TEXT("jump transfers upward momentum"),Jumping.X==Running.X && Jumping.Z>Running.Z && Jumping.Size()>Running.Size());
+    return true;
+}
+
 #endif

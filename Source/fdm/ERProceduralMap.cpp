@@ -227,6 +227,23 @@ bool ERProcedural::ApplyMapTheme(const FERProceduralConfig& C,FERProceduralLayou
         // palettes recolor these pieces too, using the shared material finish.
         const bool VillageSkin=Village && P.Name==TEXT("Jungle") && Panel.Surface;
         if(!Cargo && !VillageSkin)Panel.Surface=P.Materials[uint8(Panel.Material)];
+        if(Panel.SkinName.ToString().StartsWith(TEXT("AlleyModule_")))
+        {
+            const FString Role=Panel.SkinName.ToString();
+            const bool Slab=Role.EndsWith(TEXT("_Floor")) || Role.EndsWith(TEXT("_Roof"));
+            auto* Exterior=P.Materials[uint8(EERBlockMaterial::Stone)].Get();
+            UMaterialInterface* Wall=P.Wall.Get();
+            TArray<UMaterialInterface*> Choices{P.Wall.Get(),P.Ceiling.Get(),P.Floor.Get(),C.TemplateAsset->Town.WoodSurface.Get(),C.TemplateAsset->Town.RoofSurface.Get()};
+            for(const auto& M:P.Materials)Choices.Add(M.Get());
+            for(auto* Candidate:Choices)if(Candidate && Wall==Exterior && Candidate!=Exterior)Wall=Candidate;
+            Panel.Surface=Wall;
+            if(Slab)
+            {
+                Panel.Surface=P.Floor;
+                for(auto* Candidate:Choices)
+                    if(Candidate && (Panel.Surface==Wall || Panel.Surface==Exterior) && Candidate!=Wall && Candidate!=Exterior)Panel.Surface=Candidate;
+            }
+        }
         if(P.LadderSteel && Panel.Material==EERBlockMaterial::Metal && Panel.Strength==1)
         {
             const FVector Center=Panel.Transform.TransformPosition(Panel.Size*.5);

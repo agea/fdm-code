@@ -1,4 +1,5 @@
 #include "ERWeapon.h"
+#include "ERGrenadeBallistics.h"
 #include "Sound/SoundBase.h"
 #include "ERClaymore.h"
 #include "ERShotTrace.h"
@@ -417,15 +418,14 @@ void AERWeapon::ReleaseGrenade(bool bThrow)
             Position=AERProjectile::SafeHandPosition(Character,bThrow,P);
             if(bThrow)
             {
-                // Physical overhead origin; a modest upward component creates
-                // the arm throw without changing camera/control rotation.
-                const FVector Direction=(Character->GetEffectiveAimRotation().Vector()+FVector(0,0,.35f)).GetSafeNormal();
-                Velocity=GetLaunchVelocity(Direction)+Character->GetVelocity();
+                // Aim pitch adjusts throw effort; inherit running and jumping momentum afterwards.
+                Velocity=ERGrenadeBallistics::Throw(Character->GetEffectiveAimRotation(),
+                    Tuned()->ProjectileSpeed,Tuned()->LaunchRangeMultiplier,Character->GetVelocity());
             }
             else Velocity=Character->GetVelocity()*.5f;
         }
         P->ReleaseHeld(Position,Velocity);
-        if(bThrow && Character) Character->MulticastShot(Position,Position+Velocity.GetSafeNormal()*250,false,Data);
+        if(bThrow && Character) Character->MulticastShot(Position,Position+Velocity.GetSafeNormal()*250,false,Data,{});
         UE_LOG(LogTemp,Display,TEXT("ER_GRENADE_RELEASE thrown=%d remaining=%.3f position=%s velocity=%s"),bThrow,
             P->FuseEndServerTime-GetWorld()->GetTimeSeconds(),*Position.ToString(),*Velocity.ToString());
     }
@@ -539,12 +539,14 @@ void AERWeapon::TryFire()
             UGameplayStatics::ApplyPointDamage(Hit.GetActor(), Tuned()->Damage, Aim.Vector(), Hit,
                 Character->Controller, this, UDamageType::StaticClass());
         }
-        Character->MulticastShot(Eye, LastShotTraceEnd, false, Data);
+        Character->MulticastShot(Eye, LastShotTraceEnd, false, Data, {});
     }
     else if (Tuned()->Payload == EERPayload::Bullet)
     {
         const int32 PelletCount = FMath::Clamp(Tuned()->Pellets, 1, 16);
         FVector FeedbackEnd = IntendedMuzzle;
+        TArray<FVector_NetQuantize> PelletEnds;
+        PelletEnds.Reserve(PelletCount);
         // At contact distance the locomotion capsule may overlap the intended muzzle.
         // Start at the eye and still resolve anatomy instead of assigning a fake chest hit.
         const bool ContactPawn=Tuned()->bUseBodyHitZones && bBlocked && Cast<AERCharacter>(MuzzleHit.GetActor());
@@ -561,6 +563,7 @@ void AERWeapon::TryFire()
             const bool bHit = PelletBlocked || (Tuned()->bUseBodyHitZones ? ERShotTrace::Pellet(GetWorld(),Hit,PelletStart,TraceEnd,Params) :
                 GetWorld()->LineTraceSingleByChannel(Hit, IntendedMuzzle, TraceEnd, ECC_GameTraceChannel1, Params));
             ++LastShotTraceCount;
+            FVector PelletEnd=bHit ? Hit.ImpactPoint : TraceEnd;
             if (Pellet == 0)
             {
                 LastShotTraceStart = PelletBlocked ? Eye : PelletStart;
@@ -575,6 +578,7 @@ void AERWeapon::TryFire()
                     const auto Shot = ERBlockCombat::ContinueShot(GetWorld(), Hit, IntendedMuzzle, Direction, Tuned()->HitscanRange,
                         Tuned()->Damage, Tuned()->BlockShot, Params, Character->Controller, this);
                     LastShotTraceCount += Shot.ExtraTraces;
+                    PelletEnd=Shot.End;
                     if (Pellet == 0) LastShotTraceEnd = FeedbackEnd = Shot.End;
                     const auto& Terminal = Shot.TerminalHit;
                     if (Terminal.bBlockingHit && Terminal.GetActor() && !Terminal.GetActor()->IsA<APawn>() && !Terminal.GetActor()->IsA<AERBlockRoom>())
@@ -589,9 +593,10 @@ void AERWeapon::TryFire()
                         MulticastImpact(Hit.ImpactPoint, Hit.ImpactNormal, FMath::FRandRange(0.f, 360.f), uint8(FMath::RandRange(0, 3)));
                 }
             }
+            PelletEnds.Add(FVector_NetQuantize(PelletEnd));
         }
         const bool bTracer = Tuned()->TracerEveryNShots > 0 && (AuthorizedShotCount - 1) % uint32(Tuned()->TracerEveryNShots) == 0;
-        Character->MulticastShot(LastShotTraceStart, FeedbackEnd, bTracer, Data);
+        Character->MulticastShot(LastShotTraceStart, FeedbackEnd, bTracer, Data, PelletEnds);
     }
     else
     {
@@ -618,7 +623,7 @@ void AERWeapon::TryFire()
             Projectile->SetLifeSpan(Tuned()->ProjectileLife);
             UGameplayStatics::FinishSpawningActor(Projectile, Projectile->GetActorTransform());
         }
-        Character->MulticastShot(IntendedMuzzle, IntendedMuzzle + LastShotDirection * 250, false, Data);
+        Character->MulticastShot(IntendedMuzzle, IntendedMuzzle + LastShotDirection * 250, false, Data, {});
     }
     if (MagazineAmmo <= 0) StopFire();
     else if (bWantsFire && Tuned()->bAutomatic) GetWorldTimerManager().SetTimer(FireTimer, this, &AERWeapon::TryFire, Tuned()->ShotInterval, false);

@@ -48,6 +48,19 @@ bool FERMapThemeTest::RunTest(const FString& Parameters)
                     if(Left==&LadderFinishes)TestFalse(TEXT("ladders never share a column finish"),Columns.Contains(M));
                 }
             }
+            if(Saved->Archetype==EERMapArchetype::MiddleEasternAlleys)
+            {
+                for(const auto& D:After.Panels)if(D.SkinName.ToString().StartsWith(TEXT("AlleyModule_")))
+                {
+                    TestTrue(TEXT("house surfaces differ from perimeter masonry"),D.Surface!=Palette.Materials[uint8(EERBlockMaterial::Stone)]);
+                    if(D.SkinName.ToString().EndsWith(TEXT("_Floor")))
+                    {
+                        const FString WallName=D.SkinName.ToString().LeftChop(6);
+                        const auto* Wall=After.Panels.FindByPredicate([&](const auto& V){return V.SkinName.ToString()==WallName;});
+                        TestTrue(TEXT("house floor differs from its walls"),Wall && Wall->Surface!=D.Surface);
+                    }
+                }
+            }
             if(Expected.Num()<32)Expected.Add(After.ThemeIndex);else TestEqual(TEXT("same seed selects same theme across all templates"),After.ThemeIndex,Expected[Seed]);
             TestEqual(TEXT("panel count unchanged"),Before.Panels.Num(),After.Panels.Num());
             for(int32 I=0;I<Before.Panels.Num();++I)
@@ -58,7 +71,7 @@ bool FERMapThemeTest::RunTest(const FString& Parameters)
                     TestEqual(TEXT("reinforced cargo keeps its authored paint"),D.Surface,A.Surface);
                 else if(Saved->Archetype==EERMapArchetype::Village && Palette.Name==TEXT("Jungle") && A.Surface)
                     TestEqual(TEXT("Jungle retains original Village skin and gray cover"),D.Surface,A.Surface);
-                else TestTrue(TEXT("finish follows physical material or ladder role"),D.Surface==Palette.Materials[uint8(D.Material)] ||
+                else TestTrue(TEXT("finish follows physical material or ladder role"),D.SkinName.ToString().StartsWith(TEXT("AlleyModule_")) || D.Surface==Palette.Materials[uint8(D.Material)] ||
                     (Palette.LadderSteel && D.Material==EERBlockMaterial::Metal && D.Surface==Palette.LadderSteel));
             }
             TestEqual(TEXT("fixed piece count unchanged"),Before.FixedPieces.Num(),After.FixedPieces.Num());

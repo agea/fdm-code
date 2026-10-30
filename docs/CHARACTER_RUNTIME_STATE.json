@@ -1296,9 +1296,9 @@
     "Assets/characters/Content/EclipseRecoil/Characters/Teams/Alpha/FirstPerson/SK_ER_Wraith_Alpha_Officer_Forearms.uasset": "269c0df54093f3f461e04a774becd0f02246263d30f84179556c7fe1cd04c186"
   },
   "catalog_hashes": {
-    "Assets/maps/Content/EclipseRecoil/Core/BP_ERCharacter.uasset": "fc4ab6ed4f89dc53322e044a59ad1d725a79604cc77ac5690788753fa97207c4",
+    "Assets/maps/Content/EclipseRecoil/Core/BP_ERCharacter.uasset": "36dc0b40b72e3c5710f739153a316ab8a73df6e023599d88a8766a678b0e3ced",
     "Assets/maps/Content/EclipseRecoil/Core/BP_ERTrainingTarget.uasset": "a05eed5eb9a2cbef3264e54ed39e914bf897d3075839bf3d8bacbc1dc97d0251",
-    "Assets/maps/Content/EclipseRecoil/Core/BP_ERCorpse.uasset": "30872d4ed97b921c15fe6aebaebb03002e8acd9e2be8a78bbcea1bd36a850755"
+    "Assets/maps/Content/EclipseRecoil/Core/BP_ERCorpse.uasset": "b06333d54f25abc7c298ff98feb3af073a198128ff8bf9796499f88e361d8375"
   },
   "removed_packages": {
     "/Game/EclipseRecoil/Characters/FirstPerson/A_ER_Rifle_HipPose": "Assets/characters/Content/EclipseRecoil/Characters/FirstPerson/A_ER_Rifle_HipPose.uasset",

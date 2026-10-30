@@ -59,7 +59,15 @@ int32 ERAlleyDestruction::SeverSupports(AERProceduralMap* Map,int32 Panel)
 {
     // Cut the lower supports AND lateral contacts to neighbouring buildings.
     // A building still connected to a neighbour correctly remains supported.
-    const auto& W=Map->GetCellWorld();const auto& P=W.GetPanels()[Panel];TMap<FERCellId,float> Damage;
+    const auto& W=Map->GetCellWorld();
+    const FString Role=W.GetPanels()[Panel].SkinName.ToString();
+    if(Role.StartsWith(TEXT("AlleyModule_")) && (Role.EndsWith(TEXT("_Roof")) || Role.EndsWith(TEXT("_Floor"))))
+    {
+        const FName Structure(*Role.LeftChop(Role.EndsWith(TEXT("_Roof")) ? 5:6));
+        const int32 Walls=W.GetPanels().IndexOfByPredicate([&](const auto& P){return P.SkinName==Structure;});
+        if(Walls!=INDEX_NONE)Panel=Walls;
+    }
+    const auto& P=W.GetPanels()[Panel];TMap<FERCellId,float> Damage;
     for(int32 C=P.FirstChunk;C<P.FirstChunk+P.ChunksX*P.ChunksZ;++C)
     {
         const auto& K=W.GetChunks()[C];if(!K.AliveCount)continue;

@@ -47,7 +47,7 @@ void FinishAlleyHouseModules(const UERMapTemplate& T,const TArray<FERMapTemplate
     }
     auto& P=L.Panels.AddDefaulted_GetRef();P.Id=100001+Index;
     P.Material=(Index/2)%2 ? EERBlockMaterial::Concrete:EERBlockMaterial::Brick;
-    P.Surface=T.Town.WallSurface;P.Size=Size+FVector(0,0,Cap);
+    P.Surface=T.Town.WoodSurface;P.Size=Size+FVector(0,0,Cap);
     P.Transform=FTransform(Frame.GetRotation(),Frame.TransformPosition(-FVector(Size.X,Size.Y,0)*.5));
     P.Cell={FERCellWorld::FitCell(P.Size.X,5),FERCellWorld::FitCell(P.Size.Y,5),FERCellWorld::FitCell(P.Size.Z,5)};
     P.bAnchorBottom=true;P.SkinName=House.StructureName;
@@ -57,8 +57,10 @@ void FinishAlleyHouseModules(const UERMapTemplate& T,const TArray<FERMapTemplate
         FERCellPanelDesc Part;Part.Size=Max-Min;ERMeshCells::BoxSkin(Part);
         for(auto Corner:Part.Skin){Corner.Position+=Min;P.Skin.Add(Corner);}
     };
-    Box(FVector::ZeroVector,{Size.X,Size.Y,Floor});
-    Box({0,0,Size.Z-20},Size);
+    TArray<FERMeshCorner> Slabs[2];
+    Box(FVector::ZeroVector,{Size.X,Size.Y,Floor});Slabs[0]=MoveTemp(P.Skin);
+    Box({0,0,Size.Z-20},Size);Slabs[1]=MoveTemp(P.Skin);
+    P.Skin.Reset();
     for(int32 Face=0;Face<4;++Face)
     {
         const int32 Axis=Face/2,Along=1-Axis;const bool Positive=Face%2;
@@ -107,6 +109,22 @@ void FinishAlleyHouseModules(const UERMapTemplate& T,const TArray<FERMapTemplate
     P.SkinCRC=1;
     for(const auto& C:P.Skin)for(int32 Axis=0;Axis<3;++Axis)
         P.SkinCRC=HashCombineFast(P.SkinCRC,GetTypeHash(FMath::RoundToInt(C.Position[Axis]*100)));
+    // Separate panel skins retain destructive geometry while assigning slab finishes independently.
+    const FERCellPanelDesc Base=P;
+    P.Transform.AddToTranslation(P.Transform.TransformVectorNoScale(FVector(0,0,Floor)));
+    P.Size.Z-=Floor;P.Cell.Z=FERCellWorld::FitCell(P.Size.Z,5);
+    for(auto& Corner:P.Skin)Corner.Position.Z-=Floor;
+    for(int32 Slab=0;Slab<2;++Slab)
+    {
+        auto& Deck=L.Panels.AddDefaulted_GetRef();Deck=Base;
+        Deck.Id=200001+Index*2+Slab;Deck.Skin=MoveTemp(Slabs[Slab]);
+        const float Bottom=Slab ? Size.Z-20:0,Thickness=Slab ? 20:Floor;
+        Deck.Transform.AddToTranslation(Deck.Transform.TransformVectorNoScale(FVector(0,0,Bottom)));
+        Deck.bAnchorBottom=Slab==0;Deck.Size.Z=Thickness;Deck.Cell.Z=FERCellWorld::FitCell(Thickness,5);
+        for(auto& Corner:Deck.Skin)Corner.Position.Z-=Bottom;
+        Deck.SkinName=FName(*(House.StructureName.ToString()+(Slab ? TEXT("_Roof"):TEXT("_Floor"))));
+        Deck.Surface=T.Town.RoofSurface;Deck.SkinCRC=HashCombineFast(Base.SkinCRC,Slab+1);
+    }
     }
 }
 }

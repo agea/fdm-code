@@ -95,7 +95,7 @@ const TArray<FERServerSetting>& ERServer::Settings()
         Add(TEXT("Smoke.Growth"),TEXT("Smoke"),TEXT("Expansion duration"),TEXT("s"),2.2f,.1f,30.f,true);
         Add(TEXT("Smoke.Fade"),TEXT("Smoke"),TEXT("Dissipation duration"),TEXT("s"),4.f,.1f,30.f,true);
         Add(TEXT("Smoke.Density"),TEXT("Smoke"),TEXT("Optical density"),TEXT("×"),1.f,.1f,3.f,true);
-        Add(TEXT("Smoke.Duration"),TEXT("Smoke"),TEXT("Cloud lifetime"),TEXT("s"),12.f,1.f,120.f,false,false);
+        Add(TEXT("Smoke.Duration"),TEXT("Smoke"),TEXT("Cloud lifetime"),TEXT("s"),24.f,1.f,120.f,false,false);
         Add(TEXT("Smoke.Radius"),TEXT("Smoke"),TEXT("Maximum horizontal radius"),TEXT("m"),4.4f,1.f,12.f,false,false);
         Add(TEXT("Smoke.Height"),TEXT("Smoke"),TEXT("Cloud height"),TEXT("m"),4.f,1.f,10.f,false,false);
         Add(TEXT("Smoke.ShotRadius"),TEXT("Smoke"),TEXT("Bullet wake radius"),TEXT("m"),0.12f,0.01f,0.9f,true,false);

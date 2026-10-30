@@ -125,6 +125,13 @@ bool BuildAlleyDistrict(const UERMapTemplate& T,int32 Seed,TArray<FERMapTemplate
         L.TownStreetNames.Add(FName(*FString::Printf(TEXT("District_%d"),Lane)));
         L.GroundRoutes.Add({{Entry,Base.Y-100,100},{Entry,FMath::Lerp(Base.Y,First,.4f),100},{Entry,First+100,100}});
     }
+    // Reserve both climb aprons before house lots are partitioned.
+    for(int32 Wall=0;Wall<L.DistrictWallCount;++Wall)
+    {
+        const float Y=L.DistrictWallCount==1 ? 0:(Wall ? 1.f:-1.f)*L.DistrictWallOffset;
+        for(float X:{GateX[0]+Widths[0]*.5f+70,-GateX[0]-Widths[0]*.5f-70})
+            Space({{X-140,Y-400},{X+140,Y+400}});
+    }
     L.GroundRoutes.SetNum(1);TArray<FVector> SouthGrade;for(auto P:L.GroundRoutes[0])SouthGrade.Add(Opposite(P));L.GroundRoutes.Add(SouthGrade);
     // Cross streets create loops within each team's district.
     const float LinkY=Pick(-Half.Y*.67f,-Half.Y*.62f);
@@ -392,6 +399,29 @@ bool BuildAlleyDistrict(const UERMapTemplate& T,int32 Seed,TArray<FERMapTemplate
             Pad({{X-Gap*.5f-100,Y-400},{X+Gap*.5f+100,Y+400}},0);
         }
         if(Edge<Half.X)Box({(Edge+Half.X)*.5f,Y,WallH*.5f},{Half.X-Edge,Depth,WallH},V.WallSurface);
+        // Every separator has a two-sided climb onto its continuous, walkable roof.
+        // Keep both feet beside an arch, on its explicitly flattened approach.
+        for(float X:{GateX[0]+Widths[0]*.5f+70,-GateX[0]-Widths[0]*.5f-70})
+        for(float Sign:{-1.f,1.f})
+        {
+            const FTransform Ladder(FRotator(0,Sign*90,0),FVector(X,Y+Sign*(Depth*.5f+35),0));
+            L.Ladders.Add({Ladder,WallH+110,WallH});
+            auto Metal=[&](FVector P,FVector Size)
+            {
+                auto& B=Box(Ladder.TransformPosition(P),Size,nullptr,false,Sign*90);
+                B.Material=EERBlockMaterial::Metal;B.Destructible=true;B.CellSurface=V.IronSurface;B.Anchored=true;
+            };
+            for(float Rail:{-42.f,42.f})
+            {
+                for(float RailEdge:{-3.9f,3.9f})Metal({RailEdge,Rail,(WallH+110)*.5f},{.2f,8,WallH+110});
+                for(float RailEdge:{-3.9f,3.9f})Metal({0,Rail+RailEdge,(WallH+110)*.5f},{7.6f,.2f,WallH+110});
+            }
+            for(float Z=25;Z<WallH;Z+=25)Metal({0,0,Z},{.2f,76,4});
+            Pad({{X-100,Y-400},{X+100,Y+400}},0);
+        }
+        for(float X:{GateX[0]+Widths[0]*.5f+70,-GateX[0]-Widths[0]*.5f-70})
+        L.RoomAccessRoutes.Add({{X,Y-Depth*.5f,WallH+100},{X,Y,WallH+100},{X,Y+Depth*.5f,WallH+100}});
+
     }
     // At least one pair of small breakable cover stacks on a square's margin.
     FVector Cover;bool CoverFound=false;

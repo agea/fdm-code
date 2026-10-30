@@ -13,6 +13,14 @@ bool FERPerformancePreferencesTest::RunTest(const FString&)
     GConfig->Add(TestIni,FConfigFile());
     TGuardValue<FString> IsolatedIni(GGameUserSettingsIni,TestIni);
     ERPerformance::FSettings S;
+    S.Load();
+    TestEqual(TEXT("Fresh profile uses balanced scale"),S.Scale,67);
+    TestEqual(TEXT("Fresh profile uses balanced frame cap"),S.FrameCap,1);
+    TestEqual(TEXT("Fresh profile enables automatic resolution"),S.Automatic,1);
+    GConfig->SetInt(TEXT("EclipseRecoil.Performance"),TEXT("Defaults"),1,TestIni);
+    S.Load();
+    TestEqual(TEXT("Saved default choice follows balanced"),S.Effects,2);
+    TestEqual(TEXT("Saved default choice enables automatic resolution"),S.Automatic,1);
     S.Defaults=0; S.Automatic=0; S.Scale=1; S.AA=2; S.Textures=3; S.MotionBlur=1; S.DepthOfField=1;
     S.Save();
     if(!FParse::Param(FCommandLine::Get(),TEXT("Multiprocess")) || FParse::Param(FCommandLine::Get(),TEXT("MultiprocessSaveConfig")))
@@ -30,10 +38,6 @@ bool FERPerformancePreferencesTest::RunTest(const FString&)
     TestEqual(TEXT("Temporal scale stays in supported range"),Loaded.ManualPrimary(),.5f);
     Loaded.Scale=100; TestEqual(TEXT("Full resolution"),Loaded.ManualPrimary(),1.f);
     Loaded.Scale=1; Loaded.AA=1; TestEqual(TEXT("TAA uses spatial scale"),Loaded.ManualPrimary(),1.f);
-    const int32 OriginalAA=IConsoleManager::Get().FindConsoleVariable(TEXT("r.AntiAliasingMethod"))->GetInt();
-    const float OriginalMipBias=IConsoleManager::Get().FindConsoleVariable(TEXT("r.Streaming.MipBias"))->GetFloat();
-    const int32 OriginalMaterialQuality=IConsoleManager::Get().FindConsoleVariable(TEXT("r.MaterialQualityLevel"))->GetInt();
-    const int32 OriginalShadowQuality=IConsoleManager::Get().FindConsoleVariable(TEXT("sg.ShadowQuality"))->GetInt();
     Loaded.PerformancePreset();
     auto Value=[](const TCHAR* Name) { return IConsoleManager::Get().FindConsoleVariable(Name)->GetInt(); };
     TestEqual(TEXT("Preset disables Lumen in renderer"),Value(TEXT("r.DynamicGlobalIlluminationMethod")),0);
@@ -54,13 +58,14 @@ bool FERPerformancePreferencesTest::RunTest(const FString&)
     TestEqual(TEXT("Quality preset uses Lumen"),Value(TEXT("r.DynamicGlobalIlluminationMethod")),1);
     TestEqual(TEXT("Quality preset uses high Lumen group"),Value(TEXT("sg.GlobalIlluminationQuality")),3);
     Loaded.SetDefaults();
-    TestEqual(TEXT("Default restores original renderer AA"),Value(TEXT("r.AntiAliasingMethod")),OriginalAA);
-    TestEqual(TEXT("Default restores original texture bias"),IConsoleManager::Get().FindConsoleVariable(TEXT("r.Streaming.MipBias"))->GetFloat(),OriginalMipBias);
-    TestEqual(TEXT("Default restores original shadow quality"),Value(TEXT("sg.ShadowQuality")),OriginalShadowQuality);
-    TestEqual(TEXT("Default restores original material quality"),Value(TEXT("r.MaterialQualityLevel")),OriginalMaterialQuality);
+    TestEqual(TEXT("Default selects balanced frame cap"),Value(TEXT("t.MaxFPS")),90);
+    TestEqual(TEXT("Default keeps authored material quality"),Value(TEXT("r.MaterialQualityLevel")),1);
+    TestEqual(TEXT("Default uses balanced shadows"),Value(TEXT("sg.ShadowQuality")),2);
     ERPerformance::FSettings Restored; Restored.Load();
-    TestEqual(TEXT("Default choice is saved"),Restored.Defaults,1);
-    TestEqual(TEXT("Default restores automatic resolution"),Restored.Automatic,1);
+    TestEqual(TEXT("Default preset is saved"),Restored.Defaults,0);
+    TestEqual(TEXT("Default uses automatic resolution"),Restored.Automatic,1);
+    TestEqual(TEXT("Default uses balanced scale"),Restored.Scale,67);
+    TestEqual(TEXT("Default uses balanced effects"),Restored.Effects,2);
     GConfig->UnloadFile(TestIni);
     IFileManager::Get().Delete(*TestIni);
     return true;
