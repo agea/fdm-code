@@ -182,9 +182,12 @@ void AERTeamGallery::TickSkins(AERCharacter* Player, APlayerController* PC)
     if (SkinActors.IsValidIndex(DetailSkin - Page*5) && GalleryCamera)
     {
         const auto* Body = SkinActors[DetailSkin - Page*5]->GetSkeletalMeshComponent();
-        const FVector Head = Body->GetSocketLocation(TEXT("head")) + FVector(0,0,7);
+        float DetailHeight=7.f,DetailDistance=65.f;
+        FParse::Value(FCommandLine::Get(),TEXT("ERSkinDetailHeight="),DetailHeight);
+        FParse::Value(FCommandLine::Get(),TEXT("ERSkinDetailDistance="),DetailDistance);
+        const FVector Head = Body->GetSocketLocation(TEXT("head")) + FVector(0,0,DetailHeight);
         const FVector Forward = FRotator(0,ViewYaw,0).Vector();
-        GalleryCamera->SetActorLocationAndRotation(Head - Forward*65.f, Forward.Rotation());
+        GalleryCamera->SetActorLocationAndRotation(Head - Forward*FMath::Max(10.f,DetailDistance), Forward.Rotation());
         GalleryCamera->GetCameraComponent()->SetFieldOfView(45.f);
     }
     const bool bDetail = SkinActors.IsValidIndex(DetailSkin - Page*5);
@@ -610,7 +613,7 @@ void AERTeamGallery::TickCharacterShots(AERCharacter* Player, APlayerController*
     const int32 Look = ShotIndex / 3, View = ShotIndex % 3;
     const int32 Model = Look / 3, Variant = Look % 3;
     const int32 Skin = (Model % 2)*5 + Variant*2;
-    const TCHAR* Models[] = {TEXT("Twinblast"),TEXT("Belica"),TEXT("Drongo"),TEXT("Phase")};
+    const TCHAR* Models[] = {TEXT("Twinblast"),TEXT("Belica"),TEXT("Drongo"),TEXT("Gadget")};
     const TCHAR* Views[] = {TEXT("fronte"),TEXT("lato"),TEXT("retro")};
     if (Stage == 0)
     {

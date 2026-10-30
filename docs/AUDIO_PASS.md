@@ -144,8 +144,72 @@ python3 scripts/test-grenades.py --render --audio
 `-ERAudioAudit` records selected recordings, playback starts, perspectives and
 footsteps. The opt-in audio probe waits for possession and per-weapon model acknowledgments, exercises
 20+ accepted shots per weapon on both characters, sustained SMG/Assault, empty
-and denied shots, six-pellet shotgun, both bots and actual owner ground travel on a clear transient floor. The development-only
+and denied shots, configured shotgun pellet count, both bots and actual owner ground travel on a clear transient floor. The development-only
 readiness RPC is inert in normal games and carries no audio-variant state.
 Graphical runs enable the real audio mixer; headless runs are structural tests,
 not listening tests. Subjective headphone balance and A/B remain separate from
 numerical gain and playback evidence. No new packaged build is claimed here.
+
+## Sniper replacement — 30 October 2026
+
+The current Sniper Rifle (stable key `Sniper`) uses the user-supplied original
+Freesound 398348 by EvanBoyerman, CC BY 3.0, as one real recording. The full
+3.366-second shot and bolt reload are retained, converted from stereo to mono
+without trimming or gain changes. Original, page, official attribution and hashes
+are retained in `Assets/weapons/SourceAssets/Freesound/398348`; the official
+attribution is copied into the in-game `Branding/Credits.txt`.
+`setup_sniper_audio.py` updates only its SoundWave, existing cue/palette and
+weapon reference; `setup_audio_pass.py` reapplies this replacement on regeneration.
+The previous SKS palette is superseded for Sniper; Marksman/Carbine is unchanged.
+
+## Marksman replacement — 30 October 2026
+
+Marksman Rifle (stable key `Carbine`) now uses one full recording from
+Freesound 855843 by serøutōnin//deprivəd, CC0 1.0. The user-supplied original
+is retained with official attribution and hashes in
+`Assets/weapons/SourceAssets/Freesound/855843`. Stereo is averaged to mono at
+the original 44.1kHz, with no trimming or gain change. Credits retain the
+author’s preferred name. `setup_marksman_audio.py` binds the existing palette;
+`setup_audio_pass.py` reapplies it on regeneration. The old Tikka palette is
+superseded for Marksman. Sniper keeps its approved Freesound 398348 sound.
+
+## Empty-magazine trigger — 30 October 2026
+
+All seven current firearms use Freesound 387482 by CosmicEmbers (CC BY 3.0)
+when the player presses fire with an empty magazine. The original mono WAV is
+imported unchanged; source, hashes and official attribution are retained in
+`Assets/weapons/SourceAssets/Freesound/387482` and the in-game credits.
+`setup_empty_trigger_audio.py` saves the reference in each weapon data asset.
+The server accepts the click only for the equipped, unstowed weapon during an
+active match, outside reload/placement, at most once per 400ms. An owner-only
+RPC plays it in 2D. Holding fire does not loop the click; the next trigger press
+is required. Grenades, claymores and melee do not click. It does not emit a shot,
+consume ammo, apply recoil or change the firing cooldown. The audio network
+probe verifies empty-trigger acceptance and rate limiting separately from shots.
+
+Validation: Editor Development build succeeded; all five `EclipseRecoil.Audio`
+automation tests passed. `test-audio.py --network` passed with the full arsenal,
+including all 14 host/client empty-trigger acceptance/rate-limit checks and
+owner feedback on both peers. The probe now checks configured pellet count
+using primary pellet hits rather than assuming six traces (penetration may
+add traces). Tests ran headless without an audio device; subjective listening
+and a new packaged build are not claimed.
+
+## Shotgun replacement — 30 October 2026
+
+Shotgun uses one full recording from Freesound 660299, Shotgun Fire by
+hyperix6, CC0 1.0. Original float32 stereo source, official attribution and
+hashes are retained in `Assets/weapons/SourceAssets/Freesound/660299`.
+Runtime WAV is converted by afconvert to mono PCM16 at 48kHz without trimming
+or added gain. In-game credits retain the official attribution.
+`setup_shotgun_audio.py` updates the existing Shotgun palette; the main setup
+reapplies it on regeneration. The old Benelli Nova palette is superseded.
+The existing one-event-per-cartridge presentation and empty-trigger sound remain.
+
+### Sniper attack alignment — 30 October 2026
+
+The original has a quiet lead before the main transient, which first exceeds
+-20dBFS at 72.27ms. The runtime derivative now removes 3360 frames (70ms)
+at 48kHz and applies a 24-frame (0.5ms) fade-in before the transient. The main
+attack now arrives at about 2.27ms. The original WAV is preserved; no tail,
+bolt reload or gain was changed. Manifest and credits record the edit.

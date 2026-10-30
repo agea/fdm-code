@@ -46,14 +46,16 @@ bool AERCharacter::DeleteUnloadedParagonPackages(const TArray<FString>& Packages
 {
 #if WITH_EDITOR
     auto& Registry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry")).Get();
-    if (!IFileManager::Get().FileExists(*(FPaths::ProjectSavedDir() / TEXT("AssetAudit/paragon-backup-manifest.json")))) return false;
+    const bool bRuntimePrune = FParse::Param(FCommandLine::Get(), TEXT("ERDeleteUnusedCharacters"));
+    if (!bRuntimePrune && !IFileManager::Get().FileExists(*(FPaths::ProjectSavedDir() / TEXT("AssetAudit/paragon-backup-manifest.json")))) return false;
     TSet<FName> Batch;
     TMap<FName, FString> Files;
     for (const FString& Name : Packages)
     {
         if (!FPackageName::IsValidLongPackageName(Name) ||
             !(Name.StartsWith(TEXT("/Game/ParagonTwinblast/")) || Name.StartsWith(TEXT("/Game/ParagonDrongo/")) ||
-              Name.StartsWith(TEXT("/Game/ParagonPhase/")) || Name.StartsWith(TEXT("/Game/ParagonLtBelica/")) ||
+              Name.StartsWith(TEXT("/Game/ParagonPhase/")) || Name.StartsWith(TEXT("/Game/ParagonMurdock/")) || Name.StartsWith(TEXT("/Game/ParagonLtBelica/")) ||
+              Name.StartsWith(TEXT("/Game/ParagonGadget/")) || Name.StartsWith(TEXT("/Game/ParagonWraith/")) ||
               Name.StartsWith(TEXT("/Game/EclipseRecoil/Characters/")) || Name.StartsWith(TEXT("/Game/Characters/")))) return false;
         if (FindPackage(nullptr, *Name))
         { UE_LOG(LogTemp, Error, TEXT("ER_PACKAGE_PRUNE loaded_package=%s"), *Name); return false; }
@@ -62,7 +64,7 @@ bool AERCharacter::DeleteUnloadedParagonPackages(const TArray<FString>& Packages
         Batch.Add(FName(*Name)); Files.Add(FName(*Name), Filename);
     }
     // Validate the entire batch before changing any file. Only packages in this
-    // independently archived set may refer to another member of the set.
+    // independently audited set may refer to another member of the set.
     for (FName Name : Batch)
     {
         TArray<FName> References;

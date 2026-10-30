@@ -54,7 +54,10 @@ bool BuildAlleyLowCover(const UERMapTemplate& T,int32 Seed,TArray<FERMapTemplate
             for(float Offset:{75.f,100.f,140.f})for(float Sign:{-1.f,1.f})Candidates.Add(FVector(P.X,P.Y,0)+Side*Offset*Sign+FVector(0,0,FMath::Fmod(D.Rotation().Yaw+360.f,180.f)));
         }
         for(int32 I=Candidates.Num()-1;I>0;--I)Candidates.Swap(I,R.RandRange(0,I));
-        const int32 Target=Region ? 9:7;int32 Pairs=0;
+        // Compact districts spend less floor on loose obstacles; standing
+        // routes/door aprons keep priority over the old large-map cover quota.
+        const bool Compact=T.SizingTeamSize>0 && T.SizingTeamSize<=2;
+        const int32 Target=Compact ? 3:Region ? 9:7;int32 Pairs=0;
         for(const auto Candidate:Candidates)
         {
             const FVector2D C(Candidate);const int32 Kind=Candidate.Z>=0 ? 1:R.RandRange(0,2);const float Yaw=Candidate.Z>=0 ? Candidate.Z:R.RandRange(0,1)*90.f;
@@ -77,7 +80,7 @@ bool BuildAlleyLowCover(const UERMapTemplate& T,int32 Seed,TArray<FERMapTemplate
             if(++Pairs>=Target)break;
         }
         if(!Region)L.CentralLowCovers=Pairs*2;
-        if(Pairs<(Region ? 3:4)){UE_LOG(LogTemp,Warning,TEXT("ER_ALLEY_COVER_REJECT seed=%d region=%d pairs=%d"),Seed,Region,Pairs);return false;}
+        if(Pairs<(Compact ? (Region ? 0:1):(Region ? 3:4))){UE_LOG(LogTemp,Warning,TEXT("ER_ALLEY_COVER_REJECT seed=%d region=%d pairs=%d"),Seed,Region,Pairs);return false;}
     }
     return true;
 }

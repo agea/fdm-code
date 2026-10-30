@@ -31,15 +31,18 @@ FERResolvedLoadout ERLoadouts::Resolve(FName Preset,FName Variant,bool Omega,con
     // Invalid pairs always fall back together, on every caller.
     if(P==INDEX_NONE || V==INDEX_NONE) { P=1;V=1; }
     const TCHAR* Roles[]={TEXT("Breacher"),TEXT("Rifleman"),TEXT("Marksman"),TEXT("Sniper"),TEXT("Grenadier")};
-    const int32 Loaded[]={7,30,20,5,6},Reserve[]={28,90,40,15,0},Alpha[]={8,1,2,3,9},OmegaSkins[]={2,6,3,5,8};
+    const int32 Loaded[]={7,30,20,5,6},Reserve[]={28,90,40,15,0},Alpha[]={1,6,2,0,8},OmegaSkins[]={1,0,6,7,8};
     FERResolvedLoadout R;R.bOmega=Omega;R.Preset=Presets()[P];R.Variant=Variants()[V];R.Role=Roles[P];
     const FString Section=TEXT("RespawnAndRage.Loadout.")+R.Preset.ToString();
     if(Rules){R.StartingHealth=Rules->Get("Health.Start");R.StartingArmor=Rules->Get("Health.Armor");R.Helmet=Rules->Get("Health.Helmet")>0;}
     R.Skin=FMath::Clamp(Setting(Section,Omega?TEXT("OmegaSkin"):TEXT("AlphaSkin"),Omega?OmegaSkins[P]:Alpha[P]),0,9);
-    const TCHAR* AlphaNames[]={TEXT("Belica · Armored"),TEXT("Twinblast · Assault"),TEXT("Twinblast · Patrol"),TEXT("Twinblast · Recon"),TEXT("Belica · Support")};
-    const TCHAR* OmegaNames[]={TEXT("Drongo · Assault"),TEXT("Phase · Assault"),TEXT("Drongo · Smuggler"),TEXT("Phase · Recon"),TEXT("Phase · Engineer")};
+    const TCHAR* AlphaNames[]={TEXT("Wraith · Assault"),TEXT("Belica · Arctic Patrol"),TEXT("Wraith · Patrol"),TEXT("Wraith · Officer"),TEXT("Belica · Armored")};
+    const TCHAR* OmegaNames[]={TEXT("Drongo · Jackal"),TEXT("Drongo · Raider"),TEXT("Gadget · Mechanic"),TEXT("Gadget · Patrol"),TEXT("Gadget · Field Engineer")};
     FString SkinId=Omega?OmegaNames[P]:AlphaNames[P];
     GConfig->GetString(*Section,Omega?TEXT("OmegaSkinId"):TEXT("AlphaSkinId"),SkinId,GGameIni);
+    // Preserve the three replaced identities in existing saved host settings.
+    if(!Omega && (SkinId==TEXT("Twinblast · Officer") || SkinId==TEXT("Twinblast · Assault") || SkinId==TEXT("Twinblast · Patrol")))
+        SkinId.ReplaceInline(TEXT("Twinblast"),TEXT("Wraith"),ESearchCase::CaseSensitive);
     if(Catalog)
     {
         const auto& Skins=Omega?Catalog->OmegaSkins:Catalog->AlphaSkins;

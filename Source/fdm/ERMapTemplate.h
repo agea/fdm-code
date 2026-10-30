@@ -55,9 +55,14 @@ USTRUCT(BlueprintType)
 struct FERRoomsRecipe
 {
     GENERATED_BODY()
-    // Two bases plus two lanes of 2..4 rooms: 6, 8 or 10 rooms in all.
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="2",ClampMax="4")) int32 MinLaneRooms=2;
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="2",ClampMax="4")) int32 MaxLaneRooms=4;
+    // Two bases plus two lanes of 1..4 rooms: 4, 6, 8 or 10 rooms in all.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="1",ClampMax="4")) int32 MinLaneRooms=2;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, meta=(ClampMin="1",ClampMax="4")) int32 MaxLaneRooms=4;
+    // Zero keeps the authored legacy dimensions. Runtime sizing changes rooms, never door/capsule scale.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) float NominalRoomSize=0;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) float LaneSpacing=2400;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) float LaneOffset=1700;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) float PlanMargin=1100;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) float CorridorWidth=360;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) float CorridorHeight=340;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) float CornerCut=55;
@@ -297,6 +302,10 @@ public:
     UFUNCTION(BlueprintCallable, Category="Template|Maintenance") static bool DeleteArchivedProceduralLab();
     UPROPERTY(EditAnywhere, BlueprintReadWrite) EERMapArchetype Archetype=EERMapArchetype::LegacyAssembly;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) FERCentralBuildingRecipe CentralBuilding;
+    // Only set on an ephemeral per-build copy, never saved into an authored asset.
+    UPROPERTY(Transient) int32 SizingTeamSize=0;
+    UPROPERTY(Transient) bool SizingRoomsGroundOnly=false;
+    UPROPERTY(Transient) FVector2D SizingArena=FVector2D::ZeroVector;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) FERFireTrainingRecipe FireTraining;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UERMapThemeLibrary> ThemeLibrary;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) FERRoomsRecipe Rooms;

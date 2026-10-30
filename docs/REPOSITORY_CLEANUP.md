@@ -1,5 +1,14 @@
 # Pulizia e separazione del repository
 
+30 ottobre 2026 — pulizia completa richiesta: eliminati 243 package personaggio
+non raggiungibili (925.286.584 byte, circa 882 MiB); conservati 1.289 package e
+tutte le 20 skin selezionabili. ParagonStaging e copie di cook/test rimosse.
+La fisica delle ombre Gadget usa una copia equivalente locale senza dipendenze
+dal vecchio preview/Rig. Manifest attuale: CHARACTER_RUNTIME_STATE.json; verifica
+con scripts/verify_runtime_characters.py. I percorsi storici Saved e backup sotto
+riportati sono documentazione storica e sono stati rimossi su richiesta.
+
+
 20 ottobre2026 — pulizia texture richiesta dall'utente: rimossi tramite Unreal
 sette set senza referencer esterni (quattro Sketchfab e tre CC0 precedenti),
 37 package /193.219.599byte e90 file sorgente /813.823.213byte. Aggiornati
@@ -336,3 +345,53 @@ le 103 versioni precedenti delle skin attuali: sono incluse per un rollback
 completo, non per il normale avvio. I generatori storici interrompono la procedura
 prima di scrivere quando mancano gli input; le skin salvate si usano e verificano
 senza ripristino. Nulla è stato committato, pubblicato o rimosso dalla storia LFS.
+
+
+## Riferimenti superflui dei personaggi — 29 ottobre 2026
+
+Autorizzata la rimozione dei riferimenti inutilizzati e, dopo verifica, dei relativi
+asset. La migrazione `scripts/optimize_character_references.py` sostituisce nei
+package di proprietà i tre vecchi corpi base Twinblast/Drongo con le skin canoniche
+Officer/Raider già presenti, e i due materiali delle armi nascoste con
+`M_ER_HiddenSection`. Sono cambiati58 package (56 personaggi e2 Blueprint Core);
+le20 skin selezionabili, materiali visibili, geometrie, texture, rig, FPS e cloth
+restano identici byte per byte al backup. Le animazioni salvate cambiano soltanto
+i collegamenti di anteprima; i cataloghi conservano tutte le scelte esistenti.
+
+Rimossi tramite `DeleteUnloadedParagonPackages`68 package/262.177.759 byte:
+vecchi corpi, relativi input e anteprime, demo Twinblast, materiali e texture delle
+armi Paragon nascoste. Il lotto viene limitato al namespace personaggi e validato
+senza referencer esterni prima della cancellazione. Risparmio netto sui sorgenti,
+compresi i nuovi salvataggi:262.176.007 byte. Non sono rimossi Git/LFS o altri
+asset di mappe/armi. I2 Blueprint Core modificati appartengono al submodule maps.
+
+Backup APFS indipendente con hash SHA256 verificati prima delle modifiche:
+`../_backups/character-reference-20261029/{Content,Core}` e relativi manifest.
+Non cancellarlo; gli script storici che rigenerano dagli originali richiedono
+il ripristino dei loro input. Il backup conserva anche le modifiche locali
+preesistenti. Ricevute in `Saved/AssetAudit/character-reference-*.json`.
+
+Confronto macOS: cook completo, pacchetto di misura dei soli personaggi con
+Oodle Kraken livello4, blocchi64KiB, identico al confronto iniziale:
+1.560.064.247 ->1.474.873.319 byte, risparmio85.190.928 byte (5,46%).
+La distribuzione usa IoStore: questi sono byte misurati in un PAK di confronto,
+non la dimensione di un nuovo installer completo. Nessun cambio a risoluzione,
+LOD o impostazioni di compressione del progetto. Cook finale:0 errori/0 avvisi;
+verifiche da processo nuovo di cataloghi, fallback e braccia FPS.
+
+Le due pagine della galleria Metal e tutte le dieci coppie di cadaveri sono
+passate (20 skin,60 campioni ragdoll/assestati). Immagini della galleria
+controllate; nessun errore di compilazione materiali o mismatch. I log conservano
+avvisi preesistenti sui flag d'uso di alcuni materiali scheletrici.
+Archivio di ripristino `rollback.tar.gz`:126 membri verificati SHA256.
+
+
+Misura finale 30 ottobre2026: rimossi circa39,69 GB logici di staging,
+cook, copie di test, screenshot, diagnostica e cache generate, oltre a0,925 GB
+di package personaggio inutilizzati. Spazio libero misurato da13,43 a35,39 GB
+(circa21,95 GB effettivi recuperati; APFS può condividere blocchi tra copie).
+Binaries editor correnti conservati per aprire il progetto; Intermediate, cook
+di verifica e relativi artefatti rimossi. Configurazioni, autosalvataggi,
+Collections, SourceControl e cronologia Git/LFS conservati. Dettaglio misure:
+CLEANUP_20261030.json. La riduzione locale non equivale alla riduzione del gioco
+compilato: molti file rimossi erano esclusivamente di sviluppo.

@@ -3,6 +3,7 @@
 #include "ERMovement.h"
 #include "ERWorldPoseProbe.h"
 #include "ERLoadoutProbe.h"
+#include "ERFieldClothingProbe.h"
 #include "ERClaymore.h"
 #include "ERLoadout.h"
 #include "EROnline.h"
@@ -114,6 +115,7 @@ void AERGameMode::InitGame(const FString& MapName, const FString& Options, FStri
     if (GameSession) GameSession->MaxPlayers = MaxHumanPlayers;
     for (TActorIterator<AERProceduralMap> It(GetWorld()); It; ++It)
         {
+            It->LayoutConfig.ExpectedTeamSize=FMath::RoundToInt(Rules.Get("Map.ExpectedTeamSize"));
             It->LayoutConfig.Seed = UGameplayStatics::GetIntOption(Options, TEXT("MapSeed"), Rules.Get("Map.FixedSeed")>0?int32(Rules.Get("Map.Seed")):It->LayoutConfig.Seed);
             FParse::Value(FCommandLine::Get(), TEXT("ERMapSeed="), It->LayoutConfig.Seed);
             It->LayoutConfig.CrossingOverride=0;
@@ -228,6 +230,7 @@ void AERGameMode::BeginPlay()
     int32 LobbyProbeClient = 0;
     if (FParse::Param(FCommandLine::Get(), TEXT("ERWindowInputProbe")) || FParse::Param(FCommandLine::Get(), TEXT("EROnlineUnconfiguredProbe")) || FParse::Param(FCommandLine::Get(), TEXT("ERMenuGallery")) || FParse::Param(FCommandLine::Get(), TEXT("ERSettingsWrite")) || FParse::Param(FCommandLine::Get(), TEXT("ERSettingsRead")) || FParse::Param(FCommandLine::Get(), TEXT("ERLobbyProbeHost")) || FParse::Param(FCommandLine::Get(), TEXT("ERLobbyProbeTimeout")) || FParse::Value(FCommandLine::Get(), TEXT("ERLobbyProbeClient="), LobbyProbeClient)) GetWorld()->SpawnActor<AERLobbyProbe>();
     if (FParse::Param(FCommandLine::Get(),TEXT("ERLoadoutProbe"))) GetWorld()->SpawnActor<AERLoadoutProbe>();
+    if (FParse::Param(FCommandLine::Get(),TEXT("ERFieldClothingProbe"))) GetWorld()->SpawnActor<AERFieldClothingProbe>();
     if (FParse::Param(FCommandLine::Get(),TEXT("ERBotLoadoutProbe"))) GetWorld()->SpawnActor<AERBotLoadoutProbe>();
     if (FParse::Param(FCommandLine::Get(),TEXT("ERReconProbe"))) GetWorld()->SpawnActor<AERReconProbe>();
     if (GetWorld()->GetMapName().Contains(TEXT("L_CentralBuilding")) && FParse::Param(FCommandLine::Get(),TEXT("ERIndustrialMapProbe")))GetWorld()->SpawnActor<AERIndustrialMapProbe>();
@@ -372,13 +375,23 @@ void AERGameMode::RestartPlayer(AController* Player)
     {
         if (auto* PS = Player->GetPlayerState<AERPlayerState>())
         {
-            if(!GetWorld()->URL.HasOption(TEXT("ERLegacyArsenal")))
+            // The full stationary catalog retains its explicit skin index on respawn.
+            const bool bCatalogTarget = PS->IsABot() && bStationaryBots && DesiredBots == 2 * ERSkins::Count;
+            if(!GetWorld()->URL.HasOption(TEXT("ERLegacyArsenal")) && !bCatalogTarget)
             {
                 if(PS->IsABot()) { PS->LoadoutPreset=ERLoadouts::Presets()[BotWeaponRandom.RandRange(0,4)];PS->LoadoutVariant=ERLoadouts::Variants()[BotWeaponRandom.RandRange(0,2)]; }
                 const auto Kit=ERLoadouts::Resolve(PS->LoadoutPreset,PS->LoadoutVariant,PS->Team==EERTeam::Omega,Cast<AERCharacter>(GetDefaultPawnClassForController(Player)->GetDefaultObject()),&ERServer::Rules(GetWorld()));
                 PS->LoadoutPreset=Kit.Preset;PS->LoadoutVariant=Kit.Variant;
                 PS->AlphaSkin=ERLoadouts::Resolve(Kit.Preset,Kit.Variant,false,Cast<AERCharacter>(GetDefaultPawnClassForController(Player)->GetDefaultObject()),&ERServer::Rules(GetWorld())).Skin;
                 PS->OmegaSkin=ERLoadouts::Resolve(Kit.Preset,Kit.Variant,true,Cast<AERCharacter>(GetDefaultPawnClassForController(Player)->GetDefaultObject()),&ERServer::Rules(GetWorld())).Skin;
+            }
+            // Offline free skin choice overrides the role skin for the local human only.
+            if(GetNetMode()==NM_Standalone && !PS->IsABot())
+            {
+                const int32 FreeAlpha=FCString::Atoi(GetWorld()->URL.GetOption(TEXT("ERFreeAlphaSkin="),TEXT("-1")));
+                const int32 FreeOmega=FCString::Atoi(GetWorld()->URL.GetOption(TEXT("ERFreeOmegaSkin="),TEXT("-1")));
+                if(FreeAlpha>=0 && FreeAlpha<ERSkins::Count)PS->AlphaSkin=FreeAlpha;
+                if(FreeOmega>=0 && FreeOmega<ERSkins::Count)PS->OmegaSkin=FreeOmega;
             }
             PS->ActiveSkin = ERSkins::ValidIndex(PS->Team == EERTeam::Alpha ? PS->AlphaSkin : PS->OmegaSkin); PS->ForceNetUpdate(); }
         TGuardValue<bool> SpawnGuard(bSpawningPresetPawn,!GetWorld()->URL.HasOption(TEXT("ERLegacyArsenal")) && !GetWorld()->URL.HasOption(TEXT("ERFullArsenalTest")));

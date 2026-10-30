@@ -145,6 +145,10 @@ struct FERProceduralLayout
 };
 namespace ERProcedural
 {
+    bool ConfigureTeamSize(class UERMapTemplate& Template,int32 ExpectedTeamSize,int32 Seed=42);
+    inline float TargetAreaM2(int32 ExpectedTeamSize) { return ExpectedTeamSize*1000.f; }
+    inline bool ValidTeamArea(FVector Size,int32 ExpectedTeamSize)
+    { const double Area=Size.X*Size.Y/10000.,Target=TargetAreaM2(ExpectedTeamSize);return FMath::IsFinite(Area) && Area>=Target*.9-.01 && Area<=Target*1.1+.01; }
     bool ApplyMapTheme(const FERProceduralConfig& Config,FERProceduralLayout& Layout);
     bool Build(const FERProceduralConfig& Config, const FERBlockRoomConfig& Blocks, FERProceduralLayout& Out, const FERCellSettings& Cells = FERCellSettings());
     // Axis-aligned destructible box as cell panels: massive slabs, boards in thin

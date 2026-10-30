@@ -1,3 +1,340 @@
+Competitive character-material safeguard (30 October): user reports orange
+Drongo skin in Central Building only at Competitive; Balanced/Quality look normal.
+Keep r.MaterialQualityLevel=1 (High) when Effects=0, independently of sg.EffectsQuality.
+Effects=1 retains Medium2; Effects2/3 retain High1. Capture and restore this CVar
+with the renderer defaults. Effects, shadows, cloth and texture budgets are unchanged.
+This is a conservative workaround: local native Central Building angle comparisons
+on SM5/SM6 did not reproduce the user's orange patches; do not claim root cause or
+root cause isolated. The user subsequently confirmed normal skin at Competitive
+when launching the current game with play.command. No character art changed.
+
+Runtime character cleanup (30 October, latest user request): unused character
+packages, ParagonStaging and generated test/cook/screenshots were intentionally
+removed. Preserve all20 selectable skins, including optional offline catalog
+choices.243 unused packages /925286584 bytes were removed;1289 packages remain.
+Gadget Recon/Mechanic/Patrol share an owned equivalent shadow PhysicsAsset whose
+preview points to the retained Recon mesh, avoiding the obsolete vendor Rig.
+Canonical validation is scripts/verify_runtime_characters.py with
+ docs/CHARACTER_RUNTIME_STATE.json (hashes, deleted package list and shadow receipt).
+Historical Saved receipts, screenshot paths and backup references below are no
+longer available; old import/generation scripts may require fresh Fab inputs.
+ParagonStaging was deleted, superseding the earlier instruction to retain Gadget
+there. Do not regenerate deleted sources/backups during ordinary runtime setup.
+Keep source, active assets, Git/LFS, local configuration and user recovery data.
+
+Muted legacy palette (30 October, latest user request): bring Belica and Drongo
+closer to Wraith/Gadget's subdued colours; do not brighten the new characters.
+Only21 owned dyed-surface materials change: Belica upper/arm blue (.12,.28,.52),
+Drongo ochre around (.62,.29,.115), preserving per-skin strength. Desaturation .85;
+reduce the old .30 white lift to .08 Alpha / .10 Omega with white .5. Preserve
+all skin/hair/eyes, neutral trousers/gear, Scavenger skull artwork, meshes, FPS,
+rigs, physics, catalogs and role assignments. Wraith, Gadget and the approved
+Twinblast variants are unchanged. ERMutedLegacyPalette=1 opts these materials
+out of the historical bright setup_team_readability.py migration.
+Use setup_muted_legacy_palette.py and verify_muted_legacy_palette.py. Receipts
+in Saved/Testing/MutedLegacyPalette include exact before/after hashes and a
+21-material ZIP rollback. Old Drongo/Gadget package checks accept only this
+explicit before->after hash chain via verify_owned_package_hashes.py; all other
+hashes stay strict. This supersedes the older vivid Belica/Drongo palette below.
+
+Gadget Sniper selection (30 October, latest user correction): use gallery
+model8 = Omega index7 Gadget · Patrol, with its existing light camouflage.
+Do not confuse gallery8 with internal index8 (Field Engineer / Grenadier).
+DefaultGame.ini and ERLoadouts' numeric/name fallbacks assign Patrol to all
+three Omega Sniper variants. Marksman stays Mechanic6; Grenadier stays Engineer8.
+No appearance packages need editing. Veteran9 Shellshock is a rejected Sniper
+assignment and only remains an optional catalog choice. This supersedes the
+previous active Sniper9 policy below. ERLoadoutTests verifies all three variants.
+
+Gadget Marksman/Sniper separation (30 October, latest user Shellshock reference):
+Omega6 Mechanic / Marksman keeps the approved Guerilla body, exposed waist and
+uncovered face. Omega9 Veteran / Sniper now uses independent owned Shellshock
+body/FPS/physics copies, with steel-gray upper armor/closed helmet and muted
+orange lower plates. Keep machinery/backpack/robot bones and sections hidden.
+The source Engineer8 appearance stays unchanged, as do all other skins and IDs.
+Preserve source8 skeleton, animation, palms, scale and world-support offset in
+the new copies; do not rebuild the FPS rig or recolor Engineer's shared materials.
+setup_gadget_sniper_shellshock.py and verify_gadget_sniper_shellshock.py protect
+all1526 previous character packages and all other appearance fields. Receipts
+and previews: Saved/Testing/GadgetMarksmanSniper. This supersedes Veteran's
+Guerilla/exposed-waist policy below; Marksman's exposed waist remains approved.
+
+Drongo Scavenger restoration (30 October, latest user reference): active Omega1
+Jackal / Breacher uses the original goggles, skull bandana and shoulder pad.
+They are material slot0 (misleadingly M00_Teddybear), which must remain visible.
+Use owned M_ER_Scavenger_FieldMask preserving the original yellow/black art;
+keep weapon5 and teddy prop6 hidden. Remove the added SM_ER_DrongoMask overlay
+from Jackal only; retain it on Smuggler3, and keep Raider0 unchanged. Catalog
+marker ERScavengerOriginalHead protects this from setup_drongo_masks.py. Original
+Scavenger mask sources were recovered from characters commit0f177de via LFS.
+The original pattern atlas R channel must be explicit white BaseColor paint,
+with zero emission and dark goggle masks. Keep menu Mesh->bForceMipStreaming
+for scene-capture detail, scoped to that component. Body meshes, FPS, rigs,
+physics and indices remain unchanged. Use
+setup_drongo_scavenger_head.py and verify_drongo_scavenger_head.py. This supersedes
+the mandatory extracted-mask policy for Omega1 below.
+
+Wraith Officer human head (30 October, latest): Alpha0 now uses Twinblast
+Officer's sunglasses head, attached to the live head bone. Original body stays
+immutable; HeadStudy/SK_ER_WraithOfficer_Unmasked removes6346 costume-helmet
+triangles from material0 and regenerates all five body LODs. Hide backpack/head
+slot4 and weapon5. Keep Alpha fallback identical to skin0 in all three catalogs.
+Assault's approved Support head and Patrol's mask remain unchanged. Officer's
+sunglasses share the donor upperbody material: include its cropped head geometry,
+not only M04_Head. Four static head LODs; FPS, physics and animation unchanged.
+Use setup_wraith_officer_head.py and verify_wraith_officer_head.py; receipts in
+Saved/Testing/WraithOfficerHead. This supersedes Officer remaining masked below.
+
+Wraith human-head trial (30 October, latest user request): Wraith Assault at
+Alpha1 now hides its original backpack/head material section and uses the complete
+Twinblast Support head (face, eyes, hair) as one owned static attachment to head.
+Keep the head bone live; never bone-hide it or the attachment loses its transform.
+Use the donor's upper neck and neutral-blue collar for this first trial. Officer/Patrol
+remain masked. Four head LODs, no collision, neutral facial pose; no facial rig was
+transferred. No original skeletal meshes/FPS/animations/materials were edited.
+An earlier fresh hash comparison verified1482 original packages. The shared
+_backups folder was later removed externally, so the current verifier reports
+that missing baseline explicitly and checks fresh catalog/FPS/pose identities.
+Restore only the original mask with restore_wraith_assault_mask.py if requested;
+it uses the retained body mesh's default materials, without a backup. The head
+generator needs the full editor only when rebuilding static LODs.
+See docs/WRAITH.md and Saved/Testing/WraithHeadStudy/. This supersedes the earlier
+deferred-face restriction below.
+
+Wraith replacement (30 October): Alpha0/1/2 now use Wraith Officer
+(OD Green), Assault (base) and Patrol (Lunar Ops), with blue/neutral matte finishes,
+original masked heads and hidden backpack/cannon/weapons. Keep ten skins/team,
+all other appearances and the old Twinblast art for the later face transfer.
+Keep source Wraith packages immutable and use owned retargets, ragdolls and FPS forearms.
+DefaultGame/native names use Wraith; legacy saved IDs for these three roles are
+aliases. Canonical Alpha fallback is Wraith Officer. Only Murdock was deleted
+from ParagonStaging, after verified backup; Gadget must remain there and in the
+game. See docs/WRAITH.md, setup_wraith_replacement.py and its fresh verifier.
+
+Phase/Murdock removal (29 October): Phase and Murdock are no longer
+selectable. Both teams return to ten skins (ERSkins::Count=10). Gadget replaces
+Phase at Omega indices5..9: Recon, Mechanic, Patrol, Field Engineer, Veteran
+(the loadout defaults Omega {2,6,3,5,8} keep their roles). Murdock's Alpha10..14
+are dropped. replace_phase_with_gadget.py migrated the three catalogs; backup in
+../_backups/phase-gadget-20261029. This supersedes the 15-choice notes below;
+On 30 October the 733 unreferenced Phase/Murdock packages (ParagonPhase,
+ParagonMurdock and owned derivatives, ~2.1 GB) were deleted via
+remove_phase_murdock.py -ERDeletePhaseMurdock; mounts removed from assets.json.
+SHA256-verified backup: ../_backups/phase-murdock-20261030. Historical Phase/
+Murdock setup scripts need that backup restored.
+
+Murdock trims (29 October, latest): all five Murdock skins have dark trousers
+(Skull/Infantry/Veteran reuse Patrol's legs material; tinting the beige textures
+has no visible effect), no right-forearm hoses/wrist cover/gauntlet mechanism
+(bone-hidden, FPS rebuilt, palm sockets preserved, never hide bot_hand) and no
+Merc left pauldron (geometry deleted on Skull/Veteran). Run trim_murdock_details.py
+after the Recon head script. See MURDOCK_GADGET.md.
+
+Murdock/Gadget variety correction (29 October, latest): keep stable indices10..14.
+Murdock uses four source bodies: Merc Skull/Veteran, base Infantry, Corrupt Recon
+and Shogun Patrol. Veteran hides its separate mask; Recon uses the complete
+standard helmeted head extracted in head-bone space, attached collision-free to
+head, with neutral exposed arm color instead of the original fiery surface.
+Do not substitute face textures across incompatible UVs or extract only the
+face material slot: the skull/helmet also lives in the body section. Patrol
+hides independent Shogun packs/hip ornaments. Gadget's authored skin masks must
+preserve BOTH upperbody and lowerbody skin: Mechanic/Patrol/Recon/Veteran show
+the original exposed waist, Field Engineer stays closed. Run the variety script
+then setup_murdock_recon_human_head.py (GeometryScripting plugin) after the initial
+setup pipeline. Keep four distinct Murdock bodies, complete Recon head geometry,
+old-art hashes and full catalog/FPS/Metal/corpse/LAN checks. See MURDOCK_GADGET.md.
+
+Murdock/Gadget field variants (29 October): append Murdock Alpha and
+Gadget Omega at stable indices10..14, preserving the original0..9 per team.
+The shared catalog now has15 choices/team. Keep Merc skull artwork, matte
+blue/gray Alpha and muted orange/neutral Omega finishes. Hide original weapons,
+Gadget machines/robot props and independent tech accessories; never hide body
+bones merely because they exist in the shared vendor skeleton. Preserve Gadget's
+authored skin mask when tinting clothing. setup_murdock_gadget.py, then
+refine_murdock_gadget.py and finalize_murdock_gadget.py generate only owned
+assets. verify_murdock_gadget.py protects old art hashes. Existing role/loadout
+assignments remain; full stationary catalog targets preserve explicit skin indices
+on respawn. Phase-only tools must use indices5..9, not the tail of OmegaSkins.
+Original Fab staging inputs remain in ../_imports/ParagonStaging; new source
+mounts live in the private characters submodule. See docs/MURDOCK_GADGET.md.
+
+Character dependency cleanup (29 October): obsolete Twinblast/Drongo base meshes
+and weapon materials are no longer fallback/preview roots. Owned references use
+Officer/Raider skin0 and M_ER_HiddenSection; preserve all20 selectable skins,
+geometry, textures, cloth, palettes, FPS and rigs. optimize_character_references.py
+performs the owned-reference migration; verify_team_characters.py checks canonical
+fallbacks.68 unused character packages were removed through Unreal after a
+verified rollback copy in ../_backups/character-reference-20261029. Historical
+source-generation scripts require restoring archived inputs; do not regenerate
+these obsolete roots in normal setup. See docs/REPOSITORY_CLEANUP.md for measures
+and validation. Preserve the backup and unrelated work in all repositories.
+
+Rooms optional hall passage and shape variety (latest,29 October): four-room
+plans may have a direct self-symmetric link between the two non-spawn halls.
+Keep both outside attack routes and northwest/southeast bases with two exits.
+Intermediate halls have2or3links depending on the central passage. Vary between
+large rectangles, smaller rectangles and convex halls with asymmetric corner
+cuts. Real flat-floor coverage stays at least55% (60%for the large rectangle
+fallback); halls remain at least twice a base's area. Reserve complete portal
+widths, including multiple separate openings on one wall. Protocol18 versions
+this geometry. This supersedes the exact-degree2/rectangular-only/60% policies
+below; preserve metre and area outputs and the existing Fire Training rules.
+
+Rooms usable floor area (29 October, latest): in the four-room corner loop,
+expand the two non-spawn rooms into large rectangular halls filling the middle
+and available perimeter. Keep the bases northwest/southeast and both attack
+paths. Hall mouths are off-centre but corridors remain straight and full-size;
+keep6m approaches,2m separation between opposing halls and at least60%actual
+flat floor coverage of the enclosing rectangle. Each hall must be at least twice
+a base's area; widths/depths may differ. Report useful-floor m²/percentage and
+hall metre dimensions alongside the unchanged arena area. Protocol17 versions
+this geometry. This supersedes the small non-spawn corner rooms below.
+
+Rooms corner-loop correction (29 October, latest): the user rejected merely
+moving spawns to the left/right rooms while keeping useless north/south stubs.
+Four-room plans must instead put all four rooms at the rectangle's corners,
+Alpha northwest and Omega southeast. Each room has exactly two passages and
+lies on one of two independent attack paths; no dead-end rooms or turning
+chambers remain in this four-room variant. Preserve area/metre dimensions,
+spawn safety, physical corridor dimensions and all other template constraints.
+Protocol16 versions this geometry. This supersedes the lateral-base policy below.
+
+Rooms base access / Fire Training proportions (29 October, latest): four-room
+Rooms rings put Alpha/Omega in the opposed lateral rooms, each with distinct
+north/south doors. The old north/south rooms are no longer bases. Reserve all
+spawn capsules and routes to room centres before furnishing; validate that no
+single corridor disconnects the two bases. Larger room graphs keep their
+existing multiple base accesses. Fire Training must ALWAYS have external
+length>=1.2×width, including native option selection and reference fallback;
+keep one nave through3vs3,500m²/player±10%area and unscaled4.2m bays. Additional
+naves from4vs4 cannot make the hall wider than long. Protocol15 versions this
+geometry. Preserve source art, existing density rules and metre/area outputs.
+
+Village ground density (29 October, latest correction): the3vs3 single-block
+61×54m seed42 was rejected as too empty. Use at least2blocks from3vs3; minimum
+counts grow with area to the existing5-block budget. Sized Village2vs2+ adds
+paired native timber/metal L shelters across available approach/flank depth
+bands, with full-size240cm standing cover and a minimum ground-cover quota.
+Reserve existing geometry, spawn starts, stairs, doglegs, side bypasses and
+shelter entrances before accepting a candidate. Upper storeys do not replace
+ground coverage. Keep500m²/player±10%AREA, immutable assets and metre plans.
+Protocol14 versions this geometry. This supersedes the1..3block3vs3 policy below.
+
+Rooms / Village variety (29 October, latest): sample structural layouts even
+at2vs2/3vs3. Rooms admits four rooms (two bases plus two lateral rooms), a real
+ring and central shortcut, as well as6/8/10-room graphs. Ground-only compact
+profiles keep full-size portals; elevated ones retain safe switchbacks. Village
+admits1/2 blocks at2vs2 and1..3 at3vs3, varied footprints/storeys, with the arena
+fitted after the sampled structures. Keep500m²/player±10%area, paired starts,
+real standing routes, immutable authored assets and metre dimensions in every
+plan. Protocol13 versions this geometry. This supersedes fixed six-room/one-block
+compact sizing below. Compare actual seeds in rooms-village-<N>v<N> plans.
+
+Map aspect ratios (29 October, latest): Central Building arenas should be
+near square while preserving the500m²/expected-player area budget (±10%). Fire
+Training uses exactly one original-width nave through3vs3; grow it lengthwise
+using unscaled4.2m bays. Larger teams may add naves. Keep creation-only settings
+and real metre dimensions/area/deviation in plan outputs. This supersedes the
+previous compact two-nave preference.
+
+Expected team size / density (29 October, latest): the host fixes
+Map.ExpectedTeamSize at server creation. Lobby is read-only; remove the size
+mutation RPC and sizing-related READY resets. Keep session snapshots immutable
+through lobby/travel/rounds, independently of admission capacity and actual bots.
+Every production template must have horizontal arena area1000m² × expected
+players per team (500m² × both teams), within±10% of AREA. No saturation at8;
+support1..16 budgets, reject oversized/undersized fallbacks atomically. Protocol12
+versions the new geometry policy. Use native counts/spacing, never uniform mesh,
+door, stair, material or5cm-cell scaling. Compact structural options may change
+to fit real routes. Export metres, actual area, target and deviation. Preserve
+source assets; use preview-map-sizing.py, density/physics and lobby LAN checks.
+See docs/MAP_TEAM_SIZING.md. This supersedes the earlier lobby edit/reset policy.
+
+Phase common skirt surface (29 October, latest): the user approves Grenadier
+Engineer's existing skirt and wants it on other Phase variants.
+setup_phase_grenadier_skirt.py assigns that exact owned material to leather_skirt
+slots in the three catalogs. Cloth3, body materials, meshes/LOD reductions, FPS
+and head choices stay unchanged. LOD0 geometry and simulation settings already
+match; Assault/Support have different lower-LOD reductions and single-sided
+silk materials. Share the approved leather surface; do not revive cloth4..7
+or body-clearance experiments.
+
+Phase skirt rollback (29 October, latest): the user rejected the skirt/body
+changes. Restore the five Phase skirts to cloth version3, original skirt surfaces
+and original body materials. Do not reapply cloth4..7 or SkirtCoverage materials.
+Keep the approved hairless heads, Grenadier helmet component0 and Alpha Sniper.
+
+Phase head cleanup (29 October, latest numbered reference): Phase Sniper / Recon
+skin5 now has all hair cards hidden. This supersedes the approved long hair below.
+Grenadier / Engineer keeps ONLY component0, the red shell in the user's diagram:
+3778 triangles, the largest connected island of the retained source study. Remove
+all other helmet components, including face fittings/visor. Preserve the jacket's
+folded hood. setup_phase_head_cleanup.py revision2 saves only the owned helmet
+mesh and three catalogs with verified rollback/protected hashes. All five Phase
+variants hide hair cards while retaining complete textured scalps. The legacy
+setup_phase_recon_long_hair.py now preserves the hairless Sniper policy.
+Preserve all body meshes, cloth, FPS, materials and gameplay. Use --preview --skin15/18
+--preview-head for real close-up review; normal preview still resolves Alpha Sniper.
+
+Alpha Sniper appearance (29 October, latest user revision): use gallery variant4,
+Twinblast · Recon at stable skin index3, with a neutral gray short jacket and blue
+trousers down to the ankles, including the shin areas circled by the user. Keep
+only shoes dark (bind-position mask starts14cm,2cm feather; not the old58cm
+knee-high cutoff). This supersedes Officer for Sniper and the unimplemented summer-reference
+proposal. Keep Officer available at index0. Preserve other appearances, FPS geometry,
+rigs and gameplay. setup_twinblast_recon_palette.py saves only owned palette assets
+and the three appearance catalogs, with verified rollback. Preview probes resolve
+the current Sniper loadout; Officer coat studies explicitly retain index0.
+
+Menu-preview cloth synchronization (28 October, latest screenshot correction):
+ERMenuPreview's mesh must wait for its parallel cloth task before the manual
+CaptureScene in TG_PostUpdateWork. Normal rendering waits later in the frame;
+without bWaitForParallelClothTask, the preview can receive empty cloth render
+data and show a skinned coat through the leg. Preserve existing cloth assets,
+solver settings, gameplay/FPS and approved hair/hood. Reproduce with the actual
+Officer/Sniper AERMenuPreview, not only a world mesh/particle-volume test.
+test-field-clothing.py --render --preview captures two walk cycles and requires
+completed simulation on every capture; review both camera sides and a low LOD.
+
+Clothing collision correction (28 October, latest): supersedes the old6cm
+jacket limit and Phase's asset-only validation. Four owned Twinblast jackets
+and five Phase skirts use embedded ER_FieldClothCollision assets, separate
+from gameplay/ragdoll physics,24cm maximum travel,3cm normal backstops,CCD,
+1.2cm collision thickness and4 iterations/2 substeps. Reuse authored Twinblast
+collision geometry; keep waist/shoes pinned on Phase. In UE5.8, use
+FSkeletalMeshClothingSystemUtilities::AssignClothingToSection so source-section
+user data survives rebuilds; BindToSkeletalMesh alone lost Phase's binding.
+All five render LODs keep their own simulation mapping; only one is active.
+setup_field_clothing.py -ERClothOnly backs up/saves only the nine owned mesh
+packages and protects catalog, FPS, ragdoll and acquired-package hashes.
+Preserve approved long hair and hood. Verify fresh active/render bindings and
+real particles through test-field-clothing.py (plus --lods); screenshots alone cannot prove
+cloth simulation is running. Deep-point metrics use the clothing colliders,
+not exact triangle/body intersections; retain that distinction in reports.
+
+Omega Sniper hair (28 October, latest user request): Phase Recon skin5 shows its
+existing long-hair section using the retained Phase strand atlas and an owned
+MI_ER_PhaseRecon_LongHair. setup_phase_recon_long_hair.py backs up and updates
+Character/Target/Corpse catalogs without changing meshes, rigs or FPS geometry.
+Preserve this exception to the older short-hair-only finish. Rifleman stays
+short-haired and Grenadier keeps the approved armored hood.
+
+Omega Grenadier appearance (28 October, latest user request): Phase Engineer
+skin8 wears the approved Belica-derived armored hood, with Omega orange and
+charcoal face plate. This supersedes the earlier no-helmet instruction for this
+skin only; the rejected procedural helmet stays retired. Production art lives
+in PhaseEngineer/SM_ER_PhaseEngineer_ArmoredHood and its two owned materials.
+setup_phase_engineer_hood.py backs up and updates Character/Target/Corpse catalogs,
+attaches to head and hides hair. Legacy helmet entry points preserve this hood.
+
+Alpha Sniper appearance (28 October, latest user request): use Twinblast · Officer
+instead of Twinblast · Recon for all three Sniper variants. Keep Officer at stable
+skin index0; update both DefaultGame.ini and ERLoadouts name/index fallbacks.
+Other role assignments and gameplay stay unchanged.
+Phase face-cover experiments are private Gear/*_Study assets, generated by
+study_phase_face_covers.py from Belica Armored art. Recon/Assault studies stay
+inactive; the approved Grenadier hood has independent production copies.
+
 Server gameplay settings (28 October, latest user request): expose existing
 numeric gameplay tuning through saved host settings and a replicated server
 snapshot; no new gameplay systems. This supersedes the earlier Claymore

@@ -38,7 +38,7 @@ struct FDM_API FERTeamAppearance
     bool Matches(class USkeletalMeshComponent* Component, bool bCorpse = false) const;
 };
 
-// Every team uses the same ten stable selection indices; references remain in BP defaults.
+// Every team uses the same fifteen selection indices (original ten unchanged); references remain in BP defaults.
 namespace ERSkins
 {
     constexpr int32 Count = 10;

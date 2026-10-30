@@ -86,7 +86,7 @@ bool BuildFireTraining(const UERMapTemplate& T,int32 Seed,int32 Attempt,TArray<F
 {
     const auto& V=T.FireTraining;
     auto Ratio=[](float X){return FMath::IsFinite(X) && X>0 && X<=1;};
-    if(T.Symmetry!=EERTemplateSymmetry::HalfTurn || V.ContinuousUpperFloors || V.FloorArea.ContainsNaN() || V.FloorArea.X<300 || V.FloorArea.Y>10000 || V.FloorArea.X>V.FloorArea.Y ||
+    if(T.Symmetry!=EERTemplateSymmetry::HalfTurn || V.ContinuousUpperFloors || V.FloorArea.ContainsNaN() || V.FloorArea.X<300 || V.FloorArea.Y>(T.SizingTeamSize>0 ? 17600:10000) || V.FloorArea.X>V.FloorArea.Y ||
         V.MinBays<6 || V.MaxBays>36 || V.MinBays>V.MaxBays || V.MinHeightBands<1 || V.MaxHeightBands>5 ||
         V.MinNaves<1 || V.MaxNaves>4 || V.MinNaves>V.MaxNaves || !FMath::IsFinite(V.MaxAspect) || V.MaxAspect<1.5f || V.MaxPlazas<0 || V.MaxPlazas>3 || V.MinHeightBands>V.MaxHeightBands ||
         !Ratio(V.ElevatedTargetRatio) || !Ratio(V.ElevatedMaxRatio) || !Ratio(V.OverheadMaxRatio) || !Ratio(V.OpenRegionMinRatio) ||
@@ -129,13 +129,18 @@ bool BuildFireTraining(const UERMapTemplate& T,int32 Seed,int32 Attempt,TArray<F
         TArray<FOption> Options;
         for(const auto& K:V.Widths)for(int32 Count=V.MinNaves;Count<=V.MaxNaves;++Count)for(int32 N=V.MinBays;N<=V.MaxBays;++N)
         {
-            const float Total=K.WidthCm*Count,Area=Total*420.f*N/1e4f;
-            if(Area>=V.FloorArea.X && Area<=V.FloorArea.Y && 420.f*N<=Total*V.MaxAspect)Options.Add({&K,Count,N});
+            const float Total=K.WidthCm*Count,Area=T.SizingTeamSize>0 ? (Total+60)*(420.f*N+80)/1e4f:Total*420.f*N/1e4f;
+            if(Area>=V.FloorArea.X && Area<=V.FloorArea.Y && 420.f*N<=Total*V.MaxAspect && 420.f*N+80>=(Total+60)*1.2f)Options.Add({&K,Count,N});
         }
         if(Reference)
         {
             for(const auto& K:V.Widths)if(!Width || K.WidthCm<Width->WidthCm)Width=&K;
             Bays=FMath::Clamp(22,V.MinBays,V.MaxBays);Naves=V.MinNaves;
+            if(T.SizingTeamSize>0)
+            {
+                if(Options.IsEmpty())return false;
+                const auto& O=Options[Options.Num()/2];Width=O.Kit;Naves=O.Naves;Bays=O.Bays;
+            }
         }
         else
         {
@@ -151,6 +156,7 @@ bool BuildFireTraining(const UERMapTemplate& T,int32 Seed,int32 Attempt,TArray<F
     }
     const int32 Bands=Reference ? FMath::Clamp(2,V.MinHeightBands,V.MaxHeightBands):R.RandRange(V.MinHeightBands,V.MaxHeightBands);
     const float NaveW=Width->WidthCm,W=NaveW*Naves,Length=420.f*Bays,HL=Length*.5f,Eave=300.f*Bands,Ridge=Eave+200;
+    if(Length+80<(W+60)*1.2f)return false;
     L.ArenaSize=FVector(W+60,Length+80,Ridge+20);
     L.WarehouseBays=Bays;L.WarehouseBands=Bands;L.WarehouseNaves=Naves;L.WarehouseNaveWidth=NaveW;
     L.WarehouseWidth=W;L.IndoorCeiling=Eave;L.LayoutAttempt=Attempt;

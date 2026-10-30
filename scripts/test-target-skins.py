@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Verify twenty stationary skin targets on a real listen server and remote peer."""
+"""Verify all stationary skin targets on a real listen server and remote peer."""
 from pathlib import Path
 import os
 import subprocess
 import time
+import runpy
+count=len(runpy.run_path(str(Path(__file__).with_name("character_catalog.py")))["NAMES"]["Alpha"])
 
 project = Path(__file__).resolve().parents[1]
 editor = Path(os.environ.get('UE_ROOT', '/Users/Shared/Epic Games/UE_5.8')) / 'Engine/Binaries/Mac/UnrealEditor.app/Contents/MacOS/UnrealEditor'
@@ -12,10 +14,10 @@ logs.mkdir(parents=True, exist_ok=True)
 common = [str(editor), str(project / 'RespawnAndRage.uproject'), '-game', '-nullrhi', '-nosound', '-unattended', '-NoSplash', '-Multiprocess', '-stdout', '-FullStdOutLogOutput', '-ExecCmds=t.MaxFPS 60']
 processes, handles = [], []
 try:
-    host_log = logs / 'twenty-targets-host.log'
-    client_log = logs / 'twenty-targets-client.log'
+    host_log = logs / 'skin-targets-host.log'
+    client_log = logs / 'skin-targets-client.log'
     handle = host_log.open('w'); handles.append(handle)
-    host = subprocess.Popen(common + ['/Game/EclipseRecoil/Maps/L_Depot?listen?ERBots=20?ERBotMode=Target?Name=Host', '-port=17781', '-ERTargetSkinsProbe'], stdout=handle, stderr=subprocess.STDOUT)
+    host = subprocess.Popen(common + [f'/Game/EclipseRecoil/Maps/L_Depot?listen?ERBots={count*2}?ERBotMode=Target?ERFullArsenalTest=1?Name=Host', '-port=17781', '-ERTargetSkinsProbe'], stdout=handle, stderr=subprocess.STDOUT)
     processes.append(host)
     deadline = time.monotonic() + 45
     while 'listening on port 17781' not in host_log.read_text(errors='replace'):
@@ -28,13 +30,13 @@ try:
     host.wait(timeout=150)
     for side, path in [('host', host_log), ('client', client_log)]:
         output = path.read_text(errors='replace')
-        marker = f'ER_TARGET_SKINS_PASS side={side} count=20 alpha=1023 omega=1023 weapons=126'
+        marker = f'ER_TARGET_SKINS_PASS side={side} count={count*2} alpha={(1<<count)-1} omega={(1<<count)-1} weapons=126'
         if marker not in output or 'ER_TARGET_SKINS_FAIL' in output:
-            raise RuntimeError(f'{side}: twenty stationary, armed, correct skin meshes were not verified')
+            raise RuntimeError(f'{side}: all stationary, armed, correct skin meshes were not verified')
         print(marker, flush=True)
     if host.returncode:
         raise RuntimeError('Host probe failed')
-    print('TWENTY TARGETS PASS: all ten skins per team, no firing/movement, preserved after human join and replicated meshes.')
+    print(f'TARGETS PASS: all {count} skins per team, stationary and replicated after human join.')
 finally:
     for process in processes:
         if process.poll() is None:

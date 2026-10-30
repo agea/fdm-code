@@ -6,8 +6,8 @@ for path in ['/Game/EclipseRecoil/Core/BP_ERCharacter','/Game/EclipseRecoil/Core
     if assets.get_metadata_tag(bp,'ERPhaseCorpsePoseVersion')=='1':continue
     defaults=ue.get_default_object(bp.generated_class())
     choices=list(defaults.omega_skins)
-    assert len(choices)==10
-    for skin in choices[5:]:
+    assert len(choices)>=10
+    for skin in choices[5:10]:
         assert skin.mesh.get_name().startswith('SK_ER_Phase_')
         skin.set_editor_property('copy_physics_pose_for_rendering',True)
     defaults.set_editor_property('omega_skins',choices)

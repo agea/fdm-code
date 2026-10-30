@@ -20,9 +20,9 @@ public class fdm : ModuleRules
         PrivateDependencyModuleNames.AddRange(new [] { "RenderCore", "RHI", "Sockets", "Networking", "OnlineSubsystemEOS", "OnlineSubsystem", "OnlineSubsystemUtils", "SocketSubsystemEOS" });
         PrivateDependencyModuleNames.Add("ApplicationCore");
         PrivateDependencyModuleNames.Add("PhysicsCore");
-        PrivateDependencyModuleNames.AddRange(new [] { "ClothingSystemRuntimeCommon", "ChaosCloth" });
+        PrivateDependencyModuleNames.AddRange(new [] { "ClothingSystemRuntimeCommon", "ClothingSystemRuntimeInterface", "ChaosCloth" });
         PrivateDependencyModuleNames.AddRange(new [] { "PCG", "PCGExCore" });
         PrivateDependencyModuleNames.AddRange(new [] { "GeometryCore", "GeometryFramework", "NetCore" });
-        if (Target.bBuildEditor) PrivateDependencyModuleNames.AddRange(new [] { "MeshDescription", "StaticMeshDescription", "SkeletalMeshDescription", "AnimationCore", "AssetRegistry", "NiagaraEditor", "ClothingSystemEditor", "ClothingSystemEditorInterface" });
+        if (Target.bBuildEditor) PrivateDependencyModuleNames.AddRange(new [] { "MeshDescription", "StaticMeshDescription", "SkeletalMeshDescription", "AnimationCore", "AssetRegistry", "NiagaraEditor", "ClothingSystemEditor", "ClothingSystemEditorInterface", "SkeletalMeshEditor" });
     }
 }

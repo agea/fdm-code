@@ -184,7 +184,7 @@ void AERBlockRoom::SpawnMaterialImpact(const FERBlockMaterialProperties& Materia
 {
     if (!CanShowEffects(Position) || MaxImpactEffects <= 0 || Normal.ContainsNaN() || Normal.IsNearlyZero()) return;
     const auto* Profile = &Material;
-    const int32 Budget = FMath::Clamp(MaxImpactEffects, 0, 64);
+    const int32 Budget = FMath::Min(FMath::Clamp(MaxImpactEffects, 0, 64), ERPerformance::Get().ImpactEffectLimit());
     ImpactDecals.RemoveAll([](const auto& Item) { return !Item.IsValid(); });
     ImpactEmitters.RemoveAll([](const auto& Item) { return !Item.IsValid() || !Item->IsActive(); });
     if (bDecal && Profile->ImpactDecal)

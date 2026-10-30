@@ -48,6 +48,7 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") bool bOneHanded = false;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation") float SoundPitch = 1;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation|Audio") TObjectPtr<class UEROneShotAudio> ShotAudio;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Presentation|Audio") TObjectPtr<class USoundBase> EmptyTriggerSound;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) bool bAutomatic = true;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) int32 Pellets = 1;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Ballistics") bool bUseBodyHitZones = false;
@@ -179,6 +180,7 @@ public:
     int32 LastShotTraceCount = 0;
     TArray<FHitResult,TInlineAllocator<6>> LastShotPelletHits;
     uint32 AuthorizedShotCount = 0;
+    uint32 AuthorizedEmptyTriggerCount = 0;
     FVector LastShotAimDirection = FVector::ForwardVector;
     FVector LastShotDirection = FVector::ForwardVector;
     float LastShotSpreadDegrees = 0;
@@ -197,6 +199,8 @@ private:
     UPROPERTY(Transient) TObjectPtr<UERWeaponData> TuningSource;
     FTimerHandle FireTimer, ReloadTimer;
     double NextAllowedShotTime = 0;
+    double NextEmptyTriggerTime = 0;
+    UFUNCTION(Client, Unreliable) void ClientEmptyTrigger(class USoundBase* Sound);
     bool bWantsFire = false;
     bool bNewAccuracyBurst = true;
     FRandomStream ShotRandom;

@@ -43,8 +43,8 @@ bool BuildAlleyDistrict(const UERMapTemplate& T,int32 Seed,TArray<FERMapTemplate
     const auto& V=T.Town;
     if(T.Symmetry!=EERTemplateSymmetry::None || !V.TraversableTown || V.MinAccesses<2 || V.MaxAccesses>4 || V.MinAccesses>V.MaxAccesses ||
        V.MinCentralWalls<0 || V.MaxCentralWalls>2 || V.MinCentralWalls>V.MaxCentralWalls ||
-       V.ArenaMin.ContainsNaN() || V.ArenaMax.ContainsNaN() || V.ArenaMin.X<7600 || V.ArenaMin.Y<8400 ||
-       V.ArenaMax.X>9500 || V.ArenaMax.Y>11000 || V.ArenaMin.X>V.ArenaMax.X || V.ArenaMin.Y>V.ArenaMax.Y ||
+       V.ArenaMin.ContainsNaN() || V.ArenaMax.ContainsNaN() || V.ArenaMin.X<(T.SizingTeamSize>0 ? 3200:7600) || V.ArenaMin.Y<(T.SizingTeamSize>0 ? 3200:8400) ||
+       V.ArenaMax.X>(T.SizingTeamSize>0 ? 20000:9500) || V.ArenaMax.Y>(T.SizingTeamSize>0 ? 24000:11000) || V.ArenaMin.X>V.ArenaMax.X || V.ArenaMin.Y>V.ArenaMax.Y ||
        !FMath::IsFinite(V.AxisWarp) || V.AxisWarp<0 || V.AxisWarp>3 || V.BuildingHeight.ContainsNaN() ||
        V.BuildingHeight.X<400 || V.BuildingHeight.Y>800 || V.BuildingHeight.X>V.BuildingHeight.Y ||
        !V.WallSurface || !V.RoofSurface || !V.GroundSurface || !V.IronSurface || !V.ArchMesh ||
@@ -56,7 +56,7 @@ bool BuildAlleyDistrict(const UERMapTemplate& T,int32 Seed,TArray<FERMapTemplate
     L.ArenaSize={Pick(V.ArenaMin.X,V.ArenaMax.X),Pick(V.ArenaMin.Y,V.ArenaMax.Y),T.ArenaSize.Z};
     const FVector Half=L.ArenaSize*.5;
     L.DistrictAccesses=V.MinAccesses+uint32(Seed)%uint32(V.MaxAccesses-V.MinAccesses+1);
-    L.DistrictBends=R.RandRange(0,3);
+    L.DistrictBends=R.RandRange(0,T.SizingTeamSize>0 && T.SizingTeamSize<=2 ? 1:3);
     // Independent of lane count and art: all nine wall/access combinations
     // occur, and changing the allowed wall range does not reroll the town.
     L.DistrictWallCount=V.MinCentralWalls+((uint32(Seed)>>4)^uint32(Seed))%uint32(V.MaxCentralWalls-V.MinCentralWalls+1);
@@ -92,12 +92,14 @@ bool BuildAlleyDistrict(const UERMapTemplate& T,int32 Seed,TArray<FERMapTemplate
         Space({{-Half.X+30,-L.DistrictOpenHalfDepth},{Half.X-30,L.DistrictOpenHalfDepth}});
         Pad({{-Half.X,-L.DistrictOpenHalfDepth},{Half.X,L.DistrictOpenHalfDepth}},0);
     }
-    const FVector Base(Pick(-400,400),-Half.Y+1050,0);
-    const FVector2D SpawnSize(Pick(2000,2500),1500);
+    const float SpawnDepth=T.SizingTeamSize==1 ? 600:T.SizingTeamSize>0 ? FMath::GridSnap(FMath::Clamp(float(Half.Y)*.86f-2300.f,800.f,1500.f),100.f):1500.f;
+    const float BaseOffset=T.SizingTeamSize==1 ? 350:T.SizingTeamSize>0 ? FMath::GridSnap(FMath::Max(SpawnDepth*.5f+100,FMath::Min(1050.f,float(Half.Y)*.43f-SpawnDepth*.5f-100)),50.f):1050.f;
+    const FVector Base(Pick(-400,400),-Half.Y+BaseOffset,0);
+    const FVector2D SpawnSize(Pick(T.SizingTeamSize==1 ? 1400:2000,T.SizingTeamSize==1 ? 1600:2500),SpawnDepth);
     Space({FVector2D(Base)-SpawnSize*.5,FVector2D(Base)+SpawnSize*.5});
     for(const auto C:{Base,Opposite(Base)})L.TownCourts.Add(FBox(C-FVector(SpawnSize*.5,0),C+FVector(SpawnSize*.5,1)));
     TArray<TArray<FVector>> North;TArray<float> GateX,Widths;
-    const float Spread=Pick(Half.X*(L.DistrictAccesses==2 ? .35f:.59f),Half.X*(L.DistrictAccesses==2 ? .50f:.70f)),FirstY=-Half.Y*.60f,LastY=FMath::Min3(float(-Half.Y*.16f),DistrictEnd-200,V.LowCoverAndUnderpass ? -1350.f:0.f);
+    const float Spread=Pick(Half.X*(L.DistrictAccesses==2 ? .35f:.59f),Half.X*(L.DistrictAccesses==2 ? .50f:.70f)),FirstY=-Half.Y*.60f,LastY=FMath::Min3(float(-Half.Y*.16f),DistrictEnd-200,V.LowCoverAndUnderpass ? -FMath::Min(1350.f,float(Half.Y)*.35f):0.f);
     // Corresponding routes may have different silhouettes, but every ground
     // junction, rise, plaza, roof stair and tower has an exact half-turn mate.
     for(int32 Lane=0;Lane<L.DistrictAccesses;++Lane)
@@ -105,7 +107,7 @@ bool BuildAlleyDistrict(const UERMapTemplate& T,int32 Seed,TArray<FERMapTemplate
         const float X=(float(Lane)/(L.DistrictAccesses-1)*2-1)*Spread;
         const float W=Lane>=(L.DistrictAccesses+1)/2 ? Widths[L.DistrictAccesses-1-Lane]:Pick(340,480,20);
         const float Band=2*Spread/(L.DistrictAccesses-1),Bend=FMath::Min(650.f,Band*.22f);
-        const float Limit=L.DistrictAccesses==2 ? Half.X-1550:Half.X-(V.LowCoverAndUnderpass ? 1050:500);
+        const float Limit=L.DistrictAccesses==2 ? Half.X-(T.SizingTeamSize>0 && T.SizingTeamSize<=2 ? 700:1550):Half.X-(V.LowCoverAndUnderpass ? 1050:500);
         const float Entry=FMath::Clamp(X+Pick(-Bend,Bend),-Limit,Limit),First=FirstY-Pick(0,250);
         TArray<FVector> Path{Base,FVector(Entry,Base.Y,0),FVector(Entry,First,0)};
         float AtX=Entry;
@@ -131,12 +133,12 @@ bool BuildAlleyDistrict(const UERMapTemplate& T,int32 Seed,TArray<FERMapTemplate
     L.RoomAccessRoutes.Add({Opposite({GateX[0],LinkY,100}),Opposite({GateX.Last(),LinkY,100})});
     // A broad, paired market square contains the raised crossing. Additional
     // courtyards vary in size and rectangular/L/cross shape between seeds.
-    const int32 PlazaLane=L.DistrictAccesses==2 ? R.RandRange(0,1):R.RandRange(1,L.DistrictAccesses-2),PlazaPairs=R.RandRange(1,2);
+    const int32 PlazaLane=L.DistrictAccesses==2 ? R.RandRange(0,1):R.RandRange(1,L.DistrictAccesses-2),PlazaPairs=R.RandRange(1,T.SizingTeamSize>0 && T.SizingTeamSize<=2 ? 1:2);
     TArray<FVector> PlazaCenters;TArray<FVector2D> PlazaSizes;
     for(int32 I=0;I<PlazaPairs;++I)
     {
         const int32 Lane=(PlazaLane+I)%North.Num();const auto& Path=North[Lane];
-        float Y=I ? FirstY-100:-Pick(350,450),X=GateX[Lane];
+        float Y=I ? FirstY-100:T.SizingTeamSize==1 ? 0:-Pick(350,450),X=GateX[Lane];
         if(!I)
         {
             // The final straight approaches have guaranteed separation for
@@ -144,7 +146,7 @@ bool BuildAlleyDistrict(const UERMapTemplate& T,int32 Seed,TArray<FERMapTemplate
             X=GateX[Lane];
         }
         for(int32 J=1;J<Path.Num();++J)if(FMath::IsNearlyEqual(Path[J-1].X,Path[J].X) && Y>=Path[J-1].Y && Y<=Path[J].Y){X=Path[J].X;break;}
-        const FVector2D S=I ? FVector2D(Pick(1500,2200),Pick(1500,2200)):FVector2D(2800,2300);
+        const FVector2D S=I ? FVector2D(Pick(1500,2200),Pick(1500,2200)):(T.SizingTeamSize==1 ? FVector2D(1400,1000):T.SizingTeamSize==2 ? FVector2D(2600,1200):FVector2D(2800,2300));
         X=FMath::Clamp(X,-Half.X+S.X*.5f+100,Half.X-S.X*.5f-100);
         FVector C(X,Y,0);PlazaCenters.Add(C);PlazaSizes.Add(S);
         const FPlot Square{FVector2D(C)-S*.5f,FVector2D(C)+S*.5f};
@@ -163,7 +165,7 @@ bool BuildAlleyDistrict(const UERMapTemplate& T,int32 Seed,TArray<FERMapTemplate
     if(!L.UnderpassApproach.IsEmpty())Street(L.UnderpassApproach,360);
     // Towers occupy open market corners, outside the circulation paths. A
     // reserved apron keeps the climb approach clear of neighboring houses.
-    const int32 TowerPairs=PlazaPairs;TArray<FPlot> TowerFootprints;
+    const int32 TowerPairs=T.SizingTeamSize>0 && T.SizingTeamSize<=2 ? 0:PlazaPairs;TArray<FPlot> TowerFootprints;
     for(int32 I=0;I<TowerPairs;++I)
     {
         const auto C=PlazaCenters[I];const float W=I ? 500:600,D=W,H=Pick(700,900,100);
@@ -236,11 +238,22 @@ bool BuildAlleyDistrict(const UERMapTemplate& T,int32 Seed,TArray<FERMapTemplate
         const auto S=P.Max-P.Min;const int32 NX=FMath::Max(1,FMath::CeilToInt(S.X/Frontage)),NY=FMath::Max(1,FMath::CeilToInt(S.Y/Frontage));
         for(int32 Y=0;Y<NY;++Y)for(int32 X=0;X<NX;++X)Houses.Add({P.Min+FVector2D(S.X*X/NX,S.Y*Y/NY),P.Min+FVector2D(S.X*(X+1)/NX,S.Y*(Y+1)/NY)});
     }
+    // More arena area must not multiply dense5cm house volumes without bound.
+    // Spread at most20 paired houses over the larger districts; unused lots
+    // become open yards. All streets, aprons and architectural dimensions stay.
+    if(T.SizingTeamSize>4 && Houses.Num()>20)
+    {
+        TArray<FPlot> Eligible,Chosen;
+        for(const auto& Lot:Houses)if((Lot.Max-Lot.Min).GetMin()>=240)Eligible.Add(Lot);
+        const int32 Keep=FMath::Min(20,Eligible.Num());
+        for(int32 I=0;I<Keep;++I)Chosen.Add(Eligible[I*Eligible.Num()/Keep]);
+        Houses=MoveTemp(Chosen);
+    }
     int32 StairPairs=0;TArray<FVector> StairCenters;
     for(const auto& Lot:Houses)
     {
         const FVector2D S=Lot.Max-Lot.Min,C=(Lot.Min+Lot.Max)*.5f;const float Z=AlleyBaseHeight(L.ArenaSize,C,true);
-        Pad(Lot,Z);float Height=Pick(V.BuildingHeight.X,V.BuildingHeight.Y);
+        Pad(Lot,Z);float Height=Pick(V.BuildingHeight.X,T.SizingTeamSize>4 ? FMath::Min(600.f,float(V.BuildingHeight.Y)):V.BuildingHeight.Y);
         const bool HasHouse=S.GetMin()>=240;bool Access=false;FTransform Frame;float W=0,D=0;
         FVector2D HouseCenter=C,HouseSize=S;float Yaw=Art.RandRange(0,3)*90;
         bool Distant=true;for(auto P:StairCenters)Distant&=FVector::Dist2D(P,FVector(C,0))>1700;
@@ -301,7 +314,7 @@ bool BuildAlleyDistrict(const UERMapTemplate& T,int32 Seed,TArray<FERMapTemplate
             L.RooftopRoutes.Add(Route);TArray<FVector> Mate;for(auto Q:Route)Mate.Add(Opposite(Q));L.RooftopRoutes.Add(Mate);
         }
     }
-    if(StairPairs<1)
+    if(StairPairs<1 && T.SizingTeamSize!=1)
     {
         FString Sizes;for(const auto& P:Houses)if((P.Max-P.Min).GetMin()>240)Sizes+=(P.Max-P.Min).ToString()+TEXT(";");
         UE_LOG(LogTemp,Warning,TEXT("ER_DISTRICT_REJECT seed=%d stairs=0 lots=%s"),Seed,*Sizes);return false;
@@ -346,7 +359,9 @@ bool BuildAlleyDistrict(const UERMapTemplate& T,int32 Seed,TArray<FERMapTemplate
     }
     // Preserve a genuine 3.2m over/under crossing in the paired market squares.
     L.TownCrossing=PlazaCenters[0];
-    const FVector Bridge=L.TownCrossing;Pad({FVector2D(Bridge)-FVector2D(1300,1100),FVector2D(Bridge)+FVector2D(1300,1100)},0);
+    if(T.SizingTeamSize!=1)
+    {
+    const FVector Bridge=L.TownCrossing;Pad({FVector2D(Bridge)-FVector2D(1300,T.SizingTeamSize==2 ? 600:1100),FVector2D(Bridge)+FVector2D(1300,T.SizingTeamSize==2 ? 600:1100)},0);
     for(int32 End=0;End<2;++End)
     {
         const float Sign=End ? -1.f:1.f;TArray<FVector> Route{Bridge+FVector(Sign*-1170,0,100)};
@@ -359,6 +374,7 @@ bool BuildAlleyDistrict(const UERMapTemplate& T,int32 Seed,TArray<FERMapTemplate
     L.LowerRoute={Bridge+FVector(0,-500,100),Bridge+FVector(0,500,100)};
     L.UpperRoute=L.StairRoutes[0];L.UpperRoute.Add(Bridge+FVector(0,0,420));
     for(int32 I=L.StairRoutes[1].Num()-1;I>=0;--I)L.UpperRoute.Add(L.StairRoutes[1][I]);
+    }
     // Each existing wall has exactly the requested 2/3/4 arch openings. With
     // no wall these are approach routes, free to connect across the open core.
     const float WallH=1300,Depth=240;
@@ -399,6 +415,25 @@ bool BuildAlleyDistrict(const UERMapTemplate& T,int32 Seed,TArray<FERMapTemplate
         B.Destructible=true;B.Material=EERBlockMaterial::Wood;B.Anchored=true;
     }
     Pad({FVector2D(Base)-SpawnSize*.5,FVector2D(Base)+SpawnSize*.5},180);
+    if(T.SizingTeamSize>0)
+    {
+        // A lateral mouth used to assume sea-level ground. Compact districts
+        // can bring a foundation close to it: meet the actual final terrain,
+        // then keep a short flat apron at that same height across the mouth.
+        for(auto& Ramp:L.UnderpassRamps)
+        {
+            const FVector Direction=(Ramp.Exit-Ramp.Entry).GetSafeNormal2D();
+            const FVector2D Outside(Ramp.Entry-Direction*100);
+            Ramp.Entry.Z=AlleyGroundHeight(L,Outside);
+            const FVector Across(-Direction.Y,Direction.X,0);
+            const float HalfWidth=FMath::Abs(Direction.X)>.5 ? Ramp.Bounds.GetSize().Y*.5f:Ramp.Bounds.GetSize().X*.5f;
+            const FVector Extent=Direction.GetAbs()*100+Across.GetAbs()*(HalfWidth+100);
+            L.TerrainPads.Add(FBox(FVector(Ramp.Entry.X-Extent.X,Ramp.Entry.Y-Extent.Y,Ramp.Entry.Z),FVector(Ramp.Entry.X+Extent.X,Ramp.Entry.Y+Extent.Y,Ramp.Entry.Z)));
+        }
+        for(auto& Point:L.UnderpassRoute)for(const auto& Ramp:L.UnderpassRamps)
+            if(Point.X>=Ramp.Bounds.Min.X-.01 && Point.X<=Ramp.Bounds.Max.X+.01 && Point.Y>=Ramp.Bounds.Min.Y-.01 && Point.Y<=Ramp.Bounds.Max.Y+.01)
+                Point.Z=AlleyRampHeight(Ramp,FVector2D(Point))+100;
+    }
     auto Elevate=[&](TArray<FVector> Path)
     {
         TArray<FVector> Out;
@@ -452,7 +487,30 @@ bool BuildAlleyDistrict(const UERMapTemplate& T,int32 Seed,TArray<FERMapTemplate
         L.AlphaSpawns.Add(FTransform(FRotator(0,90,0),P));L.OmegaSpawns.Add(FTransform(FRotator(0,270,0),Opposite(P)));
     }
     if(V.ProceduralHouses)FinishAlleyHouseModules(T,Pieces,L);
+    if(T.SizingTeamSize>0)
+    {
+        // A resized district must not place a steep foundation transition on
+        // a standing route. Check the terrain across the capsule footprint,
+        // then let the bounded seeded composition retry choose another plan.
+        for(const auto& Path:L.DistrictRoutes)for(int32 I=1;I<Path.Num();++I)
+        {
+            const int32 Samples=FMath::Max(1,FMath::CeilToInt(FVector::Dist2D(Path[I-1],Path[I])/35));
+            for(int32 J=0;J<=Samples;++J)
+            {
+                const FVector2D RouteCenter(FMath::Lerp(Path[I-1],Path[I],float(J)/Samples));
+                for(float DX:{-34.f,0.f,34.f})for(float DY:{-34.f,0.f,34.f})
+                {
+                    const FVector2D P=RouteCenter+FVector2D(DX,DY);
+                    // Resolve the local75cm terrain triangle rather than
+                    // averaging a steep edge together with its flat neighbours.
+                    const float GX=(AlleyGroundHeight(L,P+FVector2D(1,0))-AlleyGroundHeight(L,P-FVector2D(1,0)))*.5f;
+                    const float GY=(AlleyGroundHeight(L,P+FVector2D(0,1))-AlleyGroundHeight(L,P-FVector2D(0,1)))*.5f;
+                    if(FMath::RoundToInt((GX*GX+GY*GY)*1000)>810)return false;
+                }
+            }
+        }
+    }
     if(!BuildAlleyLowCover(T,Seed,Pieces,L))return false;
-    return Pieces.Num()<1800 && L.Houses.Num()>12;
+    return Pieces.Num()<1800 && L.Houses.Num()>(T.SizingTeamSize>0 && T.SizingTeamSize<=2 ? 3:12);
 }
 }

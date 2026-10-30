@@ -1,9 +1,17 @@
 #!/usr/bin/env python3
-"""Render ten silhouettes per team and verify every selectable corpse during and after physics."""
+"""Render all silhouettes per team and verify every selectable corpse during and after physics."""
 from pathlib import Path
 import os
 import subprocess
 import shutil
+import argparse
+import runpy
+parser=argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--new-paragon", action="store_true", help="Render page1 and corpse pairs5..9 (Gadget)")
+parser.add_argument("--page",type=int,action="append",help="Only the selected gallery pages")
+parser.add_argument("--pair",type=int,action="append",help="Only the selected corpse pairs")
+args=parser.parse_args()
+count=len(runpy.run_path(str(Path(__file__).with_name("character_catalog.py")))["NAMES"]["Alpha"])
 project=Path(__file__).resolve().parents[1]
 engine=Path(os.environ.get('UE_ROOT','/Users/Shared/Epic Games/UE_5.8'))
 editor=engine/'Engine/Binaries/Mac/UnrealEditor.app/Contents/MacOS/UnrealEditor'
@@ -25,9 +33,9 @@ def run(label,flags,complete,passes):
     assert output.count(passes)==(10 if label.startswith('skins-gallery-final') else 6),(label,'pass count')
     assert 'Failed to compile Material' not in output,(label,'material compilation')
     print('ER_SKINS_RENDER_PASS '+label,flush=True)
-for page in range(2):
+for page in (args.page or ([] if args.pair else ([1] if args.new_paragon else range((count+4)//5)))):
     run('skins-gallery-final-'+str(page),['-ERSkinGallery','-ERSkinPage='+str(page)],'ER_SKIN_GALLERY_COMPLETE','ER_SKIN_GALLERY_PASS')
-for pair in range(10):
+for pair in (args.pair or ([] if args.page else (range(5,10) if args.new_paragon else range(count)))):
     run('skins-corpses-'+str(pair),['-ERCorpseGallery','-ERSkinPair='+str(pair)],'ER_CORPSE_GALLERY_COMPLETE','ER_CORPSE_GALLERY_PASS')
     for sample in range(1,4):
         shutil.copyfile(logs/('Team-Corpses-'+str(sample)+'.png'),logs/('Skin-Corpses-'+str(pair)+'-'+str(sample)+'.png'))

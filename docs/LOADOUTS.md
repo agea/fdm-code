@@ -2,6 +2,17 @@
 
 Five stable preset IDs (`breacher`, `rifleman`, `marksman`, `sniper`, `grenadier`)
 and three variants (`gunner`, `offense`, `defense`) resolve through ERLoadouts.
+Preset skins (same for all three variants; index in parentheses):
+
+| Preset | Alpha | Omega |
+|---|---|---|
+| breacher | Wraith · Assault (1) | Drongo · Jackal (1) |
+| rifleman | Belica · Arctic Patrol (6) | Drongo · Raider (0) |
+| marksman | Wraith · Patrol (2) | Gadget · Mechanic (6) |
+| sniper | Wraith · Officer (0) | Gadget · Patrol (7) |
+| grenadier | Belica · Armored (8) | Gadget · Field Engineer (8) |
+
+The remaining appearances stay selectable in the catalog.
 Rifleman/Offense is the safe default. Config/DefaultGame.ini exposes initial
 primary/secondary base ammunition and stable team skin names. Quantities are rounds.
 The resolver doubles total carried ammunition for every preset/variant: firearm
@@ -85,3 +96,46 @@ carried quantities and melee has no ammunition count. Selection highlights,
 confirmed next-spawn selection and the apply action are presented separately;
 a different equipped kit is shown only while waiting for the next spawn.
 The rotatable character preview remains available in a more compact panel.
+
+### Drongo Scavenger on the active Breacher preset (30 October)
+
+Omega1 keeps the stable label Drongo · Jackal but now shows Scavenger's original
+round goggles, yellow skull bandana and shoulder pad. Material slot0 is named
+M00_Teddybear although it contains those costume parts; hiding it removed them.
+The original mask material/texture packages were recovered from characters commit
+0f177de using Git LFS and SHA256 verification. An owned matte material preserves
+the original skull colours. The additional GDC gas-mask attachment is removed
+from this skin only. Weapon5 and teddy prop6 stay hidden. Raider/Rifleman remains
+unchanged, as do all body/FPS meshes, rigs, physics, catalog indices and role IDs.
+
+setup_drongo_scavenger_head.py applies the change to player/target/corpse catalogs;
+setup_drongo_masks.py respects the ERScavengerOriginalHead marker. Receipts and
+311 protected original package hashes: Saved/Testing/DrongoScavenger.
+
+The mask uses the original atlas stencil (`T_Drongo_Scavenger_Upperbody_Pattern.R`)
+explicitly as white BaseColor paint, with dark lenses/shells and zero emissive.
+Its owned rubber function repairs an empty imported texture default; original
+material/function packages are unchanged. The menu preview mesh now forces its
+own texture mips while active (`bForceMipStreaming`), preserving scene-capture
+detail without disabling streaming globally. The ordinary preview was inspected
+through frame35 after the texture requests completed.
+
+### Gadget Marksman / Sniper separation (30 October)
+
+> Superseded by the later user selection below: Sniper now uses gallery model8, Gadget · Patrol (index7).
+
+Marksman keeps Omega6 Gadget · Mechanic (Guerilla, visible face/exposed waist).
+Sniper keeps the stable Omega9 Gadget · Veteran identity but now wears closed
+Shellshock armor/helmet, with a gray upper body and orange lower plates. Source
+Engineer8, all other choices and role IDs remain unchanged. Independent body,
+FPS, physics and material copies preserve the approved Shellshock bindings.
+See setup_gadget_sniper_shellshock.py and Saved/Testing/GadgetMarksmanSniper.
+
+### Sniper uses gallery model8 (30 October, latest correction)
+
+Omega Sniper now selects the existing **Gadget · Patrol, index7 / gallery8**, with
+its approved light camouflage. Both DefaultGame.ini and ERLoadouts' native
+name/index fallbacks use Patrol for all three Sniper variants. Marksman remains
+Mechanic6; Grenadier remains Field Engineer8. No character asset, palette, rig,
+physics or catalog entry changed. The prior Veteran9 Shellshock study remains
+an optional catalog appearance and is no longer assigned to Sniper.

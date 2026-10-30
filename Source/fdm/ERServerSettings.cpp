@@ -123,6 +123,7 @@ const TArray<FERServerSetting>& ERServer::Settings()
         Add(TEXT("Recon.MinimapRadius"),TEXT("Recon"),TEXT("Minimap display radius"),TEXT("m"),40.f,10.f,150.f,true,false);
         Add(TEXT("Structure.Health"),TEXT("Destruction"),TEXT("All material resistance"),TEXT("×"),1.f,0.1f,10.f,false,false);
         Add(TEXT("Structure.Explosion"),TEXT("Destruction"),TEXT("Explosion damage to structures"),TEXT("×"),1.f,0.f,10.f,false,false);
+        Add(TEXT("Map.ExpectedTeamSize"),TEXT("Maps"),TEXT("Expected players per team (map sizing only)"),TEXT("players / team"),2.f,1.f,16.f,false,true);
         Add(TEXT("Map.FixedSeed"),TEXT("Maps"),TEXT("Use a fixed generation seed"),TEXT("on/off"),0.f,0.f,1.f,false,true);
         Add(TEXT("Map.Seed"),TEXT("Maps"),TEXT("Generation seed"),TEXT(""),42.f,0.f,2147483520.f,false,true);
         Add(TEXT("Material.Drywall.Health"),TEXT("Destruction"),TEXT("Drywall resistance"),TEXT("×"),1.f,.1f,10.f,true);

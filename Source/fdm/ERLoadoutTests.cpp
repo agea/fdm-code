@@ -39,6 +39,13 @@ bool FERLoadoutCatalogTests::RunTest(const FString&)
     auto* Catalog=LoadClass<AERCharacter>(nullptr,TEXT("/Game/EclipseRecoil/Core/BP_ERCharacter.BP_ERCharacter_C"));
     TestNotNull(TEXT("Saved catalog"),Catalog);if(!Catalog)return false;
     const auto* C=Catalog->GetDefaultObject<AERCharacter>();
+    for(const FName Variant:ERLoadouts::Variants())
+    {
+        const auto Sniper=ERLoadouts::Resolve("sniper",Variant,false,C);
+        TestTrue(TEXT("Alpha Sniper uses Wraith Officer"),Sniper.Skin==0 && C->AlphaSkins.IsValidIndex(Sniper.Skin) && C->AlphaSkins[Sniper.Skin].DisplayName==TEXT("Wraith · Officer"));
+        const auto OmegaSniper=ERLoadouts::Resolve("sniper",Variant,true,C);
+        TestTrue(TEXT("Omega Sniper uses gallery model8 Gadget Patrol"),OmegaSniper.Skin==7 && C->OmegaSkins.IsValidIndex(OmegaSniper.Skin) && C->OmegaSkins[OmegaSniper.Skin].DisplayName==TEXT("Gadget · Patrol"));
+    }
     for(const FName P:ERLoadouts::Presets())for(const FName V:ERLoadouts::Variants())for(bool Team:{false,true})
     {
         const auto R=ERLoadouts::Resolve(P,V,Team,C);

@@ -12,10 +12,16 @@ TArray<FOriginalValue>& Originals()
     static TArray<FOriginalValue> Values;
     if(Values.IsEmpty())
     {
-        for(const TCHAR* Name : {TEXT("r.AntiAliasingMethod"),TEXT("r.TemporalAA.Upsampling"),TEXT("r.TSR.History.ScreenPercentage"),TEXT("r.TSR.History.UpdateQuality"),TEXT("r.TSR.ShadingRejection.Flickering"),TEXT("r.DynamicGlobalIlluminationMethod"),TEXT("r.Lumen.HardwareRayTracing"),TEXT("r.RayTracing.ForceAllRayTracingEffects"),TEXT("sg.ShadowQuality"),TEXT("r.ShadowQuality"),TEXT("r.Shadow.Virtual.OnePassProjection.MaxLightsPerPixel"),TEXT("r.Shadow.MaxResolution"),TEXT("r.Shadow.DistanceScale"),TEXT("r.Shadow.Virtual.ResolutionLodBiasLocal"),TEXT("r.Shadow.Virtual.ResolutionLodBiasDirectional"),TEXT("r.ReflectionMethod"),TEXT("r.SSR.Quality"),TEXT("r.ReflectionEnvironment"),TEXT("r.DefaultFeature.MotionBlur"),TEXT("r.MotionBlurQuality"),TEXT("r.DepthOfFieldQuality"),TEXT("sg.EffectsQuality"),TEXT("sg.TextureQuality"),TEXT("r.Streaming.LimitPoolSizeToVRAM"),TEXT("r.Streaming.MipBias"),TEXT("r.MaxAnisotropy")})
+        for(const TCHAR* Name : {TEXT("r.AntiAliasingMethod"),TEXT("r.TemporalAA.Upsampling"),TEXT("r.TSR.History.ScreenPercentage"),TEXT("r.TSR.History.UpdateQuality"),TEXT("r.TSR.ShadingRejection.Flickering"),TEXT("r.DynamicGlobalIlluminationMethod"),TEXT("r.Lumen.HardwareRayTracing"),TEXT("r.RayTracing.ForceAllRayTracingEffects"),TEXT("sg.ShadowQuality"),TEXT("r.ShadowQuality"),TEXT("r.Shadow.Virtual.OnePassProjection.MaxLightsPerPixel"),TEXT("r.Shadow.MaxResolution"),TEXT("r.Shadow.DistanceScale"),TEXT("r.Shadow.Virtual.ResolutionLodBiasLocal"),TEXT("r.Shadow.Virtual.ResolutionLodBiasDirectional"),TEXT("r.ReflectionMethod"),TEXT("r.SSR.Quality"),TEXT("r.ReflectionEnvironment"),TEXT("r.DefaultFeature.MotionBlur"),TEXT("r.MotionBlurQuality"),TEXT("r.DepthOfFieldQuality"),TEXT("sg.EffectsQuality"),TEXT("r.MaterialQualityLevel"),TEXT("sg.TextureQuality"),TEXT("r.Streaming.LimitPoolSizeToVRAM"),TEXT("r.Streaming.MipBias"),TEXT("r.MaxAnisotropy"),TEXT("sg.GlobalIlluminationQuality"),TEXT("sg.ReflectionQuality"),TEXT("sg.PostProcessQuality"),TEXT("t.MaxFPS"),TEXT("p.ClothPhysics")})
             if(auto* CVar=IConsoleManager::Get().FindConsoleVariable(Name)) Values.Add({Name,CVar->GetFloat()});
     }
     return Values;
+}
+const int32 FrameCaps[]={60,90,120,144,0};
+int32 FrameCapIndex(int32 MaxFPS)
+{
+    for(int32 I=0;I<UE_ARRAY_COUNT(FrameCaps);++I) if(FrameCaps[I]==MaxFPS) return I;
+    return 1;
 }
 FSettings OriginalSettings()
 {
@@ -33,6 +39,9 @@ FSettings OriginalSettings()
     S.Reflections=Value(TEXT("r.ReflectionMethod"),1)==1 ? 2:Value(TEXT("r.ReflectionMethod"),1)==2 ? 1:0;
     S.MotionBlur=Value(TEXT("r.DefaultFeature.MotionBlur"),0)!=0;
     S.DepthOfField=Value(TEXT("r.DepthOfFieldQuality"),0)>0;
+    S.PostProcess=FMath::Clamp(Value(TEXT("sg.PostProcessQuality"),3),0,3);
+    S.LumenQuality=Value(TEXT("sg.GlobalIlluminationQuality"),3)>=3;
+    S.FrameCap=FrameCapIndex(Value(TEXT("t.MaxFPS"),90));
     return S;
 }
 const TCHAR* Section=TEXT("EclipseRecoil.Performance");
@@ -73,6 +82,12 @@ void FSettings::Load()
     Effects=FMath::Clamp(Effects,0,3);
     GConfig->GetInt(Section,TEXT("Textures"),Textures,GGameUserSettingsIni);
     Textures=FMath::Clamp(Textures,0,3);
+    GConfig->GetInt(Section,TEXT("PostProcess"),PostProcess,GGameUserSettingsIni);
+    PostProcess=FMath::Clamp(PostProcess,0,3);
+    GConfig->GetInt(Section,TEXT("LumenQuality"),LumenQuality,GGameUserSettingsIni);
+    LumenQuality=FMath::Clamp(LumenQuality,0,1);
+    GConfig->GetInt(Section,TEXT("FrameCap"),FrameCap,GGameUserSettingsIni);
+    FrameCap=FMath::Clamp(FrameCap,0,int32(UE_ARRAY_COUNT(FrameCaps))-1);
     if(Defaults) *this=OriginalSettings();
 }
 void FSettings::Save() const
@@ -89,6 +104,9 @@ void FSettings::Save() const
     GConfig->SetInt(Section,TEXT("DepthOfField"),DepthOfField,GGameUserSettingsIni);
     GConfig->SetInt(Section,TEXT("Effects"),Effects,GGameUserSettingsIni);
     GConfig->SetInt(Section,TEXT("Textures"),Textures,GGameUserSettingsIni);
+    GConfig->SetInt(Section,TEXT("PostProcess"),PostProcess,GGameUserSettingsIni);
+    GConfig->SetInt(Section,TEXT("LumenQuality"),LumenQuality,GGameUserSettingsIni);
+    GConfig->SetInt(Section,TEXT("FrameCap"),FrameCap,GGameUserSettingsIni);
     GConfig->Flush(false,GGameUserSettingsIni);
 }
 void FSettings::Apply() const
@@ -99,6 +117,12 @@ void FSettings::Apply() const
         for(const auto& Original:Baseline) Set(Original.Name,Original.Value);
         return;
     }
+    // Scalability groups first: they rewrite the individual r.* values set below.
+    Set(TEXT("sg.GlobalIlluminationQuality"),GI ? 2+LumenQuality:1);
+    Set(TEXT("sg.ReflectionQuality"),Reflections==2 ? 2+LumenQuality:1);
+    Set(TEXT("sg.PostProcessQuality"),PostProcess);
+    Set(TEXT("t.MaxFPS"),FrameCaps[FrameCap]);
+    Set(TEXT("p.ClothPhysics"),Effects>0);
     Set(TEXT("r.AntiAliasingMethod"),AA==0 ? 4:2);
     Set(TEXT("r.TemporalAA.Upsampling"),AA==1 ? 0:1);
     Set(TEXT("r.TSR.History.ScreenPercentage"),100);
@@ -121,6 +145,10 @@ void FSettings::Apply() const
     Set(TEXT("r.MotionBlurQuality"),MotionBlur ? 3:0);
     Set(TEXT("r.DepthOfFieldQuality"),DepthOfField ? 2:0);
     Set(TEXT("sg.EffectsQuality"),Effects);
+    // Keep authored character material layers when trimming effects. The vendor
+    // Low permutation can replace layers independently of the texture budget.
+    // Set every time so leaving Competitive and restoring Defaults are reversible.
+    Set(TEXT("r.MaterialQualityLevel"),Effects==1 ? 2:1);
     Set(TEXT("sg.TextureQuality"),Textures);
     // Let the streaming manager use the detected hardware budget, rather than
     // inventing a dedicated-VRAM figure on unified-memory machines.
@@ -128,12 +156,32 @@ void FSettings::Apply() const
     Set(TEXT("r.Streaming.MipBias"),3-Textures);
     Set(TEXT("r.MaxAnisotropy"),Textures==0 ? 1:Textures==1 ? 2:Textures==2 ? 4:8);
 }
-void FSettings::PerformancePreset()
+void FSettings::ApplyPreset(EPreset Preset)
 {
-    Defaults=0; Automatic=1; Scale=67; AA=2; GI=HardwareRT=Reflections=MotionBlur=DepthOfField=0;
-    Shadows=Effects=Textures=1;
+    Defaults=0; Automatic=1; Scale=67; AA=2; MotionBlur=DepthOfField=0;
+    switch(Preset)
+    {
+    case EPreset::Competitive:
+        // The automatic governor would spend headroom above 60 FPS on resolution.
+        Automatic=0; GI=HardwareRT=Reflections=LumenQuality=0;
+        Shadows=Effects=PostProcess=0; Textures=1; FrameCap=3;
+        break;
+    case EPreset::Performance:
+        GI=HardwareRT=Reflections=LumenQuality=0;
+        Shadows=Effects=Textures=PostProcess=1; FrameCap=1;
+        break;
+    case EPreset::Balanced:
+        AA=0; GI=1; HardwareRT=LumenQuality=0; Reflections=1;
+        Shadows=Effects=Textures=PostProcess=2; FrameCap=1;
+        break;
+    case EPreset::Quality:
+        AA=0; GI=HardwareRT=LumenQuality=1; Reflections=2;
+        Shadows=Effects=Textures=PostProcess=3; FrameCap=1;
+        break;
+    }
     Apply(); Save();
 }
+void FSettings::PerformancePreset() { ApplyPreset(EPreset::Performance); }
 void FSettings::SetDefaults()
 {
     *this=OriginalSettings();

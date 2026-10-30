@@ -10,8 +10,8 @@ catalog = ue.get_default_object(ue.EditorAssetLibrary.load_blueprint_class('/Gam
 edit = ue.MaterialEditingLibrary
 for team,hero in [('alpha','Belica'),('omega','Phase')]:
     choices = list(catalog.get_editor_property(team+'_skins'))
-    assert len(choices)==10
-    for index,appearance in enumerate(choices[5:],5):
+    assert len(choices)>=10
+    for index,appearance in enumerate(choices[5:10],5):
         assert appearance.display_name.startswith(hero+' · ')
         assert appearance.mesh.get_name().startswith('SK_ER_'+hero+'_'+team.title())
         assert appearance.mesh.skeleton==appearance.corpse_pose.get_editor_property('skeleton')
@@ -32,12 +32,15 @@ for team,hero in [('alpha','Belica'),('omega','Phase')]:
         if hero=='Phase':
             assert appearance.copy_physics_pose_for_rendering
             if index==8:
-                assert not list(appearance.attachments), 'Rejected Phase Engineer helmet'
+                parts=list(appearance.attachments)
+                assert len(parts)==1 and parts[0].mesh.get_name()=='SM_ER_PhaseEngineer_ArmoredHood', 'Approved Phase Engineer armored hood'
+                assert str(parts[0].bone)=='head'
                 for slot, section in enumerate(appearance.mesh.materials):
                     if 'hair_short' in str(section.material_slot_name).lower():
                         assert slot in appearance.hidden_material_slots, 'Keep stray hair cards hidden'
             for slot,section in enumerate(appearance.mesh.materials):
-                if 'hair_long' in str(section.material_slot_name).lower(): assert slot in appearance.hidden_material_slots
+                if any(part in str(section.material_slot_name).lower() for part in ('hair_long','hair_short')):
+                    assert slot in appearance.hidden_material_slots
         dominant = neutral = 0
         for slot,material in zip(appearance.mesh.materials,appearance.materials):
             assert material and material.get_path_name().startswith('/Game/EclipseRecoil/Characters/Teams/')

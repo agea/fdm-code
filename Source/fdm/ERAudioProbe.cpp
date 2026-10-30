@@ -101,7 +101,7 @@ void AERAudioProbe::Tick(float DeltaTime)
         const auto Count=W->AuthorizedShotCount,Feedback=C->ShotFeedbackCount;
         C->ServerStartFire();C->ServerStopFire();
         Check(W->AuthorizedShotCount==Count+1 && C->ShotFeedbackCount==Feedback+1,TEXT("one_event_per_authorized_shell"));
-        if(Gun==3)Check(W->LastShotTraceCount==6,TEXT("six_pellets_one_sound"));
+        if(Gun==3)Check(W->LastShotPelletHits.Num()==FMath::Clamp(W->Tuned()->Pellets,1,16),TEXT("configured_pellets_one_sound"));
         Check(W->Data->ShotAudio!=nullptr,TEXT("weapon_palette_bound"));
         if(++Shot==20)Phase=2;
         Deadline=Now+W->Data->ShotInterval+.025;return;
@@ -109,8 +109,12 @@ void AERAudioProbe::Tick(float DeltaTime)
     if(Phase==2)
     {
         const auto Count=W->AuthorizedShotCount,Feedback=C->ShotFeedbackCount;
+        const auto EmptyBefore=W->AuthorizedEmptyTriggerCount;
         W->MagazineAmmo=0;C->ServerStartFire();C->ServerStopFire();
-        Check(W->AuthorizedShotCount==Count && C->ShotFeedbackCount==Feedback,TEXT("empty_silent"));
+        Check(W->AuthorizedEmptyTriggerCount==EmptyBefore+1,TEXT("empty_trigger_once"));
+        C->ServerStartFire();C->ServerStopFire();
+        Check(W->AuthorizedEmptyTriggerCount==EmptyBefore+1,TEXT("empty_trigger_rate_limited"));
+        Check(W->AuthorizedShotCount==Count && C->ShotFeedbackCount==Feedback,TEXT("empty_no_shot_or_recoil"));
         W->MagazineAmmo=200;
         C->ServerStartFire();C->ServerStopFire();
         const auto Accepted=W->AuthorizedShotCount,Events=C->ShotFeedbackCount;

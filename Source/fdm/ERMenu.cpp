@@ -250,6 +250,11 @@ void AERPlayerController::ShowMenu(bool bShow)
                 return FText::FromString(GS && GS->bLobbyStarting ? TEXT("Starting match · generating map...") : FString::Printf(TEXT("%s · %d / %d players    |    READY %d / %d needed"), GS && GS->bOnline ? TEXT("INTERNET") : TEXT("LAN"), Humans, GS ? GS->ServerMaxPlayers : GI->MaxPlayers, Ready, ERLobby::RequiredReady(Humans,ERServer::Get(GetWorld(),"Match.ReadyPercent"))));
             });
             Add(Panel, Status);
+            Add(Panel,SNew(STextBlock).Font(MenuFont(22)).Text_Lambda([this]()
+            {
+                const int32 N=FMath::RoundToInt(ERServer::Get(GetWorld(),"Map.ExpectedTeamSize"));
+                return FText::FromString(FString::Printf(TEXT("Map sizing: %d vs %d · target %d m² (±10%%) · fixed at server creation"),N,N,N*1000));
+            }));
             auto Body = SNew(SHorizontalBox);
             auto Teams = SNew(SVerticalBox);
             for (bool Alpha : {true, false})
@@ -304,6 +309,18 @@ void AERPlayerController::ShowMenu(bool bShow)
             IntChoice(TEXT("Alpha bots"), BotCounts, &GI->AlphaBots);
             IntChoice(TEXT("Omega bots"), BotCounts, &GI->OmegaBots);
             IntChoice(TEXT("Bot behavior"), {TEXT("Stationary targets"), TEXT("Movement only"), TEXT("Movement and combat")}, &GI->BotBehavior);
+            // Free skin choice (offline only): role default or any of the catalog skins.
+            for (bool Omega : {false, true})
+            {
+                TArray<FString> Skins{TEXT("Role default")};
+                for (int32 I = 0; I < ERSkins::Count; ++I)
+                {
+                    const auto* TeamSkins = Catalog ? &(Omega ? Catalog->OmegaSkins : Catalog->AlphaSkins) : nullptr;
+                    Skins.Add(TeamSkins && TeamSkins->IsValidIndex(I) && !(*TeamSkins)[I].DisplayName.IsEmpty() ? (*TeamSkins)[I].DisplayName : FString::Printf(TEXT("Skin %d"), I + 1));
+                }
+                int32* Value = Omega ? &GI->OfflineOmegaSkin : &GI->OfflineAlphaSkin;
+                Choice(Field(), Omega ? TEXT("Omega skin") : TEXT("Alpha skin"), Skins, [Value]() { return *Value + 1; }, [this, Value](int32 I) { *Value = I - 1; RefreshLoadoutPreview(); });
+            }
             Add(Panel, Button(TEXT("Player"), Go(6)));
             Add(Panel, Button(TEXT("Gameplay settings"),Go(10)));
             Add(Panel, Button(TEXT("Start Match"), [GI]() { GI->StartSession(); return FReply::Handled(); }));
@@ -321,6 +338,13 @@ void AERPlayerController::ShowMenu(bool bShow)
                 .Value_Lambda([GI]() { return TOptional<int32>(GI->MaxPlayers); })
                 .OnValueChanged_Lambda([GI](int32 Value) { GI->MaxPlayers = ERServer::ValidMaxPlayers(Value); })
                 .OnValueCommitted_Lambda([GI](int32 Value, ETextCommit::Type) { GI->MaxPlayers = ERServer::ValidMaxPlayers(Value); GI->SaveServerSettings(); }));
+            auto Sizing=Field();
+            Add(Sizing,Text(TEXT("Expected players per team (map sizing only)")));
+            Add(Sizing,SNew(SNumericEntryBox<int32>).Font(MenuFont(25)).MinValue(1).MaxValue(16).AllowSpin(true)
+                .Value_Lambda([GI](){return TOptional<int32>(FMath::RoundToInt(GI->ServerRules.Get("Map.ExpectedTeamSize")));})
+                .OnValueChanged_Lambda([GI](int32 N){GI->ServerRules.Set("Map.ExpectedTeamSize",N);})
+                .OnValueCommitted_Lambda([GI](int32 N,ETextCommit::Type){GI->ServerRules.Set("Map.ExpectedTeamSize",N);GI->SaveServerSettings();}));
+            Add(Sizing,Text(TEXT("500 m² per expected player (±10%). Fixed when the server is created; capacity is independent."),18));
             Choice(Field(), TEXT("Connection"), {TEXT("Internet (Epic Online Services)"), TEXT("LAN")},
                 [GI]() { return GI->bInternetMenu ? 0 : 1; },
                 [GI, Online](int32 I) { Online->Cancel(); GI->CancelLANSearch(); GI->bInternetMenu = I == 0; });
@@ -467,7 +491,12 @@ void AERPlayerController::ShowMenu(bool bShow)
             auto* Settings=&ERPerformance::Get();
             auto Apply=[this,Settings]() { Settings->Defaults=0; Settings->Apply(); Settings->Save(); ResetRenderResolution(); };
             auto Action=Columns(Panel);
-            Add(Action(), Button(TEXT("Apply Performance preset"), [this,Settings]() { Settings->PerformancePreset(); ResetRenderResolution(); return FReply::Handled(); }));
+            auto Preset=[this,Settings,Action](const TCHAR* Label,ERPerformance::EPreset Choice)
+            { Add(Action(), Button(Label, [this,Settings,Choice]() { Settings->ApplyPreset(Choice); ResetRenderResolution(); OpenMenuPage(8); return FReply::Handled(); })); };
+            Preset(TEXT("Competitive preset · max FPS"),ERPerformance::EPreset::Competitive);
+            Preset(TEXT("Performance preset"),ERPerformance::EPreset::Performance);
+            Preset(TEXT("Balanced preset"),ERPerformance::EPreset::Balanced);
+            Preset(TEXT("Quality preset"),ERPerformance::EPreset::Quality);
             Add(Action(), Button(TEXT("Set default"), [this,Settings]() { Settings->SetDefaults(); ResetRenderResolution(); OpenMenuPage(8); return FReply::Handled(); }));
             Add(Panel,Text(TEXT("Default restores the original project graphics and automatic resolution."),20));
             Field=Columns(Panel);
@@ -483,12 +512,15 @@ void AERPlayerController::ShowMenu(bool bShow)
             Add(Scale,Text(TEXT("Manual scale is relative to the window; HUD stays sharp. Very low scales lose detail."),20));
             Option(TEXT("Antialiasing / upscaling"),{TEXT("TSR"),TEXT("TAA · spatial upscale"),TEXT("TAAU · temporal upscale")},&Settings->AA);
             Option(TEXT("Global illumination"),{TEXT("Off · no Lumen"),TEXT("Lumen")},&Settings->GI);
+            Option(TEXT("Lumen quality"),{TEXT("Medium"),TEXT("High")},&Settings->LumenQuality);
             Option(TEXT("Hardware ray tracing (supported GPUs only)"),{TEXT("Off"),TEXT("Enabled when supported")},&Settings->HardwareRT);
             Option(TEXT("Shadows · resolution and distance"),{TEXT("Off"),TEXT("Low"),TEXT("Medium"),TEXT("High")},&Settings->Shadows);
             Option(TEXT("Reflections"),{TEXT("Off"),TEXT("Screen space · simple"),TEXT("Lumen")},&Settings->Reflections);
             Option(TEXT("Motion blur"),{TEXT("Off"),TEXT("On")},&Settings->MotionBlur);
             Option(TEXT("Depth of field"),{TEXT("Off"),TEXT("On")},&Settings->DepthOfField);
             Option(TEXT("Decorative effects"),{TEXT("Minimum"),TEXT("Low"),TEXT("Medium"),TEXT("High")},&Settings->Effects);
+            Option(TEXT("Post processing · AO and bloom"),{TEXT("Low"),TEXT("Medium"),TEXT("High"),TEXT("Ultra")},&Settings->PostProcess);
+            Option(TEXT("Frame rate limit"),{TEXT("60"),TEXT("90"),TEXT("120"),TEXT("144"),TEXT("Unlimited")},&Settings->FrameCap);
             Option(TEXT("Textures · choose according to GPU memory"),{TEXT("Low"),TEXT("Medium"),TEXT("High"),TEXT("Ultra")},&Settings->Textures);
             Add(Panel,Text(TEXT("Changes apply immediately and are saved. Texture streaming uses the hardware memory budget. Gameplay smoke remains unchanged."),20));
             Add(Panel,Button(TEXT("Reset Automatic Resolution"),[this]() { ResetRenderResolution(); return FReply::Handled(); }));
@@ -723,7 +755,9 @@ void AERPlayerController::RefreshLoadoutPreview()
     const auto* Catalog=SkinCatalog->GetDefaultObject<AERCharacter>();
     const auto* PS=(!IsMenuLevel() || IsInLobby())?GetPlayerState<AERPlayerState>():nullptr;const auto* GI=GetGameInstance<UERGameInstance>();
     const bool Omega=PS && PS->Team!=EERTeam::None?(PS->PendingTeam!=EERTeam::None?PS->PendingTeam:PS->Team)==EERTeam::Omega:GI->PlayerTeam==1;
-    const auto Kit=ResolveMenuLoadout(DraftPreset,DraftVariant);
+    auto Kit=ResolveMenuLoadout(DraftPreset,DraftVariant);
+    const int32 Free=Omega?GI->OfflineOmegaSkin:GI->OfflineAlphaSkin;
+    if(IsMenuLevel() && !IsInLobby() && GI->SessionMode==0 && Free>=0)Kit.Skin=Free;
     MenuPreview->ShowLoadout(ERSkins::Select(Omega?Catalog->OmegaSkins:Catalog->AlphaSkins,Omega?Catalog->OmegaAppearance:Catalog->AlphaAppearance,Kit.Skin),Kit,Catalog->ReferenceArsenal);
 }
 

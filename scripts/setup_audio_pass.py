@@ -109,3 +109,14 @@ release=ue.get_default_object(smoke.generated_class()).get_editor_property('rele
 assert release>=0
 save(smoke)
 ue.log('ER_AUDIO_PASS_READY firearms=4,6,4,6,4,4 launcher=1 footsteps=8x5+1 smoke_gain=%.8f' % release)
+# Preserve the subsequent user-approved Sniper replacement on regeneration.
+exec(compile((project/'scripts/setup_sniper_audio.py').read_text(), 'setup_sniper_audio.py', 'exec'))
+
+# Preserve the user-approved Marksman replacement as well.
+exec(compile((project/'scripts/setup_marksman_audio.py').read_text(), 'setup_marksman_audio.py', 'exec'))
+
+# Keep the approved empty-magazine click on all current firearms.
+exec(compile((project/'scripts/setup_empty_trigger_audio.py').read_text(), 'setup_empty_trigger_audio.py', 'exec'))
+
+# Preserve the user-approved Shotgun replacement.
+exec(compile((project/'scripts/setup_shotgun_audio.py').read_text(), 'setup_shotgun_audio.py', 'exec'))

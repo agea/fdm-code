@@ -7,9 +7,10 @@
         "Content/Characters",
         "Content/ParagonDrongo",
         "Content/ParagonTwinblast",
-        "Content/ParagonPhase",
         "Content/ParagonLtBelica",
-        "Content/EclipseRecoil/Characters"
+        "Content/EclipseRecoil/Characters",
+        "Content/ParagonGadget",
+        "Content/ParagonWraith"
       ]
     },
     "weapons": {

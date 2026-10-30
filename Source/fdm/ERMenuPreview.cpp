@@ -20,6 +20,10 @@ AERMenuPreview::AERMenuPreview()
     Mesh->SetupAttachment(RootComponent);
     Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);
     Mesh->VisibilityBasedAnimTickOption = EVisibilityBasedAnimTickOption::AlwaysTickPoseAndRefreshBones;
+    // CaptureScene runs before the normal end-of-frame cloth wait. Without
+    // this, its dynamic render data can omit an unfinished cloth task and
+    // display the skinned coat through the legs instead of simulated cloth.
+    Mesh->bWaitForParallelClothTask=true;
     Capture = CreateDefaultSubobject<USceneCaptureComponent2D>(TEXT("Portrait"));
     Capture->SetupAttachment(RootComponent);
     Capture->SetRelativeLocation(FVector(320, 0, 20));
@@ -69,6 +73,8 @@ void AERMenuPreview::ShowAppearance(const FERTeamAppearance& Appearance)
     bPreviewAvailable=Appearance.Mesh!=nullptr;Mesh->SetVisibility(bPreviewAvailable,true);
     Mesh->bPauseAnims=false;
     Appearance.Apply(Mesh, true);
+    // Scene captures are outside the main camera: retain the selected skin detail.
+    Mesh->bForceMipStreaming=true;
     Mesh->TickAnimation(0,false);Mesh->RefreshBoneTransforms();Mesh->UpdateComponentToWorld();
     Mesh->bPauseAnims=true;
     Mesh->SetCollisionEnabled(ECollisionEnabled::NoCollision);

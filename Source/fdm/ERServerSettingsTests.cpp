@@ -27,6 +27,10 @@ bool FERServerRulesTest::RunTest(const FString&)
     R.Set("Move.SprintDuration",7);R.Set("Move.Recovery",11);
     R.Set("Unknown.Arbitrary",10);R.Set("Move.Run",std::numeric_limits<float>::quiet_NaN());
     TestEqual(TEXT("Unknown / nonfinite settings are rejected"),R.Values.Num(),2);
+    TestEqual(TEXT("map sizing defaults to two per team"),R.Get("Map.ExpectedTeamSize"),2.f);
+    R.Set("Map.ExpectedTeamSize",3.4f);
+    TestEqual(TEXT("map sizing is integral"),R.Get("Map.ExpectedTeamSize"),3.f);
+    TestEqual(TEXT("map sizing never changes admission capacity"),ERServer::ValidMaxPlayers(33),33);
     R.Set("Health.Max",150);R.Set("Health.Start",200);
     R.Set("Claymore.DetectionAngle",150);R.Set("Claymore.DamageAngle",80);
     R.Set("Weapon.HE.ExplosionRadius",2);R.Set("Weapon.HE.ExplosionInnerRadius",6);

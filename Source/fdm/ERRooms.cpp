@@ -32,7 +32,7 @@ bool BuildRooms(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProc
     const auto& R=T->Rooms;
     if(T->TemplateId.IsEmpty() || T->Revision<1 || T->Symmetry!=EERTemplateSymmetry::HalfTurn || C.Floors!=1 ||
        B.BlockSize!=FVector(50,20,25) || !FMath::IsFinite(B.ChunkSize) || B.ChunkSize<100 ||
-       R.MinLaneRooms<2 || R.MaxLaneRooms>4 || R.MinLaneRooms>R.MaxLaneRooms ||
+       R.MinLaneRooms<1 || R.MaxLaneRooms>4 || R.MinLaneRooms>R.MaxLaneRooms ||
        !FMath::IsFinite(R.CorridorWidth) || R.CorridorWidth<320 || R.CorridorWidth>400 ||
        !FMath::IsFinite(R.CorridorHeight) || R.CorridorHeight<300 || R.CorridorHeight>360 ||
        !FMath::IsFinite(R.CornerCut) || R.CornerCut<30 || R.CornerCut>65 || R.Themes.Num()!=3 ||
@@ -42,24 +42,35 @@ bool BuildRooms(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProc
     FERProceduralLayout L;L.RoomsTheme=Cosmetic.RandRange(0,2);
     const auto& Theme=R.Themes[L.RoomsTheme];L.GroundSurface=Theme.Floor;
     const int32 N=Geometry.RandRange(R.MinLaneRooms,R.MaxLaneRooms);
-    const float S=N==2 ? 2200.f:N==3 ? 2000.f:1800.f;
-    const float X=S+1700,Y=(N-1)*(S+2400)*.5f,H=R.CorridorHeight;
+    bool HallPassage=false;int32 HallStyle=0;
+    const float S=R.NominalRoomSize>0 ? R.NominalRoomSize:N==2 ? 2200.f:N==3 ? 2000.f:1800.f;
+    if(!FMath::IsFinite(R.NominalRoomSize) || R.NominalRoomSize<0 || !FMath::IsFinite(S) || S<800 || S>2400 || !FMath::IsFinite(R.LaneSpacing) || R.LaneSpacing<800 || R.LaneSpacing>2400 ||
+       !FMath::IsFinite(R.LaneOffset) || R.LaneOffset<400 || R.LaneOffset>1700 || !FMath::IsFinite(R.PlanMargin) || R.PlanMargin<300 || R.PlanMargin>1100)return false;
+    const bool GroundOnly=T->SizingRoomsGroundOnly || N==1;
+    const float X=S+R.LaneOffset,Y=N==1 ? S+R.LaneSpacing:(N-1)*(S+R.LaneSpacing)*.5f,H=R.CorridorHeight;
     auto Turn=[](FVector P){return FVector(-P.X,-P.Y,P.Z);};
+    auto Outline=[](FVector2D Size,float Cut)
+    {
+        const float A=Size.X*.5f,D=Size.Y*.5f;
+        return Cut>0 ? TArray<FVector2D>{{-A+Cut,-D},{A-Cut,-D},{A,-D+Cut},{A,D-Cut},{A-Cut,D},{-A+Cut,D},{-A,D-Cut},{-A,-D+Cut}}:
+            TArray<FVector2D>{{-A,-D},{A,-D},{A,D},{-A,D}};
+    };
     auto Node=[&](FVector Center,FVector2D Size,float Cut,bool Base=false,bool Junction=false,bool Upper=false)
     {
         FERRoomsNode V;V.Center=Center;V.Size=Size;V.Base=Base;V.Junction=Junction;V.Upper=Upper;V.Height=Upper ? 820:H;
-        const float A=Size.X*.5f,D=Size.Y*.5f;
-        if(Cut>0)V.Polygon={{-A+Cut,-D},{A-Cut,-D},{A,-D+Cut},{A,D-Cut},{A-Cut,D},{-A+Cut,D},{-A,D-Cut},{-A,-D+Cut}};
-        else V.Polygon={{-A,-D},{A,-D},{A,D},{-A,D}};
+        V.Polygon=Outline(Size,Cut);
         return L.RoomNodes.Add(MoveTemp(V));
     };
     Node({0,-Y,0},{S+200,S},150,true);Node({0,Y,0},{S+200,S},150,true);
     const int32 UpperRow=(N-1)/2;
     for(int32 Row=0;Row<N;++Row)
     {
-        const float Bend=Row==UpperRow ? 0.f:float((Row%2 ? -1:1)*800);
-        Node({-X+Bend,-Y+Row*(S+2400),Row==UpperRow ? 320.f:float(Geometry.RandRange(0,2)*160)},
-            {S+Geometry.RandRange(-2,2)*100,S+Geometry.RandRange(-2,2)*100},Geometry.RandRange(0,2)==0 ? 0:float(Geometry.RandRange(2,4)*40),false,false,Row==0 || Row==UpperRow);
+        const float Bend=Row==UpperRow || (T->SizingTeamSize>0 && R.PlanMargin<1000) ? 0.f:float((Row%2 ? -1:1)*(R.NominalRoomSize>0 ? 800.f:800.f));
+        const float Floor=GroundOnly ? 0.f:T->SizingTeamSize>0 && S<=1600 ? 320.f:Row==UpperRow ? 320.f:float(Geometry.RandRange(0,2)*160);
+        const FVector2D Size(FMath::Max(800.f,S+Geometry.RandRange(-2,2)*100),FMath::Max(800.f,S+Geometry.RandRange(-2,2)*100));
+        const float Cut=Geometry.RandRange(0,2)==0 ? 0:FMath::Min(float(Geometry.RandRange(2,4)*40),float((Size.GetMin()-R.CorridorWidth)*.5-40));
+        Node({-X+Bend,N==1 ? 0.f:-Y+Row*(S+R.LaneSpacing),Floor},
+            Size,Cut,false,false,!GroundOnly && (Row==0 || Row==UpperRow));
     }
     // Copy a complete half, including polygon shape, elevation and upper gallery.
     for(int32 Row=0;Row<N;++Row)
@@ -71,13 +82,67 @@ bool BuildRooms(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProc
     int32 LeftMid=2+N/2,RightMid=2+N+N/2;
     if(N%2==0)
     {
-        LeftMid=Node({-X,0,160},{400,400},0,false,true);
-        RightMid=Node({X,0,160},{400,400},0,false,true);
+        LeftMid=Node({-X,0,GroundOnly ? 0.f:T->SizingTeamSize>0 && S<=1600 ? 320.f:160.f},{400,400},0,false,true);
+        RightMid=Node({X,0,GroundOnly ? 0.f:T->SizingTeamSize>0 && S<=1600 ? 320.f:160.f},{400,400},0,false,true);
     }
     TArray<int32> Partners;Partners.SetNum(L.RoomNodes.Num());
     for(int32 I=0;I<Partners.Num();++I)
         Partners[I]=I<2 ? 1-I:I<2+N ? 2+N+(N-1-(I-2)):I<2+2*N ? 2+(N-1-(I-2-N)):I==LeftMid ? RightMid:LeftMid;
     auto Mirror=[&](int32 I){return Partners[I];};
+    const int32 AlphaBase=0,OmegaBase=Mirror(AlphaBase);
+    if(N==1)
+    {
+        // Four corners, with the bases on opposite diagonals. Every room is
+        // a through-room on one of the two attack paths; there are no stubs.
+        L.RoomNodes[0].Center={-X,-Y,0};L.RoomNodes[1].Center={X,Y,0};
+        L.RoomNodes[2].Center={X,-Y,0};L.RoomNodes[3].Center={-X,Y,0};
+        const auto BaseSize=L.RoomNodes[0].Size;
+        const float HX=X+S*.5f+R.PlanMargin,HY=Y+S*.5f+200;
+        const float Cut=L.RoomNodes[2].Polygon.Num()==8 ? L.RoomNodes[2].Polygon[0].X+L.RoomNodes[2].Size.X*.5f:0;
+        FRandomStream Shape(int32(HashCombine(uint32(C.Seed),0x48414c4cu)));
+        const bool Wide=Shape.RandRange(0,1)!=0;
+        const int32 PreferredStyle=Shape.RandRange(0,2);const float DesiredGap=Shape.RandRange(2,5)*100.f;
+        const float DesiredInset=Shape.RandRange(2,4)*100.f;
+        HallPassage=(uint32(C.Seed)&1)==0;
+        bool Fitted=false;
+        for(int32 Try=0;Try<4 && !Fitted;++Try)
+        {
+            const bool Horizontal=Wide!=((Try%2)!=0);
+            const int32 Style=Try<2 ? PreferredStyle:0;
+            const float Gap=Try<2 ? DesiredGap:200;
+            const float Inset=Style==1 ? FMath::Max(0.f,FMath::Min3(DesiredInset,S*.5f-R.CorridorWidth*.5f-60-FMath::Max(Cut,80.f),S*.5f+R.PlanMargin-200-R.CorridorWidth*.5f-60-FMath::Max(Cut,80.f))):0;
+            const FVector2D Min(Horizontal ? -X+BaseSize.X*.5f+600:Gap*.5f,-HY+200+Inset);
+            const FVector2D Max(HX-200-Inset,Horizontal ? -Gap*.5f:Y-BaseSize.Y*.5f-600),Size=Max-Min;
+            const float AlongX=Min.X-(-X+BaseSize.X*.5f),AlongY=Y-BaseSize.Y*.5f-Max.Y;
+            const float MouthCut=HallPassage ? FMath::Min(Cut,float(Horizontal ? -Min.X:Max.Y)-R.CorridorWidth*.5f-60):Cut;
+            if(MouthCut<0)continue;
+            TArray<FVector2D> Polygon=Outline(Size,MouthCut);
+            if(Style==2)
+            {
+                const float Door=R.CorridorWidth*.5f+60;
+                const float Big=FMath::Min(float(Size.GetMin())*.24f,600.f);
+                float NW=FMath::Min(Big,float(-Y-Min.Y)-Door),NE=Big,SE=FMath::Min(Big,float(Max.X-X)-Door);
+                float SW=FMath::Min3(Big,float(Max.Y+Y)-Door,float(X-Min.X)-Door);
+                if(HallPassage)
+                {
+                    if(Horizontal)SW=FMath::Min(SW,float(-Min.X)-Door);
+                    else {NW=FMath::Min(NW,float(-Min.Y)-Door);SW=FMath::Min(SW,float(Max.Y)-Door);}
+                }
+                if(FMath::Min3(NW,SE,SW)<40)continue;
+                const float A=Size.X*.5f,D=Size.Y*.5f;
+                Polygon={{-A+NW,-D},{A-NE,-D},{A,-D+NE},{A,D-SE},{A-SE,D},{-A+SW,D},{-A,D-SW},{-A,-D+NW}};
+            }
+            double Twice=0;for(int32 I=0;I<Polygon.Num();++I)Twice+=FVector2D::CrossProduct(Polygon[I],Polygon[(I+1)%Polygon.Num()]);
+            const float Floor=2*(BaseSize.X*BaseSize.Y-45000)+FMath::Abs(Twice)+(2*(AlongX+AlongY)+(HallPassage ? Gap:0))*(R.CorridorWidth-2*R.CornerCut);
+            const float Minimum=Style==0 ? .6f:.55f;
+            if(Size.GetMin()<800 || AlongX<600 || AlongY<600 || Floor<4*HX*HY*Minimum)continue;
+            auto& Hall=L.RoomNodes[2];Hall.Center=FVector((Min+Max)*.5,0);Hall.Size=Size;Hall.Polygon=MoveTemp(Polygon);
+            L.RoomNodes[3]=Hall;L.RoomNodes[3].Center=Turn(Hall.Center);for(auto& P:L.RoomNodes[3].Polygon)P=-P;
+            HallStyle=Style;
+            Fitted=true;
+        }
+        if(!Fitted)return false;
+    }
     auto JointPair=[&](FVector P)
     {
         const int32 A=Node(P,{440,440},0,false,true),D=Node(Turn(P),{440,440},0,false,true);
@@ -86,6 +151,16 @@ bool BuildRooms(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProc
     auto Segment=[&](int32 A,int32 D,float RaiseA=0,float RaiseD=0)
     {
         const auto& NA=L.RoomNodes[A];const auto& ND=L.RoomNodes[D];
+        if(N==1)
+        {
+            // The expanded halls have off-centre mouths, aligned with their
+            // original corner bases so both connecting corridors stay straight.
+            const bool Across=(A==0 && D==2) || (A==1 && D==3);
+            const float Sign=FMath::Sign(Across ? ND.Center.X-NA.Center.X:ND.Center.Y-NA.Center.Y);
+            const FVector Start=NA.Center+(Across ? FVector(Sign*NA.Size.X*.5f,0,RaiseA):FVector(0,Sign*NA.Size.Y*.5f,RaiseA));
+            const FVector End=Across ? FVector(ND.Center.X-Sign*ND.Size.X*.5f,NA.Center.Y,ND.Center.Z+RaiseD):FVector(NA.Center.X,ND.Center.Y-Sign*ND.Size.Y*.5f,ND.Center.Z+RaiseD);
+            L.RoomLinks.Add({A,D,Start,End,R.CorridorWidth,H,R.CornerCut});return;
+        }
         const FVector Dir=(ND.Center-NA.Center).GetSafeNormal2D();const bool Across=FMath::Abs(Dir.X)>.5;
         const float RA=(Across ? NA.Size.X:NA.Size.Y)*.5f,RD=(Across ? ND.Size.X:ND.Size.Y)*.5f;
         L.RoomLinks.Add({A,D,NA.Center+Dir*RA+FVector(0,0,RaiseA),ND.Center-Dir*RD+FVector(0,0,RaiseD),R.CorridorWidth,H,R.CornerCut});
@@ -106,17 +181,32 @@ bool BuildRooms(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProc
     TArray<int32> Lane{0};
     for(int32 Row=0;Row<N;++Row){Lane.Add(2+Row);if(N%2==0 && Row==N/2-1)Lane.Add(LeftMid);}
     Lane.Add(1);
-    for(int32 I=1;I<Lane.Num();++I)LinkPair(Lane[I-1],Lane[I]);
+    int32 SpineA=0,SpineB=1;
+    if(N==1)
+    {
+        PairSegment(0,2);PairSegment(0,3);
+    }
+    else for(int32 I=1;I<Lane.Num();++I)LinkPair(Lane[I-1],Lane[I]);
     // A direct lower spine passes under an elevated transverse route. The
     // upper route enters actual room galleries, reached by their switchbacks.
     int32 UpperLeft=2+UpperRow,UpperRight=Mirror(UpperLeft);
-    if(N%2==0)
+    if(!GroundOnly && N%2==0)
     {
         const int32 J=JointPair({-X,0,720});
         PairSegment(UpperLeft,J,400,0);UpperLeft=J;UpperRight=Mirror(J);
     }
-    Segment(0,1);
-    Segment(UpperLeft,UpperRight,N%2 ? 400:0,N%2 ? 400:0);
+    if(N>1)Segment(SpineA,SpineB);
+    if(!GroundOnly)Segment(UpperLeft,UpperRight,N%2 ? 400:0,N%2 ? 400:0);
+    if(N==1 && HallPassage)
+    {
+        const auto& Hall=L.RoomNodes[2];
+        const bool Horizontal=Hall.Center.Y+Hall.Size.Y*.5f<0;
+        const FVector Mouth=Horizontal ? FVector(0,Hall.Center.Y+Hall.Size.Y*.5f,0):FVector(Hall.Center.X-Hall.Size.X*.5f,0,0);
+        L.RoomLinks.Add({2,3,Mouth,Turn(Mouth),R.CorridorWidth,H,R.CornerCut});
+    }
+    if(T->SizingTeamSize>0)for(const auto& E:L.RoomLinks)
+        if(FVector::Dist2D(E.Start,E.End)<1 || FMath::Abs(E.End.Z-E.Start.Z)>FVector::Dist2D(E.Start,E.End)*.5f+.01f)return false;
+    const int32 SelfLinks=N==1 ? (HallPassage ? 1:0):GroundOnly ? 1:2;
     TMap<int32,TArray<FVector>> GalleryPaths;
     auto Face=[&](FVector A,FVector D,FVector E,FVector F,UMaterialInterface* Surface,FVector Normal,bool Roof=false)
     {
@@ -170,13 +260,34 @@ bool BuildRooms(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProc
             if(!Portals.IsEmpty())
             {
                 const float At=FVector::DotProduct(Portals[0]-A,Along);
-                Wall(0,At-R.CorridorWidth*.5f,0,V.Height);Wall(At+R.CorridorWidth*.5f,Length,0,V.Height);
-                TArray<float> Levels{0,V.Height};for(const auto P:Portals){Levels.Add(P.Z-V.Center.Z);Levels.Add(P.Z-V.Center.Z+H);}Levels.Sort();
-                for(int32 J=1;J<Levels.Num();++J)
+                const bool SeparateMouths=Portals.ContainsByPredicate([&](FVector P){return FMath::Abs(FVector::DotProduct(P-A,Along)-At)>1;});
+                if(SeparateMouths)
                 {
-                    const float Mid=(Levels[J-1]+Levels[J])*.5f;
-                    if(!Portals.ContainsByPredicate([&](const auto P){return Mid>P.Z-V.Center.Z && Mid<P.Z-V.Center.Z+H;}))
-                        Wall(At-R.CorridorWidth*.5f,At+R.CorridorWidth*.5f,Levels[J-1],Levels[J]);
+                    TArray<float> Cuts{0,Length},Levels{0,V.Height};
+                    for(const auto P:Portals)
+                    {
+                        const float X0=FVector::DotProduct(P-A,Along),Z0=P.Z-V.Center.Z;
+                        Cuts.AddUnique(FMath::Clamp(X0-R.CorridorWidth*.5f,0.f,Length));Cuts.AddUnique(FMath::Clamp(X0+R.CorridorWidth*.5f,0.f,Length));
+                        Levels.AddUnique(FMath::Clamp(Z0,0.f,V.Height));Levels.AddUnique(FMath::Clamp(Z0+H,0.f,V.Height));
+                    }
+                    Cuts.Sort();Levels.Sort();
+                    for(int32 X0=1;X0<Cuts.Num();++X0)for(int32 Z0=1;Z0<Levels.Num();++Z0)
+                    {
+                        const float PX=(Cuts[X0-1]+Cuts[X0])*.5f,PZ=(Levels[Z0-1]+Levels[Z0])*.5f;
+                        const bool Open=Portals.ContainsByPredicate([&](FVector P){return FMath::Abs(PX-FVector::DotProduct(P-A,Along))<R.CorridorWidth*.5f && PZ>P.Z-V.Center.Z && PZ<P.Z-V.Center.Z+H;});
+                        if(!Open)Wall(Cuts[X0-1],Cuts[X0],Levels[Z0-1],Levels[Z0]);
+                    }
+                }
+                else
+                {
+                    Wall(0,At-R.CorridorWidth*.5f,0,V.Height);Wall(At+R.CorridorWidth*.5f,Length,0,V.Height);
+                    TArray<float> Levels{0,V.Height};for(const auto P:Portals){Levels.Add(P.Z-V.Center.Z);Levels.Add(P.Z-V.Center.Z+H);}Levels.Sort();
+                    for(int32 J=1;J<Levels.Num();++J)
+                    {
+                        const float Mid=(Levels[J-1]+Levels[J])*.5f;
+                        if(!Portals.ContainsByPredicate([&](const auto P){return Mid>P.Z-V.Center.Z && Mid<P.Z-V.Center.Z+H;}))
+                            Wall(At-R.CorridorWidth*.5f,At+R.CorridorWidth*.5f,Levels[J-1],Levels[J]);
+                    }
                 }
                 // Match the octagonal mouth exactly. A rectangular opening
                 // would expose four triangular gaps outside the corridor shell.
@@ -286,20 +397,29 @@ bool BuildRooms(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProc
             const float A=Gap>0 ? -E.Width*.5f:-10,B=Gap>0 ? 10:E.Width*.5f;
             const float Height=240+Slope*Cells.WoodDepth;
             const FVector Center=Point(Along,(A+B)*.5f,120);
-            AddScreen(Center,Side.Rotation().Yaw+(Index>=L.RoomLinks.Num()-2 && I>=Count/2 ? 180:0),{B-A,Cells.WoodDepth,Height},Index,INDEX_NONE);
+            AddScreen(Center,Side.Rotation().Yaw+(Index>=L.RoomLinks.Num()-SelfLinks && I>=Count/2 ? 180:0),{B-A,Cells.WoodDepth,Height},Index,INDEX_NONE);
             Path.Add(Point(Along-Margin,Gap*Offset));Path.Add(Point(Along+Margin,Gap*Offset));
         }
         auto Exit=Entry(E.B,E.End);Algo::Reverse(Exit);Path.Append(Exit);
     };
     auto ScreenCount=[&](int32 I){const float Length=FVector::Dist2D(L.RoomLinks[I].Start,L.RoomLinks[I].End);return Length>=1000 ? FMath::FloorToInt(Length/500):0;};
     // All generated pairs precede the lower spine and the upper self-link.
-    for(int32 I=0;I<L.RoomLinks.Num()-2;I+=2)
+    for(int32 I=0;I<L.RoomLinks.Num()-SelfLinks;I+=2)
     {
         const float Gap=(HashCombineFast(uint32(C.Seed),uint32(I))&1) ? 1.f:-1.f;
         FurnishLink(I,ScreenCount(I),Gap);FurnishLink(I+1,ScreenCount(I+1),Gap);
     }
-    for(int32 I=L.RoomLinks.Num()-2;I<L.RoomLinks.Num();++I)
+    for(int32 I=L.RoomLinks.Num()-SelfLinks;I<L.RoomLinks.Num();++I)
         FurnishLink(I,(ScreenCount(I)/2)*2,(uint32(C.Seed)&1) ? 1.f:-1.f);
+    TArray<TArray<FVector>> SpawnRoutes;
+    // Reserve every base start and its way to the room centre before boards.
+    for(int32 Row=0;Row<2;++Row)for(int32 Col=0;Col<4;++Col)
+    {
+        const auto& Base=L.RoomNodes[AlphaBase];
+        const FVector P=N==1 ? Base.Center+FVector(-Base.Size.X*.5f+200+Row*160,(Col-1.5f)*140,100):FVector((Col-1.5f)*140,-Y-S*.5f+200+Row*160,100);
+        L.AlphaSpawns.Emplace(FRotator(0,N==1 ? 45:90,0),P);L.OmegaSpawns.Emplace(FRotator(0,N==1 ? 225:270,0),Turn(P));
+        SpawnRoutes.Add({P,Base.Center+FVector(0,0,100)});SpawnRoutes.Add({Turn(P),L.RoomNodes[OmegaBase].Center+FVector(0,0,100)});
+    }
     // Sparse independent boards, with at least 5m between their centres.
     // Reject a pocket if it would intersect a portal or gallery approach.
     auto FurnishRoom=[&](int32 Index)
@@ -310,24 +430,21 @@ bool BuildRooms(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProc
             const FVector P=V.Center+FVector(SX*V.Size.X*.26f,V.Size.Y*.23f,120);
             const FVector Size(FMath::Min(float(V.Size.X)*.25f,450.f),Cells.WoodDepth,240);
             const FTransform Frame(P);bool Clear=true;
-            for(const auto* Routes:{&L.RoomAccessRoutes,&L.StairRoutes})for(const auto& Route:*Routes)
+            for(const auto* Routes:{&L.RoomAccessRoutes,&L.StairRoutes,&SpawnRoutes})for(const auto& Route:*Routes)
                 for(int32 I=1;I<Route.Num();++I)
                     if(FMath::LineBoxIntersection(FBox(-Size*.5,Size*.5).ExpandBy(FVector(40,40,95)),Frame.InverseTransformPosition(Route[I-1]),Frame.InverseTransformPosition(Route[I]),Frame.InverseTransformVector(Route[I]-Route[I-1])))Clear=false;
+            const auto Standing=FBox(-Size*.5,Size*.5).ExpandBy(FVector(40,40,95));
+            for(const auto* Starts:{&L.AlphaSpawns,&L.OmegaSpawns})for(const auto& Start:*Starts)
+                if(Standing.IsInsideOrOn(Frame.InverseTransformPosition(Start.GetLocation())))Clear=false;
             if(Clear){AddScreen(P,0,Size,INDEX_NONE,Index);AddScreen(Turn(P),180,Size,INDEX_NONE,Paired);}
         }
     };
     FurnishRoom(0);for(int32 Row=0;Row<N;++Row)FurnishRoom(2+Row);
-    // Eight starts per base, all away from the two lateral door axes.
-    for(int32 Row=0;Row<2;++Row)for(int32 Col=0;Col<4;++Col)
-    {
-        const FVector P((Col-1.5f)*140,-Y-S*.5f+200+Row*160,100);
-        L.AlphaSpawns.Emplace(FRotator(0,90,0),P);L.OmegaSpawns.Emplace(FRotator(0,270,0),Turn(P));
-    }
     auto LaneRoute=[&](bool Mirrored)
     {
         TArray<FVector> Path;TArray<int32> Previous,Via;Previous.Init(INDEX_NONE,L.RoomNodes.Num());Via=Previous;
-        const int32 Start=Mirrored ? 1:0,Goal=1-Start;TArray<int32> Queue{Start};Previous[Start]=Start;
-        for(int32 Q=0;Q<Queue.Num() && Previous[Goal]==INDEX_NONE;++Q)for(int32 I=0;I<L.RoomLinks.Num()-2;++I)
+        const int32 Start=Mirrored ? OmegaBase:AlphaBase,Goal=Mirrored ? AlphaBase:OmegaBase;TArray<int32> Queue{Start};Previous[Start]=Start;
+        for(int32 Q=0;Q<Queue.Num() && Previous[Goal]==INDEX_NONE;++Q)for(int32 I=0;I<L.RoomLinks.Num()-SelfLinks;++I)
         {
             const auto& E=L.RoomLinks[I];const int32 Next=E.A==Queue[Q] ? E.B:E.B==Queue[Q] ? E.A:INDEX_NONE;
             if(Next!=INDEX_NONE && Previous[Next]==INDEX_NONE){Previous[Next]=Queue[Q];Via[Next]=I;Queue.Add(Next);}
@@ -344,14 +461,23 @@ bool BuildRooms(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProc
     TArray<FVector> Patrol=L.CrossingRoutes[0];const auto& Other=L.CrossingRoutes[1];
     for(int32 I=1;I<Other.Num()-1;++I)Patrol.Add(Other[I]);
     L.Spawn=L.AlphaSpawns[0].GetLocation();
-    L.Routes={{L.Spawn,L.RoomNodes[0].Center+FVector(0,0,100)},Patrol,{L.OmegaSpawns[0].GetLocation(),L.RoomNodes[1].Center+FVector(0,0,100)}};
-    L.ArenaSize={2*(X+S*.5f+1100),2*Y+S+400,1300};
+    L.Routes={{L.Spawn,L.RoomNodes[AlphaBase].Center+FVector(0,0,100)},Patrol,{L.OmegaSpawns[0].GetLocation(),L.RoomNodes[OmegaBase].Center+FVector(0,0,100)}};
+    if(N==1)L.Routes.Append(SpawnRoutes);
+    if(N==1 && HallPassage)L.Routes.Add(L.RoomAccessRoutes.Last());
+    L.ArenaSize={2*(X+S*.5f+R.PlanMargin),2*Y+S+400,1300};
+    for(const auto& RoomNode:L.RoomNodes)
+        if(FMath::Abs(RoomNode.Center.X)+RoomNode.Size.X*.5+20>L.ArenaSize.X*.5 || FMath::Abs(RoomNode.Center.Y)+RoomNode.Size.Y*.5+20>L.ArenaSize.Y*.5)return false;
     // This sealed complex uses ground-level player sight; aerial recon remains
     // above the roof. No warehouse orbit may pass through these separate rooms.
     L.FeatureNames={Theme.Name,TEXT("OctagonalCorridors"),TEXT("SwitchbackRamps"),TEXT("TimberScreens"),TEXT("SpacedTimberScreens"),TEXT("GalleryConnections"),TEXT("OverUnderCrossing"),TEXT("DoglegCorridors")};
+    if(N==1)
+    {
+        if(HallPassage)L.FeatureNames.Add(TEXT("HallPassage"));
+        L.FeatureNames.Add(HallStyle==2 ? TEXT("IrregularHalls"):HallStyle==1 ? TEXT("CompactHalls"):TEXT("RectangularHalls"));
+    }
     // Validate whole swept standing routes against every oriented screen before
     // publishing; all paths follow the real sloped supporting floor.
-    for(const auto* Paths:{&L.RoomAccessRoutes,&L.StairRoutes,&L.CrossingRoutes})for(const auto& Path:*Paths)
+    for(const auto* Paths:{&L.RoomAccessRoutes,&L.StairRoutes,&L.CrossingRoutes,&SpawnRoutes})for(const auto& Path:*Paths)
         for(int32 I=1;I<Path.Num();++I)for(const auto& Screen:L.RoomScreens)
         {
             const FBox Bounds=FBox(-Screen.Size*.5,Screen.Size*.5).ExpandBy(FVector(35,35,93));

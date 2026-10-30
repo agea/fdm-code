@@ -25,6 +25,7 @@ if assets.get_metadata_tag(mask,'ERDrongoMaskVersion')!='3':
 for path in paths:
  bp=assets.load_asset(path);d=u.get_default_object(bp.generated_class());choices=list(d.omega_skins)
  for index in [1,3]:
+  if index==1 and assets.get_metadata_tag(bp,'ERScavengerOriginalHead')=='1':continue
   a=choices[index];parts=[p for p in a.attachments if p.mesh!=mask]
   part=u.ERAppearanceAttachment();part.set_editor_property('mesh',mask);part.set_editor_property('bone','head');part.set_editor_property('transform',u.Transform())
   parts.append(part);a.set_editor_property('attachments',parts);choices[index]=a

@@ -44,7 +44,9 @@ public:
     UFUNCTION(BlueprintCallable, Category="Training|Editor")
     static bool ValidateFieldClothing(class USkeletalMesh* TargetMesh, bool Skirt);
     UFUNCTION(BlueprintCallable, Category="Training|Editor")
-    static bool ConfigureFieldClothing(class USkeletalMesh* TargetMesh, bool Skirt);
+    static bool ConfigureFieldClothing(class USkeletalMesh* TargetMesh, bool Skirt, class USkeletalMesh* SourceMesh = nullptr, class UPhysicsAsset* SourceCollision = nullptr);
+    UFUNCTION(BlueprintCallable, Category="Training|Editor")
+    static FString InspectFieldClothing(class USkeletalMesh* TargetMesh);
     UFUNCTION(BlueprintCallable, Category="Training|Editor")
     static bool CopyTrainingGripSockets(class USkeletalMesh* TargetMesh, class USkeletalMesh* SourceMesh);
     UFUNCTION(BlueprintCallable, Category="Training|Editor")

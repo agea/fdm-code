@@ -1,3 +1,157 @@
+## Shared Grenadier skirt surface — 29 October 2026
+
+- Audited all five Phase skirts after rollback: identical LOD0 positions and
+ 2513 triangles, identical cloth/collider inspection and sampled solver settings.
+ Assault/Support have different lower-LOD reductions and single-sided silk
+ surfaces; other variants also have different material tints.
+- Assigned Engineer's exact skirt material in the three appearance catalogs,
+ preserving all other appearance fields and1312 character-package hashes.
+ Receipt: Saved/Testing/phase-grenadier-skirt-setup.json. Detailed comparison:
+ Saved/Testing/phase-grenadier-skirt-comparison.json.
+- Fresh verify_field_clothing.py and verify_phase_belica.py PASS: nine cloth
+ meshes,60 catalog entries,20 FPS meshes,11 weapons and1100 grip-pose samples.
+
+- Real Rifleman menu-walk preview PASS:36 completed cloth captures. Sampled
+  frame inspected; body intersections can still occur under the unchanged
+  cloth3 simulation. This change shares the approved surface and does not claim
+  a collision fix. Receipt: Saved/Testing/phase-grenadier-skirt-rifleman.json.
+
+## Phase skirt rollback — 29 October 2026
+
+The user rejected the following skirt/body experiment. Its results below are
+historical and no longer describe active Phase art. Restored cloth3, original
+skirt surfaces and original body material references; head choices remain.
+
+- Restored18 complete packages from verified pre-experiment ZIPs; all18 SHA-256
+  hashes match. Protected1302 other packages during restoration. The five unused
+  experimental SkirtCoverage materials were removed through Unreal.
+- Mac Development editor build PASS. Fresh verify_field_clothing.py and
+  verify_phase_belica.py PASS: nine cloth meshes,60 appearance entries,20 FPS
+  meshes,11 weapons and1100 grip-pose samples. Hairless Phase heads and Grenadier
+  component0 preserved in all three catalogs.
+- Receipt: Saved/Testing/phase-skirt-rollback.json. Verification:
+  /private/tmp/rr-phase-skirt-rollback-verify.log.
+
+## Phase skirt/body follow-up — 29 October 2026, cloth7 / opaque body clearance
+
+- Compared all five skirts: each has2513 render triangles and1303 simulation
+  points. Sniper/Grenadier have the same underlying body and cloth settings;
+  Rifleman has split material slots, not a different skirt. Reference-body audit
+  found old proxies up to4.59cm inside the skin (approximate primitive coverage).
+- Final Phase cloth7: fitted rounded pelvis/spine proxies,10cm thigh capsules
+  shifted1cm forward,614 free points,12cm travel, pinned waist above98cm,
+  stronger damping/animation drive and8 iterations/3 substeps. Five owned meshes
+  saved with verified ZIP rollback;21 catalog/FPS/ragdoll/source hashes preserved.
+  Twinblast cloth3 remains unchanged. The three-role particle suite passes24
+  movement cases; final surface/FPS sanity rerun passes all8 Sniper cases.
+- Found a separate rendering defect: skirt graphs lacked Clothing usage and
+  used the default gray material. Fixed five graphs/four instances plus usage on
+  HiddenSection; actual cloth shaders and both fabric faces render correctly.
+  Protected1305 other packages; rerun updates0 materials.
+- Kept the body opaque and continuous. Three owned graphs/two instances inset
+  only the covered85..110cm, |X|<20cm band by2 world cm along animated normals,
+  with2cm height transitions. Transparent body masking was rejected because it
+  exposed voids when the hem moved. Original body geometry/materials and exposed
+  skin are preserved;1312 source character-package hashes remain unchanged.
+- FPS bind heights overlap this band. ERCharacter creates local material
+  instances with ER_PhaseSkirtCoverageEnabled=0 on FPS arms; world defaults to1.
+  Native motion probes verify world1/FPS0. No arm geometry, grip, camera, hitbox,
+  gameplay or replication changes. Mac arm64 Development builds PASS.
+- Final real Metal menu review: front25° LOD0 and rear-155° (Sniper LOD0,
+  Rifleman/Grenadier LOD4),36 frames each,216 total. Completed cloth throughout,
+  no cloth shader fallback/compile failure. Sampled cycles visually inspected
+  for skin crossings and transparent voids. All six cases pass conservative
+  current-pose coverage of490 body vertices/frame (105840 samples), zero points
+  outside the collider contact margin. This samples pre-clearance body vertices
+  and primitives, not exact garment/body triangle intersections.
+- Fresh verify_phase_belica.py PASS:60 catalog entries,20 FPS meshes,11 weapons,
+  1100 pose samples with both grips. Hairless heads and Grenadier component0 stay.
+- Final receipts: Saved/Testing/phase-skirt-clearance-*-yaw-*-lod-*.{json,log},
+  phase-skirt-clearance-fps.{json,log}, phase-skirt-coverage.json,
+  phase-skirt-surfaces.json and FieldClothing-setup.json. Source/hem audits in
+  phase-skirt-audit.json, phase-body-shape.json and phase-skirt-source-geometry.json.
+  Build: /private/tmp/rr-phase-skirt-fps-guard-build.log; latest setup/verify:
+  /private/tmp/rr-phase-skirt-clearance-{setup,verify}.log.
+
+## Phase Sniper hairless / Grenadier component0 — 29 October 2026, revision2
+
+- Requested final art: Sniper hides both hair sections; Grenadier keeps only the
+  red component0 of the numbered reference, with all other helmet islands removed.
+  Jacket hood, body/FPS meshes, rigs, cloth, materials and gameplay are preserved.
+- Scoped Unreal migration PASS: source7540 triangles, component0 exactly3778,
+  removed3762. Verified rollback ZIP and1311 protected character-package hashes
+  unchanged. Receipt: Saved/Testing/phase-head-cleanup.json, version2.
+- Fresh verify_phase_belica.py PASS:60 catalog entries,20 FPS meshes,11 weapons,
+  1100 pose samples with both grips checked. Legacy long-hair setup now preserves
+  the hairless policy; field-finish initialization no longer restores hair cards.
+- Actual Metal menu previews PASS: Grenadier head50° and Sniper head90°,36
+  frames each with completed cloth and no material compilation failure. Final
+  frames visually inspected: only the requested head shell; no Sniper hair cards.
+- First capture attempt exposed a debug PNG-export race: resizing the render
+  target immediately before ReadPixels could return the old-sized pixel array.
+  Move resize before warm-up and check pixel count before PNG compression. Native
+  arm64 Development build PASS; both final captures complete with this correction.
+  Failed-attempt evidence: Saved/Testing/phase-component0-export-failed.{log,json}.
+- Final capture receipts: Saved/Testing/phase-component0-after.{log,json} and
+  phase-sniper-hairless.{log,json}. Setup/verification/build logs:
+  /private/tmp/rr-phase-head-component0-setup.log,
+  /private/tmp/rr-phase-component0-{verify,build}.log.
+
+## Phase helmet remnants and short-hair crest — 29 October 2026
+
+- Mac arm64 Development editor build PASS, including optional per-skin head
+  close-ups in the existing native menu-preview probe.
+- setup_phase_head_cleanup.py PASS: removes1661 detached lower triangles from
+  the owned helmet, preserves5879 head/visor triangles and both material slots.
+  The retained source study and1311 other character packages are hash-identical;
+  verified rollback ZIP and Saved/Testing/phase-head-cleanup.json retained.
+- Phase skins6/7/9 hide only their short-hair cards, using both section visibility
+  and the existing hidden material. Sniper long hair and the jacket's folded hood
+  remain. All body/FPS meshes, cloth, materials, poses and gameplay are unchanged.
+- Fresh verify_phase_belica.py PASS:60 catalog appearance entries,20 FPS meshes,
+  11 weapons and1100 pose samples with both grips checked.
+- Real Metal AERMenuPreview: before/after Engineer rear-side at-110° and final
+  Rifleman side at90°,36 frames each, completed cloth and no material compilation
+  failures. Final close-ups inspected: helmet fragments/crest gone; jacket hood,
+  head shell, face plate and complete scalp visible. No exhaustive animation claim.
+- Logs: Saved/Testing/phase-{helmet-before,helmet-after,hair-after}.log and JSON;
+  /private/tmp/rr-phase-head-cleanup-{setup,verify}.log;
+  /private/tmp/rr-phase-trim-build.log. Native captures are in
+  Saved/Testing/ClothingPreview/head-skin-{18,16}-wait-yaw-*-lod-0/.
+
+## Alpha Sniper blue trousers to the ankles — 29 October 2026, follow-up
+
+The user-circled shin region is now blue too. Lower the bind-position mask from
+58cm/5cm feather to14cm/2cm feather, retaining dark shoes only. The scoped Unreal
+migration passed with1310 protected character packages unchanged and verified
+rollback. Fresh saved-catalog verification passed for all60 appearance entries.
+The actual Sniper menu walk passed36 captured frames, completed cloth throughout
+and no Metal material compilation failure. Final frame visually inspected.
+Receipts: Saved/Testing/recon-blue-ankles.{json,log}, recon-palette-migration.json;
+verifier: /private/tmp/rr-recon-blue-ankles-verify.log. No geometry or native-code
+change, so the previous native loadout/build checks were not repeated.
+
+## Alpha Sniper variant4 — 29 October 2026
+
+- Editor Mac arm64 Development build PASS (`/private/tmp/rr-recon-palette-build.log`).
+- EclipseRecoil.Loadout.Catalog and ClaymoreLifecycle PASS. All three Alpha
+  Sniper variants resolve gallery variant4 / Twinblast · Recon, stable index3.
+- Saved-asset verification PASS for all20 skins in Character/TrainingTarget/Corpse,
+  including the neutral-jacket and blue-trouser material references/parameters.
+- Scoped migration PASS: two independent owned material graphs and three catalog
+  packages saved;1310 other character packages retain their hashes. Verified ZIP
+  rollback and Saved/Testing/recon-palette-migration.json retained. Boot finish is
+  preserved with a vertex-stage bind-position mask; Metal compilation PASS.
+- Actual AERMenuPreview: front25° and back-180°,36 frames each, completed cloth
+  on every capture, no material compile failure. Seven samples per angle visually
+  inspected through the walk cycles; the short jacket remains clear of the legs
+  in those captures. These are menu captures, not an exhaustive animation guarantee.
+- Logs: Saved/Testing/recon-palette-{front,back}.log and JSON receipts;
+  saved verifier: /private/tmp/rr-recon-palette-verify.log. Native PNG sequences:
+  Saved/Testing/ClothingPreview/wait-yaw-{25,-180}-lod-0/.
+- Presentation copies: visualization workspace sniper-recon/sniper-recon-palette.png
+  (two cropped game frames) and walk-review.png. No generated character imagery.
+
 ## 23 October 2026 — Fire Training revision3 (naves, height, length, plazas)
 
 ## Village lateral cover — 28 October2026, recipe8
@@ -110,6 +264,10 @@ Receipts: private `SourceAssets/Village/validation.json`,
 
 
 ## Phase/Twinblast clothing and mandatory Drongo mask — 26 October 2026
+
+Cloth validation in this first pass is superseded by28 October's real-particle
+test below: the screenshots did not detect that Phase's render binding was lost
+after rebuild, despite its cloth asset remaining in the mesh package.
 
 - Editor Mac Development arm64 build: PASS (Unreal5.8).
 - Owned cloth setup: four existing Twinblast cloth assets bounded to6cm; five
@@ -7019,3 +7177,778 @@ No new visual capture; the earlier accessory-only result did not cover Breacher.
 
 All listed runners returned0. These are local Mac Editor/Metal/LAN checks;
 no packaging, release upload or external EOS service claim is made here.
+
+## Alpha Sniper Officer / Phase cover studies — 28 October 2026
+
+- Editor arm64 Development build: PASS. Alpha Sniper resolves Twinblast · Officer
+  in all three kit variants; stable index0 and twenty-skin catalog retained.
+- EclipseRecoil.Loadout.Catalog: PASS, including explicit saved-catalog Officer
+  assertions for Gunner/Offense/Defense and the existing kit invariants.
+- Two real Metal head captures: PASS, Phase Recon with a source-derived face plate
+  and Phase Assault with the authored armored hood recolored Omega. Both use the
+  existing head attachment; the rejected procedural helmet is untouched.
+- All three live catalog files restored byte-for-byte to the first verified ZIP
+  after capture, including hair visibility. Phase studies remain inactive.
+- Phase covers have not been approved as final art or tested for animated/ragdoll
+  clearance or LAN presentation. Current skin geometry/materials are unchanged.
+
+## Approved Omega Grenadier armored hood — 28 October 2026
+
+- Applied the user's selected hood to Phase Engineer/Omega skin8 only in all
+  three Character/TrainingTarget/Corpse catalogs, using independent production
+  mesh/material copies and hidden hair slots. Other skin bindings are preserved.
+- verify_phase_belica.py: PASS in a fresh process, including the twenty-skin
+  catalog, shared corpse bindings, both hood material slots and existing FPS
+  checks (twenty skins, eleven weapons, 1,100 samples).
+- Fresh real Metal head capture on Omega skin8: PASS. Corpse gallery pair8:
+  six PASS samples through initial physics and settling; process exit0.
+- Backup CRC verified before save. Native/Python source whitespace and Python
+  syntax checks pass. No gameplay or network protocol changes.
+
+## Omega Sniper long hair — 28 October 2026
+
+- Restored only Phase Recon/Omega skin5's existing long-hair section in all
+  three saved appearance catalogs, with a dedicated material using the retained
+  Phase alpha/root atlas and a verified ZIP rollback. Meshes and source textures
+  were not changed. Rifleman stays short-haired; Grenadier retains its hood.
+- verify_phase_belica.py in a fresh process: PASS, including the twenty-skin
+  catalogs, matching corpse references, retained approved hood and FPS bindings.
+- Initial close-ups exposed dark patches in the inherited hero shader. Replaced
+  it with an owned masked/two-sided matte shader, with explicit zero emission;
+  fresh catalog/FPS verification passes after this correction.
+- Real Metal walking preview: all 28 clothing views and host/client loadout
+  checks PASS, process exit0. Clothing_18/19 show the long-haired Recon; the
+  first front capture still had shaders compiling, so it is diagnostic only.
+  The rear view shows the original long waves falling down the back.
+- Fresh front/rear detail captures with the final material: both exit0 and
+  gallery binding checks PASS, no material compilation failures. These retain
+  the original rig's swept hair shape in the ADS gallery pose; no new hair
+  physics was introduced. The walking preview is the standing silhouette check.
+- Python syntax and git diff whitespace checks: PASS. The historical study
+  restore is now a no-op once restored, preserving subsequent appearance edits.
+
+## Clothing/body collision correction — 28 October 2026
+
+- Reproduced the configuration faults: the five Phase meshes held cloth assets
+  but had active=0/in_use=0 and no real simulation particles after rebuilding.
+  Twinblast simulated, but its6cm clamp conflicted with body movement; Officer
+  reached3.52cm inside its old collision primitives in the baseline jump case.
+- Editor arm64 Development build: PASS. Revision3 setup saves only nine owned
+  skeletal mesh packages, with ZIP rollback. All26 protected catalog/FPS/ragdoll
+  and acquired-package hashes match. Hood, long hair and gameplay physics stay
+  unchanged. Source-section user data and material remapping preserve cloth
+  through rebuilds and all five render LODs.
+- Real Metal eight-case movement/pose sweep:72 cases PASS, exit0,6546 sampled
+  frames and2,282,964 free-particle observations. No penetration over1cm into
+  the cloth collision primitives; maximum measured interior distance0.97cm.
+  This sweep preceded the final extension to all render LODs, which retains
+  the same LOD0 simulation geometry and limits.
+- Final real Metal --lods sweep:45 skin/LOD combinations PASS, exit0,2108
+  sampled frames and688,956 free-particle observations. Actual simulation LOD
+  matches the forced render LOD; no missing simulation data or particles inside
+  the collision primitives. Inspected final Officer/Phase LOD4 fast-walk captures
+  as well as the earlier walk and prone views.
+- Fresh-process verify_field_clothing.py: PASS after final migration; nine
+  active cloth skins, all five LOD bindings and the three appearance catalogs.
+  Updated its old Drongo assertion to preserve the later approved hose hiding.
+- Python syntax and diff whitespace checks: PASS. These are collision-volume
+  measurements, not exact garment/body triangle intersection tests. A crowded
+  match performance comparison was not run; Phase now simulates cloth and the
+  solver uses more iterations/substeps than the previous setup.
+
+Receipts: Saved/Testing/FieldClothing-setup.json, field-clothing-after.json,
+field-clothing-lods.json; captures in Saved/Testing/Clothing and Clothing-before.
+
+## Officer coat in the Sniper menu preview — 28 October 2026, screenshot follow-up
+
+The user supplied a walking-preview screenshot with the thigh visibly crossing
+Twinblast's long front coat panel. The earlier world-mesh/collision-volume sweep
+did not exercise this manual SceneCapture path and therefore did not prove the
+menu image was using simulated cloth.
+
+Reproduced with AERMenuPreview, Officer skin0 and the real Sniper kit. With the
+previous scheduling,24 consecutive captured frames reported no completed cloth
+render data (wait=0,sim_assets=0); exported PNGs reproduced the thigh crossing.
+Waiting for the mesh's parallel cloth task before the manual capture provided
+simulated cloth (wait=1,sim_assets=1) and moved the front coat panel around the
+walking leg. ERMenuPreview now enables bWaitForParallelClothTask in its constructor.
+The existing solver, cloth assets, animations, gameplay and FPS were not edited.
+
+Editor Mac arm64 Development build: PASS. The preview regression captures the
+actual render target and verifies completed cloth data before every capture;
+--preview-yaw and --preview-lod exercise the reported view from both sides and
+at reduced detail. Receipts are Saved/Testing/officer-preview-*.json and native
+PNGs under Saved/Testing/ClothingPreview. The original screenshot and baseline
+captures remain separate from the corrected captures.
+
+Final regression: three fresh rendered runs at yaw+25/LOD0, yaw-25/LOD0 and
+yaw+25/LOD4 all PASS with exit0. Each exports36 native target frames over more
+than two walk cycles; all108 captures have wait=1 and sim_assets=1. Inspected
+front/alternate-side stride poses and the LOD4 sequence: coat panels follow the
+simulated shape around the forward leg in the sampled views. Syntax/whitespace
+checks PASS. Native front-view PNGs are available without content edits.
+
+## Expected team size and native map plans —29 October2026
+
+- Editor arm64 Development compilation: PASS. Existing unrelated appearance/cloth
+  work in the checkout was preserved; no authored map/material packages were saved.
+- `python3 scripts/test-server-settings.py --regressions`: PASS,21 native checks,
+  including setting normalization/preset persistence, menu, loadouts, movement,
+  recon and protocol11 cell transactions. Expected team size rounds independently
+  of positive human capacity.
+- `python3 scripts/preview-map-sizing.py --team-size 2 --seeds 42 73 7919
+  --verify-seeds 512`: PASS. Five saved production templates ×516 layout seeds
+  (0..511,7919,-17,INT32_MIN,INT32_MAX), deterministic repeat witnesses, paired
+  starts and untouched authored recipe values. Real physical cell geometry for
+  all five templates at42/73/7919 also passed standing spawn/route checks.
+  Walkable AlleyTerrain contacts (normal.Z≥.72) are accepted as floor; vertical
+  obstructions still fail. Spawn support uses a20cm sphere sweep to account for
+  the existing spaced timber deck boards.
+- `python3 scripts/preview-map-sizing.py --team-size 4 --seeds 42
+  --verify-seeds 32`: PASS,5×36 layout cases plus5×3 physical cases. This confirms
+  that the same generator/script admits more floors, rooms, blocks or naves.
+  Other design sizes have not received this physical seed matrix in this pass.
+- `python3 scripts/test-lobby.py --industrial --map-sizing`: PASS with one listen
+  host and two separate LAN clients. Host changes2→3 in the lobby, clears READY,
+  preserves capacity and rejects invalid/remote edits. All peers retain3 after
+  majority READY/travel, build matching descriptors and receive normal closed
+  loadouts. An attempted in-match edit is rejected. The focused sizing mode avoids
+  the historical full-arsenal expectations of the default lobby fixture.
+- `python3 scripts/test-industrial-map.py --network`: PASS with the default2vs2
+  sizing profile, initial and late clients. Actual pawn stair/ladder movement,
+  rifle damage, blast/collapse, container/cover breaches, next-round restoration
+  and matching initial/late geometry digests all passed (epochs1→2).
+- The seed sweep found compact container/side-building overlap at seed490; cargo
+  now occupies the opposite compact quadrant. Physical tests exposed an
+  underground turn folding back beneath its shortened approach, and sharp terrain
+  at the old oversized spawn pad. The turn and breach now follow the ramp mouth;
+  the flat court ends within the terrace. Compact loose-cover quotas also adapt
+  to available safe space, preserving door and route reservations.
+- `Saved/Testing/MapPlans/2v2/` contains15 native plans (five templates, three seeds),
+  individual PNG/SVG files, an HTML gallery and a common-scale overview. Visual QA
+  checked the overview, metre dimensions, bounds, labels, grid and legend.
+  Seed42 dimensions: Central Building59×73m; Alleys64.5×73m; Fire Training
+  24.6×42.8m; Rooms82×52m; Village37×62m. `4v4/` retains the companion study.
+
+These are geometric, physical and same-machine LAN checks. No subjective2vs2
+competitive playtest, two-computer network test or packaged release is claimed.
+
+## Creation-time sizing,500m²/player and aspect ratios —29 October2026
+
+This supersedes the earlier editable-lobby/variable-area studies above.
+
+- Expected team size is chosen before server creation, then remains read-only in
+  the lobby and immutable through travel/rounds. The mutation RPC and its READY
+  reset were removed. `test-lobby.py --industrial --map-sizing`: PASS with one
+  host/two LAN clients, including draft/session isolation, READY preservation,
+  independent capacity and the positive sizing descriptor after travel.
+- Editor arm64 Development build: PASS. `test-server-settings.py --regressions`:
+  PASS,21 checks including protocol12 cell transactions and setting persistence.
+- `EclipseRecoil.Maps.DensityBudgets`: PASS, all5 production templates ×16 team
+  sizes ×11 seeds (880 layout cases). Every enclosing horizontal arena has
+  1000m² per expected team member (both teams included), within±10% of area.
+  Upper floors are not summed. There is no8/team area saturation.
+- Latest2vs2 export: PASS,5×516 layout seeds, plus real calibrated collision at
+  42/73/7919 for all5templates. Central Building is near-square; Fire Training
+  has exactly one native-width nave and grows lengthwise. All area bounds,
+  paired spawns and standing route checks passed.
+- Latest3vs3 export: PASS,5×38 layout seeds plus5×3 physical cases. Fire Training
+  is still one nave. Latest4vs4 export: PASS,5×36 layout seeds plus5×3 physical
+  cases; multi-nave halls are allowed from this size onward.
+- Earlier in this density pass,1vs1 and16vs16 also passed the three-seed physical
+  matrix.1vs1 required optional Village structures to be omitted and flank-route
+  endpoints to be placed before/after the actual wall bypasses. The16vs16 alley
+  graph required a cap of20paired houses/6m height to retain the existing512M
+  storage/96M occupied-cell budgets; unused parcels become open yards. These
+  physical runs preceded the final near-square/single-nave refinement; the final
+  full1..16 sweep above rechecked the area contract after that refinement.
+- Actual terrain at a lateral tunnel mouth now sets its entry height, with a
+  short flat apron and matching ramp waypoints. Street slopes are evaluated on
+  local75cm terrain triangles across the standing capsule footprint. Unsafe
+  street/foundation transitions reject the candidate; constrained alleys use
+  at most128 deterministic attempts, without relaxing area or collision rules.
+- Seed42 final dimensions:2vs2 Central Building44×45m (1980m²), Fire Training
+  24.6×84.8m (2086.08m²), Alleys40×50m (2000m²), Rooms60×36m (2160m²),
+  Village34×59m (2006m²).3vs3 Central Building54×56m (3024m²) and Fire Training
+  24.6×122.6m (3015.96m²). Other seeds may select other original-width kits.
+- `Saved/Testing/MapPlans/2v2/` and `3v3/` contain native SVG/PNG plans and current
+  galleries, including `central-fire-<N>v<N>.png` comparisons at a common scale.
+  Visual QA checked metre dimensions, actual/target areas, deviation, aspect
+  ratios and labels. Reuse requires a matching hash of a successful native export.
+
+No asset packages were saved or uniformly rescaled. These checks do not claim a
+subjective competitive playtest or a packaged/two-computer network release.
+
+
+### Rooms and Village structural variety —29 October2026
+
+Runtime sized recipes now sample actual compositions at2vs2/3vs3. Rooms can
+contain4/6/8 rooms including both bases; the four-room graph has two lateral
+rooms, six shared turning chambers, a ring and central shortcut. Compact ground
+profiles keep at least8m room spans and full-size corridor mouths; elevated
+profiles retain their existing switchbacks. Larger budgets can also admit10rooms.
+Village samples1/2 blocks at2vs2 and1..3 at3vs3, varied block dimensions and
+storeys, then fits the arena to those actual footprints. Symmetry, spawn capacity
+and500m²/expected-player±10%AREA remain enforced. Authored packages were not saved.
+Protocol13 rejects peers with the older geometry policy.
+
+- Build: PASS (`/tmp/er-variety-build8.log`).
+- Native2vs2 and3vs3 plan sweeps: PASS, each5templates×516seed cases, with
+  reproducible repeat witnesses and multiple real graph/block counts and arena
+  proportions for Rooms/Village. Both galleries also passed15physical cases
+  (five templates×three seeds) with calibrated cell collision and standing routes.
+- Focused2vs2 physics: PASS, Rooms and Village×12seeds (0..8,42,73,7919), covering
+  four/six/eight rooms and one/two blocks (`/tmp/er-variety-2b-test.log`).
+- Regression suite: PASS9tests (`/tmp/er-variety-regressions2.log`), including
+  Rooms/Village authored layouts (516seeds each), authored physics (6/15cases),
+  all four cell tests including protocol13 network transactions, and880density
+  cases (five templates×sizes1..16×11seeds).
+- The expanded3vs3 sweep exposed a pre-existing constrained alley seed373 that
+  exhausted128composition attempts. The bound is now256, with the same geometry,
+  area and terrain checks; the complete516-seed sweep subsequently passed.
+- Example2vs2 Rooms: seed42 four rooms45×47m/2115m²; seed3 six rooms60×36m/2160m²;
+  seed73 eight rooms46×44m/2024m². Village: seed42 one block40×54m/2160m²,
+  seed3 one block42×51m/2142m², seed73 two blocks30×67m/2010m².
+- Example3vs3 Village: seed42 one block61×54m/3294m²; seed3 two blocks47×69m/3243m²;
+  seed73 three blocks32×94m/3008m². All examples satisfy the area tolerance.
+- PNG/SVG plans and the galleries were visually inspected. Each gallery starts
+  with `rooms-village-<N>v<N>` showing three seeds at one scale, real metre
+  dimensions, actual/target area and deviation. Export reuse requires a matching
+  successful native receipt/hash for protocol13.
+
+These are geometric/collision checks, not a subjective competitive playtest.
+
+LAN creation/travel regression: PASS with one host and two real clients
+(`scripts/test-lobby.py --industrial --map-sizing`, `/tmp/er-variety-lobby.log`).
+The creation-time size remains frozen through READY/travel, human capacity stays
+independent, and protocol13 geometry initializes consistently on every peer.
+
+
+### Village ground coverage correction —29 October2026
+
+The user rejected3vs3 seed42 (61×54m,3294m²) as too empty. Sized Village now
+requires at least two blocks from3vs3, with minimum counts growing to the
+existing five-block budget. From2vs2 it also places paired native4.8×2.4m L
+shelters,2.4m tall, in available approach/flank depth bands. Their desired quota
+is one pair per450m² (max24pairs), with at least one pair per1500m²; upper floors
+do not replace this ground quota. Placement preserves old construction, spawn
+starts, stairs, ground routes and every new shelter's standing entrance. Hidden
+palisade collision is included, with a60cm inner margin at entrance points.
+New panels retain massive timber,2mm metal faces/caps and ordinary destruction.
+No authored asset packages were saved. Protocol14 versions this geometry policy.
+
+- Build: PASS (`/tmp/er-village-fill-build4.log`).
+- Village2vs2 and3vs3: PASS516layout cases each, deterministic repeat witnesses,
+  valid area, minimum block/cover quotas and half-turn pairs. Physics: PASS12seeds
+  each (0..8,42,73,7919), including standing spawns, complete ground routes,
+  standing shelter entries and blocked sight at164/220cm. Logs:
+  `/tmp/er-village-fill-two-ready.log`, `/tmp/er-village-fill-three-ready.log`.
+- Village density: PASS176cases, sizes1..16×11seeds, after the perimeter margin
+  correction (same3vs3 log). Early entry failures against the hidden palisade
+  were fixed by reserving collision-only pieces and the complete standing entry.
+- All four cell tests, including protocol14network transactions, passed in
+  `/tmp/er-village-fill-final-tests.log`; that earlier combined run's Village
+  entry failure was subsequently corrected and retested as recorded above.
+- New3vs3 seed42:46×67m,3082m², two blocks and fourteen added ground shelters;
+  deviation+2.7% from the3000m² target. Real geometry is exported in the PNG/SVG
+  plans, with floor counts and added ground-shelter counts kept distinct.
+
+- Final2vs2/3vs3 galleries: PASS, each five templates×38layout cases and
+  five templates×three physical cases. Visual QA checked the updated seed42
+  plan and counts. Successful protocol14receipts match each native JSON export.
+- Village LAN: PASS, one host and two real clients, creation-time3vs3 snapshot,
+  READY majority, travel, matching initial geometry and closed loadouts
+  (`scripts/test-lobby.py --village --map-sizing`, `/tmp/er-village-fill-lan-ready.log`).
+  The probe now resolves the expected map through the catalog; its old two-map
+  assertion had incorrectly labeled a correctly loaded Village as a failure.
+  The script also stops immediately on an explicit failed-probe marker.
+
+
+### Four-versus-four plan review —29 October2026
+
+Regenerated all five templates with protocol14, seeds42/3/73/7919, and an
+additional0..31plus signed-edge sweep. Native TeamSizing and TeamSizingPhysics
+passed: five templates×38layout cases and five templates×three physical cases.
+The gallery now opens with the five-template overview at one scale, followed
+by the Rooms/Village comparison and individual dimensioned SVG/PNG plans.
+Seed42: Central62×65m/4030m²; Alleys56×71m/3976m²; Fire Training96.6×42.8m/
+4134.48m² (four naves); Rooms64×62m/3968m² (four rooms); Village59×68m/4012m²
+(two blocks, eighteen added ground shelters). All are inside3600..4400m².
+Visual QA checked the overview and metre/area labels. The native export receipt
+was reused successfully to redraw the updated gallery landing page.
+
+
+### Independent Rooms bases and longitudinal Fire Training —29 October2026
+
+The rejected four-room stem-base layout now assigns Alpha/Omega to the opposed
+lateral rooms. Each has distinct north/south doors; the old north/south rooms
+are ordinary rooms. Crossing/patrol routes start at the actual new bases, and
+all eight starts/team plus paths to room centres are reserved before furnishing.
+Native graph checks require separated base mouths and connectivity after removing
+any one corridor edge. Sized links also reject slopes above1:2, with longer
+spacing around junctions in larger profiles after expanded physics found short
+steep transitions in the older six-room sampler.
+
+Fire Training option selection and the reference fallback now require outside
+length>=1.2×width for every team size. One nave remains fixed through3vs3; larger
+teams add only naves/bays satisfying that ratio, the existing aspect cap and the
+500m²/expected-player±10%AREA budget. No kit meshes or material/cell dimensions
+were rescaled. Protocol15 versions the changed generation/spawn policy.
+
+- Build: PASS (`/tmp/er-base-length-build3.log`).
+- Focused4vs4: PASS, Rooms and Fire Training×516layout cases and×12physical seeds
+  (0..8,42,73,7919). Physical paths include every Rooms spawn-to-centre route,
+  both attack routes and actual corridor access. Log:`/tmp/er-base-length-four-ready.log`.
+- Density/graph/aspect: PASS352cases (two templates×sizes1..16×11seeds), same log.
+- Reference regressions: PASS8tests, four cell/protocol15tests, authored Rooms
+  layout/physics and Fire Training layout/physics (`/tmp/er-base-length-regressions.log`).
+- Rooms LAN: PASS, one host/two real clients with creation-time3vs3 size, matched
+  generated geometry, actual side-room spawning and complete lobby/travel
+  (`scripts/test-lobby.py --rooms --map-sizing`, `/tmp/er-base-length-lan.log`).
+- Preview script exports a new `rooms-fire-<N>v<N>` comparison at one scale and
+  labels four-room lateral bases with their two exits. Export receipts now
+  require protocol15. Original art packages were not saved.
+
+- Final2vs2/3vs3/4vs4 galleries: PASS, each five templates×38layout cases and
+  five templates×three physical cases.2vs2 required a standalone rerun after an
+  engine MassEntity/PThreadsSharedMutex cleanup crash under concurrent editors;
+  the rerun exited0 with both tests successful (`/tmp/er-base-length-gallery2-retry.log`).
+  Native protocol15receipts/hashes match all three exports. Visual QA checked
+  the4vs4 Rooms/Fire comparison: side-room bases in64×62m/3968m², and a two-nave
+  hall48.6×84.8m/4121.28m², with the original500m²/player±10%area contract.
+
+
+### Rooms four-corner loop —29 October2026
+
+The user clarified that bases belong in opposite corners, not at the left/right
+midpoints with useless north/south stubs. The four-room variant now places its
+four actual rooms at the rectangle corners: Alpha northwest, Omega southeast.
+The other two rooms form the two alternative attack paths. Exactly four direct
+corridor links make one cycle; there are no dead ends, extra turning chambers
+or centre shortcut. The enclosing metre dimensions/area and eight starts/team
+are retained. Facing is45/225degrees. The six/eight/ten-room graphs and the
+longitudinal Fire Training policy are unchanged. Protocol16 versions this layout.
+
+- Build: PASS (`/tmp/er-corner-rooms-build.log`).
+- Focused4vs4: PASS516seeds and12physical cases, including the actual spawn paths
+  and both attack routes. Native checks require four room nodes, degree2at each,
+  diagonal base positions and connectivity after removing any corridor edge.
+- All-size Rooms budgets: PASS176cases (1..16×11seeds), unchanged500m²/player±10%area.
+- Reference Rooms layout/physics plus all four protocol16cell regressions: PASS.
+  The combined run passed9tests (`/tmp/er-corner-rooms-tests.log`).
+- LAN: PASS, one host/two real clients with creation-time3vs3 snapshot, diagonal
+  spawning, matching geometry and lobby/travel (`/tmp/er-corner-rooms-lan.log`).
+- Saved art packages were not modified; the preview captions now identify
+  opposite-corner bases in the actual native plan.
+
+Final2vs2/3vs3/4vs4 native galleries: PASS, each five templates×38layout
+cases and five templates×three physical cases. Verified protocol16receipts
+match the exports; visual QA checked the4vs4 corner-loop plan,64×62m/3968m²,
+with Alpha northwest, Omega southeast and all four rooms on the ring.
+
+
+### Rooms expanded rectangular halls —29 October2026
+
+The user requested much larger non-spawn rooms because the four-corner ring
+left most of the enclosing area unusable. Four-room profiles now expand the
+two intermediate rooms into opposing rectangular halls filling the centre and
+the outer perimeter. A seeded wide/tall orientation is accepted only with at
+least60%actual flat-floor coverage. Each hall has at least twice a base's area;
+keep2m separation,6m approaches and2m outer setbacks. Off-centre portal positions
+preserve four straight full-size corridors, two exits per room and diagonal
+bases. Portals, stairs, textures and authored meshes were not uniformly scaled.
+Protocol17 versions the geometry; original art packages were not saved.
+
+The exporter reports flat ground-floor area (room polygons plus corridor floors
+between the lower bevels), independently of the enclosing500m²/player area.
+Large-room dimensions are printed inside the native plans.
+
+- Build: PASS (`/tmp/er-large-rooms-build.log`).
+- Focused4vs4: PASS516seed cases and12physical seeds, including actual spawn,
+  room and corridor paths. All-size coverage/graph/density: PASS176cases1..16×11.
+- Reference Rooms layout/physics plus four protocol17cell tests: PASS.
+  Combined9test run:`/tmp/er-large-rooms-tests.log`.
+- LAN: PASS, one host/two real clients, diagonal bases, expanded halls,
+  off-centre portals and matched generated geometry (`/tmp/er-large-rooms-lan.log`).
+- Seed42 4vs4: arena64×62m/3968m²; two intermediate halls36×28m each;
+  useful flat floor2554.76m² (64.384%). Both attack paths and eight starts/team
+  remain intact. Visual QA checked the actual dimensioned native plan.
+
+Final2vs2/3vs3/4vs4 galleries: PASS, each five templates×38layout cases
+and five templates×three physical cases, with matching protocol17receipts.
+The concurrent2vs2 editor encountered the previously observed engine
+MassEntity/PThreadsSharedMutex cleanup assertion; its isolated export rerun
+completed successfully (`/tmp/er-large-rooms-gallery2-retry.log`).
+
+
+### Rooms optional central passage and hall profiles —29 October2026
+
+Four-room plans now optionally connect the two intermediate halls through a
+self-symmetric, full-size central corridor. Both outside attack routes remain,
+and the bases retain two exits. Halls have2or3connections depending on the
+passage. Seeded profiles include large rectangles, smaller rectangles and convex
+polygons with asymmetric corner cuts. Minimum flat-floor coverage is55%for
+compact/sagomated profiles and60%for the large rectangular fallback, with the
+unchanged500m²/expected-player±10%arena budget. Hall polygons reserve the complete
+clipped portal width before acceptance. Separate apertures on one wall are
+carved independently; the new corridor has real walkable floor and collision.
+Protocol18 versions the geometry. Original art assets were not saved.
+
+- Build: PASS (`/tmp/er-hall-passage-build3.log`).
+- Focused4vs4 Rooms: PASS516layout cases and12physical seeds, including actual
+  central-passage traversal, both outer routes and spawn paths. All sizes1..16:
+  PASS176density/coverage/graph cases. Reference Rooms and four protocol18cell
+  checks also passed: combined9tests (`/tmp/er-hall-passage-tests.log`).
+- LAN: PASS, host/two real clients, matching geometry and central-passage
+  reconstruction (`/tmp/er-hall-passage-lan.log`).
+- Final2vs2/3vs3/4vs4 native galleries: PASS, each five templates×38layout cases
+  and five templates×three physical cases, with matching protocol18receipts.
+  Exports ran one editor at a time to avoid the observed engine test-world
+  cleanup assertion. Native25plan exports contain five requested seeds/template.
+- Visual QA checked the actual4vs4 seed42 passage,64×62m/3968m², and the three
+  four-room examples. Seed42: rectangular linked halls,2559.76m² useful floor;
+  seed2: linked24.5×50m halls; seed7919: separate asymmetrically clipped45×25m
+  halls in68×58m. The passage is highlighted in teal and the new
+  rooms-variants-<N>v<N> SVG/PNG compares the real variants at a common scale.
+
+
+## 29 October 2026 — character dependency cleanup
+
+Isolated APFS project fixture, existing UE5.8.3 Mac Editor module. Migrated58
+owned packages (56 character assets and2 Core Blueprints), removed68 character
+packages through Unreal after fresh registry checks found no outside referencers.
+Verified rollback tar.gz (126 members) and SHA256 source guards before applying
+the validated packages to the checkout. Existing uncommitted art/code retained.
+
+- Fresh-process verify_team_characters.py, verify_team_skins.py and
+  verify_skin_first_person_forearms.py: PASS. The legacy team verifier now checks
+  canonical skin0 fallback meshes and actual weapon slots, replacing old mesh
+  names and an obsolete fixed hidden-slot count.
+- Fresh asset audit: all68 removed packages absent. No changed selectable
+  meshes/materials/textures/FPS/cloth packages (SHA256 comparison to backup).
+- Full Mac cook after pruning: PASS,0 errors/0 warnings. No cooked files remain
+  for the removed packages. The initial cook had one legacy Rig warning, now gone.
+- test-team-skins.py on Metal: PASS, both gallery pages (20 appearances) and all
+  ten corpse pairs, three samples per pair (60 ragdoll/settled checks). Four skin
+  gallery images reviewed. Existing skeletal-material usage warnings appear in
+  gallery logs; no material compile failure or skin/corpse mismatch was reported.
+- Controlled PAK comparison: Oodle Kraken level4,64KiB blocks, character-only
+  cooked files,1.560.064.247 ->1.474.873.319 byte (-85.190.928;5.46%). This is
+  a PAK measurement, not a full production IoStore installer or a gameplay test
+  of a newly packaged executable. Project compression/texture/LOD settings unchanged.
+
+Receipts: Saved/AssetAudit/character-reference-{optimization,prune,report}.json.
+Raw isolated logs/images: /private/tmp/rr-character-cook-20261029/.
+Verified rollback: ../_backups/character-reference-20261029/rollback.tar.gz.
+
+After application, the same fresh-process verifiers and asset audit passed in
+the real checkout (0 errors/0 warnings). All58 copied packages match the tested
+fixture SHA256; all68 deleted paths are absent. Logs and captures retained in
+Saved/Testing/character-reference-20261029/.
+
+
+##29 October2026 — Murdock/Gadget field variants
+
+Added five Murdock Alpha and five Gadget Omega appearances at indices10..14;
+the original indices0..9 per team remain stable. Editor build passed on UE5.8.3
+Mac arm64.535 imported source packages match their Fab staging SHA256; every
+preexisting owned character-art package matches the pre-import hash manifest.
+The player/target/corpse catalogs have15 choices/team with the same bindings.
+
+- Fresh-process verify_murdock_gadget.py (including complete catalog and FPS
+  verifiers): PASS,0 errors/0 warnings. Preserved authored exposed skin via the
+  Gadget material mask and retained Merc skull atlas art.
+- test-team-skins.py --new-paragon: PASS. Ten visible appearances on Metal,
+  then five corpse pairs ×three stages =30 ragdoll/settled samples. Gallery
+  images reviewed. Mesh-specific visibility lists exclude absent vendor bones.
+- Measured40 palm contacts on the20 new world/FPS meshes. Murdock's mechanical
+  palm uses bot_hand-weighted vertices measured in the driven hand_r frame;
+  original bone hierarchy and source geometry retained. Both legacy HandGrip
+  sockets and current ER_Palm sockets are present.
+- test-target-skins.py: PASS on host and real LAN client,30 stationary targets,
+  Alpha/Omega masks32767, full six-firearm mask126. The full stationary catalog
+  keeps its explicit skin index during spawn/respawn. World contact validation
+  now uses ERWorldWeaponPose's current authored contact rather than FPS surface
+  arrays; tolerance remains1cm. Support-count bounds scale with catalog size.
+- Full isolated Mac cook: PASS,0 errors and two existing UE4 Rig warnings from
+  the newly supplied vendor packages. After adding palm sockets, incremental
+  cook passed with0 errors/0 warnings. This verifies cooked assets, not a newly
+  linked or distributed game executable.
+- setup-assets.py --check:30 valid mounts, no unresolved LFS pointers.
+
+Initial checks caught absent bone names and missing modern palm sockets; both
+were corrected before the final passes. Body geometry, gameplay damage, weapon
+assets, camera framing and the previous twenty appearances were preserved.
+The underlying Murdock armor silhouette remains heavier than the other heroes;
+removing all sculpted armor would require additional geometry work.
+
+Generation/rebuild details: docs/MURDOCK_GADGET.md. Backups of the three previous
+catalogs and original owned-art hashes: ../_backups/murdock-gadget-20261029/.
+Final images, raw logs and machine receipt: Saved/Testing/MurdockGadget/.
+
+## 29 October2026 — Murdock variety and Gadget exposed waist
+
+Revised only the ten newly imported appearances. Murdock now uses four source
+bodies across five choices: Merc Skull/Veteran, base Infantry, Corrupt Recon
+and Shogun Patrol. Recon uses an owned extraction of the complete standard
+helmeted Murdock head, attached to the head bone, plus a neutral exposed-arm
+surface. Veteran hides its separate mask; Patrol hides independent Shogun
+hip ornaments/packs. Both original source namespaces remain immutable.
+
+Gadget's upperbody skin preservation was insufficient: its lowerbody atlas also
+contains the exposed waist. Preserving that authored alpha mask restores natural
+skin on Mechanic, Patrol, Recon and Veteran. Field Engineer remains covered.
+
+- Fresh-process verify_murdock_gadget.py, including the full catalog/FPS checks:
+  PASS,0 errors/0 warnings. Four distinct Murdock material-slot signatures,
+  complete Recon head bounds and four lowerbody skin-mask graphs verified.
+  Earlier twenty appearances still match the pre-import SHA256 manifest.
+- Metal test-team-skins.py --new-paragon after the body/abdomen revision: PASS,
+  ten skin views and all five corpse pairs ×three samples =30 samples.
+- After the final Recon head extraction, test-team-skins.py --page2 --pair12:
+  PASS, ten fresh Metal views and six fresh corpse samples. Gallery, head close-up
+  and settled corpse images reviewed. The attached head stays with the ragdoll.
+- Final test-target-skins.py: PASS,30 stationary targets on both the listen
+  host and real LAN client, Alpha/Omega masks32767 and weapon mask126. Existing
+  world-palm1cm contact tolerance remains enabled. The new body/FPS meshes have
+  measured grip frames; shared weapon poses and camera framing are unchanged.
+- Python compilation and git diff whitespace checks: PASS. No additional
+  cook/packaged-runtime claim is made for this later appearance revision; the
+  initial import's cook results remain recorded above.
+
+An intermediate UV substitution produced an incomplete Recon face and was
+discarded. Extracting only the face material section also omitted the skull/
+helmet, which shares the body material. The final extraction retains the whole
+head region, omits weapon/glass sections and checks complete bounds.
+
+Rollback of the first five-variant catalog/art: ../_backups/murdock-gadget-variety-20261029/.
+Final previews, bindings, logs and report: Saved/Testing/MurdockGadgetVariety/.
+
+## 30 October2026 — Three Wraith replacements and staging cleanup
+
+Wraith Officer/Assault/Patrol replace Alpha0/1/2 using OD Green/base/Lunar Ops
+costumes. Both teams retain ten skins and their existing role indices. The old
+Twinblast assets, Recon/Support and all other character art remain unchanged.
+Original Wraith masked heads remain; the Twinblast face study is deferred.
+
+- Staging cleanup:1899 unique Murdock asset/map packages deleted through the
+  guarded Unreal package API after SHA256 backup/outside-reference validation.
+  Gadget and Wraith staging hashes all match the pre-delete manifest. Fresh
+  ParagonStaging verification:0 errors/0 warnings. The isolated deletion fixture
+  initially lacked the game's localization JSON and logged a startup error;
+  the deletion itself completed and the original staging project was then
+  independently checked. Backup: ../_backups/staging-murdock-20261030/.
+- Source import:145 hard-dependency Wraith packages copied with preserved
+  namespace and identical source hashes. Owned retargets, physics, FPS forearms
+  and12 world/FPS palm contacts generated. Editor build: PASS.
+- Fresh verify_wraith_replacement.py: PASS,0 errors/0 warnings, three matching
+  player/target/corpse catalogs, all20 FPS appearances on the existing rig,416
+  preexisting character packages hash-identical and imported source unchanged.
+- test-team-skins.py --page0 --pair0 --pair1 --pair2: PASS, ten gallery skin views
+  and18 corpse samples. New Wraith gallery and settled ragdoll images reviewed.
+- test-target-skins.py: PASS,20 stationary targets on host and real LAN client,
+  Alpha/Omega masks1023 and weapon mask126, with the existing1cm world-palm
+  contact tolerance. No weapon pose/camera or gameplay collision change.
+- Existing native Loadout Catalog and ClaymoreLifecycle tests: both PASS,
+  process exit0. Startup logs contain14 generic Condition failed messages before
+  automation execution; no such errors were reported within these two tests.
+- User's Player-preview height question: reproduced through AERMenuPreview with
+  the same sniper rifle.36 real captures each for Wraith Officer and Belica Arctic
+  Patrol pass the generic preview probe. Cameras fit at410.364/388.862cm,
+  respectively, producing about5.2% smaller projected Wraith size. Appearance
+  scales are1.04266/1.03944 and sampled head-bone ranges differ by about2cm.
+  No production menu-framing or gameplay-scale change was made for this finding.
+  Existing cloth-preview checks remain strict; only the explicit generic
+  ERCharacterPreview mode allows skins without simulated clothing.
+- Python compilation and git diff whitespace checks: PASS. No fresh cook or
+  packaged-runtime validation was requested/performed for this replacement.
+
+Details: docs/WRAITH.md. Rollback: ../_backups/wraith-replacement-20261030/.
+Source/hash receipts, fresh logs, Metal gallery/corpse/menu captures:
+Saved/Testing/WraithReplacement/.
+
+## 30 October2026 — Wraith Assault with Twinblast head (first trial)
+
+Alpha1/Wraith Assault now hides its original head/backpack material section and
+attaches the complete Twinblast Support head to the live head bone. It retains
+the authored face, eyes and hair, without sunglasses, and four static render
+LODs.124 disconnected donor collar triangles were removed and the lower neck
+was trimmed. One owned material instance changes only the donor's red ArmColor
+cloth pigment to neutral blue. No original skeletal mesh, FPS mesh, animation,
+physics or source material was edited. Officer/Patrol remain masked.
+
+- Fresh catalog/team/FPS verification: PASS,0 errors/0 warnings. Three catalogs,
+ 20 FPS appearances, unchanged body/FPS identities, scales and pose bindings,
+ complete head, nine material sections, four LODs and neutral collar override.
+- Final real Player-preview head capture: PASS,36 walking frames, visually
+ reviewed. Final corpse pair1: PASS,six samples across three ragdoll stages,
+ settled image reviewed. No shader compilation failure in the delivered preview.
+- Head attachment LAN binding: PASS on host/client with20 targets and weapon
+ mask126; this ran before the later visual-only neckline refinements.
+- An earlier fresh SHA256 comparison verified1482 original character packages
+ unchanged. During the trial, the shared _backups directory was removed externally.
+ The final verifier explicitly records that baseline as unavailable; it does
+ not silently pass or recreate the deleted backup. Stored setup/height receipts
+ still verify body/FPS asset identities, scales and bindings.
+- Static neck-guard and material-only neck experiments were discarded after
+ visual inspection. The delivered first trial uses only the donor upper neck
+ and neutral collar; that transition remains suitable for further art refinement.
+ The unused experimental material is removed only when Unreal confirms no
+ remaining referencers. No facial animation rig/blinking was transferred.
+- Full-editor LOD-generation runs saved the asset but exited abnormally during
+ shutdown. Saved assets were independently reloaded in successful commandlets
+ and successful real game/preview/ragdoll runs. No packaged/cook claim is made.
+- Python compilation and git diff whitespace checks: PASS.
+
+setup_wraith_twinblast_head.py generates this trial. To undo only these appearance
+fields without a backup, restore_wraith_assault_mask.py restores the retained
+body mesh's original mask material/section and removes this attachment.
+Final receipts/logs/images: Saved/Testing/WraithHeadStudy/.
+
+## Murdock trims (29 October 2026)
+
+- trim_murdock_details.py (GeometryScripting commandlet): PASS. Log: Saved/Testing/murdock-trim.log.
+- Fresh verify_murdock_gadget.py: PASS (bindings, grip/palm sockets, protected old-art hashes).
+- Metal test-team-skins.py --new-paragon: PASS, ten gallery views and five corpse pairs.
+  Reviewed: dark trousers on all five Murdock skins, left pauldron removed on
+  Skull/Veteran, no visible holes on standing or ragdoll bodies.
+- Not run: test-target-skins.py (LAN), packaged cook, in-game first-person check.
+
+### 30 October — Wraith Officer sunglasses head
+
+- Officer Alpha0 and canonical Alpha fallback now use an owned unmasked-body
+  copy plus the original Twinblast Officer sunglasses head in all three catalogs.
+ 6346 costume-helmet triangles removed; five regenerated body LODs and four head
+ LODs. Loose donor shirt/cigarette islands excluded. Assault and Patrol unchanged.
+- Fresh `verify_wraith_officer_head.py`: exit0, catalog/FPS/pose checks passed,
+  19 protected Assault/Patrol/old-Officer packages match task hashes.
+- `test-character-preview.py --skin0 --head`: exit0,36 actual menu walk captures,
+  PASS, no material compilation failure; screenshots inspected with sunglasses.
+- `test-team-skins.py --pair0`: exit0, six ragdoll checks across three physics
+  stages, PASS; attachment follows the head.
+- Full editor extraction saved successfully, but its automatic shutdown exited1
+  (startup automation Condition failed messages and the previously seen shutdown
+  crash). Fresh commandlet verification and both game processes exited0. No
+  claim of a clean full-editor shutdown or a new packaged/cook test.
+- Receipts: Saved/Testing/WraithOfficerHead; preview:
+  Saved/Testing/WraithReplacement/Preview/head-skin-0-frame-00.png.
+
+### 30 October — active Drongo Scavenger restoration
+
+- Breacher / Omega1 (Drongo · Jackal) restores material0, misleadingly named
+  M00_Teddybear: it contains the goggles, bandana, antennae and shoulder pad.
+  Original skull/BOOM atlas artwork is explicit matte white BaseColor paint;
+  lenses/shells use the authored masks with dark colour and emission stays zero.
+  Additional SM_ER_DrongoMask overlay removed only from Jackal. Raider unchanged;
+  weapon5 and teddy/skull prop6 remain hidden in player/target/corpse catalogs.
+- Recovered missing source mask packages from characters commit0f177de via Git LFS
+  with SHA256 checks. Original source shaders are preserved. Owned helper layers
+  repair missing legacy imports/defaults; trial materials removed via Unreal.
+- Fresh verify_drongo_scavenger_head.py: exit0; three catalogs, existing FPS/poses
+  and311 protected original Drongo/Omega packages pass. No body geometry, physics,
+  animations, scale, role IDs or appearance indices changed.
+- Editor build succeeded (9.52s). ERMenuPreview forces texture mips on its own
+  preview component, fixing low-detail SceneCapture textures without changing
+  global streaming or permanently pinning old skins' textures.
+- Normal test-character-preview.py --skin11 --head: exit0,36 captures PASS,
+  no shader compilation failure. Inspected frame35 with skull and dark goggles;
+  first cold shader/texture frames are not a reliable image-quality check.
+- test-team-skins.py --pair1: exit0, six ragdoll checks across three stages PASS.
+  No new packaged/cook or LAN test was requested or claimed.
+- Receipts/image: Saved/Testing/DrongoScavenger/ (preview.png, verification.log,
+  build.log, original package manifest). Prototype colour/shader captures were
+  superseded by the final ordinary-streaming menu capture.
+
+### 30 October — Gadget Marksman / Sniper separation
+
+- Omega6 Mechanic / Marksman retains Guerilla, visible face and exposed waist.
+  Omega9 Veteran / Sniper now uses independent Shellshock body/FPS/physics copies,
+  with a closed gray helmet/upper armor and muted orange lower plates. Existing
+  equipment hiding, authored rig, animation, palms, scale and support offset
+  come from the already approved Engineer8; Engineer8 itself stays unchanged.
+- Fresh verify_gadget_sniper_shellshock.py: exit0; three catalogs,1526 original
+  package hashes and all19 other appearance fields unchanged. Five body LODs,
+  exact source grip/palm sockets and existing FPS weapon-pose checks pass.
+- test-character-preview.py --skin16 --skin19: exit0;36 real menu walk captures
+  per skin PASS. Frame35 inspected for each, showing exposed vs armored bodies.
+- test-team-skins.py --page1 --pair9: exit0; ten gallery checks and six ragdoll
+  samples across three physics stages PASS. Updated gallery and corpse inspected;
+  no material compilation failure. No packaged/cook or LAN result is claimed.
+- Receipts: Saved/Testing/GadgetMarksmanSniper/ (setup.json, verified.json,
+  protected-hashes.json, other-appearances.json, marksman.png, sniper.png,
+  gallery.png, verification.log). Original Veteran art is retained for rollback.
+
+### 30 October — Sniper selects gallery model8 (latest user correction)
+
+- Omega Sniper now selects the existing Gadget · Patrol, index7 / gallery8,
+  preserving its light camouflage and visible face. Config and native numeric/
+  name fallbacks agree for all three Sniper variants. Marksman and Grenadier
+  remain unchanged. No character asset, palette, physics or rig was edited.
+- Editor build: succeeded,10.61s. test-loadouts.py: exit0, Catalog and
+  ClaymoreLifecycle Success. Catalog now explicitly asserts Patrol7 for all
+  three Omega Sniper variants. Existing startup Condition failed log messages
+  precede the selected tests; the selected results and process exit are PASS.
+- test-character-preview.py --skin17: exit0,36 captures PASS; frame35 inspected
+  with the sniper rifle and approved light-camouflage model. No material
+  compilation failure. No new cook, physics change or network test is claimed.
+- Receipts and image: Saved/Testing/GadgetSniperPatrol/.
+
+### 30 October — muted Belica / Drongo palette
+
+-21 existing owned dyed-surface materials changed:6 Belica upper/arm surfaces
+  use grayer blue (.12,.28,.52);15 Drongo clothing surfaces use ochre around
+  (.62,.29,.115), retaining each skin's strength. White lift reduced from30%
+  to8% Alpha /10% Omega, white.5; desaturation.85. All remain non-emissive.
+- Fresh verify_muted_legacy_palette.py: exit0. Exact saved values and after
+  hashes match;1510 other character packages retain their hashes, including
+  Wraith/Gadget, natural skin/hair/eyes, neutral gear, skull mask artwork, all
+  meshes, rigs, animations and FPS packages. Catalogs/loadout IDs were not saved.
+  Existing Drongo and Gadget verifiers also PASS with the explicit authorized
+  before->after hash chain for these21 owned materials; other hashes stay strict.
+- test-team-skins.py --page0 --page1: exit0,20 native gallery checks PASS, no
+  material compilation failure. Both teams/pages inspected in the same gallery
+  lighting; Belica is muted navy/steel blue and Drongo muted ochre/brown, with
+  Wraith/Gadget reference palettes unchanged. No new cook/physics/LAN test claimed.
+- Receipts, rollback ZIP and comparison images: Saved/Testing/MutedLegacyPalette
+  (changed.json, protected-hashes.json, materials-before.zip, verified.json,
+  belica.png, drongo.png, wraith-reference.png, gadget-reference.png).
+
+
+30 ottobre 2026 — pulizia finale personaggi: build editor riuscita; cook completo
+Mac delle sette mappe (MainMenu, Depot, CentralBuilding, MiddleEasternAlleys,
+FireTraining, Rooms, Village) riuscito: 2586 package, zero errori e zero warning.
+verify_runtime_characters.py eseguito in Unreal con exit0: hash dei1289 package
+conservati e tre cataloghi, assenza dei243 eliminati, riferimenti, venti skin,
+FPS e teste Wraith/Drongo verificati senza ParagonStaging. Test nativi Loadout
+Catalog e ClaymoreLifecycle: Success, processo exit0. Il log include il noto
+Condition failed di avvio, precedente all'esecuzione dei due test.
+Cook e diagnostica sono stati generati solo per verifica e rimossi a fine lavoro.
+
+Gallerie native pagine0/1: tutte20 skin PASS, processi exit0; immagini controllate
+per Wraith e Gadget e poi eliminate insieme ai log di prova.
+
+
+30 ottobre 2026 — diagnosi pelle Drongo (segnalazione chiazze arancioni):
+nessun materiale o preset modificato. Verificati identici tramite SHA256 tutti
+i1289 asset personaggio del manifest attuale. Ispezionati i materiali pelle
+originali separati dalle uniformi. Quattro render della galleria Depot, exit0:
+Effects0/SSS0 con MaterialQuality0 e1; poi GI/riflessi/ombre/postprocess0,
+Textures1/MipBias2 con SSS0 e SSS1. In questa scena il difetto segnalato non
+si riproduce. Questo NON esclude un problema in altra luce/mappa o build.
+In attesa della mappa e del confronto Competitive/Bilanciato dell'utente.
+Xcode richiedeva il componente MetalToolchain27B47: installato per eseguire
+i render; il primo tentativo grafico era uscito senza immagini per sua assenza.
+
+
+30 ottobre2026 — seguito Central Building: confronti a otto angoli con preset
+nativi Competitive/Balanced in MetalSM6 completati; SM5 Competitive completato,
+SM5 Balanced interrotto dopo sette immagini. Non riprodotte le chiazze arancioni.
+Applicata una salvaguardia: materiali High anche con Effects0, ripristino esplicito
+del valore originale con Default. Build finale riuscita; test nativo
+EclipseRecoil.Menu.PerformancePreferences: Success, exit0 (il noto spam
+Condition failed compare durante l'avvio, prima del test). Effetti0 e cloth0
+restano verificati; materiali1 e ripristino Default verificati. Un ultimo render
+post-modifica è stato chiuso prima della cattura e non costituisce una verifica
+visiva riuscita. L'utente ha successivamente confermato che in Competitive
+la pelle è normale avviando con play.command. La causa precisa resta non isolata.
+Strumentazione temporanea del probe rimossa e ricompilata; nessun asset modificato.

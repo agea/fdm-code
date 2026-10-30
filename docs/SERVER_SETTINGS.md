@@ -8,6 +8,11 @@ An asterisk identifies an edited value. Preferences are saved for the next hoste
 session; an active lobby or match exposes its server snapshot read-only through
 **Server rules**. Clients cannot apply their own saved preferences to that server.
 
+Expected players per team is a separate map design input (default2), fixed
+at server creation and visible read-only in the lobby, without restricting admission.
+Each expected player budgets500m² of horizontal arena, with±10% area tolerance. See
+[map sizing and dimensioned plans](MAP_TEAM_SIZING.md).
+
 The settings cover match duration/score/READY threshold/intermission, locomotion,
 stamina, jumping/traversal/posture times, health/armor/helmet/spawn protection,
 respawn delay, friendly/self/fall damage, aim punch, firearm damage/precision/recoil,
@@ -31,7 +36,8 @@ Weapon tuning also clamps full-damage radii to the corresponding outer radii.
 The host's saved draft and named presets live in the existing GameUserSettings
 ini, under `RespawnAndRage.ServerRules`, `RespawnAndRage.ServerPresets` and
 `RespawnAndRage.ServerPreset.<name>`. Starting an offline/LAN/Internet session
-copies the draft to an immutable session snapshot. It survives lobby/map travel
+copies the draft to an immutable session snapshot. Expected team size cannot be
+changed in the lobby, so sizing never resets READY. It survives lobby/map travel
 and subsequent rounds. Joining another server never replaces the local draft.
 
 Direct/dedicated launches can configure `[RespawnAndRage.ServerRules]` in Game.ini.
@@ -70,7 +76,7 @@ use those effective values. Movement prediction and stamina HUD use the same
 server durations/speeds. The resolved kit catalog carries configured quantities
 and starting protection equipment.
 
-Material catalogs are copied per map. Cell network protocol 10 includes the
+Material catalogs are copied per map. Cell network protocol 18 includes the
 material-rule snapshot inside the layout descriptor, so client reconstruction
 uses matching HP/transmission before digest validation. The cell calibration,
 support system and geometry remain unchanged. Depot stays excluded from server

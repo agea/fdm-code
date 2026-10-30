@@ -2,7 +2,7 @@
 import unreal as ue
 assets=ue.EditorAssetLibrary
 catalog=ue.get_default_object(assets.load_blueprint_class('/Game/EclipseRecoil/Core/BP_ERCharacter'))
-for appearance in list(catalog.omega_skins)[5:]:
+for appearance in list(catalog.omega_skins)[5:10]:
     mesh=appearance.mesh;physics=mesh.physics_asset
     assert mesh.get_name().startswith('SK_ER_Phase_')
     if assets.get_metadata_tag(physics,'ERPhaseFieldRagdollVersion')=='1':continue

@@ -12,8 +12,8 @@ bool BuildVillage(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERPr
     if(!GridRange(R.ArenaMin.X,R.ArenaMax.X) || !GridRange(R.ArenaMin.Y,R.ArenaMax.Y) ||
        !GridRange(R.BlockWidth.X,R.BlockWidth.Y) || !GridRange(R.BlockDepth.X,R.BlockDepth.Y) || T->TemplateId.IsEmpty() || T->Revision<1 || T->Symmetry!=EERTemplateSymmetry::HalfTurn || C.Floors!=1 ||
        B.BlockSize!=FVector(50,20,25) || !FMath::IsFinite(B.ChunkSize) || B.ChunkSize<100 ||
-       R.ArenaMin.ContainsNaN() || R.ArenaMax.ContainsNaN() || R.ArenaMin.X<3400 || R.ArenaMin.Y<4400 ||
-       R.ArenaMax.X>5600 || R.ArenaMax.Y>13200 || R.ArenaMin.X>R.ArenaMax.X || R.ArenaMin.Y>R.ArenaMax.Y ||
+       R.ArenaMin.ContainsNaN() || R.ArenaMax.ContainsNaN() || R.ArenaMin.X<(T->SizingTeamSize>0 ? 2800:3400) || R.ArenaMin.Y<(T->SizingTeamSize>0 ? 3600:4400) ||
+       R.ArenaMax.X>(T->SizingTeamSize>0 ? 20000:5600) || R.ArenaMax.Y>(T->SizingTeamSize>0 ? 24000:13200) || R.ArenaMin.X>R.ArenaMax.X || R.ArenaMin.Y>R.ArenaMax.Y ||
        R.BlockWidth.ContainsNaN() || R.BlockDepth.ContainsNaN() || R.BlockWidth.X<2000 || R.BlockWidth.Y>3000 || R.BlockWidth.X>R.BlockWidth.Y ||
        R.BlockDepth.X<600 || R.BlockDepth.Y>800 || R.BlockDepth.X>R.BlockDepth.Y ||
        R.MinCentralBlocks<1 || R.MaxCentralBlocks>5 || R.MinCentralBlocks>R.MaxCentralBlocks ||
@@ -48,13 +48,26 @@ bool BuildVillage(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERPr
     for(const auto& P:Plans)RequiredWidth=FMath::Max(RequiredWidth,float(FMath::Abs(P.Frame.GetLocation().X)+P.Size.X*.5+200));
     // Sparse layouts reserve a further3m at each approach for the wider
     // transverse cover and its bypass, clear of spawn structures and stairs.
-    const float RequiredLength=Envelope*2+Sample(Count<=2 ? 4400:3800,Count<=2 ? 5000:4400);
+    const float RequiredLength=Envelope*2+Sample(T->SizingTeamSize==1 ? 2600:Count<=2 ? 4400:3800,T->SizingTeamSize==1 ? 2800:Count<=2 ? 5000:4400);
     if(RequiredWidth*2>R.ArenaMax.X || RequiredLength>R.ArenaMax.Y)return false;
     const double MinWidth=FMath::Max(double(RequiredWidth*2),R.ArenaMin.X);
     const double MaxWidth=FMath::Min(R.ArenaMax.X,FMath::Max(R.ArenaMin.X,double(RequiredWidth*2+1200)));
     const double MinLength=FMath::Max(double(RequiredLength),R.ArenaMin.Y);
     const double MaxLength=FMath::Min(R.ArenaMax.Y,FMath::Max(R.ArenaMin.Y,double(RequiredLength+1000)));
-    L.ArenaSize={Sample(MinWidth,MaxWidth),Sample(MinLength,MaxLength),R.PerimeterHeight};
+    if(T->SizingTeamSize>1)
+    {
+        TArray<FVector> Envelopes;
+        const float Area=TargetAreaM2(T->SizingTeamSize);
+        for(float W=FMath::CeilToFloat(MinWidth/100)*100;W<=FMath::Min(R.ArenaMax.X,FMath::Sqrt(Area*10000)*1.25f);W+=100)
+        {
+            const float D=FMath::Max(FMath::CeilToFloat(MinLength/100)*100,FMath::GridSnap(Area*10000/W,100.f));
+            if(D<MinLength || D>R.ArenaMax.Y || D/W>3.5f || !ValidTeamArea({W,D,R.PerimeterHeight},T->SizingTeamSize))continue;
+            Envelopes.Add({W,D,R.PerimeterHeight});
+        }
+        if(Envelopes.IsEmpty())return false;
+        L.ArenaSize=Envelopes[Geometry.RandRange(0,Envelopes.Num()-1)];
+    }
+    else L.ArenaSize={Sample(MinWidth,MaxWidth),Sample(MinLength,MaxLength),R.PerimeterHeight};
     int32 Tallest=1;for(const auto& P:Plans)Tallest=FMath::Max(Tallest,P.Storeys);
     L.ArenaSize.Z=FMath::Max(R.PerimeterHeight,R.DeckHeight+(Tallest-1)*300+600);
     const float HX=L.ArenaSize.X*.5f,HY=L.ArenaSize.Y*.5f,Z=R.DeckHeight;
@@ -324,6 +337,8 @@ bool BuildVillage(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERPr
     Wood({0,-HY+25,GalleryHeight+55},{GalleryWidth-20,20,110});
     FERTemplateBase Gallery;Gallery.Frame=FTransform(FVector(0,GalleryY,0));Gallery.Size={GalleryWidth,GalleryDepth,GalleryHeight};Gallery.RoofZ=GalleryHeight;
     L.Bases.Add(Gallery);Gallery.Frame=Gallery.Frame*HalfTurn;L.Bases.Add(Gallery);
+    if(T->SizingTeamSize!=1)
+    {
     const FVector Tower(-HX+300,-HY+320,0);const float TowerHeight=260+40*Geometry.RandRange(0,2);
     if(R.BridgeStructure)
     {
@@ -353,6 +368,7 @@ bool BuildVillage(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERPr
     for(float H=25;H<StoreH;H+=25)Wood(Ladder.TransformPosition({0,0,H}),{6,76,6});
     L.Ladders.Add({Ladder,StoreH+110,StoreH});L.Ladders.Add({Ladder*HalfTurn,StoreH+110,StoreH});
     Wood({0,-HY+620,90},{600,24,180});GraySheet({0,-HY+632.1f,90},{600,.2f,180});
+    }
     for(int32 SpawnRow=0;SpawnRow<2;++SpawnRow)for(int32 I=0;I<5;++I)
     {
         const FVector P((I-2)*280,GalleryY-60+SpawnRow*120,GalleryHeight+100);
@@ -365,7 +381,7 @@ bool BuildVillage(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERPr
         const float CenterFront=-Plans[0].Size.Y*.5f;
         LaneY=Count==1 ? CenterFront-520:Plans[1].Frame.GetLocation().Y+Plans[1].Size.Y*.5f+160;
     }
-    const float SideWidth=Count==1 ? 700.f:Count==2 ? 580.f:260.f,SideHeight=240,Flank=HX-60;
+    const float SideWidth=T->SizingTeamSize==1 ? 300.f:Count==1 ? 700.f:Count==2 ? 580.f:260.f,SideHeight=240,Flank=HX-60;
     TArray<float> WallYs;
     if(Count==1)
     {
@@ -400,9 +416,9 @@ bool BuildVillage(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERPr
     // Follow each widened wall around its inner end; never route a pawn
     // through the cover or cut a diagonal across one of its corners.
     LeftBypasses.Sort([](const auto& A,const auto& B){return A[0].Y<B[0].Y;});
-    L.CrossingRoutes.SetNum(2);L.CrossingRoutes[0].Add({-Flank,-HY+1300,100});
+    L.CrossingRoutes.SetNum(2);L.CrossingRoutes[0].Add({-Flank,FMath::Min(-HY+1300,float(LeftBypasses[0][0].Y)-100),100});
     for(const auto& Bypass:LeftBypasses)L.CrossingRoutes[0].Append(Bypass);
-    L.CrossingRoutes[0].Add({-Flank,HY-1300,100});
+    L.CrossingRoutes[0].Add({-Flank,FMath::Max(HY-1300,float(LeftBypasses.Last().Last().Y)+100),100});
     L.CrossingRoutes[1]=L.CrossingRoutes[0];for(auto& P:L.CrossingRoutes[1])P=HalfTurn.TransformPosition(P);
     const float LaneStart=WallYs[0]-80,Inner=-HX+SideWidth+100;
     L.LowerRoute={{-Flank,LaneStart,100},{Inner,LaneStart,100},{0,LaneStart,100},{-Inner,Odd ? LaneStart:-LaneStart,100},{Flank,Odd ? LaneStart:-LaneStart,100}};
@@ -414,6 +430,92 @@ bool BuildVillage(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERPr
     L.Routes.Add(Exit);for(auto& P:Exit)P=HalfTurn.TransformPosition(P);L.Routes.Add(Exit);L.Routes.Add(L.CrossingRoutes[0]);L.Routes.Add(L.CrossingRoutes[1]);L.Routes.Add(L.LowerRoute);
     for(const auto& Passage:L.VillagePassages)L.Routes.Add(Passage);
     L.Spawn=L.AlphaSpawns[0].GetLocation();
+    if(T->SizingTeamSize>=2)
+    {
+        // Distribute native ground-level timber/metal L shelters across the
+        // available approaches and flanks. Tall storeys do not fill a plan.
+        TArray<FBox> Occupied;
+        for(const auto& P:L.Panels)
+        {
+            const auto Bounds=FBox(FVector::ZeroVector,P.Size).TransformBy(P.Transform);
+            if(Bounds.Min.Z<260 && Bounds.Max.Z>0)Occupied.Add(Bounds);
+        }
+        for(const auto& P:L.FixedPieces)if(!P.VisualOnly)
+        {
+            const auto Bounds=FBox(FVector(-50),FVector(50)).TransformBy(P.Transform);
+            if(Bounds.Min.Z<260 && Bounds.Max.Z>0)Occupied.Add(Bounds);
+        }
+        TArray<TArray<FVector>> Reserved=L.Routes;Reserved.Append(L.StairRoutes);Reserved.Append(L.VillageSideBypasses);
+        auto Clear=[&](const FBox& Bounds)
+        {
+            if(Bounds.Min.X<-HX+90 || Bounds.Max.X>HX-90 || Bounds.Min.Y<-HY+1000 || Bounds.Max.Y>HY-1000)return false;
+            const auto Margin=Bounds.ExpandBy(FVector(80,80,5));
+            for(const auto& B:Occupied)if(Margin.Intersect(B))return false;
+            const auto Standing=Bounds.ExpandBy(FVector(50,50,93));
+            for(const auto& Path:Reserved)for(int32 I=1;I<Path.Num();++I)
+                if(FMath::LineBoxIntersection(Standing,Path[I-1],Path[I],Path[I]-Path[I-1]))return false;
+            for(const auto* Starts:{&L.AlphaSpawns,&L.OmegaSpawns})for(const auto& Start:*Starts)
+                if(Standing.IsInsideOrOn(Start.GetLocation()))return false;
+            return true;
+        };
+        const float Area=L.ArenaSize.X*L.ArenaSize.Y/10000;
+        const int32 Target=FMath::Min(24,FMath::CeilToInt(Area/450)),Minimum=FMath::CeilToInt(Area/1500);
+        const int32 Columns=FMath::CeilToInt(L.ArenaSize.X/600),Rows=FMath::Max(1,FMath::CeilToInt((HY-1300)/600));
+        TArray<TArray<int32>> Order;Order.SetNum(Rows);TArray<int32> Next;Next.Init(0,Rows);
+        for(auto& Row:Order)
+        {
+            for(int32 Col=0;Col<Columns;++Col)Row.Add(Col);
+            for(int32 I=Row.Num()-1;I>0;--I)Swap(Row[I],Row[Geometry.RandRange(0,I)]);
+        }
+        int32 Pairs=0;bool Added=true;
+        while(Added && Pairs<Target)
+        {
+            Added=false;
+            // One shelter per depth band on each pass prevents clustering.
+            for(int32 Row=0;Row<Rows && Pairs<Target;++Row)
+            {
+                bool Placed=false;
+                while(Next[Row]<Columns && !Placed)
+                {
+                    const int32 Col=Order[Row][Next[Row]++],FirstYaw=Geometry.RandRange(0,3);
+                    const FVector Center(-HX+(Col+.5f)*L.ArenaSize.X/Columns,-(Row+.5f)*(HY-1300)/Rows,0);
+                    for(int32 Turn=0;Turn<4 && !Placed;++Turn)
+                    {
+                        const FTransform Frame(FRotator(0,90*((FirstYaw+Turn)%4),0),Center);
+                        const auto Bounds=FBox(FVector(-240,-120,0),FVector(240,120,240)).TransformBy(Frame),Other=Bounds.TransformBy(HalfTurn);
+                        if(Bounds.ExpandBy(FVector(80,80,0)).Intersect(Other) || !Clear(Bounds) || !Clear(Other))continue;
+                        auto EntryClear=[&](const FTransform& At,const FBox& Partner)
+                        {
+                            const FVector A=At.TransformPosition({0,260,100}),D=At.TransformPosition({0,0,100});
+                            const FVector CapsuleMargin(35,35,93);
+                            if(FMath::Abs(A.X)>HX-60 || FMath::Abs(A.Y)>HY-60)return false;
+                            if(FMath::LineBoxIntersection(Partner.ExpandBy(CapsuleMargin),A,D,D-A))return false;
+                            for(const auto& B:Occupied)if(FMath::LineBoxIntersection(B.ExpandBy(CapsuleMargin),A,D,D-A))return false;
+                            return true;
+                        };
+                        if(!EntryClear(Frame,Other) || !EntryClear(Frame*HalfTurn,Bounds))continue;
+                        auto Piece=[&](FVector P,FVector Size,bool Metal=false)
+                        {
+                            const int32 Index=Box(Frame.TransformPosition(P),Size,Metal ? EERBlockMaterial::Metal:EERBlockMaterial::Wood,!Metal,Frame.GetRotation());
+                            if(Metal){L.Panels[Index].Surface=R.CoverSurface;L.Panels[Index+1].Surface=R.CoverSurface;}
+                        };
+                        Piece({0,-108,120},{480,24,240});Piece({0,-95.9f,120},{480,.2f,240},true);Piece({0,-108,240.1f},{480,26,.2f},true);
+                        Piece({-228,12,120},{24,216,240});Piece({-215.9f,12,120},{.2f,216,240},true);Piece({-228,12,240.1f},{26,216,.2f},true);
+                        L.LowCovers.Add(Bounds);L.LowCovers.Add(Other);Occupied.Add(Bounds);Occupied.Add(Other);
+                        FERLayoutCover Site;Site.Frame=Frame;Site.Size={480,240,240};Site.Material=EERBlockMaterial::Wood;Site.HalfHeight=92.5;
+                        Site.Entry=Frame.TransformPosition({0,260,100});Site.Hide=Frame.TransformPosition({0,0,100});
+                        Site.SightFrom=Frame.TransformPosition({0,-400,164});Site.SightTo=Frame.TransformPosition({0,0,164});
+                        L.CoverSites.Add(Site);Reserved.Add({Site.Entry,Site.Hide});
+                        Site.Frame=Site.Frame*HalfTurn;for(FVector* P:{&Site.Entry,&Site.Hide,&Site.SightFrom,&Site.SightTo})*P=HalfTurn.TransformPosition(*P);
+                        L.CoverSites.Add(Site);Reserved.Add({Site.Entry,Site.Hide});
+                        ++Pairs;Placed=true;Added=true;
+                    }
+                }
+            }
+        }
+        // A sparse candidate cannot pass just because its area is correct.
+        if(Pairs<Minimum)return false;
+    }
     FERLayoutFixedPiece Backdrop;Backdrop.Transform=FTransform(FQuat::Identity,FVector(0,0,-22),FVector(L.ArenaSize.X+200000,L.ArenaSize.Y+200000,4)/100);Backdrop.Material=EERBlockMaterial::Wood;Backdrop.VisualOnly=true;L.FixedPieces.Add(Backdrop);
     if(!R.ExteriorTrees.IsEmpty())for(int32 I=0;I<64;++I)
     {

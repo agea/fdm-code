@@ -47,4 +47,4 @@ for path in ['/Game/EclipseRecoil/Core/BP_ERCharacter', '/Game/EclipseRecoil/Cor
     for team in ['alpha','omega']:
         assert [x.first_person_mesh for x in defaults.get_editor_property(team+'_skins')] == [x.first_person_mesh for x in catalog.get_editor_property(team+'_skins')]
 
-ue.log('ER_FPS_FOREARMS_SAVED_COMPLETE skins=20 weapons=11 samples=%d grips_per_sample=2 frame_preserved=1' % samples)
+ue.log('ER_FPS_FOREARMS_SAVED_COMPLETE skins=%d weapons=%d samples=%d grips_per_sample=2 frame_preserved=1' % (len(catalog.alpha_skins)+len(catalog.omega_skins),len(catalog.arsenal),samples))

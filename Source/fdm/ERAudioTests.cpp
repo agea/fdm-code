@@ -61,6 +61,7 @@ bool FERAudioAssetsTest::RunTest(const FString&)
     {
         auto* Data=LoadObject<UERWeaponData>(nullptr,*FString::Printf(TEXT("/Game/EclipseRecoil/Weapons/Sketchfab/%s/DA_%s"),Key,Key));
         if(!TestNotNull(TEXT("Weapon saved"),Data))continue;
+        TestNotNull(TEXT("Empty-magazine trigger sound saved"),Data->EmptyTriggerSound.Get());
         auto* Audio=Data->ShotAudio.Get();if(!TestNotNull(Key,Audio))continue;
         TestFalse(TEXT("Separate palette per weapon"),Distinct.Contains(Audio));Distinct.Add(Audio);
         TestTrue(TEXT("Actual variants"),Audio->Variants.Num()>0);

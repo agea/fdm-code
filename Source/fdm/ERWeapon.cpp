@@ -1,4 +1,5 @@
 #include "ERWeapon.h"
+#include "Sound/SoundBase.h"
 #include "ERClaymore.h"
 #include "ERShotTrace.h"
 #include "Engine/DamageEvents.h"
@@ -23,6 +24,7 @@
 #include "Net/UnrealNetwork.h"
 #include "TimerManager.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "ERPerformanceSettings.h"
 
 namespace
 {
@@ -37,7 +39,7 @@ void SpawnBulletHole(UWorld* World, UMaterialInterface* Material, const FVector&
         // Keep sustained automatic fire bounded on each rendering peer.
         static TArray<TWeakObjectPtr<UDecalComponent>> Holes;
         Holes.RemoveAll([](const auto& Hole) { return !Hole.IsValid(); });
-        while (Holes.Num() >= 128)
+        while (Holes.Num() >= FMath::Max(1, ERPerformance::Get().BulletHoleLimit()))
         {
             if (Holes[0].IsValid()) Holes[0]->DestroyComponent();
             Holes.RemoveAt(0);
@@ -300,7 +302,19 @@ bool AERWeapon::IsGrenadeHandHidden() const
 }
 void AERWeapon::StartFire()
 {
-    if (!CanFight() || bReloading || bPlacingClaymore || MagazineAmmo <= 0 || bWantsFire) return;
+    if (!CanFight() || bReloading || bPlacingClaymore || bWantsFire) return;
+    if (MagazineAmmo <= 0)
+    {
+        const double Now=GetWorld()->GetTimeSeconds();
+        const bool Firearm=Tuned()->Payload==EERPayload::Bullet || Tuned()->Payload==EERPayload::LaunchedHE || Tuned()->Payload==EERPayload::Rocket;
+        if (Firearm && Data->EmptyTriggerSound && Now>=NextEmptyTriggerTime)
+        {
+            NextEmptyTriggerTime=Now+.4;
+            ++AuthorizedEmptyTriggerCount;
+            ClientEmptyTrigger(Data->EmptyTriggerSound);
+        }
+        return;
+    }
     if(Tuned()->Payload==EERPayload::Claymore)
     {
         auto* C=CastChecked<AERCharacter>(GetOwner());
@@ -357,6 +371,14 @@ void AERWeapon::UpdateClaymorePlacement()
     }
     if(Elapsed>=1.6)C->UnCrouch();
     if(Elapsed>=2.2)EndClaymorePlacement();
+}
+void AERWeapon::ClientEmptyTrigger_Implementation(USoundBase* Sound)
+{
+    const auto* Character=Cast<AERCharacter>(GetOwner());
+    if (!Sound || !Character || !Character->IsPlayerControlled() || !Character->IsLocallyControlled() || Character->Weapon!=this || Character->Health->bDead || Character->IsWeaponStowed()) return;
+    UGameplayStatics::PlaySound2D(this,Sound);
+    if (FParse::Param(FCommandLine::Get(),TEXT("ERAudioAudit")))
+        UE_LOG(LogTemp,Display,TEXT("ER_EMPTY_TRIGGER_AUDIO weapon=%s"),*GetNameSafe(Data));
 }
 void AERWeapon::StopFire()
 {

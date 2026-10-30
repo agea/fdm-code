@@ -7,6 +7,7 @@
 #include "ERMapCatalog.h"
 #include "ERWeapon.h"
 #include "ERBlockRoom.h"
+#include "ERProceduralMap.h"
 #include "EngineUtils.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
@@ -177,7 +178,7 @@ void AERLobbyProbe::Tick(float DeltaTime)
         {
             Phase = 1;
             GI->LocalName = Host ? TEXT("LobbyHost") : FString::Printf(TEXT("LobbyClient%d"), Client);
-            if (Host) { GI->AlphaBots = 1; GI->OmegaBots = 0; GI->StartLANServer(); }
+            if (Host) { if(FParse::Param(FCommandLine::Get(),TEXT("ERMapSizingLobbyTest")))GI->ServerRules.Set("Map.ExpectedTeamSize",3); GI->AlphaBots = 1; GI->OmegaBots = 0; GI->StartLANServer(); }
             else GI->FindLANServer();
         }
         if (Timeout && Phase == 1 && !GI->IsSearchingLAN())
@@ -191,6 +192,7 @@ void AERLobbyProbe::Tick(float DeltaTime)
     if (GS->bLobby)
     {
         if (!PC->GetPlayerState<AERPlayerState>()) return;
+        if(FParse::Param(FCommandLine::Get(),TEXT("ERMapSizingLobbyTest")) && !GS->ServerRules.Ready)return;
         if (Phase == 0)
         {
             Check(!PC->GetPawn(), TEXT("lobby_has_no_gameplay_pawn"));
@@ -199,6 +201,15 @@ void AERLobbyProbe::Tick(float DeltaTime)
             PC->ServerSetSkins(2, 3);
             PC->ServerSetPrimary(4);
             PC->ServerSetSupplies(5, 4, 3, 2);
+            if(FParse::Param(FCommandLine::Get(),TEXT("ERMapSizingLobbyTest")))
+            {
+                Check(GS->ServerRules.Get("Map.ExpectedTeamSize")==3,TEXT("creation_sizing_replicates_in_lobby"));
+                Check(GS->ServerMaxPlayers==GI->MaxPlayers || !Host,TEXT("sizing_independent_of_capacity"));
+                if(Host)PC->GetPlayerState<AERPlayerState>()->bLobbyReady=true;
+                GI->ServerRules.Set("Map.ExpectedTeamSize",8);
+                if(Host){Check(PC->GetPlayerState<AERPlayerState>()->bLobbyReady,TEXT("creation_only_setting_never_resets_ready"));PC->GetPlayerState<AERPlayerState>()->bLobbyReady=false;}
+                Check(GS->ServerRules.Get("Map.ExpectedTeamSize")==3,TEXT("draft_changes_do_not_mutate_lobby_snapshot"));
+            }
             PC->ServerLobbyVote(VotedMap);
             Phase = 1; Deadline = Now + 1;
         }
@@ -233,9 +244,28 @@ void AERLobbyProbe::Tick(float DeltaTime)
         }
         const auto* PS = PC->GetPlayerState<AERPlayerState>();
         if (!PS) return;
+        if(FParse::Param(FCommandLine::Get(),TEXT("ERMapSizingLobbyTest")))
+        {
+            Check(GS->ServerRules.Get("Map.ExpectedTeamSize")==3,TEXT("creation_sizing_survives_travel"));
+            TActorIterator<AERProceduralMap> Map(GetWorld());
+            Check(Map && Map->LayoutConfig.ExpectedTeamSize==3,TEXT("sizing_reaches_initial_client_geometry_descriptor"));
+            Check(GS->ServerRules.Get("Map.ExpectedTeamSize")==3,TEXT("match_sizing_frozen"));
+        }
         if (ERMaps::At(VotedMap).Procedural) Check(true, TEXT("generated_geometry_ready_on_all_peers"));
-        Check(GetWorld()->GetMapName().Contains(VotedMap == 0 ? TEXT("L_CentralBuilding") : TEXT("L_MiddleEasternAlleys")), TEXT("voted_map_loaded"));
+        Check(GetWorld()->GetMapName().Contains(FPaths::GetBaseFilename(ERMaps::At(VotedMap).Package)), TEXT("voted_map_loaded"));
         Check(PS->Team == (Host ? EERTeam::Alpha : EERTeam::Omega), TEXT("team_survives_travel"));
+        if(FParse::Param(FCommandLine::Get(),TEXT("ERMapSizingLobbyTest")))
+        {
+            const auto* Pawn=Cast<AERCharacter>(PC->GetPawn());
+            Check(Pawn && Pawn->Inventory.Num()==5,TEXT("current_closed_loadout_arrives"));
+            if(Host)
+            {
+                auto* Mode=GetWorld()->GetAuthGameMode<AERGameMode>();
+                Check(Mode && Mode->GetNumPlayers()==3 && Mode->GetNumTestBots()==1,TEXT("humans_and_test_bot_arrive"));
+            }
+            UE_LOG(LogTemp,Display,TEXT("ER_LOBBY_PROBE_COMPLETE result=%s"),Failed ? TEXT("FAIL"):TEXT("PASS"));
+            Phase=90;Deadline=Now+(Host ? 8:2);return;
+        }
         Check(PS->AlphaSkin == 2 && PS->OmegaSkin == 3 && PS->PrimaryWeapon == 4, TEXT("skin_and_weapon_survive_travel"));
         Check(PS->SpareMagazines == 5 && PS->HECount == 4 && PS->SmokeCount == 3 && PS->StunCount == 2, TEXT("supplies_survive_travel"));
         const auto* C = Cast<AERCharacter>(PC->GetPawn());

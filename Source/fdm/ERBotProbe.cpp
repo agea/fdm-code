@@ -3,6 +3,7 @@
 #include "ERCharacter.h"
 #include "ERMatch.h"
 #include "ERWeapon.h"
+#include "ERWorldWeaponPose.h"
 #include "ERPlayerController.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "EngineUtils.h"
@@ -48,6 +49,7 @@ void AERBotProbe::Tick(float DeltaTime)
                 if (It->Get() && !It->Get()->IsLocalController()) SetOwner(It->Get());
         int32 AlphaMask = 0, OmegaMask = 0, Count = 0, WeaponMask = 0, SupportCount = 0;
         float ContactError=0;
+        FString ContactSubject;
         bool bValid = true;
         for (TActorIterator<AERCharacter> It(GetWorld()); It; ++It)
         {
@@ -75,6 +77,14 @@ void AERBotProbe::Tick(float DeltaTime)
                     for (const FVector& Point : It->Weapon->Data->SupportSurfaceContacts)
                         Error=FMath::Min(Error,float(FVector::Distance(Palm,WeaponTransform.TransformPosition(Point))));
                 }
+                // World presentation has its own authored palm contact; the
+                // old surface array describes the independent FPS fitting.
+                if (It->Weapon->Data->bWorldReferencePose)
+                {
+                    const FVector WorldContact=ERWorldWeaponPose::SupportContact(*It->Weapon->Data,It->GetTeamAppearance());
+                    Error=FVector::Distance(It->GetMesh()->GetSocketLocation(TEXT("ER_Palm_L")),WeaponTransform.TransformPosition(WorldContact));
+                }
+                if (Error>ContactError) ContactSubject=It->GetTeamAppearance().DisplayName+TEXT("/")+It->Weapon->Data->GetName();
                 ContactError=FMath::Max(ContactError,Error);
             }
             if (PS->ActiveSkin >= 0 && PS->ActiveSkin < ERSkins::Count)
@@ -85,13 +95,13 @@ void AERBotProbe::Tick(float DeltaTime)
             }
         }
         bValid &= Count == 2 * ERSkins::Count && AlphaMask == (1 << ERSkins::Count) - 1 && OmegaMask == (1 << ERSkins::Count) - 1;
-        bValid &= WeaponMask == 126 && SupportCount >= 16 && SupportCount <= 17 && ContactError<1.f;
+        bValid &= WeaponMask == 126 && SupportCount >= (Count * 5) / 6 && SupportCount <= (Count * 5 + 5) / 6 && ContactError<1.f;
         if (!HasAuthority() && bReplicaSeen) return;
         if (!HasAuthority() && !bValid)
         {
             if (GetWorld()->GetTimeSeconds()>Deadline)
             {
-                UE_LOG(LogTemp,Display,TEXT("ER_TARGET_SKINS_WAIT count=%d alpha=%d omega=%d weapons=%d support=%d error=%.3f"),Count,AlphaMask,OmegaMask,WeaponMask,SupportCount,ContactError);
+                UE_LOG(LogTemp,Display,TEXT("ER_TARGET_SKINS_WAIT count=%d alpha=%d omega=%d weapons=%d support=%d error=%.3f contact=%s"),Count,AlphaMask,OmegaMask,WeaponMask,SupportCount,ContactError,*ContactSubject);
                 Deadline=GetWorld()->GetTimeSeconds()+2;
             }
             return;

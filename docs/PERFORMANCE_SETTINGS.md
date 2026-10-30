@@ -38,9 +38,22 @@ source assets are unaffected.
   constrained to the hardware memory budget where supported. The UI does not
   claim a dedicated VRAM amount on unified-memory GPUs.
 
-The Performance preset selects automatic resolution, TAAU, no Lumen, no hardware
-RT, no reflections, no motion blur/DOF and low shadows/effects/medium textures.
-The manual slider retains 67% for switching to manual mode.
+- Lumen quality (medium/high), post processing (AO/bloom scalability) and a
+  frame rate limit (60/90/120/144/unlimited; the project default is 90).
+- Decorative effects also bound local bullet holes (16/32/64/128), block impact
+  effects (4/8/16/64) and turn cloth simulation off at minimum.
+
+Presets (all without motion blur/DOF):
+
+| Preset | Resolution | AA | GI | Refl. | Shadows | Effects | Post | Tex | Cap |
+|---|---|---|---|---|---|---|---|---|---|
+| Competitive | manual 67% | TAAU | off | off | off | minimum | low | medium | 144 |
+| Performance | automatic | TAAU | off | off | low | low | medium | medium | 90 |
+| Balanced | automatic | TSR | Lumen medium | SSR | medium | medium | high | high | 90 |
+| Quality | automatic | TSR | Lumen high + HW RT | Lumen | high | high | ultra | ultra | 90 |
+
+Competitive uses manual resolution because the automatic governor targets 60
+FPS and would spend spare headroom on resolution. The manual slider retains 67%.
 
 Validation: build-editor.command; native automation tests
 EclipseRecoil.Menu.PerformancePreferences and
@@ -49,3 +62,16 @@ INI, reloads it from disk when writes are enabled (use
 -MultiprocessSaveConfig with -Multiprocess), and checks the preset's renderer CVars. Visual review
 used the Metal game at 1280×900. No measured FPS improvement or cross-platform
 GPU validation is implied.
+
+
+30 ottobre2026: Competitive conserva la qualità High dei materiali
+(`r.MaterialQualityLevel=1`), mantenendo effetti/ombre/cloth al minimo e lo stesso
+budget texture. Le permutazioni Low dei materiali Paragon non vengono quindi
+selezionate da questo preset. Il valore originale viene ripristinato da Default;
+Performance mantiene Medium, Balanced/Quality High. È una misura conservativa
+per la pelle arancione segnalata in Central Building: il difetto non è stato
+riprodotto localmente, quindi la risoluzione sulla scena dell'utente resta
+da confermare. Il costo GPU del percorso materiali High non è stato misurato.
+
+Verifica successiva dell'utente con play.command: pelle normale in Competitive.
+La causa precisa delle chiazze precedenti non è stata isolata nei render locali.

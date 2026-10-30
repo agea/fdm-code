@@ -24,6 +24,7 @@ public:
     UPROPERTY() TArray<TObjectPtr<class UMeshComponent>> Equipment;
     UPROPERTY() TObjectPtr<class UTextureRenderTarget2D> Target;
 private:
+    friend class AERFieldClothingProbe;
     float PresentationYaw = -25;
     float OrbitDistance = 300;
     bool bDragging = false;

@@ -33,6 +33,10 @@ for path in assets.list_assets(root, recursive=True):
     material = assets.load_asset(path)
     if not isinstance(material, (ue.Material, ue.MaterialInstanceConstant)):
         continue
+    if assets.get_metadata_tag(material,'ERMutedLegacyPalette')=='1':
+        continue
+    if assets.get_metadata_tag(material, 'ERPalettePolicy') == 'ReconNeutralJacketBlueTrousers':
+        continue
     team = 'Alpha' if '/Alpha/' in path else 'Omega' if '/Omega/' in path else None
     if team not in selected_teams:
         continue

@@ -23,7 +23,7 @@ bool BuildCentralBuilding(const UERMapTemplate& T,int32 Seed,TArray<FERMapTempla
     auto Range=[](FVector2D R,float Min,float Max)
     {return !R.ContainsNaN() && R.X>=Min && R.Y<=Max && R.X<=R.Y && FMath::Fmod(R.X,50)==0 && FMath::Fmod(R.Y,50)==0;};
     if(T.Symmetry!=EERTemplateSymmetry::HalfTurn ||
-        !Range({V.ArenaMin.X,V.ArenaMax.X},6400,8000) || !Range({V.ArenaMin.Y,V.ArenaMax.Y},8400,10000) ||
+        !Range({V.ArenaMin.X,V.ArenaMax.X},T.SizingTeamSize>0 ? 3000:6400,T.SizingTeamSize>0 ? 20000:8000) || !Range({V.ArenaMin.Y,V.ArenaMax.Y},T.SizingTeamSize>0 ? 3400:8400,T.SizingTeamSize>0 ? 24000:10000) ||
         !Range(V.BuildingWidth,1800,2400) || !Range(V.BuildingDepth,2200,3000) ||
         V.MinFloors<1 || V.MaxFloors>3 || V.MinFloors>V.MaxFloors || T.RoofMesh || T.ShellWallMesh)return false;
     for(auto* Mesh:{V.FenceMesh.Get(),V.FenceModule.Get(),V.ContainerMesh.Get(),V.TankMesh.Get(),V.BarrelMesh.Get()})
@@ -47,7 +47,7 @@ bool BuildCentralBuilding(const UERMapTemplate& T,int32 Seed,TArray<FERMapTempla
     L.CentralBuildingSize=FVector(W,D,Roof);
     const FVector Half=L.ArenaSize*.5;
     const bool Terraced=L.CrossingRule==EERCrossingRule::OpenYard && L.BuildingFloors>1;
-    const float CoreX=L.CrossingRule==EERCrossingRule::OpenYard && (uint32(Seed)&1) ? ((uint32(Seed)&2) ? -800.f:800.f):0.f;
+    const float CoreX=(T.SizingTeamSize==0 || T.SizingTeamSize>=4) && L.CrossingRule==EERCrossingRule::OpenYard && (uint32(Seed)&1) ? ((uint32(Seed)&2) ? -800.f:800.f):0.f;
     L.CentralBuildingCenter={CoreX,0,0};L.TerracedBuilding=Terraced;
     Pieces.Reset();L.AlphaSpawns.Reset();L.OmegaSpawns.Reset();
     auto Box=[&](FVector P,FVector Size,EERBlockMaterial M,bool Fixed=false,UStaticMesh* Mesh=nullptr,bool Pair=true,bool Deck=false)->FERMapTemplatePiece&
@@ -210,11 +210,11 @@ bool BuildCentralBuilding(const UERMapTemplate& T,int32 Seed,TArray<FERMapTempla
     for(auto& Ladder:L.Ladders)Ladder.Frame.AddToTranslation({CoreX,0,0});
     for(auto* Routes:{&L.StairRoutes,&L.RoomAccessRoutes})for(auto& Route:*Routes)for(auto& Point:Route)Point.X+=CoreX;
     const float SideX=Half.X-650;
-    const bool SideBuildings=CoreX==0 && (L.CrossingRule!=EERCrossingRule::OpenYard || R.RandRange(0,1)==1);
+    const bool SideBuildings=(T.SizingTeamSize==0 || T.SizingTeamSize>=4) && CoreX==0 && (L.CrossingRule!=EERCrossingRule::OpenYard || R.RandRange(0,1)==1);
     const float SideW=Pick(700,800),SideD=Pick(1000,1200);
     if(SideBuildings)
     {
-        const int32 Floors=R.RandRange(1,3);
+        const int32 Floors=R.RandRange(1,T.SizingTeamSize>0 ? V.MaxFloors:3);
         const bool Tower=L.CrossingRule!=EERCrossingRule::FencedCrossings && R.RandRange(0,1)==1;
         const bool Yard=L.CrossingRule==EERCrossingRule::ClimbableWall;
         const float SW=Yard ? 700:SideW,SD=Yard ? 1000:SideD;
@@ -329,7 +329,8 @@ bool BuildCentralBuilding(const UERMapTemplate& T,int32 Seed,TArray<FERMapTempla
     }
     // Cover geometry is paired for balance; its cosmetic palette may differ.
     // Keep a clear rear spawn strip, side-building lanes and central approach.
-    Container({CoreX!=0 ? -Half.X+700:-1100,-Half.Y+1000,140},{Pick(1000,1200),260,280},R.RandRange(-1,1)*15);
+    const float CargoApproach=T.SizingTeamSize>0 && L.ArenaSize.Y<5200 ? 800.f:1000.f;
+    if(L.ArenaSize.Y>=4400)Container({CoreX!=0 ? -Half.X+700:T.SizingTeamSize>0 && T.SizingTeamSize<=4 ? 1100:-1100,-Half.Y+CargoApproach,140},{Pick(1000,1200),260,280},R.RandRange(-1,1)*15);
     // Reserve circulation before furnishing the yards. Cover is placed as
     // usable groups rather than isolated decorative props in one narrow row.
     for(int32 I=0;I<10;++I)L.AlphaSpawns.Add(FTransform(FRotator(0,90,0),FVector((CoreX!=0 ? 0:-850)+(I%5-2)*180,-Half.Y+220+(I/5)*200,100)));

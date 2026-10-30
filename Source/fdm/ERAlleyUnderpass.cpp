@@ -58,13 +58,17 @@ bool PlanAlleyUnderpass(const UERMapTemplate& T,int32 Seed,FVector Base,TArray<F
                     FVector(Snap(FMath::Max(A.X,B.X)+Width*.5f,0),Snap(FMath::Max(A.Y,B.Y)+Width*.5f,1),0));
     };
     FERAlleyRamp Ramp;const float Bend=R.RandRange(10,14)*75.f;
-    TArray<FVector> Path;
+    TArray<FVector> Path;float InnerY=-1500;
     if(L.UnderpassAxis==1)
     {
-        const float X=-Half.X+450,Start=Base.Y+400;
-        Ramp.Bounds=FBox(FVector(Snap(X-225,0),Snap(Start,1),0),FVector(Snap(X+225,0),Snap(Start+1100,1),0));
+        const float X=-Half.X+450,Start=Base.Y+(T.SizingTeamSize>0 && T.SizingTeamSize<=2 ? 100:400);
+        const float Run=T.SizingTeamSize>0 && T.SizingTeamSize<=2 ? 900:1100;
+        Ramp.Bounds=FBox(FVector(Snap(X-225,0),Snap(Start,1),0),FVector(Snap(X+225,0),Snap(Start+Run,1),0));
         const float CX=Ramp.Bounds.GetCenter().X;Ramp.Entry={CX,Ramp.Bounds.Min.Y,180};Ramp.Exit={CX,Ramp.Bounds.Max.Y,-360};
-        Path={Ramp.Exit,{CX,-1500,-360},{Bend,-1500,-360},{Bend,0,-360}};
+        // Compact arenas shorten the district. Keep the first underground
+        // turn beyond the ramp mouth instead of folding back under its slope.
+        if(T.SizingTeamSize>0)InnerY=FMath::Max(-1500.f,float(Ramp.Exit.Y)+(T.SizingTeamSize<=2 ? 150.f:300.f));
+        Path={Ramp.Exit,{CX,InnerY,-360},{Bend,InnerY,-360},{Bend,0,-360}};
         L.UnderpassApproach={Base+FVector(0,0,100),{CX,Base.Y,100},Ramp.Entry+FVector(0,0,100)};
     }
     else
@@ -79,7 +83,7 @@ bool PlanAlleyUnderpass(const UERMapTemplate& T,int32 Seed,FVector Base,TArray<F
     TArray<FBox> Footprints,Ramps{Ramp.Bounds,Mate(Ramp.Bounds)};
     for(int32 I=1;I<Path.Num();++I)
     {const auto B=Rect(FVector2D(Path[I-1]),FVector2D(Path[I]),450);Footprints.Add(B);Footprints.Add(Mate(B));}
-    const FVector2D Breach=L.UnderpassAxis==1 ? FVector2D(Bend,-850):FVector2D(-1700,Ramp.Exit.Y);
+    const FVector2D Breach=L.UnderpassAxis==1 ? FVector2D(Bend,T.SizingTeamSize>0 ? InnerY*.5f:-850):(T.SizingTeamSize>0 ? FVector2D(-Bend,Ramp.Exit.Y*.5f):FVector2D(-1700,Ramp.Exit.Y));
     const FBox Hole=Rect(Breach,Breach,300);L.UnderpassBreaches={Hole,Mate(Hole)};
     // A continuous lower floor, enclosing walls and visible ceiling, with no
     // permanent collider behind the two cell-based road sections.

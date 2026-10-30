@@ -272,3 +272,24 @@ Reference sky dome demo by fangzhangmnm: https://sketchfab.com/3d-models/sky-dom
 The source panorama is the one cited by that dome; its mesh is not imported.
 
 Current Village topology revision5 removes all exterior house instances; optimized house packages and original sources remain preserved. Bridge module20 forms the paired corner lookouts.
+
+Sniper Rifle audio
+Regular Sniper Rifle Shot [w/ Bolt Reload] (Outdoor/Mixed) by EvanBoyerman -- https://freesound.org/s/398348/ -- License: Attribution 3.0
+https://creativecommons.org/licenses/by/3.0/
+Used for Sniper Rifle. Modified: stereo to mono; removed 70ms quiet lead with 0.5ms fade-in; shot and bolt reload retained.
+
+Marksman Rifle audio
+An AK-47 being shot // has distinctive metallic kalashnikov-esque report // punchy sounding w/ distant trailing reverb by serøutōnin--deprivəd -- https://freesound.org/s/855843/ -- License: Creative Commons 0
+Credited as requested by the author: serøutōnin//deprivəd
+https://creativecommons.org/publicdomain/zero/1.0/
+Used for Marksman Rifle. Modified: stereo to mono; full recording retained.
+
+Empty-magazine trigger audio
+empty-gun-failure-to-fire-trigger-pull.wav by CosmicEmbers -- https://freesound.org/s/387482/ -- License: Attribution 3.0
+https://creativecommons.org/licenses/by/3.0/
+Used for empty-magazine trigger feedback. Original audio unchanged.
+
+Shotgun audio
+Shotgun Fire by hyperix6 -- https://freesound.org/s/660299/ -- License: Creative Commons 0
+https://creativecommons.org/publicdomain/zero/1.0/
+Used for Shotgun. Modified: stereo float32 to mono PCM16; full recording retained.

@@ -1,5 +1,32 @@
 # Inventario asset — primo prototipo locale
 
+30 ottobre2026 — Wraith sostituisce Twinblast Officer/Assault/Patrol agli indici
+Alpha0/1/2, con tre costumi sorgente distinti (OD Green, base, Lunar Ops), finiture
+blu opache, armi e zaino tecnologico nascosti.145 pacchetti sorgente importati
+immutati nel submodule privato; retarget, ragdoll e braccia FPS di proprietà.
+Twinblast Recon/Support e le altre skin restano. Il volto verrà valutato in seguito.
+In ParagonStaging eliminati solo i1899 pacchetti Murdock dopo backup verificato;
+Gadget e Wraith conservati con hash invariati. Dettagli: [WRAITH](WRAITH.md).
+
+29 ottobre2026 — importati Murdock e Gadget da Fab nel submodule privato
+personaggi, con535 pacchetti sorgente dalla chiusura delle dipendenze delle mesh.
+Dieci varianti di proprietà in Characters/Teams: Murdock Alpha e Gadget Omega,
+indici10..14 per squadra; le venti precedenti restano invariate. Materiali opachi,
+armi/accessori tecnologici nascosti, teschio Merc conservato e maschere pelle Gadget
+preservate su torso e addome. Revisione successiva: quattro corpi Murdock
+(Merc, base, Corrupt e Shogun) per cinque varianti; Recon usa la testa standard
+con casco, Veteran senza maschera. Quattro Gadget mostrano il girovita originale
+scoperto; Field Engineer mantiene la tuta chiusa.
+Retarget rifle, ragdoll e braccia FPS sul rig esistente. Dettagli e
+nomi in [MURDOCK_GADGET](MURDOCK_GADGET.md).
+
+29 ottobre2026 — rimossi68 package personaggi inutilizzati dopo la migrazione dei
+fallback/preview Twinblast e Drongo alle skin canoniche già presenti. Nessuna
+modifica a mesh/materiali/texture delle20 skin attive. Risparmio netto sorgenti
+262.176.007 byte; pacchetto cooked compresso di confronto -85.190.928 byte.
+Backup verificato in `../_backups/character-reference-20261029`; dettagli e limiti
+in `REPOSITORY_CLEANUP.md`.
+
 26 ottobre2026 — pose world delle armi: aggiornati tramite Unreal i sette DataAsset
 Pistol/SMG/Shotgun/Assault/Carbine/Sniper/Launcher con soli contatti, rotazioni e
 scale di presentazione in terza persona. Nessuna mesh, texture o animazione è
@@ -1098,6 +1125,9 @@ The transient render target is768x1024, with a45-second camera orbit.
 
 ## Field clothing and Drongo masks (26 October 2026)
 
+The28 October collision correction below supersedes the initial cloth limits
+and repairs Phase's missing persistent render binding.
+
 Owned PhaseRecon/Assault/Patrol/Engineer/Support skeletal packages now embed
 one Chaos skirt asset each; mixed shoe sections stay fixed. Four owned Twinblast
 cloth assets have bounded6cm travel. Original art and gameplay physics unchanged.
@@ -1127,3 +1157,170 @@ verificato in `Saved/AlleyTraversalBackup/before-procedural-houses.zip` e68
 package protetti. Le mesh, texture e13 strutture derivate originali rimangono
 immutate nella libreria privata. Ricevuta in
 `SourceAssets/MiddleEasternAlleys/procedural-houses-receipt.json`.
+
+## Phase face-cover studies — 28 October 2026
+
+`study_phase_face_covers.py` extracts Belica Armored's authored face plate and
+head covering into private `Characters/Teams/Gear/SM_ER_PhaseVisor_Study` and
+`SM_ER_PhaseHood_Study`, with separate owned material copies. Source geometry,
+UVs and normals remain intact; the hood uses Omega orange and the plate matte
+charcoal. Source meshes/materials and the rejected procedural helmet are unchanged.
+The study is temporarily attached to Phase Recon/Assault for real Metal captures;
+`-ERPhaseCoverRestore` restores both attachment and hidden-hair arrays in the
+Character, TrainingTarget and Corpse catalogs. Saved/PhaseFaceCoverStudy holds
+verified ZIP rollback and the restore receipt. These are candidate assets only;
+the study does not change the permanent Recon/Assault appearances. A reused Drongo respirator
+was rejected for poor nose clearance. Head gallery distance/height overrides make
+the entire cover visible without changing the default gallery framing.
+
+### Approved Omega Grenadier hood — 28 October 2026
+
+The user selected the armored hood for Phase Engineer (stable Omega skin8),
+the Grenadier appearance for every loadout variant. setup_phase_engineer_hood.py
+keeps independent production copies in the PhaseEngineer folder:
+SM_ER_PhaseEngineer_ArmoredHood, M_ER_PhaseEngineer_Hood and
+M_ER_PhaseEngineer_Visor. Its two source-derived material slots retain orange
+armor and the charcoal face plate; attachment is identity on head, with hair
+slots hidden. Character, TrainingTarget and Corpse catalogs share the binding.
+The migration keeps a verified private ZIP backup and preserves other skins,
+source art, FPS geometry, armor rules and role IDs. Historical helmet entry
+points now preserve this approved hood; the rejected procedural helmet stays
+unused. This supersedes the 23 October no-helmet choice for Phase Engineer only.
+
+### Omega Sniper long hair — 28 October 2026
+
+Phase Recon (Omega skin5 / Sniper) now shows its existing long-hair section.
+setup_phase_recon_long_hair.py updates the three appearance catalogs and assigns
+MI_ER_PhaseRecon_LongHair with its owned masked, two-sided parent
+M_ER_PhaseRecon_LongHair and the original strand alpha/root atlas. The small
+matte brown shader avoids the hero shader's dark depth/tangent artifacts.
+No geometry, rig, animation,
+source texture or FPS mesh is regenerated. The approved Grenadier hood and
+Rifleman's short hair remain unchanged. Verified ZIP rollback precedes the save;
+the field-finish and rebuild entry points preserve this scoped hair exception.
+
+### Clothing/body collision correction — 28 October 2026
+
+Four Twinblast jackets and five Phase skirts now use separate embedded
+ER_FieldClothCollision physics assets. Twinblast reuses a private copy of its
+authored coat collision capsules; Phase uses rounded torso/hip coverage and
+slightly fuller thigh capsules. Gameplay/ragdoll physics packages stay identical.
+The cloth allows up to24cm movement, with3cm backstop spheres at the animated
+surface,1.2cm collision thickness,CCD and4 iterations/2 substeps. Original waist
+pins, Phase shoes, mesh geometry, materials and FPS meshes remain preserved.
+
+Phase's previous cloth existed in the package but had no active render binding
+after rebuilding. The editor's AssignClothingToSection utility now persists
+source-section user data as well as the mesh binding. setup_field_clothing.py
+revision3 accepts -ERClothOnly to update just the nine owned mesh packages;
+ZIP rollback and protected package hashes precede writes. The updated verifier
+requires both active cloth and matching render bindings. test-field-clothing.py
+samples actual simulation particles through eight movement/pose cases per skin.
+All five render LODs retain a matching simulation LOD, with only one active at
+runtime. The --lods probe checks fast walking through every saved LOD per skin.
+
+Menu preview follow-up: the manual SceneCapture runs before normal rendering's
+end-of-frame cloth synchronization. ERMenuPreview now enables
+bWaitForParallelClothTask on its mesh, so the capture receives simulated cloth
+instead of falling back to the skinned garment when the async task is pending.
+This changes preview scheduling only. The --preview test uses the real
+resolved Alpha Sniper preview, captures completed cloth through multiple walk cycles,
+and accepts --preview-yaw and --preview-lod for the reported views.
+
+### Common Grenadier skirt surface — 29 October 2026
+
+The five Phase appearances now share the exact owned Engineer/Grenadier
+MI_ER_m06_leather_skirt in their leather_skirt slots across Character, Target
+and Corpse catalogs. This replaces the other variants' different tint/silk
+surfaces, including the single-sided Assault/Support shaders. No source material
+was edited. LOD0 positions match (2513 triangles); collision and cloth3 settings
+already match. Existing per-skin lower-LOD reductions are retained. All body
+materials, mesh/FPS assets, head choices and gameplay remain unchanged.
+Migration: scripts/setup_phase_grenadier_skirt.py, with a verified ZIP backup
+and1312 protected character-package hashes.
+
+### Phase skirt rollback — 29 October 2026
+
+The user rejected the skirt correction. The five Phase meshes use the previous
+cloth3 profile again, with their original skirt and body materials. The later
+cloth4..7/body-clearance experiments are retired. Hairless heads, Grenadier
+helmet component0 and Alpha Sniper remain as approved.
+
+### Phase head cleanup — 29 October 2026
+
+The latest numbered reference keeps only Engineer helmet component0, the red
+head shell in the user's diagram, and exposes the face. This supersedes the first
+pass that retained the visor. The jacket's folded hood remains intact.
+setup_phase_head_cleanup.py revision2 rebuilds only the owned static attachment
+from the retained study. Connected islands are numbered by descending triangle
+count, matching the diagram: component0 has3778 triangles. All other3762 triangles
+are removed from the7540-triangle source. Material slots, head transform and
+attachment references remain unchanged.
+
+All five Phase appearances now hide both hair_short and hair_long cards through
+the three Character/TrainingTarget/Corpse catalogs, using hidden-material overrides
+as well as section visibility. This includes the latest hairless Recon/Sniper
+request; the complete textured scalp remains. The legacy long-hair setup helper
+applies the current hairless policy, preserving its old shader assets for rollback.
+No body, FPS, cloth, original material or animation asset changes. Verified ZIP
+rollback and1311 protected character-package hashes accompany the migration.
+
+### Alpha Sniper variant4 palette — 29 October 2026
+
+The Sniper role returns to Twinblast · Recon, gallery variant4 / stable index3.
+Its short jacket uses neutral gray; the trousers carry Alpha blue. Officer stays
+available in the catalog. The summer reference was superseded without importing
+or replacing character geometry.
+
+setup_twinblast_recon_palette.py duplicates only the existing Scout clothing
+graphs into M_ER_Recon_NeutralJacket and M_ER_Recon_BlueTrousers. Original texture,
+normal and shading inputs remain; a small albedo lift makes the dark trousers
+read blue. The three Character/TrainingTarget/Corpse catalogs override only these
+two material slots of Alpha skin3. A feathered bind-position mask, evaluated in
+the vertex stage, preserves the original dark shoes below the blue trousers.
+The user's follow-up extends blue over both shins to the ankles: the mask now
+starts14cm above the source origin with2cm feather, replacing the58cm cutoff.
+Meshes, cloth, rigs, FPS geometry, original
+material parents and every other skin remain unchanged. A verified rollback ZIP
+and protected character-package hashes accompany the migration. Palette-policy
+metadata exempts these two materials from broad team-readability recoloring.
+
+
+## Map team sizing and native plan export (29 October2026)
+
+Expected team size now selects transient dimension/count budgets for the five
+production map recipes. No saved maps, recipes, materials or acquired art are
+modified. Native plans export actual geometry to metres; see
+[MAP_TEAM_SIZING.md](MAP_TEAM_SIZING.md) and `scripts/preview-map-sizing.py`.
+
+### Map density and aspect refinement (29 October2026)
+
+Native transient recipe profiles now enforce500m² per expected player,±10% on
+horizontal arena area. Central Building arenas are near-square; Fire Training
+uses one unscaled nave through3vs3. The choice is fixed at server creation. No
+saved map, material, recipe or acquired mesh is edited. Larger alley plans cap
+paired house construction to retain cell budgets. See MAP_TEAM_SIZING.md and the
+latest TEST_RESULTS.md entry for measured plans and executed validation.
+
+### Muted Belica / Drongo palette (30 October)
+
+The newer Wraith/Gadget finishes are the reference. Belica's dyed upper/arm
+surfaces now use a grayer blue (.12,.28,.52); Drongo's dyed clothing uses an ochre
+reference (.62,.29,.115), scaled by each skin's retained strength. Existing neutral
+trousers/gear and all natural skin, hair and eyes remain unchanged. Scavenger's
+white skull/yellow bandana artwork is preserved.
+
+The old readability pass had fully desaturated fabric and mixed in30% white.
+The scoped pass retains85% desaturation and reduces the white mix to8% Alpha /
+10% Omega (white level.5), keeping texture variation and team hues without the
+old brightness lift.21 owned materials change;1510 other character packages,
+including Wraith/Gadget and all meshes, physics, animations and FPS, retain their
+hashes. Catalogs and loadout assignments are unchanged.
+
+`setup_muted_legacy_palette.py` writes a ZIP rollback and exact before/after
+material hashes. `verify_muted_legacy_palette.py` checks saved graph values,
+zero emission, protected packages and the earlier Drongo/Gadget verifiers.
+`verify_owned_package_hashes.py` accepts a changed file in an older hash baseline
+only when both its before and after hashes match this authorized migration.
+The historical bright readability script respects ERMutedLegacyPalette=1.
+Receipts and gallery captures: Saved/Testing/MutedLegacyPalette.

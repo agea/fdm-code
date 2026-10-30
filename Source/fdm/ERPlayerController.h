@@ -28,7 +28,7 @@ public:
     int32 MaxPlayers = ERServer::DefaultMaxPlayers;
     void SaveServerSettings();
     UPROPERTY() FERServerRules ServerRules; // Saved draft for the next hosted session.
-    UPROPERTY() FERServerRules SessionRules; // Immutable through the current session/travel.
+    UPROPERTY() FERServerRules SessionRules; // Frozen at session creation and retained through lobby/travel/rounds.
     void CommitServerRules();
     void FindLANServer();
     void CancelLANSearch();
@@ -49,6 +49,9 @@ public:
     int32 AlphaBots = 0;
     int32 OmegaBots = 1;
     int32 BotBehavior = 0; // stationary, movement, combat
+    // Offline-only free skin choice; -1 keeps the role skin. Never sent to servers.
+    int32 OfflineAlphaSkin = -1;
+    int32 OfflineOmegaSkin = -1;
     FString ServerAddress = TEXT("127.0.0.1:7777");
     bool Join(const FString& Address);
     void ReturnToMenu();
