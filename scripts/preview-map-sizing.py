@@ -94,6 +94,9 @@ class Drawing:
         self.image.resize((self.width,self.height),Image.Resampling.LANCZOS).save(path.with_suffix('.png'))
 
 
+PLAYABILITY=False
+
+
 def card(d, plan, x, y, w, h, scale):
     ident=plan['template']; tw,th,_=plan['dimensions_m']; n=plan['team_size']
     d.text(x+24,y+14,NAMES[ident],26,bold=True)
@@ -148,6 +151,13 @@ def card(d, plan, x, y, w, h, scale):
             center=[sum(v[k] for v in positions)/len(positions) for k in (0,1)]
             a,b=p(center)
             d.text(a,b-28 if team==0 else b+10,'ALPHA' if team==0 else 'OMEGA',13,color='#17629a' if team==0 else '#ae5726',bold=True,center=True)
+    if PLAYABILITY and 'tactical' in plan:
+        for edge in plan['tactical']['edges']:
+            d.line([p(v) for v in edge],'#3f6fb5',1)
+        for sight in plan['tactical']['sight']:
+            d.line([p(v) for v in sight],'#c8332b',1.2,True)
+        for v in plan['tactical']['chokes']:
+            a,b=p(v); d.circle(a,b,5,'#b5258f')
     # Dimension lines are in metres, along the actual arena boundary.
     d.line([(ox,oy-13),(ox+tw*scale,oy-13)],'#60727c',1)
     for a in (ox,ox+tw*scale):
@@ -243,7 +253,10 @@ def main():
     p.add_argument('--verify-seeds',type=int,default=32,help='Verify seeds 0..N-1 plus signed edge cases (max4096)')
     p.add_argument('--reuse',action='store_true',help='Only redraw a previous native export')
     p.add_argument('--output',type=Path)
+    p.add_argument('--playability',action='store_true',help='Overlay tactical graph (blue), chokes (magenta) and spawn sight lines (red)')
     args=p.parse_args()
+    global PLAYABILITY
+    PLAYABILITY=args.playability
     if not 0<=args.verify_seeds<=4096 or any(not -(2**31)<=s<2**31 for s in args.seeds):
         p.error('Seed validation count or signed32 seed out of range')
     folder=ROOT/'Saved/Testing/MapPlans';folder.mkdir(parents=True,exist_ok=True)

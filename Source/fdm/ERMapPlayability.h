@@ -1,0 +1,117 @@
+#pragma once
+#include "CoreMinimal.h"
+#include "ERMapTemplate.h"
+
+struct FERProceduralLayout;
+struct FERProceduralConfig;
+
+// Tactical reading of a generated layout. Analysis is read-only: it never consumes geometry
+// RNG and never changes the accepted plan. Positions are map-local centimetres; only JSON
+// output is in metres. See docs/PROCEDURAL_MAP_PLAYABILITY.md.
+enum class EERPlayabilityMode : uint8 { Off, ReportOnly };
+enum class EERPlayabilityStatus : uint8 { Pass, Warn, Fail, NotEvaluated };
+enum class EERPlayabilityStage : uint8 { Layout, Physical };
+enum class EERTacticalNodeKind : uint8 { Spawn, Room, Junction, Waypoint, Upper };
+enum class EERTacticalMove : uint8 { Walk, Ramp, Stairs, Ladder };
+// Exact: the graph is the only way to move. Routes: validated routes through open space,
+// so a missing link may be an adapter gap instead of a map defect.
+enum class EERGraphCoverage : uint8 { None, Routes, Exact };
+
+struct FERTacticalNode
+{
+    FVector Position=FVector::ZeroVector;
+    EERTacticalNodeKind Kind=EERTacticalNodeKind::Waypoint;
+    FString Source; // Stable metadata origin, such as "room3" or "patrol.4".
+    int32 Team=INDEX_NONE; // 0 Alpha, 1 Omega.
+    bool bBase=false;
+};
+struct FERTacticalEdge
+{
+    int32 A=INDEX_NONE,B=INDEX_NONE;
+    float Length=0,Width=0; // Width 0: unknown.
+    EERTacticalMove Move=EERTacticalMove::Walk;
+    FString Source;
+    TArray<FVector> Path; // Pawn-centre samples, swept by the physical stage.
+    bool bConfirmed=false,bBlocked=false;
+};
+struct FERTacticalGraph
+{
+    TArray<FERTacticalNode> Nodes;
+    TArray<FERTacticalEdge> Edges;
+    EERGraphCoverage Coverage=EERGraphCoverage::None;
+    // True when walls really bound the base, so counted exits mean something.
+    bool bExitsBounded=false;
+    FString Note;
+    int32 AddEdge(int32 A,int32 B,EERTacticalMove Move,const FString& Source,bool Confirmed,float Width=0);
+};
+
+struct FERPlayabilityPolicy
+{
+    int32 MinIndependentPaths=2;
+    float MergeRadius=60,LinkRadius=500,SpawnLinkRadius=800,BaseMargin=400;
+    float EyeOffset=64; // Above the capsule centre of a standing pawn.
+    int32 MaxSpawnPairs=100;
+    int32 PathLimit=8; // Flow stops here: more independent paths change nothing.
+};
+
+struct FERPlayabilityViolation
+{
+    EERPlayabilityStatus Severity=EERPlayabilityStatus::Warn;
+    FString Message;
+    TArray<int32> Nodes,Edges;
+    TArray<FVector> Positions;
+};
+struct FERPlayabilityMetric
+{
+    FString Code;
+    EERPlayabilityStatus Status=EERPlayabilityStatus::NotEvaluated;
+    EERPlayabilityStage Stage=EERPlayabilityStage::Layout;
+    FString Reason;
+    TArray<TPair<FString,double>> Values; // Insertion order is the report order.
+    TArray<FERPlayabilityViolation> Violations;
+    double Value(const TCHAR* Name,double Default=0) const;
+};
+struct FERPlayabilityReport
+{
+    int32 Seed=0,ExpectedTeamSize=0,TemplateRevision=0;
+    FString TemplateId;
+    EERMapArchetype Archetype=EERMapArchetype::LegacyAssembly;
+    EERPlayabilityStage Stage=EERPlayabilityStage::Layout;
+    FERTacticalGraph Graph;
+    TArray<FERPlayabilityMetric> Metrics;
+    TArray<TPair<FString,double>> TimingsMs;
+    FERPlayabilityMetric* Find(const TCHAR* Code);
+    const FERPlayabilityMetric* Find(const TCHAR* Code) const;
+    EERPlayabilityStatus Overall() const;
+};
+
+namespace ERPlayability
+{
+    constexpr int32 ReportVersion=1;
+    // -ERMapPlayability=ReportOnly on the authority; always Off in Shipping.
+    EERPlayabilityMode Mode();
+    FERPlayabilityPolicy PolicyFor(EERMapArchetype Archetype,int32 ExpectedTeamSize);
+
+    // Graph queries. Blocked edges do not exist. Node order is the tie-break.
+    TArray<int32> Components(const FERTacticalGraph& Graph);
+    int32 DisjointPaths(const FERTacticalGraph& Graph,const TArray<int32>& From,const TArray<int32>& To,int32 Limit);
+    // Nodes every From-To path crosses, nearest From first.
+    TArray<int32> CommonChokes(const FERTacticalGraph& Graph,const TArray<int32>& From,const TArray<int32>& To);
+    float PathLength(const FERTacticalGraph& Graph,const TArray<int32>& From,const TArray<int32>& To);
+
+    FERTacticalGraph BuildGraph(const FERProceduralLayout& Layout,EERMapArchetype Archetype,const FERPlayabilityPolicy& Policy);
+    // Fills the topology metrics of a report whose graph is already set.
+    void EvaluateGraph(FERPlayabilityReport& Report,const FERPlayabilityPolicy& Policy);
+    // Layout stage: needs a complete layout, cell panels included.
+    FERPlayabilityReport Analyze(const FERProceduralLayout& Layout,const FERProceduralConfig& Config,const FERPlayabilityPolicy& Policy);
+    // Physical stage: real collision after the map is generated. Replaces INITIAL_SPAWN_LOS,
+    // sweeps a capsule along every walking edge and reevaluates the topology.
+    void ConfirmInWorld(FERPlayabilityReport& Report,class UWorld* World,const FTransform& MapFrame,const FERProceduralLayout& Layout,const FERPlayabilityPolicy& Policy);
+
+    // Stable text: same seed, version and policy give the same bytes without timings.
+    FString ToJson(const FERPlayabilityReport& Report,bool bTimings);
+    FString Summary(const FERPlayabilityReport& Report);
+    const TCHAR* ArchetypeName(EERMapArchetype Archetype);
+    const TCHAR* StatusName(EERPlayabilityStatus Status);
+    bool Save(const FERPlayabilityReport& Report,const FString& Directory);
+}

@@ -3,6 +3,7 @@
 #include "ERMapTemplate.h"
 #include "ERMapTheme.h"
 #include "ERIndustrialFence.h"
+#include "ERMapPlayability.h"
 #include "Components/DynamicMeshComponent.h"
 #include "Components/PointLightComponent.h"
 #include "DynamicMesh/DynamicMesh3.h"
@@ -13,6 +14,7 @@
 #endif
 #include "ERBotController.h"
 #include "EngineUtils.h"
+#include "Misc/Paths.h"
 #include "UObject/StrongObjectPtr.h"
 
 namespace ERProcedural { bool BuildGeometry(const FERProceduralConfig&,const FERBlockRoomConfig&,FERProceduralLayout&,const FERCellSettings&); bool BuildTemplate(const FERProceduralConfig&,const FERBlockRoomConfig&,FERProceduralLayout&,const FERCellSettings&); }
@@ -336,9 +338,22 @@ bool AERProceduralMap::GenerateLogicalWorld()
 {
     FERProceduralLayout Next;
     if (!ERProcedural::Build(LayoutConfig,Config,Next,CellSettings) || !BuildCellWorld(Next.Panels)) return false;
+    PlayabilityDraft.Reset();
+    if(HasAuthority() && ERPlayability::Mode()==EERPlayabilityMode::ReportOnly && LayoutConfig.TemplateAsset)
+        PlayabilityDraft=MakeShared<FERPlayabilityReport>(ERPlayability::Analyze(Next,LayoutConfig,ERPlayability::PolicyFor(LayoutConfig.TemplateAsset->Archetype,LayoutConfig.ExpectedTeamSize)));
     // Live cell state belongs to the cell world; retain only layout metadata.
     Next.Panels.Empty();
     Layout=MoveTemp(Next); return true;
+}
+void AERProceduralMap::OnGenerationFinished()
+{
+    if(!PlayabilityDraft.IsValid())return;
+    const FString Directory=FPaths::ProjectSavedDir()/TEXT("Testing/MapPlayability");
+    ERPlayability::Save(*PlayabilityDraft,Directory);
+    ERPlayability::ConfirmInWorld(*PlayabilityDraft,GetWorld(),GetActorTransform(),Layout,ERPlayability::PolicyFor(LayoutConfig.TemplateAsset->Archetype,LayoutConfig.ExpectedTeamSize));
+    ERPlayability::Save(*PlayabilityDraft,Directory);
+    UE_LOG(LogTemp,Display,TEXT("ER_MAP_PLAYABILITY_LIVE %s"),*ERPlayability::Summary(*PlayabilityDraft));
+    PlayabilityDraft.Reset();
 }
 void AERProceduralMap::ConfigureFloors()
 {

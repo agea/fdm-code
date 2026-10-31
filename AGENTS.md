@@ -35,6 +35,7 @@ as `ERCharacter.cpp` by range.
 | Match rules, movement, bots, controls, server settings, messages | [GAMEPLAY](docs/GAMEPLAY.md) |
 | One map | [MAPS](docs/MAPS.md) + `docs/maps/<map>.md` |
 | Map sizing, themes, textures, new map | [MAPS](docs/MAPS.md) |
+| Map playability analysis, tactical graph, reports | [PROCEDURAL_MAP_PLAYABILITY](docs/PROCEDURAL_MAP_PLAYABILITY.md) |
 | Cells, material HP, collapse, cell replication | [DESTRUCTION](docs/DESTRUCTION.md) |
 | Skins, FPS rig, clothing | [CHARACTERS](docs/CHARACTERS.md) |
 | HUD, minimap | [HUD](docs/HUD.md) |

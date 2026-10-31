@@ -117,6 +117,7 @@ bool AERBlockRoom::Regenerate()
     GenerationProfile.TotalMs=GenerationMs;
     if (HasAuthority() && GetNetMode()!=NM_Standalone) PublishCellGeneration();
     UE_LOG(LogTemp, Display, TEXT("ER_BLOCK_GENERATED %s support_contacts=%d support_build=%.2fms"), *GetStatistics(), Support.GetContactCount(), Support.BuildMs);
+    OnGenerationFinished();
     return true;
 }
 void AERBlockRoom::ConfigureFloors()

@@ -1,3 +1,4 @@
+#include "ERMapPlayability.h"
 #include "ERProceduralMap.h"
 #include "ERServerSettings.h"
 #include "Engine/World.h"
@@ -85,7 +86,7 @@ TSharedPtr<FJsonValue> Points(const TArray<FVector>& Path)
 {
     TArray<TSharedPtr<FJsonValue>> A;for(auto P:Path)A.Add(Vector(P));return MakeShared<FJsonValueArray>(A);
 }
-TSharedPtr<FJsonObject> Plan(const FERProceduralLayout& L,const FString& Id,int32 TeamSize,int32 Seed)
+TSharedPtr<FJsonObject> Plan(const FERProceduralLayout& L,const FERProceduralConfig& C,const FString& Id,int32 TeamSize,int32 Seed)
 {
     auto O=MakeShared<FJsonObject>();O->SetStringField(TEXT("template"),Id);O->SetNumberField(TEXT("team_size"),TeamSize);O->SetNumberField(TEXT("seed"),Seed);
     O->SetNumberField(TEXT("target_area_m2"),ERProcedural::TargetAreaM2(TeamSize));O->SetNumberField(TEXT("area_m2"),L.ArenaSize.X*L.ArenaSize.Y/10000.);O->SetNumberField(TEXT("area_tolerance_percent"),10);
@@ -152,6 +153,14 @@ TSharedPtr<FJsonObject> Plan(const FERProceduralLayout& L,const FString& Id,int3
         const FVector Normal=FVector::CrossProduct(F.B-F.A,F.C-F.A).GetSafeNormal();
         if(!F.Roof && FMath::Abs(Normal.Z)<.7)Shell.Add(Points({F.A,F.B,F.C,F.D}));
     }
+    // Same layout-stage report as -ERMapPlayability, for preview-map-sizing.py --playability.
+    const auto Report=ERPlayability::Analyze(L,C,ERPlayability::PolicyFor(C.TemplateAsset->Archetype,TeamSize));
+    TArray<TSharedPtr<FJsonValue>> Edges,Chokes,Sight;
+    for(const auto& E:Report.Graph.Edges)Edges.Add(Points({Report.Graph.Nodes[E.A].Position,Report.Graph.Nodes[E.B].Position}));
+    for(const auto& V:Report.Find(TEXT("BASE_EXIT_PATHS"))->Violations)for(const auto& Q:V.Positions)Chokes.Add(Vector(Q));
+    for(const auto& V:Report.Find(TEXT("INITIAL_SPAWN_LOS"))->Violations)Sight.Add(Points(V.Positions));
+    auto Tactical=MakeShared<FJsonObject>();Tactical->SetArrayField(TEXT("edges"),Edges);Tactical->SetArrayField(TEXT("chokes"),Chokes);Tactical->SetArrayField(TEXT("sight"),Sight);
+    O->SetObjectField(TEXT("tactical"),Tactical);
     O->SetArrayField(TEXT("shell"),Shell);
     O->SetArrayField(TEXT("solids"),Solids);O->SetArrayField(TEXT("floors"),Floors);O->SetArrayField(TEXT("routes"),Routes);O->SetArrayField(TEXT("spawns"),Spawns);
     return O;
@@ -209,7 +218,7 @@ bool FERMapSizingTest::RunTest(const FString&)
             {
                 TestTrue(TEXT("repeat seed accepted"),ERProcedural::Build(C,B,Again));
                 TestEqual(TEXT("deterministic bounds"),L.ArenaSize,Again.ArenaSize);TestEqual(TEXT("deterministic panel count"),L.Panels.Num(),Again.Panels.Num());
-                Plans.Add(MakeShared<FJsonValueObject>(Plan(L,Id,TeamSize,Seed)));
+                Plans.Add(MakeShared<FJsonValueObject>(Plan(L,C,Id,TeamSize,Seed)));
                 UE_LOG(LogTemp,Display,TEXT("ER_MAP_PLAN template=%s team=%d seed=%d dimensions_m=%.2fx%.2f"),*Id,TeamSize,Seed,L.ArenaSize.X/100,L.ArenaSize.Y/100);
             }
         }

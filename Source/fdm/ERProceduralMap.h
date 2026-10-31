@@ -199,10 +199,13 @@ public:
 protected:
     virtual bool GenerateLogicalWorld() override;
     virtual void ConfigureFloors() override;
+    virtual void OnGenerationFinished() override;
     virtual FString GetLayoutStatistics() const override;
     virtual SIZE_T GetLayoutBytes() const override;
 private:
     FERProceduralLayout Layout;
+    // Opt-in diagnostics: the layout stage needs Panels, which the map then drops.
+    TSharedPtr<struct FERPlayabilityReport> PlayabilityDraft;
     UPROPERTY() TObjectPtr<class UInstancedStaticMeshComponent> TileFloors;
     UPROPERTY() TObjectPtr<class UInstancedStaticMeshComponent> WoodFloors;
     UPROPERTY() TObjectPtr<class UInstancedStaticMeshComponent> Ceilings;

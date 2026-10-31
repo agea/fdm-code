@@ -47,7 +47,8 @@ python3 scripts/preview-map-sizing.py --team-size 2 --seeds 42 73 7919 --verify-
 ```
 
 Plans land in `Saved/Testing/MapPlans/<N>v<N>/`, with metres, actual area, target and
-deviation. They are technical plans, not renders.
+deviation. They are technical plans, not renders. `--playability` overlays the tactical graph:
+see [PROCEDURAL_MAP_PLAYABILITY.md](PROCEDURAL_MAP_PLAYABILITY.md).
 
 ## Palettes
 
@@ -105,7 +106,7 @@ scripts from downgrading. Do not recreate retired levels (Killhouse, Dust, labor
 
 ## Verify
 
-`preview-map-sizing.py --verify-seeds 512`, `test-lobby.py --industrial --map-sizing`. Native:
-`EclipseRecoil.Maps.*`, `EclipseRecoil.Destruction.SharedMapThemes`. Every template meets the same
+`preview-map-sizing.py --verify-seeds 512`, `test-lobby.py --industrial --map-sizing`,
+`test-map-playability.py`. Native: `EclipseRecoil.Maps.*`, `EclipseRecoil.Destruction.SharedMapThemes`. Every template meets the same
 bar: 516 seeds natively, several physical seeds with real capsules, a real pawn on stairs and doors,
 damage, regeneration, and initial plus late client snapshots.

@@ -1,0 +1,222 @@
+{
+	"report_version": 1,
+	"seed": 42,
+	"expected_team_size": 2,
+	"archetype": "Rooms",
+	"template_id": "rooms.indoor",
+	"template_revision": 5,
+	"mode": "report_only",
+	"stage": "physical",
+	"overall": "pass",
+	"graph":
+	{
+		"coverage": "exact",
+		"exits_bounded": true,
+		"note": "RoomNodes and RoomLinks: the sealed shell allows no other movement",
+		"nodes": [
+			{
+				"id": 0,
+				"kind": "room",
+				"source": "room0",
+				"team": 0,
+				"base": true,
+				"position_m": 
+				[
+					-15,
+					-17,
+					0
+				]
+			},
+			{
+				"id": 1,
+				"kind": "room",
+				"source": "room1",
+				"team": 1,
+				"base": true,
+				"position_m": 
+				[
+					15,
+					17,
+					0
+				]
+			},
+			{
+				"id": 2,
+				"kind": "room",
+				"source": "room2",
+				"team": -1,
+				"base": false,
+				"position_m": 
+				[
+					8.5,
+					-11.25,
+					0
+				]
+			},
+			{
+				"id": 3,
+				"kind": "room",
+				"source": "room3",
+				"team": -1,
+				"base": false,
+				"position_m": 
+				[
+					-8.5,
+					11.25,
+					0
+				]
+			}
+		],
+		"edges": [
+			{
+				"a": 0,
+				"b": 2,
+				"move": "walk",
+				"source": "link0",
+				"length_m": 24.190000000000001,
+				"width_m": 2.5,
+				"confirmed": true,
+				"blocked": false
+			},
+			{
+				"a": 1,
+				"b": 3,
+				"move": "walk",
+				"source": "link1",
+				"length_m": 24.190000000000001,
+				"width_m": 2.5,
+				"confirmed": true,
+				"blocked": false
+			},
+			{
+				"a": 0,
+				"b": 3,
+				"move": "walk",
+				"source": "link2",
+				"length_m": 28.989999999999998,
+				"width_m": 2.5,
+				"confirmed": true,
+				"blocked": false
+			},
+			{
+				"a": 1,
+				"b": 2,
+				"move": "walk",
+				"source": "link3",
+				"length_m": 28.989999999999998,
+				"width_m": 2.5,
+				"confirmed": true,
+				"blocked": false
+			},
+			{
+				"a": 2,
+				"b": 3,
+				"move": "walk",
+				"source": "link4",
+				"length_m": 28.199999999999999,
+				"width_m": 2.5,
+				"confirmed": true,
+				"blocked": false
+			}
+		]
+	},
+	"metrics": [
+		{
+			"code": "CONNECTED_ZONES",
+			"status": "pass",
+			"stage": "physical",
+			"reason": "",
+			"values":
+			{
+				"nodes": 4,
+				"edges": 5,
+				"components": 1,
+				"isolated_nodes": 0,
+				"edges_unconfirmed": 0,
+				"edges_blocked": 0,
+				"base_to_base_m": 53.18,
+				"edges_stopped_by_collision": 0
+			},
+			"violations": []
+		},
+		{
+			"code": "BASE_EXIT_PATHS",
+			"status": "pass",
+			"stage": "physical",
+			"reason": "",
+			"values":
+			{
+				"alpha_exits": 2,
+				"alpha_independent_paths": 2,
+				"alpha_chokes": 0,
+				"omega_exits": 2,
+				"omega_independent_paths": 2,
+				"omega_chokes": 0
+			},
+			"violations": []
+		},
+		{
+			"code": "INITIAL_SPAWN_LOS",
+			"status": "pass",
+			"stage": "physical",
+			"reason": "Real collision blocks every sampled pair. A blocked shot may still penetrate",
+			"values":
+			{
+				"pairs_total": 64,
+				"pairs_sampled": 64,
+				"visible_pairs": 0,
+				"open_shot_pairs": 0
+			},
+			"violations": []
+		},
+		{
+			"code": "DOMINANT_VANTAGE",
+			"status": "not_evaluated",
+			"stage": "layout",
+			"reason": "Planned metric, not computed yet",
+			"values":
+			{
+			},
+			"violations": []
+		},
+		{
+			"code": "ROUTE_EXPOSURE",
+			"status": "not_evaluated",
+			"stage": "layout",
+			"reason": "Planned metric, not computed yet",
+			"values":
+			{
+			},
+			"violations": []
+		},
+		{
+			"code": "ROUTE_DIVERSITY",
+			"status": "not_evaluated",
+			"stage": "layout",
+			"reason": "Planned metric, not computed yet",
+			"values":
+			{
+			},
+			"violations": []
+		},
+		{
+			"code": "COVER_ACCESS",
+			"status": "not_evaluated",
+			"stage": "layout",
+			"reason": "Planned metric, not computed yet",
+			"values":
+			{
+			},
+			"violations": []
+		}
+	],
+	"timings_ms":
+	{
+		"graph": 0.01,
+		"topology": 0.050000000000000003,
+		"spawn_sight": 1.4099999999999999,
+		"physical_edges": 0.20999999999999999,
+		"physical_topology": 0.040000000000000001,
+		"physical_spawn_sight": 6.0700000000000003
+	}
+}

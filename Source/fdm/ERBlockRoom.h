@@ -151,6 +151,8 @@ protected:
     // Builds the cell panels of this room (lab: four walls and two samples).
     virtual bool GenerateLogicalWorld();
     virtual void ConfigureFloors();
+    // Geometry and collision are complete on this peer.
+    virtual void OnGenerationFinished() {}
     virtual FString GetLayoutStatistics() const;
     virtual SIZE_T GetLayoutBytes() const { return 0; }
     bool BuildCellWorld(const TArray<FERCellPanelDesc>& Panels);
