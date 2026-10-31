@@ -77,7 +77,7 @@ float ServerSettingDefault(const FERServerSetting& S,const AERCharacter* Catalog
 {
     if(!S.AssetDefault)return S.Default;
     if(!S.Weapon.IsNone() && Catalog)
-        for(const auto D:Catalog->ReferenceArsenal)if(D && D->GetFName()==S.Weapon)
+        for(const auto& D:Catalog->ReferenceArsenal)if(D && D->GetFName()==S.Weapon)
             return ERServer::ReadNumber(D,D->GetClass(),S.Property)/S.Factor;
     if(S.Key.ToString().StartsWith(TEXT("Kit.")))
     {

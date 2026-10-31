@@ -83,7 +83,7 @@ bool FERServerWeaponSettingsTest::RunTest(const FString&)
     TestEqual(TEXT("Nested precision field is applied"),Tuned->HipAccuracy.Move,12.f);
     TestEqual(TEXT("Scoped recoil multiplier applies to actual worksheet"),Tuned->ScopedRecoil.Magnitude,Original->ScopedRecoil.Magnitude*.5f);
     TestEqual(TEXT("Authored weapon stays immutable"),Original->Damage,OriginalDamage);
-    for(const auto D:Catalog->ReferenceArsenal)if(D && D->GetFName()==FName("DA_HE"))
+    for(const auto& D:Catalog->ReferenceArsenal)if(D && D->GetFName()==FName("DA_HE"))
     {
         auto* HE=DuplicateObject<UERWeaponData>(D.Get(),GetTransientPackage());ERServer::TuneWeapon(HE,R,D->GetFName());
         TestEqual(TEXT("Meters convert to centimeters"),HE->ExplosionRadius,200.f);
@@ -96,7 +96,7 @@ bool FERServerWeaponSettingsTest::RunTest(const FString&)
     TestEqual(TEXT("Utility quantity means actual carried items, without hidden doubling"),Kit.Items[3].Loaded,5);
     // Every UI weapon field is a real numeric property; prevents inert controls.
     for(const auto& S:ERServer::Settings())if(!S.Weapon.IsNone())
-        for(const auto D:Catalog->ReferenceArsenal)if(D && D->GetFName()==S.Weapon)
+        for(const auto& D:Catalog->ReferenceArsenal)if(D && D->GetFName()==S.Weapon)
         {
             auto* Copy=DuplicateObject<UERWeaponData>(D.Get(),GetTransientPackage());FERServerRules One;
             const float Value=FMath::Clamp(S.Min+(S.Max-S.Min)*.1f,S.Min,S.Max);
