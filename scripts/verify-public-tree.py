@@ -7,7 +7,7 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 # The previous project filename remains allowed only to audit existing Git history.
-ROOT_FILES = {'fdm.uproject', 'RespawnAndRage.uproject', 'README.md', 'AGENTS.md', '.gitignore', '.gitattributes',
+ROOT_FILES = {'fdm.uproject', 'RespawnAndRage.uproject', 'README.md', 'AGENTS.md', 'CLAUDE.md', '.gitignore', '.gitattributes',
               '.gitmodules', 'assets.json', 'ASSETS_REQUIRED.md', 'CODE_EXPORT.json', 'Branding/README.md'}
 EXTENSIONS = {'Source': {'.cpp', '.h', '.cs', '.mm'}, 'Config': {'.ini'},
               'scripts': {'.py', '.command', '.sh', '.ps1'}, 'docs': {'.md', '.txt', '.json', '.csv'}}

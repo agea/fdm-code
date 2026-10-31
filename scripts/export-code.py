@@ -15,7 +15,7 @@ SUFFIXES = {
     'Source': {'.cpp', '.h', '.cs'}, 'Config': {'.ini'},
     'scripts': {'.py', '.command', '.sh', '.ps1'}, 'docs': {'.md', '.txt', '.json'},
 }
-ROOT_FILES = ('RespawnAndRage.uproject', 'README.md', 'AGENTS.md', '.gitignore', '.gitattributes', 'assets.json', '.gitmodules')
+ROOT_FILES = ('RespawnAndRage.uproject', 'README.md', 'AGENTS.md', 'CLAUDE.md', '.gitignore', '.gitattributes', 'assets.json', '.gitmodules')
 
 def source_files(root):
     files = [root / name for name in ROOT_FILES if (root / name).is_file() and not (root / name).is_symlink()]
@@ -48,7 +48,7 @@ def export(root, destination):
         'matching private Content tree is restored beside RespawnAndRage.uproject.\n'
         'SourceAssets are needed only for asset rebuilding. Preserve original\n'
         '/Game package paths; obtain licensed packs through their publishers.\n'
-        'See docs/REPOSITORY_CLEANUP.md and docs/ASSET_LICENSES.md.\n'
+        'See docs/ASSETS.md.\n'
         'No public redistribution rights for third-party assets are implied.\n'
         'Choose a license for your own code before publishing; retain Epic\n'
         'template notices and distinct third-party terms.\n')

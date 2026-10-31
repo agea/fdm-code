@@ -1,0 +1,22 @@
+# Village
+
+Shared rules are in [MAPS.md](../MAPS.md).
+
+**Code:** `ERVillage.cpp`.
+
+Inspired by the owner's Shoots references; no Shoots geometry imported. Recipe in `Village` struct:
+1–5 central blocks (20–30m × 6–8m), paired or one self-symmetric origin block, 1–3 platform
+storeys from 2.4m, budget of 10 floors.
+
+- Ground blocks enclose three timber bays around two dogleg passages; bays are breachable.
+- Each base has a variant (gallery, covered porch or barracks), a corner lookout, a side shack
+  with roof access. Lateral walls 240cm, with standing bypasses recorded in `VillageSideWalls`
+  and `VillageSideBypasses`.
+- 3v3+ uses at least two blocks; paired 4.8×2.4m L shelters meet a ground-cover quota that upper
+  floors cannot satisfy.
+- Perimeter: tapered 3.8–4.4m logs with real shot gaps, plus a hidden locomotion-only wall.
+- Backdrop: J&E Gray Park panorama (Greg Zaal, CC0), exterior trees, all skipped on dedicated.
+
+## Verify
+
+`test-village.py` (`--offscreen`, `--network`). Native: `EclipseRecoil.Destruction.Village*`.
