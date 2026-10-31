@@ -90,7 +90,7 @@ bool PlanAlleyUnderpass(const UERMapTemplate& T,int32 Seed,FVector Base,TArray<F
     auto Solid=[&](const FBox& B,float Bottom,float Top,bool Breakable=false)
     {
         auto& P=Pieces.AddDefaulted_GetRef();P.Center=FVector(B.GetCenter().X,B.GetCenter().Y,(Bottom+Top)*.5f);
-        P.Size=FVector(B.GetSize().X,B.GetSize().Y,Top-Bottom);P.Material=Breakable ? EERBlockMaterial::Brick:EERBlockMaterial::Concrete;
+        P.Size=FVector(B.GetSize().X,B.GetSize().Y,Top-Bottom);P.Material=Breakable ? EERBlockMaterial::Brick:EERBlockMaterial::Stone;
         P.Destructible=Breakable;P.WalkableSurface=Breakable;P.Anchored=Breakable;
         if(!Breakable)P.FixedSurface=V.WallSurface;
     };

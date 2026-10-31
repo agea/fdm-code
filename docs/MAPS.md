@@ -49,21 +49,35 @@ python3 scripts/preview-map-sizing.py --team-size 2 --seeds 42 73 7919 --verify-
 Plans land in `Saved/Testing/MapPlans/<N>v<N>/`, with metres, actual area, target and
 deviation. They are technical plans, not renders.
 
-## Themes
+## Palettes
 
-`DA_MapThemes` (`ThemeLibrary`) offers **Industrial, Desert, Jungle** to all five templates,
-chosen from a cosmetic stream of the map seed: the same seed gives the same theme everywhere.
-Themes change finishes and ground only, never geometry, physics, calibration or damage. They
-separate roles (shell sheets, structural steel, galvanized ladders, decks, painted cargo) so
-structures read at distance. Theme identity enters the digest. Alley house walls differ from the
-Stone perimeter, and slab finishes differ from both.
+Each template binds its own `DA_Theme_<Name>` (`ThemeLibrary`) with one palette that suits the
+place. **A finish always shows the physical material:** every `EERBlockMaterial` row has its own
+recognizable surface, so what a block looks like is how it behaves. Palettes never change
+geometry, physics, calibration or damage, and their identity enters the digest.
+
+| Template | Palette | Character | Ground |
+| --- | --- | --- | --- |
+| Central Building | Urban | outdoor brick and concrete building, steel deck interiors | asphalt, grass or snow, from the seed |
+| Alleys | Stone | sandstone houses and perimeter, some pale brick houses | three sands |
+| Fire Training | Warehouse | concrete courts inside a steel shed | wet concrete |
+| Rooms | Tunnels | cast concrete shell, wet floor, timber cover | wet concrete |
+| Village | Jungle | timber, corrugated sheet, gray cladding | jungle ground |
+
+Roles stay separate so structures read at distance: shell sheets, structural steel, galvanized
+ladders, decks and painted cargo. `DeckSteel` applies to thin Metal slabs only. Alley walls follow
+the panel's material and their slabs use `Floor`. Tints of the Alley finishes live in
+`setup_map_palettes.py`. Alleys and Central Building keep shade readable with a warm sun, a less
+blue sky and a lower hemisphere in the ground's colour (`setup_map_daylight.py`); keep the tint
+mild, because a strong cast shifts team colours. `DA_MapThemes` is not bound to any template: it remains only as the input
+of older migrations.
 
 ## Add a map
 
 1. Recipe `DA_<Name>` and level `L_<Name>` through a `setup_<name>.py` that validates 516 seeds.
 2. Register in `ERMapCatalog.cpp`, and add it to `MapsToCook` in `Config/DefaultGame.ini`.
 3. Native builder `ER<Name>.cpp`, reached from `ERProcedural::Build`; team sizing in `ERMapSizing.cpp`.
-4. Bind `ThemeLibrary`, and add the map to the digest-affecting fields if it has new geometry data.
+4. Bind a `DA_Theme_<Name>` palette as `ThemeLibrary`, and add the map to the digest-affecting fields if it has new geometry data.
 5. Bump `AERBlockRoom::Protocol` for any change in generated geometry.
 6. Layout and physics automation, a `test-<name>.py`, and a page in `docs/maps/`.
 
@@ -85,7 +99,7 @@ continuous; no runtime displacement. Removed sets must not be reacquired by pipe
 
 Each template has one setup script (`setup_central_building.py`, `setup_middle_eastern_alleys.py`,
 `setup_fire_training.py`, `setup_village.py`, ...) plus versioned migrations (`setup_alley_*`,
-`setup_village_*`, `setup_map_variety.py`, `setup_map_themes.py`). They validate 516 seeds, keep
+`setup_village_*`, `setup_map_variety.py`, `setup_map_palettes.py`). They validate 516 seeds, keep
 a verified rollback and save only owned packages. Completed markers stop older
 scripts from downgrading. Do not recreate retired levels (Killhouse, Dust, laboratories).
 

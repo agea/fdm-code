@@ -6,11 +6,17 @@
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FERMapThemeTest,"EclipseRecoil.Destruction.SharedMapThemes",EAutomationTestFlags::EditorContext|EAutomationTestFlags::EngineFilter)
 bool FERMapThemeTest::RunTest(const FString& Parameters)
 {
-    TArray<int32> Expected;TSet<int32> Seen;TSet<FName> SampleNames;
+    TSet<FName> SampleNames;TSet<const UERMapThemeLibrary*> Libraries;
     for(const TCHAR* Name:{TEXT("CentralBuilding"),TEXT("MiddleEasternAlleys"),TEXT("FireTraining"),TEXT("Rooms"),TEXT("Village")})
     {
         auto* Saved=LoadObject<UERMapTemplate>(nullptr,*FString::Printf(TEXT("/Game/EclipseRecoil/Art/MapTemplates/DA_%s"),Name));
         if(!TestNotNull(TEXT("production recipe"),Saved) || !TestNotNull(TEXT("shared library bound"),Saved->ThemeLibrary.Get()))return false;
+        Libraries.Add(Saved->ThemeLibrary);
+        for(const auto& Theme:Saved->ThemeLibrary->Themes)
+        {
+            TSet<UMaterialInterface*> Rows;for(const auto& M:Theme.Materials)Rows.Add(M.Get());
+            TestEqual(TEXT("every physical material has its own recognizable finish"),Rows.Num(),Theme.Materials.Num());
+        }
         auto* Raw=DuplicateObject<UERMapTemplate>(Saved,GetTransientPackage());Raw->ThemeLibrary=nullptr;
         FERProceduralConfig C;FERBlockRoomConfig B;TSet<int32> TemplateSeen;
         for(int32 Seed=0;Seed<32;++Seed)
@@ -19,7 +25,7 @@ bool FERMapThemeTest::RunTest(const FString& Parameters)
             if(!TestTrue(TEXT("original geometry builds"),ERProcedural::Build(C,B,Before)))return false;
             C.TemplateAsset=Saved;
             if(!TestTrue(TEXT("themed geometry builds"),ERProcedural::Build(C,B,After)))return false;
-            Seen.Add(After.ThemeIndex);TemplateSeen.Add(After.ThemeIndex);
+            TemplateSeen.Add(After.ThemeIndex);
             if(!SampleNames.Contains(After.ThemeName)){SampleNames.Add(After.ThemeName);AddInfo(FString::Printf(TEXT("ER_SHARED_THEME_SAMPLE theme=%s seed=%d"),*After.ThemeName.ToString(),Seed));}
             const auto& Palette=Saved->ThemeLibrary->Themes[After.ThemeIndex];
             if(Palette.ShellSteel)
@@ -50,18 +56,26 @@ bool FERMapThemeTest::RunTest(const FString& Parameters)
             }
             if(Saved->Archetype==EERMapArchetype::MiddleEasternAlleys)
             {
+                TSet<EERBlockMaterial> HouseMaterials;
                 for(const auto& D:After.Panels)if(D.SkinName.ToString().StartsWith(TEXT("AlleyModule_")))
                 {
-                    TestTrue(TEXT("house surfaces differ from perimeter masonry"),D.Surface!=Palette.Materials[uint8(EERBlockMaterial::Stone)]);
-                    if(D.SkinName.ToString().EndsWith(TEXT("_Floor")))
+                    const FString Role=D.SkinName.ToString();
+                    if(Role.EndsWith(TEXT("_Floor")) || Role.EndsWith(TEXT("_Roof")))
                     {
-                        const FString WallName=D.SkinName.ToString().LeftChop(6);
+                        TestEqual(TEXT("house slabs use the floor finish"),D.Surface,Palette.Floor.Get());
+                        const FString WallName=Role.LeftChop(Role.EndsWith(TEXT("_Roof")) ? 5:6);
                         const auto* Wall=After.Panels.FindByPredicate([&](const auto& V){return V.SkinName.ToString()==WallName;});
-                        TestTrue(TEXT("house floor differs from its walls"),Wall && Wall->Surface!=D.Surface);
+                        TestTrue(TEXT("house slab differs from its walls"),Wall && Wall->Surface!=D.Surface);
+                    }
+                    else
+                    {
+                        TestTrue(TEXT("alley houses are stone or brick"),D.Material==EERBlockMaterial::Stone || D.Material==EERBlockMaterial::Brick);
+                        TestEqual(TEXT("house walls show their physical material"),D.Surface,Palette.Materials[uint8(D.Material)].Get());
+                        HouseMaterials.Add(D.Material);
                     }
                 }
+                if(HouseMaterials.Num()>0 && After.Houses.Num()>=4)TestEqual(TEXT("both stone and brick houses appear"),HouseMaterials.Num(),2);
             }
-            if(Expected.Num()<32)Expected.Add(After.ThemeIndex);else TestEqual(TEXT("same seed selects same theme across all templates"),After.ThemeIndex,Expected[Seed]);
             TestEqual(TEXT("panel count unchanged"),Before.Panels.Num(),After.Panels.Num());
             for(int32 I=0;I<Before.Panels.Num();++I)
             {
@@ -104,7 +118,7 @@ bool FERMapThemeTest::RunTest(const FString& Parameters)
         if(Invalid->ThemeLibrary->Themes.Last().ShellSteel)
         {Invalid->ThemeLibrary->Themes.Last().DeckSteel=nullptr;TestFalse(TEXT("partial steel role palette rejected"),ERProcedural::Build(C,B,Prior));}
     }
-    TestEqual(TEXT("all themes sampled"),Seen.Num(),3);
-    AddInfo(TEXT("ER_SHARED_MAP_THEMES templates=5 seeds=32 themes=3 geometry=unchanged deterministic=PASS"));return true;
+    TestEqual(TEXT("every template owns its palette library"),Libraries.Num(),5);
+    AddInfo(TEXT("ER_MAP_PALETTES templates=5 seeds=32 geometry=unchanged deterministic=PASS"));return true;
 }
 #endif

@@ -79,21 +79,24 @@ void AERDustTemplateProbe::Tick(float Delta)
             // Sample replicated environment collision, excluding the host or
             // another pawn currently walking through the tested underpass.
             for(TActorIterator<APawn> Pawn(GetWorld());Pawn;++Pawn)Q.AddIgnoredActor(*Pawn);
-            bool Good=Map->ValidateCells() && L.TownBuildings.Num()>=12 && (L.SeededDistrict ? L.TownGates.Num()==L.DistrictAccesses*L.DistrictWallCount:L.TownGates.Num()==3);
-            Good&=GetWorld()->LineTraceSingleByChannel(Hit,P+FVector(0,0,500),P+FVector(0,0,200),ECC_WorldStatic,Q) && FMath::IsNearlyEqual(Hit.ImpactPoint.Z,320.f,1.f);
-            Good&=!GetWorld()->SweepSingleByChannel(Hit,L.LowerRoute[0],L.LowerRoute.Last(),FQuat::Identity,ECC_Pawn,FCollisionShape::MakeCapsule(34,92.5),Q);
+            const bool Cells=Map->ValidateCells();
+            const bool Plan=L.TownBuildings.Num()>=12 && (L.SeededDistrict ? L.TownGates.Num()==L.DistrictAccesses*L.DistrictWallCount:L.TownGates.Num()==3);
+            const bool Deck=GetWorld()->LineTraceSingleByChannel(Hit,P+FVector(0,0,500),P+FVector(0,0,200),ECC_WorldStatic,Q) && FMath::IsNearlyEqual(Hit.ImpactPoint.Z,320.f,1.f);
+            const bool Lower=!GetWorld()->SweepSingleByChannel(Hit,L.LowerRoute[0],L.LowerRoute.Last(),FQuat::Identity,ECC_Pawn,FCollisionShape::MakeCapsule(34,92.5),Q);
+            bool Road=true,Facade=true,Roof=true;
             if(L.UnderpassAxis)
             {
                 const auto Hole=L.UnderpassBreaches[0].GetCenter();
-                Good&=GetWorld()->LineTraceSingleByChannel(Hit,Hole+FVector(0,0,150),Hole-FVector(0,0,400),ECC_WorldStatic,Q) && FMath::IsNearlyEqual(Hit.ImpactPoint.Z,SnapshotPhase==6 ? -360.f:0.f,1.f);
+                Road=GetWorld()->LineTraceSingleByChannel(Hit,Hole+FVector(0,0,150),Hole-FVector(0,0,400),ECC_WorldStatic,Q) && FMath::IsNearlyEqual(Hit.ImpactPoint.Z,SnapshotPhase==6 ? -360.f:0.f,1.f);
             }
             if(FParse::Param(FCommandLine::Get(),TEXT("ERAlleyArchitecture")) && SnapshotPhase!=7)
             {
-                const bool Blocked=GetWorld()->SweepTestByChannel(ArchitectureOutside+FVector(0,0,30),ArchitectureInside+FVector(0,0,30),FQuat::Identity,ECC_Pawn,FCollisionShape::MakeCapsule(34,92.5),Q);
-                Good&=Blocked==(SnapshotPhase==1);
-                const bool Roof=GetWorld()->LineTraceSingleByChannel(Hit,ArchitectureRoof+FVector(0,0,100),ArchitectureRoof-FVector(0,0,150),ECC_WorldStatic,Q);
-                Good&=SnapshotPhase==1 ? Roof && FMath::Abs(Hit.ImpactPoint.Z-ArchitectureRoof.Z)<2:!Roof || Hit.ImpactPoint.Z<ArchitectureRoof.Z-100;
+                Facade=GetWorld()->SweepTestByChannel(ArchitectureOutside+FVector(0,0,30),ArchitectureInside+FVector(0,0,30),FQuat::Identity,ECC_Pawn,FCollisionShape::MakeCapsule(34,92.5),Q)==(SnapshotPhase==1);
+                const bool RoofHit=GetWorld()->LineTraceSingleByChannel(Hit,ArchitectureRoof+FVector(0,0,100),ArchitectureRoof-FVector(0,0,150),ECC_WorldStatic,Q);
+                Roof=SnapshotPhase==1 ? RoofHit && FMath::Abs(Hit.ImpactPoint.Z-ArchitectureRoof.Z)<2:!RoofHit || Hit.ImpactPoint.Z<ArchitectureRoof.Z-100;
             }
+            const bool Good=Cells && Plan && Deck && Lower && Road && Facade && Roof;
+            UE_LOG(LogTemp,Display,TEXT("ER_DUST_CLIENT_CHECKS phase=%d cells=%d plan=%d deck=%d lower=%d road=%d facade=%d roof=%d"),SnapshotPhase,Cells,Plan,Deck,Lower,Road,Facade,Roof);
             UE_LOG(LogTemp,Display,TEXT("ER_DUST_CLIENT_%s phase=%d digest=%u epoch=%u"),Good ? TEXT("PASS"):TEXT("FAIL"),SnapshotPhase,ExpectedDigest,Map->GetMapEpoch());SeenPhase=SnapshotPhase;
         }
         // Phase 6 puts the initial client on the deck, phase 7 (after the seed rebuild) the late one.

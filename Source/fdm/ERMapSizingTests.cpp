@@ -293,6 +293,11 @@ bool FERMapDensityBudgetTest::RunTest(const FString&)
             TestTrue(TEXT("actual perimeter area within ten percent of1000m² per team member"),ERProcedural::ValidTeamArea(L.ArenaSize,N));
             if(Id==TEXT("FireTraining"))TestTrue(TEXT("every team size keeps the warehouse longitudinal"),L.ArenaSize.Y>=L.ArenaSize.X*1.2f);
             if(Id==TEXT("Rooms"))TestTrue(TEXT("every room profile has independent base access"),IndependentRoomBaseAccess(L));
+            if(N>1)for(const auto& Hole:L.UnderpassBreaches)
+            {
+                const FVector2D Gap=(FVector2D(Hole.GetCenter())-FVector2D(L.TownCrossing)).GetAbs(),Extent=FVector2D(Hole.GetExtent())+FVector2D(1300,200);
+                TestFalse(TEXT("breachable road stays clear of the bridge"),Gap.X<Extent.X && Gap.Y<Extent.Y);
+            }
         }
         UE_LOG(LogTemp,Display,TEXT("ER_MAP_DENSITY_VERIFIED template=%s sizes=1..16 seeds=11"),*Id);
     }

@@ -13,7 +13,7 @@ FCollisionQueryParams Query(UWorld* World)
     for(TActorIterator<APawn> P(World);P;++P)Q.AddIgnoredActor(*P);return Q;
 }
 }
-bool ERAlleyDestruction::FindWall(AERProceduralMap* Map,FBreach& Out)
+bool ERAlleyDestruction::FindWall(AERProceduralMap* Map,FBreach& Out,TOptional<EERBlockMaterial> Only)
 {
     auto* W=Map->GetWorld();auto Q=Query(W);const auto Capsule=FCollisionShape::MakeCapsule(34,92.5);
     for(const auto& H:Map->GetLayout().Houses)
@@ -31,6 +31,7 @@ bool ERAlleyDestruction::FindWall(AERProceduralMap* Map,FBreach& Out)
             if(!Stand(A) || !Stand(B) || FMath::Abs(A.Z-B.Z)>35)continue;
             A.Z=B.Z=FMath::Max(A.Z,B.Z)+3;FHitResult Hit;FERCellId Cell;
             if(!W->LineTraceSingleByChannel(Hit,A,B,ECC_GameTraceChannel1,Q) || Hit.GetActor()!=Map || !Hit.GetComponent()->ComponentHasTag(H.Mesh ? H.Mesh->GetFName():H.StructureName) || !Map->ResolveCell(Hit,Cell))continue;
+            if(Only && Map->GetCellWorld().GetPanels()[Cell.Panel].Material!=*Only)continue;
             if(!W->SweepTestByChannel(A,B,FQuat::Identity,ECC_Pawn,Capsule,Q))continue;
             auto Without=Q;Without.AddIgnoredComponent(Hit.GetComponent());
             // The new hole belongs to one building. Reject routes where the
@@ -81,9 +82,22 @@ int32 ERAlleyDestruction::SeverSupports(AERProceduralMap* Map,int32 Panel)
             }
         }
     }
+    // The roof slab is its own panel spanning the whole footprint, so its edge
+    // touches adjoining walls too. Its inner ring stays on the kept wall layers.
+    const FName RoofName(*(P.SkinName.ToString()+TEXT("_Roof")));
+    const int32 Roof=W.GetPanels().IndexOfByPredicate([&](const auto& D){return D.SkinName==RoofName;});
+    if(Roof!=INDEX_NONE)
+    {
+        const auto& D=W.GetPanels()[Roof];
+        for(int32 Z=0;Z<D.Dims.Z;++Z)for(int32 Y=0;Y<D.Dims.Y;++Y)for(int32 X=0;X<D.Dims.X;++X)
+        {
+            if(X>1 && X<D.Dims.X-2 && Y>1 && Y<D.Dims.Y-2)continue;
+            const FERCellId Id{Roof,X,Y,Z};if(W.IsAlive(Id))Damage.Add(Id,FLT_MAX);
+        }
+    }
     return Map->ApplyCellBatch(Damage).Destroyed;
 }
-bool ERAlleyDestruction::FindRoof(AERProceduralMap* Map,FVector& Point,FERCellId& Cell)
+bool ERAlleyDestruction::FindRoof(AERProceduralMap* Map,FVector& Point,FERCellId& Cell,TOptional<EERBlockMaterial> Only)
 {
     auto Q=Query(Map->GetWorld());
     for(const auto& H:Map->GetLayout().Houses)
@@ -93,6 +107,7 @@ bool ERAlleyDestruction::FindRoof(AERProceduralMap* Map,FVector& Point,FERCellId
         {
             const auto P=F.TransformPosition({Size.X*X,Size.Y*Y,Size.Z+150});FHitResult Hit;
             if(!Map->GetWorld()->LineTraceSingleByChannel(Hit,P,P-FVector(0,0,Size.Z*.5+200),ECC_GameTraceChannel1,Q) || Hit.GetActor()!=Map || !Hit.GetComponent()->ComponentHasTag(H.Mesh ? H.Mesh->GetFName():H.StructureName) || Hit.ImpactNormal.Z<.85 || !Map->ResolveCell(Hit,Cell))continue;
+            if(Only && Map->GetCellWorld().GetPanels()[Cell.Panel].Material!=*Only)continue;
             Point=Hit.ImpactPoint;
             if(Map->GetWorld()->OverlapBlockingTestByChannel(Point+FVector(0,0,98),FQuat::Identity,ECC_Pawn,FCollisionShape::MakeCapsule(34,92.5),Q))continue;
             return true;

@@ -166,6 +166,12 @@ bool BuildAlleyDistrict(const UERMapTemplate& T,int32 Seed,TArray<FERMapTemplate
         for(const auto Q:{C,Opposite(C)})L.TownCourts.Add(FBox(Q-FVector(S*.5f,0)+FVector(0,0,Z),Q+FVector(S*.5f,1)+FVector(0,0,Z)));
     }
     if(!PlanAlleyUnderpass(T,Seed,Base,Pieces,L))return false;
+    // Breachable road stays clear of the bridge stairs and piers, else no blast reaches it.
+    if(T.SizingTeamSize!=1)for(const auto& Hole:L.UnderpassBreaches)
+    {
+        const FVector2D Gap=(FVector2D(Hole.GetCenter())-FVector2D(PlazaCenters[0])).GetAbs(),Extent=FVector2D(Hole.GetExtent())+FVector2D(1300,200);
+        if(Gap.X<Extent.X && Gap.Y<Extent.Y){UE_LOG(LogTemp,Warning,TEXT("ER_DISTRICT_REJECT seed=%d breach_under_bridge=1"),Seed);return false;}
+    }
     for(const auto& Ramp:L.UnderpassRamps)Space({FVector2D(Ramp.Bounds.Min)-FVector2D(100),FVector2D(Ramp.Bounds.Max)+FVector2D(100)});
     for(const auto& Hole:L.UnderpassBreaches)
     {const FPlot P{FVector2D(Hole.Min)-FVector2D(120),FVector2D(Hole.Max)+FVector2D(120)};Space(P);Pad(P,0);}

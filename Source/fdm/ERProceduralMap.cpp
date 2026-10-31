@@ -212,7 +212,7 @@ bool ERProcedural::ApplyMapTheme(const FERProceduralConfig& C,FERProceduralLayou
         if(SteelRoles!=0 && SteelRoles!=3)return false;
         Names.Add(P.Name);
     }
-    // The same cosmetic stream for every archetype, separate from geometry RNG.
+    // Each template owns its library; the cosmetic stream stays separate from geometry RNG.
     FRandomStream Cosmetic(int32(HashCombine(uint32(C.Seed),0x524f4f4du)));
     const bool Village=C.TemplateAsset->Archetype==EERMapArchetype::Village;
     const int32 Index=Cosmetic.RandRange(0,Library.Themes.Num()-1);
@@ -223,27 +223,12 @@ bool ERProcedural::ApplyMapTheme(const FERProceduralConfig& C,FERProceduralLayou
     for(auto& Panel:L.Panels)
     {
         const bool Cargo=P.PreserveCargoPaint && Panel.Material==EERBlockMaterial::Metal && Panel.Strength>1 && Panel.Surface;
-        // Jungle retains Village's original UV skins and gray cladding. Other
-        // palettes recolor these pieces too, using the shared material finish.
+        // Jungle retains Village's original UV skins and gray cladding.
         const bool VillageSkin=Village && P.Name==TEXT("Jungle") && Panel.Surface;
         if(!Cargo && !VillageSkin)Panel.Surface=P.Materials[uint8(Panel.Material)];
-        if(Panel.SkinName.ToString().StartsWith(TEXT("AlleyModule_")))
-        {
-            const FString Role=Panel.SkinName.ToString();
-            const bool Slab=Role.EndsWith(TEXT("_Floor")) || Role.EndsWith(TEXT("_Roof"));
-            auto* Exterior=P.Materials[uint8(EERBlockMaterial::Stone)].Get();
-            UMaterialInterface* Wall=P.Wall.Get();
-            TArray<UMaterialInterface*> Choices{P.Wall.Get(),P.Ceiling.Get(),P.Floor.Get(),C.TemplateAsset->Town.WoodSurface.Get(),C.TemplateAsset->Town.RoofSurface.Get()};
-            for(const auto& M:P.Materials)Choices.Add(M.Get());
-            for(auto* Candidate:Choices)if(Candidate && Wall==Exterior && Candidate!=Exterior)Wall=Candidate;
-            Panel.Surface=Wall;
-            if(Slab)
-            {
-                Panel.Surface=P.Floor;
-                for(auto* Candidate:Choices)
-                    if(Candidate && (Panel.Surface==Wall || Panel.Surface==Exterior) && Candidate!=Wall && Candidate!=Exterior)Panel.Surface=Candidate;
-            }
-        }
+        // House walls show their physical material; slabs keep the screed finish.
+        const FString Role=Panel.SkinName.ToString();
+        if(Role.StartsWith(TEXT("AlleyModule_")) && (Role.EndsWith(TEXT("_Floor")) || Role.EndsWith(TEXT("_Roof"))))Panel.Surface=P.Floor;
         if(P.LadderSteel && Panel.Material==EERBlockMaterial::Metal && Panel.Strength==1)
         {
             const FVector Center=Panel.Transform.TransformPosition(Panel.Size*.5);
@@ -278,7 +263,7 @@ bool ERProcedural::ApplyMapTheme(const FERProceduralConfig& C,FERProceduralLayou
         else if(P.DeckSteel && !Piece.Mesh && !Piece.VisualOnly)
         {
             const FVector Size=Piece.Transform.GetScale3D()*100;
-            if(Size.Z<=30 && Size.X>=100 && Size.Y>=100 && (Piece.Material==EERBlockMaterial::Metal || Piece.Material==EERBlockMaterial::Concrete))Piece.Surface=P.DeckSteel;
+            if(Size.Z<=30 && Size.X>=100 && Size.Y>=100 && Piece.Material==EERBlockMaterial::Metal)Piece.Surface=P.DeckSteel;
         }
     }
     for(auto& Face:L.RoomShell)
