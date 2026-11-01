@@ -2,6 +2,7 @@
 """Native math or two actual Unreal peers: authoritative bullet aim and red HUD."""
 from pathlib import Path
 import argparse, json, math, os, re, subprocess, time
+from client_shutdown import settle_clients
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--automation',action='store_true')
 p.add_argument('--render',action='store_true')
@@ -80,6 +81,7 @@ try:
     print(json.dumps(receipt,indent=2))
     raise SystemExit(0 if all(checks.values()) else 1)
 finally:
+    settle_clients(processes,handles)
     for proc in processes:
         if proc.poll() is None:
             proc.terminate()

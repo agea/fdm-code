@@ -20,4 +20,4 @@ partitioning. Teams use sand terraces up to +1.8m.
 
 ## Verify
 
-`test-dust-template.py --alleys` (`--architecture`, `--render`, `--network`, `--plans`, `--passage`, `--modules`). Native: `EclipseRecoil.Destruction.MiddleEastern*`.
+`test-dust-template.py` (`--architecture`, `--render`, `--network`, `--plans`, `--passage`, `--modules`). Native: `EclipseRecoil.Destruction.MiddleEastern*`.

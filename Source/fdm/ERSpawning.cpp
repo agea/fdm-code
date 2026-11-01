@@ -2,6 +2,7 @@
 #include "ERCharacter.h"
 #include "ERBotController.h"
 #include "ERProceduralMap.h"
+#include "ERSpawnRisk.h"
 #include "Components/CapsuleComponent.h"
 #include "EngineUtils.h"
 
@@ -22,6 +23,7 @@ void AERGameMode::PrepareTeamStarts()
         // Build at most once per seed/epoch, then reuse the real layout metadata.
         if (Map->GetMapEpoch() == 0)
         {
+            Map->ResolveMapCandidate();
             if (!ERProcedural::Build(Map->LayoutConfig, Map->Config, InitialLayout, Map->CellSettings)) return;
             Layout = &InitialLayout;
         }
@@ -59,6 +61,7 @@ void AERGameMode::PrepareTeamStarts()
                 for (const auto& Bot : TestBots) if (IsValid(Bot.Get()) && Bot->TrainingStart == *Start) PrivateBotStart = true;
                 if (!PrivateBotStart) Start->Destroy();
             }
+        if (SpawnMemory) SpawnMemory->Reset();
         PreparedSpawnMap = *Map;
         PreparedSpawnEpoch = Map->GetMapEpoch();
         PreparedSpawnSeed = Map->LayoutConfig.Seed;
@@ -111,6 +114,32 @@ AERTeamPlayerStart* AERGameMode::FindAdditionalStart(AController* Player, TConst
     return nullptr;
 }
 
+AERTeamPlayerStart* AERGameMode::ChooseScoredStart(EERTeam Team, const TArray<AERTeamPlayerStart*>& Clear)
+{
+    if (!SpawnMemory) SpawnMemory = MakeShared<FERSpawnMemory>();
+    const auto Tuning = ERSpawnRisk::Tuning(GetWorld());
+    // Rotate past the cap so overflow starts stay reachable in a crowded base.
+    const int32 Count = FMath::Min(Clear.Num(), Tuning.MaxCandidates), First = FMath::RandHelper(Clear.Num());
+    TArray<FERSpawnCandidate> Candidates;
+    for (int32 I = 0; I < Count; ++I) Candidates.AddDefaulted_GetRef().Location = Clear[(First + I) % Clear.Num()]->GetActorLocation();
+    TArray<FERSpawnThreat> Threats; TArray<FERSpawnHazard> Hazards;
+    ERSpawnRisk::GatherThreats(GetWorld(), Team, Threats, Hazards);
+    const int32 Side = Team == EERTeam::Omega ? 1 : 0;
+    const double Now = GetWorld()->GetTimeSeconds();
+    const int32 Traces = ERSpawnRisk::Score(GetWorld(), Candidates, Threats, Hazards, SpawnMemory->Deaths[Side], SpawnMemory->Starts[Side], Now, Tuning);
+    const int32 Choice = ERSpawnRisk::Pick(Candidates, Tuning, [](int32 Options) { return FMath::RandHelper(Options); });
+    auto* Start = Clear[(First + Choice) % Clear.Num()];
+    SpawnMemory->Add(SpawnMemory->Starts[Side], Start->GetActorLocation(), Now);
+#if !UE_BUILD_SHIPPING
+    if (FParse::Param(FCommandLine::Get(), TEXT("ERSpawnAudit")))
+    {
+        int32 Exposed = 0; for (const auto& C : Candidates) Exposed += C.Seen > 0;
+        UE_LOG(LogTemp, Display, TEXT("ER_SPAWN_CHOICE team=%d candidates=%d exposed=%d enemies=%d traces=%d chosen_seen=%d risk=%.0f"), Side, Candidates.Num(), Exposed, Threats.Num(), Traces, Candidates[Choice].Seen, Candidates[Choice].Risk);
+    }
+#endif
+    return Start;
+}
+
 AActor* AERGameMode::ChoosePlayerStart_Implementation(AController* Player)
 {
     auto* State = Player ? Player->GetPlayerState<AERPlayerState>() : nullptr;
@@ -139,6 +168,8 @@ AActor* AERGameMode::ChoosePlayerStart_Implementation(AController* Player)
         Bot->TrainingStart = FindAdditionalStart(Player, Anchors);
         if (Bot->TrainingStart) return Bot->TrainingStart;
     }
-    if (!Clear.IsEmpty()) return Clear[FMath::RandHelper(Clear.Num())];
+    // Every placement filter already ran. Scoring only orders starts that are legal anyway.
+    // The fixed Depot keeps random starts: it is the reference for baseline regressions.
+    if (!Clear.IsEmpty()) return PreparedSpawnMap.IsValid() && ERSpawnRisk::Enabled(GetWorld()) ? ChooseScoredStart(State->Team, Clear) : Clear[FMath::RandHelper(Clear.Num())];
     return FindAdditionalStart(Player, Anchors);
 }

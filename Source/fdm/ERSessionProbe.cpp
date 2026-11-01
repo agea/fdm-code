@@ -90,7 +90,7 @@ void AERSessionProbe::Tick(float DeltaTime)
             {
                 Check(Distance>20,TEXT("movement_bot_moves"));
                 const auto* C=Cast<AERCharacter>(Pair.Key->GetPawn());
-                Check(C && C->Weapon->MagazineAmmo==C->Weapon->Data->MagazineSize,TEXT("movement_bot_never_fires"));
+                Check(C && C->Weapon->AuthorizedShotCount==0,TEXT("movement_bot_never_fires"));
             }
         }
         if (!Lab) { Phase=3; Deadline=Now+(GetNetMode()==NM_ListenServer ? 60 : 1); return; }

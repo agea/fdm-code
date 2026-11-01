@@ -33,6 +33,7 @@ bool FERRoundRotationCycle::RunTest(const FString& Parameters)
 {
     const auto Pool=ERMaps::Rotation();
     if(!TestTrue(TEXT("at least two production templates"),Pool.Num()>1))return false;
+    TestTrue(TEXT("a reference map outside the pool restarts in place"),ERMaps::NextRoundMaps(TEXT("/Game/EclipseRecoil/Maps/L_Depot"),{}).IsEmpty());
     TSet<FString> Orders;
     for(int32 Seed=0;Seed<128;++Seed)
     {

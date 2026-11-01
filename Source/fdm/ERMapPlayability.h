@@ -45,6 +45,10 @@ struct FERTacticalGraph
     int32 AddEdge(int32 A,int32 B,EERTacticalMove Move,const FString& Source,bool Confirmed,float Width=0);
 };
 
+// Damage states a policy reads. Each needs something that can really break on that archetype.
+enum class EERStressScenario : uint8 { None=0,CentralBreach=1,CoverRemoved=2,HighSightline=4,WalkwayLost=8,All=15 };
+ENUM_CLASS_FLAGS(EERStressScenario)
+
 struct FERPlayabilityPolicy
 {
     int32 MinIndependentPaths=2;
@@ -52,6 +56,10 @@ struct FERPlayabilityPolicy
     float EyeOffset=64; // Above the capsule centre of a standing pawn.
     int32 MaxSpawnPairs=100;
     int32 PathLimit=8; // Flow stops here: more independent paths change nothing.
+    // Bounded sight reading of routes: rays stay under MaxVantages*2*MaxExits+MaxObservers*MaxRouteSamples.
+    float VantageHeight=200,RouteStep=400;
+    int32 MaxVantages=12,MaxExits=12,MaxObservers=16,MaxRouteSamples=24;
+    EERStressScenario Stress=EERStressScenario::All;
 };
 
 struct FERPlayabilityViolation
@@ -71,6 +79,18 @@ struct FERPlayabilityMetric
     TArray<FERPlayabilityViolation> Violations;
     double Value(const TCHAR* Name,double Default=0) const;
 };
+// One deterministic damage state, read on the layout. Only real destruction is modelled: panels
+// opened here can lose those cells in play, and anything else stays not applicable.
+struct FERStressResult
+{
+    FString Scenario,Reason;
+    bool bApplicable=false;
+    TArray<TPair<int32,FBox2D>> Openings; // Layout panel index and panel-local X/Z rectangle.
+    int32 VisiblePairs=0,VisiblePairsDamaged=0;
+    int32 Paths=0,PathsDamaged=0;
+    double ExitShare=0,ExitShareDamaged=0;
+    double OpenShare=0,OpenShareDamaged=0;
+};
 struct FERPlayabilityReport
 {
     int32 Seed=0,ExpectedTeamSize=0,TemplateRevision=0;
@@ -79,6 +99,7 @@ struct FERPlayabilityReport
     EERPlayabilityStage Stage=EERPlayabilityStage::Layout;
     FERTacticalGraph Graph;
     TArray<FERPlayabilityMetric> Metrics;
+    TArray<FERStressResult> Stress; // Layout readings: the physical stage keeps them as they are.
     TArray<TPair<FString,double>> TimingsMs;
     FERPlayabilityMetric* Find(const TCHAR* Code);
     const FERPlayabilityMetric* Find(const TCHAR* Code) const;
@@ -87,7 +108,7 @@ struct FERPlayabilityReport
 
 namespace ERPlayability
 {
-    constexpr int32 ReportVersion=1;
+    constexpr int32 ReportVersion=3;
     // -ERMapPlayability=ReportOnly on the authority; always Off in Shipping.
     EERPlayabilityMode Mode();
     FERPlayabilityPolicy PolicyFor(EERMapArchetype Archetype,int32 ExpectedTeamSize);
@@ -98,6 +119,8 @@ namespace ERPlayability
     // Nodes every From-To path crosses, nearest From first.
     TArray<int32> CommonChokes(const FERTacticalGraph& Graph,const TArray<int32>& From,const TArray<int32>& To);
     float PathLength(const FERTacticalGraph& Graph,const TArray<int32>& From,const TArray<int32>& To);
+    // Next cheapest way between the sets once the first path's nodes outside them are gone. -1: none.
+    float LateralPathLength(const FERTacticalGraph& Graph,const TArray<int32>& From,const TArray<int32>& To);
 
     FERTacticalGraph BuildGraph(const FERProceduralLayout& Layout,EERMapArchetype Archetype,const FERPlayabilityPolicy& Policy);
     // Fills the topology metrics of a report whose graph is already set.
@@ -107,6 +130,9 @@ namespace ERPlayability
     // Physical stage: real collision after the map is generated. Replaces INITIAL_SPAWN_LOS,
     // sweeps a capsule along every walking edge and reevaluates the topology.
     void ConfirmInWorld(FERPlayabilityReport& Report,class UWorld* World,const FTransform& MapFrame,const FERProceduralLayout& Layout,const FERPlayabilityPolicy& Policy);
+
+    // Layout stage again, once per scenario: needs cell panels. Report-only.
+    TArray<FERStressResult> Stress(const FERProceduralLayout& Layout,const FERPlayabilityReport& Report,const FERPlayabilityPolicy& Policy);
 
     // Stable text: same seed, version and policy give the same bytes without timings.
     FString ToJson(const FERPlayabilityReport& Report,bool bTimings);

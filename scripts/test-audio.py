@@ -6,6 +6,7 @@ as well; this checks playback/variant events, not a claim of subjective listenin
 """
 from pathlib import Path
 import argparse,os,subprocess,time,re,json
+from client_shutdown import settle_clients
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--network',action='store_true')
 p.add_argument('--render',action='store_true')
@@ -66,6 +67,7 @@ try:
     print('Logs:',hostlog,clientlog)
     raise SystemExit(0 if all(checks.values()) else 1)
 finally:
+    settle_clients(processes,handles)
     for process in processes:
         if process.poll() is None:
             process.terminate()

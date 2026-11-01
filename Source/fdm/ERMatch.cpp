@@ -22,6 +22,7 @@
 #include "ERBotController.h"
 #include "ERBotProbe.h"
 #include "ERSessionProbe.h"
+#include "ERSpawnRisk.h"
 #include "ERBotMotionProbe.h"
 #include "ERMovementProbe.h"
 #include "ERTraversalProbe.h"
@@ -119,7 +120,12 @@ void AERGameMode::InitGame(const FString& MapName, const FString& Options, FStri
             It->LayoutConfig.Seed = UGameplayStatics::GetIntOption(Options, TEXT("MapSeed"), Rules.Get("Map.FixedSeed")>0?int32(Rules.Get("Map.Seed")):It->LayoutConfig.Seed);
             FParse::Value(FCommandLine::Get(), TEXT("ERMapSeed="), It->LayoutConfig.Seed);
             It->LayoutConfig.CrossingOverride=0;
+            It->LayoutConfig.bEnablePCGExMacroGraph=false;
+            It->bSelectMapCandidates=false;
 #if !UE_BUILD_SHIPPING
+            It->bSelectMapCandidates=UGameplayStatics::GetIntOption(Options,TEXT("MapSelection"),0)!=0 || FParse::Param(FCommandLine::Get(),TEXT("ERMapSelection"));
+            // The authority decides; clients follow the descriptor, never a local flag.
+            It->LayoutConfig.bEnablePCGExMacroGraph=UGameplayStatics::GetIntOption(Options,TEXT("RoomsMacroGraph"),0)!=0 || FParse::Param(FCommandLine::Get(),TEXT("ERRoomsMacroGraph"));
             if(FParse::Param(FCommandLine::Get(),TEXT("ERIndustrialMapProbe")))
                 It->LayoutConfig.CrossingOverride=UGameplayStatics::GetIntOption(Options,TEXT("MapCrossing"),0);
 #endif
@@ -548,6 +554,12 @@ void AERGameMode::RecordDeath(AERCharacter* Victim, AController* Killer)
     auto* VictimPS = Victim->GetPlayerState<AERPlayerState>();
     auto* KillerPS = Killer ? Killer->GetPlayerState<AERPlayerState>() : nullptr;
     if (VictimPS) ++VictimPS->Deaths;
+    if (VictimPS && VictimPS->Team != EERTeam::None)
+    {
+        if (!SpawnMemory) SpawnMemory = MakeShared<FERSpawnMemory>();
+        auto& Deaths = SpawnMemory->Deaths[VictimPS->Team == EERTeam::Omega ? 1 : 0];
+        SpawnMemory->Add(Deaths, Victim->GetActorLocation(), GetWorld()->GetTimeSeconds());
+    }
     if (VictimPS && KillerPS && KillerPS != VictimPS)
     {
         if (VictimPS->Team == KillerPS->Team) ++KillerPS->TeamKills;

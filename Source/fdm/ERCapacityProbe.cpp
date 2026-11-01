@@ -3,11 +3,13 @@
 #include "ERMatch.h"
 #include "ERCharacter.h"
 #include "ERBlockRoom.h"
+#include "ERMapCatalog.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/GameSession.h"
 #include "EngineUtils.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
+#include "Misc/Paths.h"
 
 AERCapacityProbe::AERCapacityProbe()
 {
@@ -27,10 +29,18 @@ void AERCapacityProbe::Tick(float DeltaTime)
     auto* GS = GetWorld()->GetGameState<AERGameState>();
     if (!PC || !PC->IsLocalController() || !GI || !GS || GetWorld()->GetTimeSeconds() < 1) return;
     const bool Host = FParse::Param(FCommandLine::Get(), TEXT("ERCapacityHost"));
-    int32 Limit = 6, Client = 0, Map = 1;
+    int32 Limit = 6, Client = 0, Map = INDEX_NONE;
+    FString MapId;
     FParse::Value(FCommandLine::Get(), TEXT("ERCapacityLimit="), Limit);
     FParse::Value(FCommandLine::Get(), TEXT("ERCapacityClient="), Client);
-    FParse::Value(FCommandLine::Get(), TEXT("ERCapacityMap="), Map);
+    FParse::Value(FCommandLine::Get(), TEXT("ERCapacityMap="), MapId);
+    for (int32 I = 0; I < ERMaps::All().Num(); ++I) if (MapId == ERMaps::At(I).Id) Map = I;
+    if (!ERMaps::Enabled(Map))
+    {
+        Check(false, TEXT("capacity_map_in_lobby_pool"));
+        FPlatformMisc::RequestExitWithStatus(false, 1);
+        return;
+    }
     const double Now = GetWorld()->GetTimeSeconds();
     if (PC->IsMenuLevel() && GetNetMode() == NM_Standalone)
     {
@@ -81,7 +91,7 @@ void AERCapacityProbe::Tick(float DeltaTime)
         return;
     }
     if (!PC->GetPawn() || GS->PlayerArray.Num() < Limit) return;
-    if (Map == 0)
+    if (ERMaps::At(Map).Procedural)
     {
         TActorIterator<AERBlockRoom> Room(GetWorld());
         if (!Room || !Room->IsMapReady() || PC->IsBlockMapLoading()) return;
@@ -125,19 +135,18 @@ void AERCapacityProbe::Tick(float DeltaTime)
         }
         Check(TeamCorrect, TEXT("all_six_players_can_choose_same_team"));
         Check(Separated && Supported, TEXT("crowded_team_spawns_have_floor_and_do_not_overlap"));
-        if (Map == 1)
+        Check(GetWorld()->GetMapName().Contains(FPaths::GetBaseFilename(ERMaps::At(Map).Package)), TEXT("voted_map_loaded"));
+        TArray<AERTeamPlayerStart*> AlphaStarts;
+        int32 Omega = 0;
+        for (TActorIterator<AERTeamPlayerStart> Start(GetWorld()); Start; ++Start)
         {
-            int32 Additional = 0;
-            for (TActorIterator<AERTeamPlayerStart> Start(GetWorld()); Start; ++Start) Additional += Start->ActorHasTag(TEXT("ERAdditionalStart"));
-            Check(Additional >= Limit - 2, TEXT("depot_creates_additional_spawn_positions"));
+            if (Start->Team == EERTeam::Alpha) AlphaStarts.Add(*Start);
+            Omega += Start->Team == EERTeam::Omega;
         }
-        else
-        {
-            int32 Alpha = 0, Omega = 0;
-            for (TActorIterator<AERTeamPlayerStart> Start(GetWorld()); Start; ++Start)
-            { Alpha += Start->Team == EERTeam::Alpha; Omega += Start->Team == EERTeam::Omega; }
-            Check(Alpha >= 10 && Omega >= 10, TEXT("industrial_uses_all_layout_spawns"));
-        }
+        Check(AlphaStarts.Num() >= Limit && Omega >= Limit, TEXT("both_teams_have_a_start_per_player"));
+        // Layouts carry more starts than this lobby has players, so the overflow search is asked directly.
+        const auto* Overflow = Mode ? Mode->FindAdditionalStart(PC, AlphaStarts) : nullptr;
+        Check(Overflow && Overflow->ActorHasTag(TEXT("ERAdditionalStart")), TEXT("crowded_base_finds_additional_spawn_position"));
         UE_LOG(LogTemp, Display, TEXT("ER_CAPACITY_INITIAL result=%s humans=%d max=%d"), Failed ? TEXT("FAIL") : TEXT("PASS"), Humans.Num(), Limit);
         Phase = 1;
     }

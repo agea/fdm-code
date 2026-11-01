@@ -6,6 +6,7 @@ import os
 import re
 import subprocess
 import time
+from client_shutdown import settle_clients
 
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--render',action='store_true',help='Capture rifle hip/iron/optical states with Metal')
@@ -54,6 +55,7 @@ try:
         print('ER_SCOPE_CONTINUOUS_TRANSITIONS',transitions);success &= transitions
     raise SystemExit(0 if success else 1)
 finally:
+    settle_clients(processes,handles)
     for process in processes:
         if process.poll() is None:
             process.terminate()

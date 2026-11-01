@@ -16,6 +16,9 @@ storeys from 2.4m, budget of 10 floors.
   floors cannot satisfy.
 - Perimeter: tapered 3.8–4.4m logs with real shot gaps, plus a hidden locomotion-only wall.
 - Backdrop: J&E Gray Park panorama (Greg Zaal, CC0), exterior trees, all skipped on dedicated.
+- Known defect: a few roof beams and pieces of the storage body have no support and fall at the
+  first damage anywhere on the map. See `fresh-support.csv` in
+  [destruction stress](../PROCEDURAL_MAP_PLAYABILITY.md#destruction-stress).
 
 ## Verify
 

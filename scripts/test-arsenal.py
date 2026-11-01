@@ -5,6 +5,7 @@ from presentation_labels import LEGACY_NAMES
 import os
 import subprocess
 import time
+from client_shutdown import settle_clients
 
 project=Path(__file__).resolve().parents[1]
 engine=Path(os.environ.get('UE_ROOT','/Users/Shared/Epic Games/UE_5.8'))
@@ -43,6 +44,7 @@ try:
         success &= passed
     raise SystemExit(0 if success else 1)
 finally:
+    settle_clients(processes,handles)
     for p in processes:
         if p.poll() is None:
             p.terminate()

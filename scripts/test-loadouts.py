@@ -2,6 +2,7 @@
 """Run native kit/mine invariants and a real15-kit host/client replication fixture."""
 from pathlib import Path
 import argparse,os,subprocess,time,re
+from client_shutdown import settle_clients
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--network',action='store_true')
 parser.add_argument('--player-team',action='store_true',help='Verify remote deferred team change, cancellation, protected suicide and respawn')
@@ -64,6 +65,7 @@ try:
             print('ER_CLAYMORE_LASER_CAPTURE',beam_ok);success &= beam_ok
     raise SystemExit(0 if success else 1)
 finally:
+    settle_clients(processes,files)
     for proc in processes:
         if proc.poll() is None:
             proc.terminate()

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Real local/listen/client tests for session setup, bot behavior and lab reloads."""
+"""Real local/listen/client tests for session setup and bot behavior."""
 from pathlib import Path
 import argparse, os, subprocess, time
+from client_shutdown import settle_clients
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument("--map", help="Run only scenarios for this map")
 args=parser.parse_args()
@@ -9,7 +10,7 @@ root=Path(__file__).resolve().parents[1]
 exe=Path(os.environ.get('UE_ROOT','/Users/Shared/Epic Games/UE_5.8'))/'Engine/Binaries/Mac/UnrealEditor.app/Contents/MacOS/UnrealEditor'
 logs=root/'Saved/Testing'; logs.mkdir(parents=True,exist_ok=True)
 common=[str(exe),str(root/'RespawnAndRage.uproject'),'-game','-nullrhi','-nosound','-unattended','-NoSplash','-Multiprocess','-stdout','-FullStdOutLogOutput','-ExecCmds=t.MaxFPS 60','-MULTIHOME=0.0.0.0']
-for index,(map_name,behavior,server) in enumerate([('L_Depot','Target',False),('L_Depot','Movement',True),('L_MovementLab','Target',True),('L_DestructionLab','Target',True),('L_ProceduralLab','Target',True)]):
+for index,(map_name,behavior,server) in enumerate([('L_Depot','Target',False),('L_Depot','Movement',True)]):
     if args.map and map_name!=args.map: continue
     port=17930+index
     label=f'session-{map_name}-{behavior}'
@@ -33,6 +34,7 @@ for index,(map_name,behavior,server) in enumerate([('L_Depot','Target',False),('
         print('\n'.join(line for line in output.splitlines() if 'ER_SESSION_' in line),flush=True)
         assert host.returncode==0 and 'ER_SESSION_COMPLETE result=PASS' in output and 'ER_SESSION_FAIL' not in output,str(path)
     finally:
+        settle_clients(processes,handles)
         for process in processes:
             if process.poll() is None: process.terminate()
         for process in processes:

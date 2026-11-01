@@ -6,12 +6,13 @@ import os
 import socket
 import subprocess
 import time
+from client_shutdown import settle_clients
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--industrial', action='store_true')
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[1]
-out = root / 'Saved/Testing' / ('CapacityIndustrial' if args.industrial else 'CapacityDepot')
+out = root / 'Saved/Testing' / ('CapacityIndustrial' if args.industrial else 'CapacityVillage')
 out.mkdir(parents=True, exist_ok=True)
 exe = Path(os.environ.get('UE_ROOT', '/Users/Shared/Epic Games/UE_5.8')) / 'Engine/Binaries/Mac/UnrealEditor.app/Contents/MacOS/UnrealEditor'
 port, discovery = (17961, 17962) if args.industrial else (17957, 17958)
@@ -21,7 +22,7 @@ processes, handles = [], []
 def launch(role, extra, probe=True, url='/Game/EclipseRecoil/Maps/L_MainMenu'):
     handle = (out / (role + '.log')).open('w')
     handles.append(handle)
-    flags = ['-ERCapacityProbe', '-ERCapacityLimit=6', '-ERCapacityMap=' + ('0' if args.industrial else '1')] if probe else []
+    flags = ['-ERCapacityProbe', '-ERCapacityLimit=6', '-ERCapacityMap=' + ('central_building' if args.industrial else 'village')] if probe else []
     process = subprocess.Popen(common + [url, '-UserDir=' + str(out / ('user-' + role))] + flags + extra, stdout=handle, stderr=subprocess.STDOUT)
     processes.append(process)
     return process
@@ -71,6 +72,7 @@ try:
     print('\n'.join(line for line in read('host').splitlines() if 'ER_CAPACITY_' in line), flush=True)
     print('Configured capacity integration: PASS', out, flush=True)
 finally:
+    settle_clients(processes, handles)
     for process in processes:
         if process.poll() is None:
             process.terminate()

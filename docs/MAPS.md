@@ -85,7 +85,8 @@ of older migrations.
 ## Depot
 
 Fixed reference map with finite ammunition, used by offline play and baseline regressions.
-Excluded from lobby buttons, votes and rotation through `InRotation`.
+Excluded from lobby buttons, votes and rotation through `InRotation`, so a listen server started
+on it by URL restarts its rounds in place.
 
 ## Textures
 
@@ -107,6 +108,6 @@ scripts from downgrading. Do not recreate retired levels (Killhouse, Dust, labor
 ## Verify
 
 `preview-map-sizing.py --verify-seeds 512`, `test-lobby.py --industrial --map-sizing`,
-`test-map-playability.py`. Native: `EclipseRecoil.Maps.*`, `EclipseRecoil.Destruction.SharedMapThemes`. Every template meets the same
+`test-map-playability.py`, `test-map-selection.py`. Native: `EclipseRecoil.Maps.*`, `EclipseRecoil.Destruction.SharedMapThemes`. Every template meets the same
 bar: 516 seeds natively, several physical seeds with real capsules, a real pawn on stairs and doors,
 damage, regeneration, and initial plus late client snapshots.

@@ -5,6 +5,7 @@ import argparse
 import os
 import subprocess
 import time
+from client_shutdown import settle_clients
 
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--network', action='store_true')
@@ -74,6 +75,7 @@ try:
     ok = host.returncode == 0 and 'ER_SERVER_RULES_COMPLETE result=PASS' in server and 'ER_SERVER_RULES_REMOTE phase=1' in remote and 'ER_SERVER_RULES_REMOTE phase=2' in remote
     raise SystemExit(0 if ok else 1)
 finally:
+    settle_clients(processes, files)
     for proc in processes:
         if proc.poll() is None:
             proc.terminate()

@@ -1,5 +1,5 @@
 {
-	"report_version": 1,
+	"report_version": 3,
 	"seed": 42,
 	"expected_team_size": 2,
 	"archetype": "Rooms",
@@ -171,31 +171,42 @@
 		},
 		{
 			"code": "DOMINANT_VANTAGE",
-			"status": "not_evaluated",
-			"stage": "layout",
-			"reason": "Planned metric, not computed yet",
+			"status": "pass",
+			"stage": "physical",
+			"reason": "No raised position on the recorded routes",
 			"values":
 			{
+				"vantages": 0,
+				"alpha_exit_share": 0,
+				"omega_exit_share": 0,
+				"worst_exit_share": 0
 			},
 			"violations": []
 		},
 		{
 			"code": "ROUTE_EXPOSURE",
-			"status": "not_evaluated",
-			"stage": "layout",
-			"reason": "Planned metric, not computed yet",
+			"status": "pass",
+			"stage": "physical",
+			"reason": "Measured against base exits and raised nodes: no threshold here, archetype profiles read it",
 			"values":
 			{
+				"samples": 14,
+				"observers": 2,
+				"open_share": 0.070000000000000007,
+				"longest_open_run_m": 4
 			},
 			"violations": []
 		},
 		{
 			"code": "ROUTE_DIVERSITY",
-			"status": "not_evaluated",
-			"stage": "layout",
-			"reason": "Planned metric, not computed yet",
+			"status": "pass",
+			"stage": "physical",
+			"reason": "",
 			"values":
 			{
+				"direct_m": 53.18,
+				"lateral_m": 53.18,
+				"lateral_ratio": 1
 			},
 			"violations": []
 		},
@@ -210,13 +221,47 @@
 			"violations": []
 		}
 	],
+	"stress": [
+		{
+			"scenario": "central_breach",
+			"applicable": false,
+			"reason": "No breakable wall lies between the bases",
+			"openings": 0,
+			"visible_pairs": 0,
+			"visible_pairs_damaged": 0,
+			"paths": 2,
+			"paths_damaged": 2,
+			"exit_share": 0,
+			"exit_share_damaged": 0,
+			"open_share": 0.070000000000000007,
+			"open_share_damaged": 0.070000000000000007
+		},
+		{
+			"scenario": "high_sightline",
+			"applicable": false,
+			"reason": "No breakable wall hides a base exit from a raised node",
+			"openings": 0,
+			"visible_pairs": 0,
+			"visible_pairs_damaged": 0,
+			"paths": 2,
+			"paths_damaged": 2,
+			"exit_share": 0,
+			"exit_share_damaged": 0,
+			"open_share": 0.070000000000000007,
+			"open_share_damaged": 0.070000000000000007
+		}
+	],
 	"timings_ms":
 	{
 		"graph": 0.01,
-		"topology": 0.050000000000000003,
-		"spawn_sight": 1.4099999999999999,
-		"physical_edges": 0.20999999999999999,
-		"physical_topology": 0.040000000000000001,
-		"physical_spawn_sight": 6.0700000000000003
+		"topology": 0.029999999999999999,
+		"solids": 0.02,
+		"spawn_sight": 0.52000000000000002,
+		"route_sight": 0.040000000000000001,
+		"stress": 0.02,
+		"physical_edges": 0.16,
+		"physical_topology": 0.029999999999999999,
+		"physical_spawn_sight": 2.3900000000000001,
+		"physical_route_sight": 0.059999999999999998
 	}
 }

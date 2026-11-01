@@ -2,6 +2,7 @@
 """Fire Training warehouse: native layout/physics tests or real Metal captures."""
 import argparse,json,os,re,subprocess,time
 from pathlib import Path
+from client_shutdown import settle_clients
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--render',action='store_true',help='Launch L_FireTraining and capture plan/base/catwalk/steel detail/distant views')
 p.add_argument('--seed',type=int,default=42,help='Initial game or network seed')
@@ -47,6 +48,7 @@ if args.network:
         (out/'fire-training-network-report.json').write_text(json.dumps(dict(result='PASS' if passed else 'FAIL',states=states,logs={k:str(v) for k,v in paths.items()}),indent=2)+'\n')
         raise SystemExit(0 if passed else 1)
     finally:
+        settle_clients(processes,handles)
         for process in processes:
             if process.poll() is None:process.terminate()
         for process in processes:

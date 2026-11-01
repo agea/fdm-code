@@ -139,6 +139,8 @@ void AERBotProbe::Tick(float DeltaTime)
     const double Now = GetWorld()->GetTimeSeconds();
     if (Phase == 0)
     {
+        // The bot patrols and fires while the client loads; the host must reach the checks alive.
+        for (TActorIterator<AERCharacter> It(GetWorld()); It; ++It) if (!Cast<AERBotController>(It->GetController())) It->Health->ProtectionEndServerTime=Now+60;
         for (TActorIterator<AERBotController> It(GetWorld()); It; ++It) Bot = *It;
         for (FConstPlayerControllerIterator It = GetWorld()->GetPlayerControllerIterator(); It; ++It)
             if (auto* PC = Cast<AERPlayerController>(It->Get()); PC && PC->IsLocalController()) Host = PC;
@@ -185,7 +187,7 @@ void AERBotProbe::Tick(float DeltaTime)
             bTargetMode ? TEXT("target_stays_stationary") : TEXT("bot_patrol_moves"));
         PlacePlayers(false); H->Health->ProtectionEndServerTime=0; Advance(2,4); break;
     case 2:
-        Check(bTargetMode ? B->Weapon->MagazineAmmo==30 && H->Health->Health==100 : B->Weapon->MagazineAmmo<30 && H->Health->Health<100,
+        Check(bTargetMode ? B->Weapon->MagazineAmmo==30 && H->Health->Health==100 : B->Weapon->MagazineAmmo<30 && H->Health->Health<100 && !H->Health->bDead,
             bTargetMode ? TEXT("target_never_fires") : TEXT("bot_real_projectile_damage_ammo"));
         B->ServerStopFire(); PlacePlayers(true); AmmoBeforeWall=B->Weapon->MagazineAmmo; H->Health->ProtectionEndServerTime=Now+60;
         Advance(3,1); break;

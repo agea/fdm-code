@@ -2,6 +2,7 @@
 """Actual listen-server/autonomous-client player mechanics, no saved test maps."""
 from pathlib import Path
 import subprocess,time,os,sys,argparse
+from client_shutdown import settle_clients
 args=argparse.ArgumentParser();args.add_argument('--render',action='store_true');args.add_argument('--fps',type=int,default=60);args=args.parse_args()
 p=Path(__file__).resolve().parents[1];logs=p/'Saved/Testing';logs.mkdir(exist_ok=True,parents=True)
 exe=Path(os.environ.get('UE_ROOT','/Users/Shared/Epic Games/UE_5.8'))/'Engine/Binaries/Mac/UnrealEditor.app/Contents/MacOS/UnrealEditor'
@@ -27,6 +28,7 @@ try:
     success='ER_TRAVERSAL_COMPLETE PASS' in texts[0] and texts[1].count('ER_TRAVERSAL_CLIENT_PASS')>=3 and all('ER_TRAVERSAL_FAIL' not in t and 'ER_TRAVERSAL_CLIENT_FAIL' not in t for t in texts)
     sys.exit(0 if success else 1)
 finally:
+    settle_clients(procs,handles)
     for pr in procs:
         if pr.poll() is None:pr.terminate()
     for pr in procs:

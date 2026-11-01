@@ -131,6 +131,7 @@ struct FERProceduralLayout
     int32 VillageBaseVariant=0;
     TArray<FBox> WarehouseBaseCourts,WarehouseCatwalks;
     int32 RoomsTheme=0;
+    int32 RoomsMacroVariant=INDEX_NONE; // Baked plan in use: lanes*1000+sample, or legacy.
     int32 ThemeIndex=INDEX_NONE,ThemeRevision=0;
     FName ThemeName;
     TArray<class UMaterialInterface*> ThemeMaterials;
@@ -193,6 +194,9 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Procedural") TObjectPtr<class UMaterialInterface> CeilingSurface;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Procedural") TObjectPtr<class UMaterialInterface> ExteriorFloorSurface;
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Procedural") bool bCeilings = true;
+    // Authority only, off by default. Clients follow LayoutConfig.MapCandidate.
+    bool bSelectMapCandidates=false;
+    void ResolveMapCandidate();
     uint32 GetTemplateGeometryDigest() const;
     const FERProceduralLayout& GetLayout() const { return Layout; }
     virtual FVector GetSpawnLocation() const override { return GetActorTransform().TransformPosition(Layout.Spawn); }
@@ -206,6 +210,7 @@ private:
     FERProceduralLayout Layout;
     // Opt-in diagnostics: the layout stage needs Panels, which the map then drops.
     TSharedPtr<struct FERPlayabilityReport> PlayabilityDraft;
+    TOptional<FIntPoint> SelectedFor; // Seed and team size: the early start preparation shares one selection.
     UPROPERTY() TObjectPtr<class UInstancedStaticMeshComponent> TileFloors;
     UPROPERTY() TObjectPtr<class UInstancedStaticMeshComponent> WoodFloors;
     UPROPERTY() TObjectPtr<class UInstancedStaticMeshComponent> Ceilings;

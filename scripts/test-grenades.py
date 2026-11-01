@@ -2,6 +2,7 @@
 """Real listen/client grenade fuses, tumble, smoke walls/windows and cleanup."""
 from pathlib import Path
 import argparse,json,os,subprocess,time,re
+from client_shutdown import settle_clients
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--render',action='store_true',help='Render the fixture on Metal and save captures')
 parser.add_argument('--combat',action='store_true',help='Test 2/6m blast, armor, cover, cook and real press/release inputs')
@@ -62,6 +63,7 @@ try:
     (logs/(tag+'-results.json')).write_text(json.dumps(checks,indent=2)+'\n')
     raise SystemExit(0 if all(checks.values()) else 1)
 finally:
+    settle_clients(processes,handles)
     for process in processes:
         if process.poll() is None:
             process.terminate()

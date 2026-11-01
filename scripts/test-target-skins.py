@@ -5,6 +5,7 @@ import os
 import subprocess
 import time
 import runpy
+from client_shutdown import settle_clients
 count=len(runpy.run_path(str(Path(__file__).with_name("character_catalog.py")))["NAMES"]["Alpha"])
 
 project = Path(__file__).resolve().parents[1]
@@ -38,6 +39,7 @@ try:
         raise RuntimeError('Host probe failed')
     print(f'TARGETS PASS: all {count} skins per team, stationary and replicated after human join.')
 finally:
+    settle_clients(processes, handles)
     for process in processes:
         if process.poll() is None:
             process.terminate()

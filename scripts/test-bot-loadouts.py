@@ -4,6 +4,7 @@ from pathlib import Path
 import os
 import subprocess
 import time
+from client_shutdown import settle_clients
 
 project = Path(__file__).resolve().parents[1]
 editor = Path(os.environ.get('UE_ROOT', '/Users/Shared/Epic Games/UE_5.8')) / 'Engine/Binaries/Mac/UnrealEditor.app/Contents/MacOS/UnrealEditor'
@@ -40,6 +41,7 @@ def run(mode, port):
         if host.returncode or 'ER_BOT_LOADOUT_COMPLETE result=PASS' not in outputs['host'] or 'ER_BOT_LOADOUT_FAIL' in outputs['host']:
             raise RuntimeError(f'{mode}: probe failed')
     finally:
+        settle_clients(processes, handles)
         for process in processes:
             if process.poll() is None:
                 process.terminate()

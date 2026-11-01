@@ -12,7 +12,9 @@ for keys, units and ranges. Numbers below describe Standard values.
 - Server voting and rotation use production maps only. Rounds consume every template
   once in random order before reshuffling, avoiding a repeat across the boundary.
 - A lobby READY needs a strict majority of humans present (`Match.ReadyPercent`).
-- Respawn is requested by the player after 3s (fire or jump; the press is consumed).
+- Respawn is requested by the player after 3s (fire or jump; the press is consumed). On
+  procedural maps the server avoids exposed starts: see
+  [PROCEDURAL_MAP_PLAYABILITY.md](PROCEDURAL_MAP_PLAYABILITY.md#spawn-scoring).
   Spawn protection lasts 4s, renders the character opaque gray through one transient
   MID, and ends on expiry or attack.
 - Dead characters leave a replicated cosmetic ragdoll that touches only WorldStatic,
@@ -111,8 +113,8 @@ automatic respawn, bomb or capture modes. Competitive balance needs real playtes
 | Change | Run |
 | --- | --- |
 | Any gameplay | `test-network.py`; add `--accuracy`, `--skins` as relevant |
-| Movement, posture, stamina | `test-movement.py` (`--posture-only --render`), `test-parapets.py`, `test-player-mechanics.py` |
+| Movement, posture, stamina | `test-movement.py` (`--posture-only --render`), `test-player-mechanics.py` |
 | Server settings | `test-server-settings.py` (`--regressions`, `--network`, `--render`) |
 | Lobby, rotation, capacity | `test-lobby.py`, `test-round-rotation.py`, `test-capacity.py`, `test-admission.py --bots`, `test-session.py` |
-| Bots | `test-bots.py`, `test-bot-motion.py`, `test-bot-loadouts.py` |
+| Bots | `test-bots.py`, `test-bot-loadouts.py` |
 | Messages | `test-gameplay-messages.py`, `test-network.py --render` |

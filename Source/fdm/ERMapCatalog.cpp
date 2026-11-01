@@ -31,6 +31,8 @@ void RecordRoundMap(FName CurrentPackage,TArray<FName>& Played,const FERServerRu
 }
 TArray<FName> NextRoundMaps(FName CurrentPackage,TConstArrayView<FName> Played,const FERServerRules* Rules)
 {
+    // A fixed reference map stays out of the pool: its rounds restart in place.
+    for(const auto& Entry:All())if(CurrentPackage==FName(Entry.Package) && !Entry.InRotation)return {};
     TArray<FName> Result=Rotation(Rules);
     Result.RemoveAll([&](FName Map){return Played.Contains(Map);});
     // Refill only once every production template has been played. Also avoid

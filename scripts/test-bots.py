@@ -5,6 +5,7 @@ import os
 import re
 import subprocess
 import time
+from client_shutdown import settle_clients
 
 project = Path(__file__).resolve().parents[1]
 engine = Path(os.environ.get('UE_ROOT', '/Users/Shared/Epic Games/UE_5.8'))
@@ -52,11 +53,12 @@ def run_mode(mode, port):
         if f'ER_BOT_PAWN_CLASS mode={mode} class=/Game/EclipseRecoil/Core/BP_ERTrainingTarget.BP_ERTrainingTarget_C' not in output:
             raise RuntimeError(mode+' missing training pawn class')
         for side, text in [('host', output), ('client', client_output)]:
-            for team,mesh in [('Alpha','SK_ER_Twinblast_Alpha'),('Omega','SK_ER_Drongo_Omega')]:
+            for team,mesh in [('Alpha','SK_ER_WraithOfficer'),('Omega','SK_ER_Drongo_Omega')]:
                 if not re.search(rf'ER_TEAM_APPEARANCE team={team} mesh=/Game/EclipseRecoil/Characters/Teams/{team}/[^\n]*{mesh}', text):
                     raise RuntimeError(mode+' missing team character '+team+' on '+side)
-        print(mode+' TEAM APPEARANCE PASS: Twinblast/Drongo on host/client.', flush=True)
+        print(mode+' TEAM APPEARANCE PASS: Wraith/Drongo on host/client.', flush=True)
     finally:
+        settle_clients(processes, handles)
         for process in processes:
             if process.poll() is None:
                 process.terminate()

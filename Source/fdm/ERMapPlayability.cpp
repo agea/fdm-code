@@ -16,6 +16,9 @@ namespace
 const TCHAR* const Connected=TEXT("CONNECTED_ZONES");
 const TCHAR* const BaseExits=TEXT("BASE_EXIT_PATHS");
 const TCHAR* const SpawnSight=TEXT("INITIAL_SPAWN_LOS");
+const TCHAR* const Vantage=TEXT("DOMINANT_VANTAGE");
+const TCHAR* const Exposure=TEXT("ROUTE_EXPOSURE");
+const TCHAR* const Diversity=TEXT("ROUTE_DIVERSITY");
 constexpr float PawnRadius=35,PawnHalfHeight=93;
 constexpr float SweepRadius=34,SweepHalfHeight=88;
 
@@ -59,7 +62,8 @@ struct FLayoutSolids
         const FTransform Frame(Rotation,Center);const FVector Half=Size*.5;
         Solids.Add({Frame,Half,FBox(-Half,Half).TransformBy(Frame),Pawn,Sight});
     }
-    explicit FLayoutSolids(const FERProceduralLayout& L)
+    explicit FLayoutSolids(const FERProceduralLayout& L):FLayoutSolids(L,L.Panels){}
+    FLayoutSolids(const FERProceduralLayout& L,const TArray<FERCellPanelDesc>& Panels)
     {
         for(const auto& P:L.FixedPieces)
         {
@@ -67,7 +71,7 @@ struct FLayoutSolids
             if(P.MeshCollision){++Unknown;continue;}
             Add(P.Transform.GetRotation(),P.Transform.GetLocation(),P.Transform.GetScale3D()*100,true,!P.PawnBarrier);
         }
-        for(const auto& P:L.Panels)
+        for(const auto& P:Panels)
         {
             if(!P.Skin.IsEmpty() && !P.bSolidSkin){++Unknown;continue;}
             const bool Sight=P.Material!=EERBlockMaterial::Glass;
@@ -392,11 +396,11 @@ void ProbeSpawnSight(const FERProceduralLayout& L,const FERPlayabilityPolicy& P,
     Note(M,TEXT("pairs_total"),Pairs);Note(M,TEXT("pairs_sampled"),Sampled);
 }
 
-void EvaluateLayoutSight(FERPlayabilityReport& R,const FERProceduralLayout& L,const FERPlayabilityPolicy& P)
+void EvaluateLayoutSight(FERPlayabilityReport& R,const FERProceduralLayout& L,const FLayoutSolids& Solids,const FERPlayabilityPolicy& P)
 {
     auto& M=Reset(R,SpawnSight,EERPlayabilityStage::Layout);
     if(L.AlphaSpawns.IsEmpty() || L.OmegaSpawns.IsEmpty()){M.Reason=TEXT("layout has no paired starts");return;}
-    const FLayoutSolids Solids(L);int32 Visible=0;
+    int32 Visible=0;
     ProbeSpawnSight(L,P,FTransform::Identity,M,TEXT("layout sight line"),Visible,[&](FVector A,FVector B){return Solids.SightClear(A,B);});
     Note(M,TEXT("visible_pairs"),Visible);Note(M,TEXT("unknown_solids"),Solids.Unknown);
     if(Visible==0)
@@ -414,6 +418,137 @@ void EvaluateLayoutSight(FERPlayabilityReport& R,const FERProceduralLayout& L,co
         M.Status=EERPlayabilityStatus::Warn;
         M.Reason=TEXT("Opposing starts see each other through known solids");
     }
+}
+
+// Cheapest walk between two sets, without banned nodes. Path holds its nodes, From end first.
+float Cheapest(const FERTacticalGraph& G,const TArray<int32>& From,const TArray<int32>& To,const TArray<bool>* Banned,TArray<int32>* Path)
+{
+    const auto Near=EdgesOfNodes(G);TArray<float> Best;Best.Init(MAX_flt,G.Nodes.Num());
+    TArray<int32> Parent;Parent.Init(INDEX_NONE,G.Nodes.Num());
+    using FStep=TPair<float,int32>;TArray<FStep> Heap;
+    auto Earlier=[](const FStep& A,const FStep& B){return A.Key!=B.Key ? A.Key<B.Key:A.Value<B.Value;};
+    for(int32 I:From){Best[I]=0;Parent[I]=I;Heap.HeapPush(FStep(0,I),Earlier);}
+    const auto InTo=Membership(G.Nodes.Num(),To);
+    while(!Heap.IsEmpty())
+    {
+        FStep Step;Heap.HeapPop(Step,Earlier,EAllowShrinking::No);
+        if(Step.Key>Best[Step.Value])continue;
+        if(InTo[Step.Value])
+        {
+            if(Path){int32 At=Step.Value;for(;Parent[At]!=At;At=Parent[At])Path->Add(At);Path->Add(At);Algo::Reverse(*Path);}
+            return Step.Key;
+        }
+        for(int32 EdgeIndex:Near[Step.Value])
+        {
+            const auto& E=G.Edges[EdgeIndex];const int32 Next=E.A==Step.Value ? E.B:E.A;
+            if(Banned && (*Banned)[Next])continue;
+            const float Length=Step.Key+E.Length;
+            if(Length<Best[Next]){Best[Next]=Length;Parent[Next]=Step.Value;Heap.HeapPush(FStep(Length,Next),Earlier);}
+        }
+    }
+    return -1;
+}
+// Raised nodes outside the bases, highest first with node order breaking ties, so the set is stable.
+TArray<int32> VantageNodes(const FERTacticalGraph& G,const TArray<int32> (&Spawns)[2],const FERPlayabilityPolicy& P)
+{
+    double Floor=TNumericLimits<double>::Max();
+    for(const auto& Team:Spawns)for(int32 I:Team)Floor=FMath::Min(Floor,G.Nodes[I].Position.Z);
+    TArray<int32> Out;
+    for(int32 I=0;I<G.Nodes.Num();++I)if(!G.Nodes[I].bBase && (G.Nodes[I].Kind==EERTacticalNodeKind::Upper || G.Nodes[I].Position.Z>Floor+P.VantageHeight))Out.Add(I);
+    Out.Sort([&](int32 A,int32 B){const double Za=G.Nodes[A].Position.Z,Zb=G.Nodes[B].Position.Z;return Za!=Zb ? Za>Zb:A<B;});
+    if(Out.Num()>P.MaxVantages)Out.SetNum(P.MaxVantages);
+    return Out;
+}
+// The outer end of every edge leaving a base, evenly thinned to the bound.
+TArray<int32> ExitNodes(const FERTacticalGraph& G,const TArray<int32>& Base,const FERPlayabilityPolicy& P)
+{
+    const auto InZone=Membership(G.Nodes.Num(),Base);TArray<int32> All;
+    for(const auto& E:G.Edges)if(!E.bBlocked && InZone[E.A]!=InZone[E.B])All.AddUnique(InZone[E.A] ? E.B:E.A);
+    All.Sort();
+    if(All.Num()<=P.MaxExits)return All;
+    TArray<int32> Out;for(int32 I=0;I<P.MaxExits;++I)Out.Add(All[I*All.Num()/P.MaxExits]);
+    return Out;
+}
+// Evenly spaced points along a node path.
+TArray<FVector> RouteSamples(const FERTacticalGraph& G,const TArray<int32>& Path,const FERPlayabilityPolicy& P,float& Step)
+{
+    float Total=0;for(int32 I=1;I<Path.Num();++I)Total+=FVector::Dist(G.Nodes[Path[I-1]].Position,G.Nodes[Path[I]].Position);
+    Step=FMath::Max(P.RouteStep,Total/FMath::Max(1,P.MaxRouteSamples-1));
+    TArray<FVector> Out;float Next=0,Run=0;
+    for(int32 I=1;I<Path.Num();++I)
+    {
+        const FVector A=G.Nodes[Path[I-1]].Position,B=G.Nodes[Path[I]].Position;const float Length=FVector::Dist(A,B);
+        while(Next<=Run+Length && Out.Num()<P.MaxRouteSamples)
+        {
+            Out.Add(FMath::Lerp(A,B,Length>0 ? (Next-Run)/Length:0.f));Next+=Step;
+        }
+        Run+=Length;
+    }
+    return Out;
+}
+// One bounded sight pass over the graph. Clear takes world points, so both stages share it.
+template<typename TClear>
+void EvaluateRouteSight(FERPlayabilityReport& R,const FERPlayabilityPolicy& P,EERPlayabilityStage Stage,bool Unknown,const FTransform& Frame,TClear Clear)
+{
+    auto& V=Reset(R,Vantage,Stage);auto& X=Reset(R,Exposure,Stage);
+    const auto& G=R.Graph;
+    if(G.Coverage==EERGraphCoverage::None){V.Reason=X.Reason=G.Note;return;}
+    TArray<int32> Spawns[2],Bases[2];NodeSets(G,Spawns,Bases);
+    if(Bases[0].IsEmpty() || Bases[1].IsEmpty()){V.Reason=X.Reason=TEXT("The graph does not place both team bases");return;}
+    const FVector Eye(0,0,P.EyeOffset),Chest(0,0,10);
+    auto Sees=[&](FVector From,FVector To){return Clear(Frame.TransformPosition(From+Eye),Frame.TransformPosition(To+Chest));};
+    const auto Raised=VantageNodes(G,Spawns,P);
+    Note(V,TEXT("vantages"),Raised.Num());
+    TArray<int32> Observers=Raised;
+    bool Commanded=false;double Worst=0;
+    for(int32 Team=0;Team<2;++Team)
+    {
+        const auto Exits=ExitNodes(G,Bases[Team],P);
+        for(int32 I:Exits)Observers.AddUnique(I);
+        int32 Most=0,Commander=INDEX_NONE;
+        for(int32 High:Raised)
+        {
+            int32 Seen=0;for(int32 Exit:Exits)Seen+=High!=Exit && Sees(G.Nodes[High].Position,G.Nodes[Exit].Position);
+            if(Seen>Most){Most=Seen;Commander=High;}
+        }
+        const double Share=Exits.IsEmpty() ? 0.:double(Most)/Exits.Num();
+        Note(V,Team ? TEXT("omega_exit_share"):TEXT("alpha_exit_share"),Share);
+        Worst=FMath::Max(Worst,Share);
+        if(Exits.Num()>=2 && Most==Exits.Num())
+        {
+            Commanded=true;
+            auto& Item=V.Violations.AddDefaulted_GetRef();Item.Severity=Unknown ? EERPlayabilityStatus::NotEvaluated:EERPlayabilityStatus::Warn;
+            Item.Message=FString::Printf(TEXT("One raised position sees every %s base exit"),Team ? TEXT("omega"):TEXT("alpha"));
+            Item.Nodes.Add(Commander);Item.Positions.Add(G.Nodes[Commander].Position);
+        }
+    }
+    Note(V,TEXT("worst_exit_share"),Worst);
+    if(Raised.IsEmpty()){V.Status=EERPlayabilityStatus::Pass;V.Reason=TEXT("No raised position on the recorded routes");}
+    else if(!Commanded)V.Status=EERPlayabilityStatus::Pass;
+    else if(Unknown)V.Reason=TEXT("Unknown solids may block these lines: decided by the physical stage");
+    else V.Status=EERPlayabilityStatus::Warn;
+
+    TArray<int32> Direct;
+    if(Cheapest(G,Bases[0],Bases[1],nullptr,&Direct)<0){X.Reason=TEXT("No walk joins the bases");return;}
+    float Step=P.RouteStep;const auto Samples=RouteSamples(G,Direct,P,Step);
+    if(Observers.Num()>P.MaxObservers)Observers.SetNum(P.MaxObservers);
+    TArray<bool> Open;Open.Init(false,Samples.Num());int32 Longest=0;
+    for(int32 Watcher:Observers)
+    {
+        if(Direct.Contains(Watcher))continue;
+        int32 Run=0;
+        for(int32 I=0;I<Samples.Num();++I)
+        {
+            const bool Seen=Sees(G.Nodes[Watcher].Position,Samples[I]);
+            Open[I]=Open[I] || Seen;Run=Seen ? Run+1:0;Longest=FMath::Max(Longest,Run);
+        }
+    }
+    int32 Seen=0;for(bool Item:Open)Seen+=Item;
+    Note(X,TEXT("samples"),Samples.Num());Note(X,TEXT("observers"),Observers.Num());
+    Note(X,TEXT("open_share"),Samples.IsEmpty() ? 0.:double(Seen)/Samples.Num());
+    Note(X,TEXT("longest_open_run_m"),Longest*Step/100.);
+    X.Status=EERPlayabilityStatus::Pass;
+    X.Reason=TEXT("Measured against base exits and raised nodes: no threshold here, archetype profiles read it");
 }
 
 double Rounded(double Value){return FMath::RoundToDouble(Value*100)/100;}
@@ -490,6 +625,9 @@ FERPlayabilityPolicy ERPlayability::PolicyFor(EERMapArchetype Archetype,int32 Ex
     FERPlayabilityPolicy P;
     if(Archetype==EERMapArchetype::MiddleEasternAlleys)P.LinkRadius=P.SpawnLinkRadius=800;
     else if(Archetype!=EERMapArchetype::Rooms)P.LinkRadius=P.SpawnLinkRadius=2500;
+    // Rooms have no low cover, and only Central Building has timber crossings that fall.
+    if(Archetype==EERMapArchetype::Rooms)P.Stress=EERStressScenario::CentralBreach|EERStressScenario::HighSightline;
+    else if(Archetype!=EERMapArchetype::CentralBuilding)P.Stress=EERStressScenario::All&~EERStressScenario::WalkwayLost;
     return P;
 }
 TArray<int32> ERPlayability::Components(const FERTacticalGraph& G)
@@ -555,24 +693,14 @@ TArray<int32> ERPlayability::CommonChokes(const FERTacticalGraph& G,const TArray
 }
 float ERPlayability::PathLength(const FERTacticalGraph& G,const TArray<int32>& From,const TArray<int32>& To)
 {
-    const auto Near=EdgesOfNodes(G);TArray<float> Best;Best.Init(MAX_flt,G.Nodes.Num());
-    using FStep=TPair<float,int32>;TArray<FStep> Heap;
-    auto Earlier=[](const FStep& A,const FStep& B){return A.Key!=B.Key ? A.Key<B.Key:A.Value<B.Value;};
-    for(int32 I:From){Best[I]=0;Heap.HeapPush(FStep(0,I),Earlier);}
-    const auto InTo=Membership(G.Nodes.Num(),To);
-    while(!Heap.IsEmpty())
-    {
-        FStep Step;Heap.HeapPop(Step,Earlier,EAllowShrinking::No);
-        if(Step.Key>Best[Step.Value])continue;
-        if(InTo[Step.Value])return Step.Key;
-        for(int32 EdgeIndex:Near[Step.Value])
-        {
-            const auto& E=G.Edges[EdgeIndex];const int32 Next=E.A==Step.Value ? E.B:E.A;
-            const float Length=Step.Key+E.Length;
-            if(Length<Best[Next]){Best[Next]=Length;Heap.HeapPush(FStep(Length,Next),Earlier);}
-        }
-    }
-    return -1;
+    return Cheapest(G,From,To,nullptr,nullptr);
+}
+float ERPlayability::LateralPathLength(const FERTacticalGraph& G,const TArray<int32>& From,const TArray<int32>& To)
+{
+    TArray<int32> Direct;if(Cheapest(G,From,To,nullptr,&Direct)<0)return -1;
+    TArray<bool> Banned;Banned.Init(false,G.Nodes.Num());
+    for(int32 I:Direct)Banned[I]=!From.Contains(I) && !To.Contains(I);
+    return Cheapest(G,From,To,&Banned,nullptr);
 }
 
 FERTacticalGraph ERPlayability::BuildGraph(const FERProceduralLayout& L,EERMapArchetype Archetype,const FERPlayabilityPolicy& P)
@@ -585,12 +713,12 @@ FERTacticalGraph ERPlayability::BuildGraph(const FERProceduralLayout& L,EERMapAr
 }
 void ERPlayability::EvaluateGraph(FERPlayabilityReport& R,const FERPlayabilityPolicy& P)
 {
-    auto& C=Reset(R,Connected,R.Stage);auto& X=Reset(R,BaseExits,R.Stage);
+    auto& C=Reset(R,Connected,R.Stage);auto& X=Reset(R,BaseExits,R.Stage);auto& D=Reset(R,Diversity,R.Stage);
     const auto& G=R.Graph;
-    if(G.Coverage==EERGraphCoverage::None){C.Reason=X.Reason=G.Note;return;}
+    if(G.Coverage==EERGraphCoverage::None){C.Reason=X.Reason=D.Reason=G.Note;return;}
     TArray<int32> Spawns[2],Bases[2];NodeSets(G,Spawns,Bases);
     if(Spawns[0].IsEmpty() || Spawns[1].IsEmpty() || Bases[0].IsEmpty() || Bases[1].IsEmpty())
-    {C.Reason=X.Reason=TEXT("The graph does not place both team bases");return;}
+    {C.Reason=X.Reason=D.Reason=TEXT("The graph does not place both team bases");return;}
     const bool Exact=G.Coverage==EERGraphCoverage::Exact;
     const auto Ids=Components(G);
     int32 Parts=0;for(int32 Id:Ids)Parts=FMath::Max(Parts,Id+1);
@@ -640,6 +768,13 @@ void ERPlayability::EvaluateGraph(FERPlayabilityReport& R,const FERPlayabilityPo
         Note(X,*FString::Printf(TEXT("%s_chokes"),Name),Groups);
         Weak=Weak || Paths<P.MinIndependentPaths || Groups>0;
     }
+    const float Direct=PathLength(G,Bases[0],Bases[1]),Lateral=LateralPathLength(G,Bases[0],Bases[1]);
+    Note(D,TEXT("direct_m"),Direct<0 ? -1.:Direct/100.);Note(D,TEXT("lateral_m"),Lateral<0 ? -1.:Lateral/100.);
+    Note(D,TEXT("lateral_ratio"),Direct>0 && Lateral>=0 ? Lateral/Direct:-1.);
+    if(Direct<0)D.Reason=TEXT("No walk joins the bases");
+    else if(Lateral>=0)D.Status=EERPlayabilityStatus::Pass;
+    else if(G.bExitsBounded){D.Status=EERPlayabilityStatus::Warn;D.Reason=TEXT("No walk between the bases avoids the direct route");}
+    else D.Reason=TEXT("Open ground beside the routes may offer what the graph does not record");
     if(!G.bExitsBounded)
     {
         X.Reason=TEXT("Open ground beside the routes: these counts do not bound the real exits");
@@ -661,7 +796,9 @@ FERPlayabilityReport ERPlayability::Analyze(const FERProceduralLayout& L,const F
     auto Lap=[&](const TCHAR* Name){const double Now=FPlatformTime::Seconds();R.TimingsMs.Emplace(Name,(Now-Clock)*1000);Clock=Now;};
     R.Graph=BuildGraph(L,R.Archetype,P);Lap(TEXT("graph"));
     EvaluateGraph(R,P);Lap(TEXT("topology"));
-    EvaluateLayoutSight(R,L,P);Lap(TEXT("spawn_sight"));
+    const FLayoutSolids Solids(L);Lap(TEXT("solids"));
+    EvaluateLayoutSight(R,L,Solids,P);Lap(TEXT("spawn_sight"));
+    EvaluateRouteSight(R,P,EERPlayabilityStage::Layout,Solids.Unknown>0,FTransform::Identity,[&](FVector A,FVector B){return Solids.SightClear(A,B);});Lap(TEXT("route_sight"));
     return R;
 }
 void ERPlayability::ConfirmInWorld(FERPlayabilityReport& R,UWorld* World,const FTransform& Frame,const FERProceduralLayout& L,const FERPlayabilityPolicy& P)
@@ -714,6 +851,135 @@ void ERPlayability::ConfirmInWorld(FERPlayabilityReport& R,UWorld* World,const F
     M.Status=Exposed ? EERPlayabilityStatus::Warn:EERPlayabilityStatus::Pass;
     M.Reason=Exposed ? TEXT("Opposing starts have an unobstructed line in the real collision"):TEXT("Real collision blocks every sampled pair. A blocked shot may still penetrate");
     Lap(TEXT("physical_spawn_sight"));
+    EvaluateRouteSight(R,P,EERPlayabilityStage::Physical,false,Frame,[&](FVector A,FVector B){FHitResult Hit;return !World->LineTraceSingleByChannel(Hit,A,B,ECC_Visibility,Query);});
+    Lap(TEXT("physical_route_sight"));
+}
+
+namespace
+{
+bool Breakable(const FERCellPanelDesc& P){return !P.bIndestructible && (P.Skin.IsEmpty() || P.bSolidSkin);}
+// Where a segment enters each breakable panel, as its share of the segment.
+TArray<TPair<float,int32>> PanelsOn(const TArray<FERCellPanelDesc>& Panels,FVector A,FVector B)
+{
+    TArray<TPair<float,int32>> Out;
+    for(int32 I=0;I<Panels.Num();++I)
+    {
+        const auto& P=Panels[I];if(!Breakable(P))continue;
+        const FVector LocalA=P.Transform.InverseTransformPositionNoScale(A),LocalB=P.Transform.InverseTransformPositionNoScale(B);
+        FVector Hit,Normal;float Time=0;
+        if(FMath::LineExtentBoxIntersection(FBox(FVector::ZeroVector,P.Size),LocalA,LocalB,FVector::ZeroVector,Hit,Normal,Time))Out.Emplace(Time,I);
+    }
+    Out.Sort([](const TPair<float,int32>& X,const TPair<float,int32>& Y){return X.Key!=Y.Key ? X.Key<Y.Key:X.Value<Y.Value;});
+    return Out;
+}
+// A door-sized breach through every layer of the wall at Share along the segment.
+int32 Breach(TArray<FERCellPanelDesc>& Panels,FVector A,FVector B,float Share,TArray<TPair<int32,FBox2D>>& Openings)
+{
+    const auto On=PanelsOn(Panels,A,B);if(On.IsEmpty())return 0;
+    float At=On[0].Key;for(const auto& Item:On)if(FMath::Abs(Item.Key-Share)<FMath::Abs(At-Share))At=Item.Key;
+    constexpr float Depth=60,Width=240,Height=220;
+    const float Span=FMath::Max(1.,FVector::Dist(A,B));int32 Opened=0;
+    for(const auto& Item:On)if(FMath::Abs(Item.Key-At)*Span<=Depth)
+    {
+        auto& P=Panels[Item.Value];const FVector Local=P.Transform.InverseTransformPositionNoScale(FMath::Lerp(A,B,Item.Key));
+        const double Bottom=FMath::Clamp(Local.Z-Height*.5,0.,FMath::Max(0.,P.Size.Z-Height));
+        const FBox2D Hole(FVector2D(Local.X-Width*.5,Bottom),FVector2D(Local.X+Width*.5,Bottom+Height));
+        P.Holes.Add(Hole);Openings.Emplace(Item.Value,Hole);++Opened;
+    }
+    return Opened;
+}
+FVector Middle(const TArray<FTransform>& Starts)
+{
+    FVector Sum=FVector::ZeroVector;for(const auto& S:Starts)Sum+=S.GetLocation();
+    return Starts.IsEmpty() ? Sum:Sum/Starts.Num();
+}
+double ExitShare(const FERPlayabilityReport& R){const auto* M=R.Find(Vantage);return M ? M->Value(TEXT("worst_exit_share")):0.;}
+double RouteOpenShare(const FERPlayabilityReport& R){const auto* M=R.Find(Exposure);return M ? M->Value(TEXT("open_share")):0.;}
+int32 VisiblePairs(const FERPlayabilityReport& R){const auto* M=R.Find(SpawnSight);return M ? int32(M->Value(TEXT("visible_pairs"))):0;}
+int32 BasePaths(const FERPlayabilityReport& R)
+{
+    const auto* M=R.Find(BaseExits);
+    return M ? FMath::Min(int32(M->Value(TEXT("alpha_independent_paths"))),int32(M->Value(TEXT("omega_independent_paths")))):0;
+}
+}
+TArray<FERStressResult> ERPlayability::Stress(const FERProceduralLayout& L,const FERPlayabilityReport& R,const FERPlayabilityPolicy& P)
+{
+    TArray<FERStressResult> Out;
+    TArray<int32> Spawns[2],Bases[2];NodeSets(R.Graph,Spawns,Bases);
+    const bool Placed=!Bases[0].IsEmpty() && !Bases[1].IsEmpty() && !L.AlphaSpawns.IsEmpty() && !L.OmegaSpawns.IsEmpty();
+    // Damage only reaches sight and walking through these two inputs.
+    auto Run=[&](const TCHAR* Name,const TArray<FERCellPanelDesc>& Panels,const FERTacticalGraph& Graph,const TArray<TPair<int32,FBox2D>>& Openings,const TCHAR* Skip)
+    {
+        auto& S=Out.AddDefaulted_GetRef();S.Scenario=Name;S.Openings=Openings;
+        S.VisiblePairs=VisiblePairs(R);S.Paths=BasePaths(R);S.ExitShare=ExitShare(R);S.OpenShare=RouteOpenShare(R);
+        S.VisiblePairsDamaged=S.VisiblePairs;S.PathsDamaged=S.Paths;S.ExitShareDamaged=S.ExitShare;S.OpenShareDamaged=S.OpenShare;
+        if(Skip){S.Reason=Skip;return;}
+        S.bApplicable=true;
+        FERPlayabilityReport Damaged;Damaged.Metrics=R.Metrics;Damaged.Graph=Graph;Damaged.Stage=EERPlayabilityStage::Layout;
+        EvaluateGraph(Damaged,P);
+        const FLayoutSolids Solids(L,Panels);
+        EvaluateLayoutSight(Damaged,L,Solids,P);
+        EvaluateRouteSight(Damaged,P,EERPlayabilityStage::Layout,Solids.Unknown>0,FTransform::Identity,[&](FVector A,FVector B){return Solids.SightClear(A,B);});
+        S.VisiblePairsDamaged=VisiblePairs(Damaged);S.PathsDamaged=BasePaths(Damaged);S.ExitShareDamaged=ExitShare(Damaged);S.OpenShareDamaged=RouteOpenShare(Damaged);
+    };
+    if(EnumHasAnyFlags(P.Stress,EERStressScenario::CentralBreach))
+    {
+        auto Panels=L.Panels;TArray<TPair<int32,FBox2D>> Openings;
+        const FVector Lift(0,0,P.EyeOffset);
+        if(Placed)Breach(Panels,Middle(L.AlphaSpawns)+Lift,Middle(L.OmegaSpawns)+Lift,.5f,Openings);
+        Run(TEXT("central_breach"),Panels,R.Graph,Openings,Openings.IsEmpty() ? TEXT("No breakable wall lies between the bases"):nullptr);
+    }
+    if(EnumHasAnyFlags(P.Stress,EERStressScenario::CoverRemoved))
+    {
+        auto Panels=L.Panels;TArray<TPair<int32,FBox2D>> Openings;TArray<int32> Direct;
+        if(Placed)Cheapest(R.Graph,Bases[0],Bases[1],nullptr,&Direct);
+        float Step=P.RouteStep;const auto Samples=RouteSamples(R.Graph,Direct,P,Step);
+        // Whole low panels near the route, base side first: chest cover shot away, walls untouched.
+        // Joists, floor plates and slats are thin on Z too, and they carry the structure instead of hiding anyone.
+        constexpr float Reach=300,Low=170,Tall=60;constexpr int32 MaxPanels=3;
+        for(const FVector& Sample:Samples)for(int32 I=0;I<Panels.Num() && Openings.Num()<MaxPanels;++I)
+        {
+            auto& Panel=Panels[I];
+            if(!Breakable(Panel) || Panel.Size.Z>Low || Panel.Size.Z<Tall || Panel.Holes.Num()>L.Panels[I].Holes.Num())continue;
+            const FVector Local=Panel.Transform.InverseTransformPositionNoScale(Sample);
+            if(FBox(FVector::ZeroVector,Panel.Size).ComputeSquaredDistanceToPoint(Local)>Reach*Reach)continue;
+            const FBox2D Whole(FVector2D(0,0),FVector2D(Panel.Size.X,Panel.Size.Z));
+            Panel.Holes.Add(Whole);Openings.Emplace(I,Whole);
+        }
+        Run(TEXT("cover_removed"),Panels,R.Graph,Openings,Openings.IsEmpty() ? TEXT("No breakable low cover along the direct route"):nullptr);
+    }
+    if(EnumHasAnyFlags(P.Stress,EERStressScenario::HighSightline))
+    {
+        auto Panels=L.Panels;TArray<TPair<int32,FBox2D>> Openings;
+        if(Placed)
+        {
+            const FLayoutSolids Solids(L);const FVector Eye(0,0,P.EyeOffset),Chest(0,0,10);
+            for(int32 High:VantageNodes(R.Graph,Spawns,P))
+            {
+                for(int32 Exit:ExitNodes(R.Graph,Bases[0],P))
+                {
+                    const FVector A=R.Graph.Nodes[High].Position+Eye,B=R.Graph.Nodes[Exit].Position+Chest;
+                    if(!Solids.SightClear(A,B))Breach(Panels,A,B,.5f,Openings);
+                    if(!Openings.IsEmpty())break;
+                }
+                if(!Openings.IsEmpty())break;
+            }
+        }
+        Run(TEXT("high_sightline"),Panels,R.Graph,Openings,Openings.IsEmpty() ? TEXT("No breakable wall hides a base exit from a raised node"):nullptr);
+    }
+    if(EnumHasAnyFlags(P.Stress,EERStressScenario::WalkwayLost))
+    {
+        FERTacticalGraph Graph=R.Graph;int32 Changed=0;
+        // Timber crossings really fall with their supports. Fixed catwalks cannot be lost.
+        constexpr float Reach=400;
+        if(!L.WallBridges.IsEmpty())for(auto& E:Graph.Edges)
+        {
+            const bool Near=FVector::Dist(Graph.Nodes[E.A].Position,L.WallBridges[0])<Reach && FVector::Dist(Graph.Nodes[E.B].Position,L.WallBridges[0])<Reach;
+            if(Near && !E.bBlocked){E.bBlocked=true;++Changed;}
+        }
+        Run(TEXT("walkway_lost"),L.Panels,Graph,{},Changed ? nullptr:TEXT("No collapsible crossing on the recorded routes"));
+    }
+    return Out;
 }
 
 FString ERPlayability::ToJson(const FERPlayabilityReport& R,bool bTimings)
@@ -757,6 +1023,15 @@ FString ERPlayability::ToJson(const FERPlayabilityReport& R,bool bTimings)
         W->WriteArrayEnd();W->WriteObjectEnd();
     }
     W->WriteArrayEnd();
+    W->WriteArrayStart(TEXT("stress"));
+    for(const auto& S:R.Stress)
+    {
+        W->WriteObjectStart();W->WriteValue(TEXT("scenario"),S.Scenario);W->WriteValue(TEXT("applicable"),S.bApplicable);W->WriteValue(TEXT("reason"),S.Reason);W->WriteValue(TEXT("openings"),S.Openings.Num());
+        W->WriteValue(TEXT("visible_pairs"),S.VisiblePairs);W->WriteValue(TEXT("visible_pairs_damaged"),S.VisiblePairsDamaged);W->WriteValue(TEXT("paths"),S.Paths);W->WriteValue(TEXT("paths_damaged"),S.PathsDamaged);
+        W->WriteValue(TEXT("exit_share"),Rounded(S.ExitShare));W->WriteValue(TEXT("exit_share_damaged"),Rounded(S.ExitShareDamaged));W->WriteValue(TEXT("open_share"),Rounded(S.OpenShare));W->WriteValue(TEXT("open_share_damaged"),Rounded(S.OpenShareDamaged));
+        W->WriteObjectEnd();
+    }
+    W->WriteArrayEnd();
     if(bTimings)
     {
         W->WriteObjectStart(TEXT("timings_ms"));for(const auto& T:R.TimingsMs)W->WriteValue(T.Key,Rounded(T.Value));W->WriteObjectEnd();
@@ -768,6 +1043,7 @@ FString ERPlayability::Summary(const FERPlayabilityReport& R)
 {
     FString Text=FString::Printf(TEXT("archetype=%s team=%d seed=%d stage=%s overall=%s"),ArchetypeName(R.Archetype),R.ExpectedTeamSize,R.Seed,StageName(R.Stage),StatusName(R.Overall()));
     for(const auto& M:R.Metrics)if(M.Status!=EERPlayabilityStatus::NotEvaluated || !M.Values.IsEmpty())Text+=FString::Printf(TEXT(" %s=%s"),*M.Code,StatusName(M.Status));
+    for(const auto& S:R.Stress)if(S.bApplicable)Text+=FString::Printf(TEXT(" %s=%d->%d"),*S.Scenario,S.VisiblePairs,S.VisiblePairsDamaged);
     return Text;
 }
 const TCHAR* ERPlayability::ArchetypeName(EERMapArchetype Archetype)

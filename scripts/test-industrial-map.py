@@ -2,6 +2,7 @@
 """Industrial archetype: automation or real stairs/rifle/Metal/LAN late join."""
 import argparse,json,os,re,subprocess,time
 from pathlib import Path
+from client_shutdown import settle_clients
 p=argparse.ArgumentParser(description=__doc__)
 p.add_argument('--game',action='store_true');p.add_argument('--render',action='store_true')
 p.add_argument('--finish-gallery',action='store_true',help='Quick intact Factory material captures; no movement or destruction probe');p.add_argument('--network',action='store_true');p.add_argument('--gallery',action='store_true')
@@ -66,6 +67,7 @@ try:
 except (RuntimeError,subprocess.TimeoutExpired) as e:
     print('FAIL',e);print('\n'.join(read('host').splitlines()[-35:]));raise SystemExit(1)
 finally:
+    settle_clients(children,handles)
     for proc in children:
         if proc.poll() is None:proc.terminate()
     for proc in children:

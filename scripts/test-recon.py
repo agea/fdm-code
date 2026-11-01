@@ -2,6 +2,7 @@
 """Actual listen/owner/teammate/late-join recon and real 30s replacement probe."""
 from pathlib import Path
 import argparse,os,subprocess,time,json
+from client_shutdown import settle_clients
 p=argparse.ArgumentParser(description=__doc__);p.add_argument('--render',action='store_true');p.add_argument('--automation',action='store_true');args=p.parse_args()
 root=Path(__file__).resolve().parents[1];logs=root/'Saved/Testing';logs.mkdir(parents=True,exist_ok=True)
 exe=Path(os.environ.get('UE_ROOT','/Users/Shared/Epic Games/UE_5.8'))/'Engine/Binaries/Mac/UnrealEditor.app/Contents/MacOS/UnrealEditor'
@@ -47,6 +48,7 @@ try:
     (logs/('recon-'+('metal-' if args.render else '')+'report.json')).write_text(json.dumps(report,indent=2)+'\n')
     raise SystemExit(0 if passed else 1)
 finally:
+    settle_clients(children,handles)
     for pr in children:
         if pr.poll() is None:pr.terminate()
     for pr in children:

@@ -10,6 +10,7 @@ import subprocess
 import sys
 import time
 import argparse
+from client_shutdown import settle_clients
 
 parser = argparse.ArgumentParser(description=__doc__)
 group = parser.add_mutually_exclusive_group()
@@ -45,7 +46,9 @@ try:
     handles.append(host_log)
     # Preserve the original 36-damage/no-armor fixture for its exact HP checks;
     # the current catalog is covered separately by test-reference-weapons.py.
-    baseline = '' if args.accuracy or args.recoil else '?ERLegacyArsenal=1'
+    # The accuracy and recoil probes walk the ten reference slots, which a preset
+    # inventory does not have.
+    baseline = '?ERFullArsenalTest=1' if args.accuracy or args.recoil else '?ERLegacyArsenal=1'
     host = subprocess.Popen(common + ["/Game/EclipseRecoil/Maps/L_Depot?listen?Name=Host" + baseline + ("?AlphaSkin=8?OmegaSkin=7" if args.phase_belica else "?AlphaSkin=3?OmegaSkin=2" if args.skins else ""), '-port=' + port, probe], stdout=host_log, stderr=subprocess.STDOUT)
     processes.append(host)
     deadline = time.monotonic() + 45
@@ -109,7 +112,7 @@ try:
             ('damage_owner_audio_and_direction', any('ER_DAMAGE_FEEDBACK' in line and 'sound=1' in line and 'direction=' in line for line in remote.splitlines())),
             ('corpse_replicated_and_settled', 'ER_CORPSE_CREATED' in remote and 'physics=1' in remote and 'ER_CORPSE_SETTLED' in remote),
             ('team_mesh_animation_sections_replicated', 'ER_TEAM_CLIENT_PASS phase=2' in remote and 'ER_TEAM_CLIENT_FAIL' not in remote),
-            ('both_team_corpses_replicated', all(any('ER_CORPSE_CREATED' in line and 'mesh=' in line and mesh in line for line in remote.splitlines()) for mesh in (['SK_ER_Phase_Omega','SK_ER_Belica_Alpha'] if args.phase_belica else ['SK_ER_Drongo_Omega','SK_ER_Twinblast_Alpha']))),
+            ('both_team_corpses_replicated', all(any('ER_CORPSE_CREATED' in line and 'mesh=' in line and mesh in line for line in remote.splitlines()) for mesh in (['SK_ER_Gadget_Omega','SK_ER_Belica_Alpha'] if args.phase_belica else ['SK_ER_Drongo_Omega','SK_ER_Twinblast_Alpha'] if args.skins else ['SK_ER_Drongo_Omega','SK_ER_WraithOfficer']))),
         ]:
             print('ER_TEST_' + ('PASS' if passed else 'FAIL'), label)
             success = success and passed
@@ -125,6 +128,7 @@ try:
     print("Logs:", logs)
     sys.exit(0 if success else 1)
 finally:
+    settle_clients(processes, handles)
     for process in processes:
         if process.poll() is None:
             process.terminate()

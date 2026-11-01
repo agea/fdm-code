@@ -10,6 +10,7 @@ import subprocess
 import sys
 import time
 import argparse
+from client_shutdown import settle_clients
 
 parser = argparse.ArgumentParser(description=__doc__)
 modes = parser.add_mutually_exclusive_group()
@@ -77,6 +78,7 @@ try:
     print("Logs:", logs)
     sys.exit(0 if success else 1)
 finally:
+    settle_clients(processes, handles)
     for process in processes:
         if process.poll() is None:
             process.terminate()

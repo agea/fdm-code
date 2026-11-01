@@ -14,7 +14,12 @@ Sealed half-turn room graph with no arena floor outside it. 4, 6, 8 or 10 rooms.
 - Larger graphs add an upper crossing with galleries at 620cm and 310cm switchbacks.
 - No single corridor may disconnect bases. Starts and routes are reserved before furnishing.
 - Sparse 2.4m timber boards every 5m on runs over 10m; at most two per room.
+- Prototype, off by default: `bEnablePCGExMacroGraph` swaps the straight lower spine for a baked
+  central structure. See [PROCEDURAL_MAP_PLAYABILITY.md](../PROCEDURAL_MAP_PLAYABILITY.md#rooms-macro-graph).
 
 ## Verify
 
-`test-rooms.py` (`--render --offscreen --network`). Native: `EclipseRecoil.Destruction.Rooms*`.
+`test-rooms.py` (`--render --offscreen --network`), `test-rooms-macro.py`, `test-rooms.py --network
+--macro`. Native: `EclipseRecoil.Destruction.Rooms*`. The probe walks only the routes a plan has and
+logs `ER_ROOMS_WALK_SKIPPED` for the others, because a flat plan has no ramp or stairs. `--macro` runs
+seed 3 and requires the pawn on all three walks.

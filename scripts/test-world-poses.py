@@ -4,6 +4,7 @@ from pathlib import Path
 import os
 import subprocess
 import time
+from client_shutdown import settle_clients
 
 project=Path(__file__).resolve().parents[1]
 engine=Path(os.environ.get('UE_ROOT','/Users/Shared/Epic Games/UE_5.8'))
@@ -31,6 +32,7 @@ try:
     print(f'ER_WORLD_POSES_NETWORK server={server_count}/260 client={client_count}/260 complete={int(complete)} clean={int(clean)}')
     raise SystemExit(0 if server_count==260 and client_count==260 and complete and clean else 1)
 finally:
+    settle_clients(processes,handles)
     for process in processes:
         if process.poll() is None:
             process.terminate()

@@ -1,4 +1,5 @@
 #include "ERProceduralMap.h"
+#include "ERRoomsMacro.h"
 #include "Components/DynamicMeshComponent.h"
 #include "DynamicMesh/DynamicMesh3.h"
 #include "DynamicMesh/DynamicMeshAttributeSet.h"
@@ -195,7 +196,68 @@ bool BuildRooms(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProc
         const int32 J=JointPair({-X,0,940});
         PairSegment(UpperLeft,J,620,0);UpperLeft=J;UpperRight=Mirror(J);
     }
-    if(N>1)Segment(SpineA,SpineB);
+    // Baked PCGEx plans replace the straight lower spine with a central structure. What does
+    // not fit this seed's geometry is dropped, and the last resort is the legacy spine.
+    int32 MacroSelfLinks=0;
+    auto ApplyMacro=[&](const FERRoomsMacroVariant& Variant,bool UseBaseLinks,bool UseRungs)
+    {
+        namespace Macro=ERRoomsMacro;
+        const int32 FirstNode=L.RoomNodes.Num(),FirstLink=L.RoomLinks.Num(),FirstPartner=Partners.Num();
+        auto Fail=[&]{L.RoomNodes.SetNum(FirstNode);L.RoomLinks.SetNum(FirstLink);Partners.SetNum(FirstPartner);return false;};
+        for(const FIntPoint& Link:Variant.Links)if(!Macro::IsRealizable(Link,N))return Fail();
+        const float Offset=Macro::CentreOffset(X);
+        auto LaneNode=[&](bool Left){return N%2 ? (Left ? 2+N/2:2+N+N/2):(Left ? LeftMid:RightMid);};
+        // At base height: compact plans have no run left for a ramp before the centre.
+        const int32 CentreL=JointPair({-Offset,0,0}),CentreR=Mirror(CentreL);
+        const bool Across=Variant.Links.Contains(FIntPoint(Macro::CentreLeft,Macro::CentreRight));
+        // One base mouth: when the graph keeps both directions, the left one stands.
+        const bool ToLeft=Variant.Links.Contains(FIntPoint(Macro::AlphaBase,Macro::CentreLeft));
+        const bool ToRight=Variant.Links.Contains(FIntPoint(Macro::AlphaBase,Macro::CentreRight));
+        if(!ToLeft && !ToRight)return Fail();
+        if(UseBaseLinks)LinkPair(0,ToLeft ? CentreL:CentreR);
+        const int32 Middle=Macro::LaneMiddle(true,N);
+        const bool Rungs=UseRungs && Variant.Links.Contains(FIntPoint(FMath::Min<int32>(Middle,Macro::CentreLeft),FMath::Max<int32>(Middle,Macro::CentreLeft)));
+        if(Rungs)PairSegment(LaneNode(true),CentreL);
+        // Each centre needs a way through, and must join the map on both sides.
+        if((UseBaseLinks && !Across && !Rungs) || (!UseBaseLinks && (!Across || !Rungs)))return Fail();
+        const int32 Pairs=L.RoomLinks.Num();
+        if(Across)Segment(CentreL,CentreR);
+        // Same rules as the corridors around them: walkable, and clear of every other volume.
+        auto Height=[&](const FERRoomsLink& E){return FInt32Interval(FMath::FloorToInt32(FMath::Min(E.Start.Z,E.End.Z)),FMath::CeilToInt32(FMath::Max(E.Start.Z,E.End.Z)+H));};
+        auto Touches=[](const FInt32Interval& A,int32 Low,int32 High){return A.Min<High+20 && Low<A.Max+20;};
+        for(int32 I=FirstLink;I<L.RoomLinks.Num();++I)
+        {
+            const auto& E=L.RoomLinks[I];const FVector Start(E.Start.X,E.Start.Y,0),End(E.End.X,E.End.Y,0);
+            const float Run=FVector::Dist2D(Start,End);
+            if(Run<1 || FMath::Abs(E.End.Z-E.Start.Z)>Run*.5f)return Fail();
+            const auto Span=Height(E);
+            for(int32 Index=0;Index<L.RoomNodes.Num();++Index)if(Index!=E.A && Index!=E.B)
+            {
+                const auto& V=L.RoomNodes[Index];
+                if(!Touches(Span,FMath::FloorToInt32(V.Center.Z),FMath::CeilToInt32(V.Center.Z+V.Height)))continue;
+                const FVector Near=FMath::ClosestPointOnSegment(FVector(V.Center.X,V.Center.Y,0),Start,End);
+                if(FMath::Abs(Near.X-V.Center.X)<V.Size.X*.5f+E.Width*.5f+60 && FMath::Abs(Near.Y-V.Center.Y)<V.Size.Y*.5f+E.Width*.5f+60)return Fail();
+            }
+            for(int32 J=0;J<L.RoomLinks.Num();++J)if(J!=I)
+            {
+                const auto& F=L.RoomLinks[J];const auto Other=Height(F);
+                if(F.A==E.A || F.A==E.B || F.B==E.A || F.B==E.B || !Touches(Span,Other.Min,Other.Max))continue;
+                FVector P,Q;FMath::SegmentDistToSegmentSafe(Start,End,FVector(F.Start.X,F.Start.Y,0),FVector(F.End.X,F.End.Y,0),P,Q);
+                if(FVector::Dist2D(P,Q)<E.Width+60)return Fail();
+            }
+        }
+        L.RoomsMacroVariant=Variant.BakeSeed+1000*N;
+        MacroSelfLinks=L.RoomLinks.Num()-Pairs;
+        return true;
+    };
+    bool Macro=false;
+    // A plan may lose what this seed has no room for: a steep rung, or the bend between close bases.
+    if(C.bEnablePCGExMacroGraph && N>1)for(const auto* Variant:ERRoomsMacro::Candidates(R.MacroTable,N,C.Seed))
+    {
+        Macro=ApplyMacro(*Variant,true,true) || ApplyMacro(*Variant,true,false) || ApplyMacro(*Variant,false,true);
+        if(Macro)break;
+    }
+    if(N>1 && !Macro)Segment(SpineA,SpineB);
     if(!GroundOnly)Segment(UpperLeft,UpperRight,N%2 ? 620:0,N%2 ? 620:0);
     if(N==1 && HallPassage)
     {
@@ -206,7 +268,7 @@ bool BuildRooms(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProc
     }
     if(T->SizingTeamSize>0)for(const auto& E:L.RoomLinks)
         if(FVector::Dist2D(E.Start,E.End)<1 || FMath::Abs(E.End.Z-E.Start.Z)>FVector::Dist2D(E.Start,E.End)*.5f+.01f)return false;
-    const int32 SelfLinks=N==1 ? (HallPassage ? 1:0):GroundOnly ? 1:2;
+    const int32 SelfLinks=N==1 ? (HallPassage ? 1:0):(Macro ? MacroSelfLinks:1)+(GroundOnly ? 0:1);
     TMap<int32,TArray<FVector>> GalleryPaths;
     auto Face=[&](FVector A,FVector D,FVector E,FVector F,UMaterialInterface* Surface,FVector Normal,bool Roof=false)
     {
@@ -470,6 +532,7 @@ bool BuildRooms(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERProc
     // This sealed complex uses ground-level player sight; aerial recon remains
     // above the roof. No warehouse orbit may pass through these separate rooms.
     L.FeatureNames={Theme.Name,TEXT("OctagonalCorridors"),TEXT("SwitchbackRamps"),TEXT("TimberScreens"),TEXT("SpacedTimberScreens"),TEXT("GalleryConnections"),TEXT("OverUnderCrossing"),TEXT("DoglegCorridors")};
+    if(Macro)L.FeatureNames.Add(TEXT("PCGExMacroGraph"));
     if(N==1)
     {
         if(HallPassage)L.FeatureNames.Add(TEXT("HallPassage"));

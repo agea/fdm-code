@@ -51,6 +51,26 @@ struct FERRoomsTheme
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> Wood;
 };
 
+// One connection plan baked by PCG_RoomsMacroGraph, in stable slots (ERRoomsMacro.h).
+USTRUCT(BlueprintType)
+struct FERRoomsMacroVariant
+{
+    GENERATED_BODY()
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) int32 LaneRooms=0;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) int32 BakeSeed=0;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<FIntPoint> Links;
+};
+
+// Plain data: matches never run PCG, so no peer depends on graph execution.
+UCLASS(BlueprintType)
+class FDM_API UERRoomsMacroTable : public UDataAsset
+{
+    GENERATED_BODY()
+public:
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) int32 Revision=1;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<FERRoomsMacroVariant> Variants;
+};
+
 USTRUCT(BlueprintType)
 struct FERRoomsRecipe
 {
@@ -68,6 +88,8 @@ struct FERRoomsRecipe
     UPROPERTY(EditAnywhere, BlueprintReadWrite) float CornerCut=55;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TArray<FERRoomsTheme> Themes;
     UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<class UMaterialInterface> LampSurface;
+    // Read only when the replicated descriptor enables the macro graph.
+    UPROPERTY(EditAnywhere, BlueprintReadWrite) TObjectPtr<UERRoomsMacroTable> MacroTable;
 };
 
 UENUM(BlueprintType)

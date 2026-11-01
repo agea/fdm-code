@@ -78,6 +78,7 @@ const TArray<FERServerSetting>& ERServer::Settings()
         Add(TEXT("Health.Helmet"),TEXT("Health and respawn"),TEXT("Starting helmet"),TEXT("on/off"),1.f,0.f,1.f,false,true);
         Add(TEXT("Health.Protection"),TEXT("Health and respawn"),TEXT("Spawn protection"),TEXT("s"),4.f,0.f,60.f,false,false);
         Add(TEXT("Health.Respawn"),TEXT("Health and respawn"),TEXT("Respawn delay"),TEXT("s"),3.f,0.1f,120.f,false,false);
+        Add(TEXT("Health.SpawnScoring"),TEXT("Health and respawn"),TEXT("Avoid exposed respawn points"),TEXT("on/off"),1.f,0.f,1.f,true,true);
         Add(TEXT("Damage.Friendly"),TEXT("Health and respawn"),TEXT("Damage to teammates"),TEXT("×"),1.f,0.f,3.f,false,false);
         Add(TEXT("Damage.Self"),TEXT("Health and respawn"),TEXT("Self-inflicted damage"),TEXT("×"),1.f,0.f,3.f,false,false);
         Add(TEXT("Damage.Fall"),TEXT("Health and respawn"),TEXT("Fall damage"),TEXT("×"),1.f,0.f,5.f,false,false);

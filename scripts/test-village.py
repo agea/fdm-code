@@ -7,6 +7,7 @@ from pathlib import Path
 import re
 import subprocess
 import time
+from client_shutdown import settle_clients
 
 p = argparse.ArgumentParser(description=__doc__)
 p.add_argument('--game', action='store_true', help='Climb timber stairs, damage cover and regenerate in game')
@@ -87,6 +88,7 @@ try:
     print('Logs:', *(str(v) for v in paths.values()))
     raise SystemExit(0 if passed else 1)
 finally:
+    settle_clients(children, handles)
     for process in children:
         if process.poll() is None:
             process.terminate()

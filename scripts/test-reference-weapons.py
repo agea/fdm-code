@@ -5,6 +5,7 @@ import argparse
 import os
 import subprocess
 import time
+from client_shutdown import settle_clients
 
 parser=argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--render',action='store_true',help='Capture all ten viewmodels with Metal')
@@ -58,6 +59,7 @@ try:
             print('ER_REFERENCE_ALPHA_PISTOL_CAPTURE',alpha_capture);success &= alpha_capture
     raise SystemExit(0 if success else 1)
 finally:
+    settle_clients(processes,handles)
     for process in processes:
         if process.poll() is None:
             process.terminate()

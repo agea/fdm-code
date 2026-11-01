@@ -4,6 +4,7 @@
 #include "ERMapTheme.h"
 #include "ERIndustrialFence.h"
 #include "ERMapPlayability.h"
+#include "ERMapSelection.h"
 #include "Components/DynamicMeshComponent.h"
 #include "Components/PointLightComponent.h"
 #include "DynamicMesh/DynamicMesh3.h"
@@ -181,10 +182,11 @@ bool ERProcedural::Build(const FERProceduralConfig& C,const FERBlockRoomConfig& 
         // Bounded deterministic composition retries, with unchanged requested
         // seed and cosmetic stream. Every peer selects the same accepted plan.
         const int32 Attempts=C.TemplateAsset->Archetype==EERMapArchetype::MiddleEasternAlleys ? 256:16;
+        const uint32 Plan=C.MapCandidate ? HashCombine(uint32(C.Seed),uint32(C.MapCandidate)*0x2f0b4a87u):uint32(C.Seed);
         for(int32 Attempt=0;Attempt<Attempts;++Attempt)
         {
             FERProceduralConfig Sized=C;
-            Sized.Seed=Attempt ? int32(HashCombine(uint32(C.Seed),uint32(Attempt)*0x9e3779b9u)):C.Seed;
+            Sized.Seed=Attempt ? int32(HashCombine(Plan,uint32(Attempt)*0x9e3779b9u)):int32(Plan);
             if(!ConfigureTeamSize(*Recipe,C.ExpectedTeamSize,Sized.Seed))return false;
             Sized.TemplateAsset=Recipe.Get();FERProceduralLayout Next;
             if(!BuildGeometry(Sized,B,Next,Cells))continue;
@@ -336,14 +338,32 @@ AERProceduralMap::AERProceduralMap()
 }
 bool AERProceduralMap::GenerateLogicalWorld()
 {
+    ResolveMapCandidate();
     FERProceduralLayout Next;
     if (!ERProcedural::Build(LayoutConfig,Config,Next,CellSettings) || !BuildCellWorld(Next.Panels)) return false;
     PlayabilityDraft.Reset();
     if(HasAuthority() && ERPlayability::Mode()==EERPlayabilityMode::ReportOnly && LayoutConfig.TemplateAsset)
-        PlayabilityDraft=MakeShared<FERPlayabilityReport>(ERPlayability::Analyze(Next,LayoutConfig,ERPlayability::PolicyFor(LayoutConfig.TemplateAsset->Archetype,LayoutConfig.ExpectedTeamSize)));
+    {
+        const auto Policy=ERPlayability::PolicyFor(LayoutConfig.TemplateAsset->Archetype,LayoutConfig.ExpectedTeamSize);
+        PlayabilityDraft=MakeShared<FERPlayabilityReport>(ERPlayability::Analyze(Next,LayoutConfig,Policy));
+        const double Clock=FPlatformTime::Seconds();
+        PlayabilityDraft->Stress=ERPlayability::Stress(Next,*PlayabilityDraft,Policy);
+        PlayabilityDraft->TimingsMs.Emplace(TEXT("stress"),(FPlatformTime::Seconds()-Clock)*1000);
+    }
     // Live cell state belongs to the cell world; retain only layout metadata.
     Next.Panels.Empty();
     Layout=MoveTemp(Next); return true;
+}
+void AERProceduralMap::ResolveMapCandidate()
+{
+    if(!HasAuthority())return;
+    if(!bSelectMapCandidates || !LayoutConfig.TemplateAsset){LayoutConfig.MapCandidate=0;return;}
+    const FIntPoint Request(LayoutConfig.Seed,LayoutConfig.ExpectedTeamSize);
+    if(SelectedFor.IsSet() && SelectedFor.GetValue()==Request)return;
+    const auto Profile=ERMapSelection::ProfileFor(LayoutConfig.TemplateAsset->Archetype,LayoutConfig.ExpectedTeamSize);
+    const auto Selection=ERMapSelection::Select(LayoutConfig,Config,CellSettings,Profile);
+    LayoutConfig.MapCandidate=Selection.Chosen;SelectedFor=Request;
+    UE_LOG(LogTemp,Display,TEXT("ER_MAP_SELECTION seed=%d template=%s %s"),LayoutConfig.Seed,*LayoutConfig.TemplateAsset->TemplateId,*Selection.Line());
 }
 void AERProceduralMap::OnGenerationFinished()
 {
@@ -414,7 +434,7 @@ void AERProceduralMap::ConfigureFloors()
 }
 FString AERProceduralMap::GetLayoutStatistics() const
 {
-    if(LayoutConfig.TemplateAsset) return FString::Printf(TEXT("template=%s rev=%d seed=%d theme=%s arena_m=%.2fx%.2f rooms=%d modules=%d fixed=%d starts=%d/%d"),*LayoutConfig.TemplateAsset->TemplateId,LayoutConfig.TemplateAsset->Revision,LayoutConfig.Seed,*Layout.ThemeName.ToString(),Layout.ArenaSize.X/100,Layout.ArenaSize.Y/100,Layout.Rooms.Num(),Layout.ModuleKinds.Num()*2,Layout.FixedPieces.Num(),Layout.AlphaSpawns.Num(),Layout.OmegaSpawns.Num());
+    if(LayoutConfig.TemplateAsset) return FString::Printf(TEXT("template=%s rev=%d seed=%d theme=%s arena_m=%.2fx%.2f rooms=%d modules=%d fixed=%d starts=%d/%d macro=%d candidate=%d"),*LayoutConfig.TemplateAsset->TemplateId,LayoutConfig.TemplateAsset->Revision,LayoutConfig.Seed,*Layout.ThemeName.ToString(),Layout.ArenaSize.X/100,Layout.ArenaSize.Y/100,Layout.Rooms.Num(),Layout.ModuleKinds.Num()*2,Layout.FixedPieces.Num(),Layout.AlphaSpawns.Num(),Layout.OmegaSpawns.Num(),Layout.RoomsMacroVariant,LayoutConfig.MapCandidate);
     return FString::Printf(TEXT("seed=%d rooms=%d corridors=%d openings=%d floors=%d steps=%d"),LayoutConfig.Seed,Layout.Rooms.Num(),Layout.Corridors.Num(),Layout.Openings.Num(),LayoutConfig.Floors,Layout.Steps.Num());
 }
 
@@ -627,6 +647,7 @@ uint32 AERProceduralMap::GetTemplateGeometryDigest() const
     if(!LayoutConfig.TemplateAsset)return 0;
     uint32 H=GetTypeHash(LayoutConfig.TemplateAsset->Revision);
     H=HashCombine(H,GetTypeHash(LayoutConfig.ExpectedTeamSize));
+    if(LayoutConfig.MapCandidate)H=HashCombine(H,GetTypeHash(LayoutConfig.MapCandidate));
     H=HashCombine(H,GetTypeHash(Layout.ThemeIndex));H=HashCombine(H,GetTypeHash(Layout.ThemeRevision));
     H=HashCombine(H,FCrc::StrCrc32(*Layout.ThemeName.ToString()));
     for(auto* M:Layout.ThemeMaterials)H=HashCombine(H,FCrc::StrCrc32(*M->GetPathName()));
@@ -646,6 +667,7 @@ uint32 AERProceduralMap::GetTemplateGeometryDigest() const
     if(LayoutConfig.TemplateAsset->Archetype==EERMapArchetype::Rooms)
     {
         H=HashCombine(H,GetTypeHash(Layout.RoomsTheme));
+        if(Layout.RoomsMacroVariant!=INDEX_NONE)H=HashCombine(H,GetTypeHash(Layout.RoomsMacroVariant));
         for(const auto& Screen:Layout.RoomScreens)
         {
             MixVector(Screen.Frame.GetLocation());MixVector(Screen.Frame.GetRotation().GetForwardVector());MixVector(Screen.Size);

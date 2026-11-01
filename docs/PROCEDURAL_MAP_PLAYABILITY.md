@@ -1,10 +1,13 @@
 # Procedural map playability
 
-Reads a generated map as a tactical graph and says why it is weak. **Report-only:** no metric
-rejects, retries or changes a layout yet, and the default mode is off.
+Reads a generated map as a tactical graph and says why it is weak. Reports never change a layout.
+Only [candidate selection](#candidate-selection), off by default, acts on them.
 
 **Code:** `ERMapPlayability.h/.cpp`, `ERMapPlayabilityTests.cpp`, `AERProceduralMap::GenerateLogicalWorld`
-and `OnGenerationFinished`.
+and `OnGenerationFinished`. Rooms macro graph: `ERRoomsMacro.h/.cpp`, `ERRoomsMacroTests.cpp`, `BuildRooms`.
+Spawn scoring: `ERSpawnRisk.h/.cpp`, `ERSpawnRiskTests.cpp`, `AERGameMode::ChooseScoredStart`.
+Selection and stress: `ERMapSelection.h/.cpp`, `ERMapSelectionTests.cpp`, `ERPlayability::Stress`,
+`AERProceduralMap::ResolveMapCandidate`.
 
 ## Use
 
@@ -65,7 +68,10 @@ Training's isolated nodes are ladders onto cargo tops, dead ends far from any re
 | `CONNECTED_ZONES` | Components, isolated nodes, shortest base-to-base walk, edges unconfirmed or blocked | Active |
 | `BASE_EXIT_PATHS` | Edges leaving the base zone; vertex-disjoint paths between bases, so routes that merge count once; chokes every path from the starts crosses | Active |
 | `INITIAL_SPAWN_LOS` | Opposing start pairs with a line, eye to head, chest and legs, both ways | Active |
-| `DOMINANT_VANTAGE`, `ROUTE_EXPOSURE`, `ROUTE_DIVERSITY`, `COVER_ACCESS` | | Planned, `not_evaluated` |
+| `ROUTE_DIVERSITY` | Cheapest walk between bases, then the cheapest avoiding its nodes, and their ratio | Active |
+| `DOMINANT_VANTAGE` | Raised nodes against base exits: the largest share of one team's exits a single node sees | Active |
+| `ROUTE_EXPOSURE` | Points along the direct walk seen from base exits and raised nodes, and the longest open run | Active |
+| `COVER_ACCESS` | | Planned, `not_evaluated` |
 
 Sight and shots stay separate: `visible_pairs` traces `ECC_Visibility`, `open_shot_pairs` the
 Projectile channel. A blocked shot can still penetrate, so neither proves ballistic cover. Pawn
@@ -75,8 +81,10 @@ never blocks a line here, although players cannot see through it.
 Neighbouring common nodes group into one choke: both sides of a door are one. `alpha_chokes` also
 counts chokes inside the base, which is how a spawn room with one door surfaces behind two gates.
 
-No threshold is calibrated. `FERPlayabilityPolicy` carries only measuring parameters and the
-proposed minimum of two independent paths. A warning is a finding to read, not a rule.
+`FERPlayabilityPolicy` carries only measuring parameters and the proposed minimum of two independent
+paths. A warning is a finding to read, not a rule: rules live in the selection profiles. Route sight
+is bounded by `MaxVantages`, `MaxExits`, `MaxObservers` and `MaxRouteSamples`. With unknown solids it
+overstates a lot at the layout stage: compare it at the physical stage, which uses `ECC_Visibility`.
 
 ## Units and determinism
 
@@ -92,13 +100,152 @@ iteration. Node ids are stable only within one layout: compare `source` across c
 - Graph edges carry length and width, not time: gameplay speeds are not read yet.
 - Routes through open ground can underestimate alternatives. Central Building and Village keep their
   counts in the report, without a verdict.
-- The hook sits after candidate selection. Enforcing a metric needs the analysis inside the
-  `ERProcedural::Build` attempt loop, and its mode in the replicated descriptor: every peer repeats
-  those attempts, so a local flag would split the map. Stay report-only until then.
-- PCGEx plays no part here.
+- Selection reads the layout stage: real collision does not exist yet for a candidate.
+
+## Rooms macro graph
+
+Prototype, off by default. A real PCGEx graph picks connections for `Rooms`, and the C++ builder
+turns them into corridors. **Matches never run PCG:** only the baked table reaches them.
+
+```sh
+python3 scripts/test-rooms-macro.py
+python3 scripts/test-rooms.py --network --macro
+```
+
+Enable it on the authority with `?RoomsMacroGraph=1` or `-ERRoomsMacroGraph` (non-Shipping).
+`FERProceduralConfig::bEnablePCGExMacroGraph` travels in the descriptor, so clients build the same
+plan and never read a local flag. Rollback: omit the option. Off, or with no usable plan, the builder
+keeps the legacy spine. Selection hashes the seed and consumes no geometry RNG.
+
+| Step | Where | Runs |
+| --- | --- | --- |
+| Slots from real plans, half-turn paired jitter | `UERRoomsMacroBake::FillInput`, `DA_RoomsMacroInput` | Authoring |
+| `Connect Points` with `Probe: KNN`, then `Refine: Gabriel` | `PCG_RoomsMacroGraph` | Authoring |
+| Links kept as slot pairs in `FERRoomsMacroVariant` | `UERRoomsMacroBake::Bake`, `DA_RoomsMacroTable` | Authoring |
+| Variant choice, geometric checks, corridors | `BuildRooms` | Every peer, deterministic |
+
+`scripts/setup_rooms_macro_graph.py` bakes through the commandlet, and `verify_rooms_macro_graph.py`
+reruns the saved graph against the table. Graph and input are authoring assets, referenced by nothing
+at runtime; `DA_Rooms` references only the table. PCGEx is 0.79.2 and no Pro component is used. The
+only PCGEx contract read is `PCGEx/VData` and `PCGEx/EData`, inside the bake.
+
+**Why not at runtime.** `ERProcedural::Build` is synchronous and every peer repeats it from the seed,
+while PCG advances over ticks. The bake needs a bounded pump, and input assets must already be
+loaded. Inside the automation tick the graph did not finish in 120s. Running it per peer would also
+put the map's agreement on an unverified re-execution. No dedicated server target exists to test
+PCG there, so graph execution on a server is unproven.
+
+A variant may keep a base-to-centre bend, a central crossing and rungs to the lanes. `BuildRooms`
+rejects a corridor that is steeper than 1:2 or that touches another volume. It then tries the plan
+without rungs, then without the bend, and finally the next variant. Dropping the bend closes the
+lower spine: the bases keep both lanes, so they drop from three paths to two. Plans with one room
+per lane never use the table, and the graph yields no variant for four rooms per lane.
+
+## Spawn scoring
+
+`ERSpawnRisk` orders the starts that already passed every placement filter, once per respawn, on the
+server, on procedural maps. **On by default;** the advanced rule `Health.SpawnScoring` set to 0 restores
+the plain random choice, which Depot always keeps. Private bot starts and overflow placement keep
+their own paths. No start stays no start.
+
+| Risk | Reads | Weight |
+| --- | --- | --- |
+| Open shot on the standing capsule | Living enemy eye to head and chest, Projectile channel, current collision | Very high, per enemy |
+| Live enemy Claymore | Inside its real damage radius and fan | High |
+| Enemy close | Straight distance against `Move.Sprint` × `Health.Protection` | Medium |
+| Recent team death in the sector | `RecordDeath`, fading over 15s | Low |
+| Same start just used | Fading over 15s | Low |
+
+Straight distance ignores walls, so it overstates closeness; graph distance is not used yet. Exits
+held by enemies and live grenades are not read. Candidates within `Comparable` of the best are a
+random draw, so spawns stay unpredictable. If every start is exposed the lowest risk wins, and no
+protection is added. Each respawn spends at most `MaxTraces` traces, nearest enemies first, on at most
+`MaxCandidates` starts; nothing runs per tick or is cached. Memory is bounded and resets with the arena.
+
+`-ERSpawnAudit` logs `ER_SPAWN_CHOICE` per respawn in non-Shipping runs. `exposed/candidates` is the
+chance a random choice would have been exposed, and `chosen_seen` is what scoring picked. A team whose
+starts share one room gains nothing while enemies stand in it: every candidate is exposed together.
+
+## Candidate selection
+
+Off by default. Enable it on the authority with `?MapSelection=1` or `-ERMapSelection` (non-Shipping).
+Rollback: omit the option, and candidate 0 is exactly the plain seed.
+
+The authority builds and analyses a few layouts of the seed, before generating, and writes the
+winner to `FERProceduralConfig::MapCandidate`. That index travels in the descriptor and shifts the
+seed of the normal `ERProcedural::Build` attempts, so **clients rebuild the plan without analysing
+anything**, and floating-point differences between platforms cannot split the map. Nothing runs
+during play; each new seed or round selects once, sharing the result with the early start preparation.
+
+`ERMapSelection::ProfileFor` holds one profile per archetype:
+
+| Archetype | Candidates | Hard rules | Preferred ranges |
+| --- | --- | --- | --- |
+| Rooms | 6 | Whole exact graph, two independent paths, no spawn sight | Three paths |
+| Central Building | 6 | From 8v8: no spawn sight | Fewer sight pairs below 8v8, two paths, a lateral route, a partly open crossing |
+| Alleys | 4 | None | No spawn sight, three paths |
+| Village | 6 | None | No spawn sight, two paths, a lateral route, a partly open crossing |
+| Fire Training | 1 | None | None: it keeps the plain seed and pays nothing |
+
+A rule is hard only where the layout reading is conclusive and clean candidates exist. Alleys and
+Village keep unknown solids, so a visible pair there may be hidden. Central Building below 8v8 leaves a
+line open on every candidate. Fire Training cannot tell candidates apart at the layout stage.
+
+Each range met adds a point, and spawn sight outweighs the others together: no line on the layout
+means no line in real collision. Ranges never rescue a broken rule. The plain seed keeps any tie, so a
+map moves only for a reason, and the seed breaks other ties. With no clean candidate the first layout
+wins and the log says `fallback=1`. No candidate is ever regenerated during a match.
+
+`bPreferBreachSafe` then adds one point to the best clean candidates whose `central_breach` opens no
+new spawn sight, read on the layout stage (`breach=` in the log). It only separates plans that tie:
+Central Building's barrier is the same on every candidate, so there it changes nothing. It runs only
+when the budget was not hit, because a candidate left unread would make the choice depend on machine
+speed. It always reads the layout, so unknown solids can overstate a breach and move a plan needlessly,
+never the reverse.
+
+`BudgetMs` is a safety valve well above the measured cost. It is the only way machine speed could
+change a seed's outcome, so hitting it logs `budget_hit=1` and the batch fails on it. Every selection
+logs one `ER_MAP_SELECTION` line with the winner and each candidate's rejection reasons, and
+`ER_BLOCK_GENERATED` reports `candidate=`.
+
+## Destruction stress
+
+`ERPlayability::Stress` repeats the layout analysis on deterministic damaged states. Each policy
+names its scenarios in `FERPlayabilityPolicy::Stress`, set by `PolicyFor`:
+
+| Scenario | Damage | Applies when | Archetypes |
+| --- | --- | --- | --- |
+| `central_breach` | Door-sized hole through every layer of the wall nearest the middle of the line between bases | A breakable wall lies there | All |
+| `cover_removed` | Up to three whole panels 60-170cm tall near the direct walk | Breakable low cover exists | All but Rooms |
+| `high_sightline` | Same hole in a wall that hides a base exit from a raised node | Such a wall exists | All |
+| `walkway_lost` | Walking edges of a timber crossing that really falls with its supports | The layout has `WallBridges` | Central Building |
+
+Only breakable panels change: fixed pieces and hollow skins never do, and a scenario with nothing real
+to damage reports not applicable with its reason. `walkway_lost` is therefore never applicable to
+fixed catwalks. A breach adds no walking edge, so damaged paths can only understate new routes. Spawns
+in play always read current collision.
+
+The report's `stress` array holds one entry per scenario of the policy, read from the layout, and
+each analysis under `-ERMapPlayability=ReportOnly` fills it. It never changes the layout it reads.
+The physical stage keeps those readings unchanged. Candidate selection uses only `central_breach`.
+
+`EclipseRecoil.Maps.Stress.Physics` makes each applicable scenario real in the cell world: it cuts the
+same openings or the crossing's supports, settles support, removes debris and repeats the physical
+reading, both on the plain seed and on the chosen plan. A cut crossing must fall while the opposite one
+stands, and real sight may exceed the abstract state only when other cells fell too.
+
+Cell support is evaluated only after damage, so anything unsupported on a fresh map stands until the
+first cut anywhere on it. `EclipseRecoil.Maps.Stress.FreshSupport` lists those pieces in
+`fresh-support.csv` without failing: every Village plan loses some loose beams and storage trim this
+way, which shows as `cells_detached` in every Village scenario.
 
 ## Verify
 
+`test-map-selection.py` (`--batch --physics`) runs `EclipseRecoil.Maps.Selection.*` and
+`EclipseRecoil.Maps.Stress.*`, writing `selection-candidates.csv`, `selection-physical.csv`,
+`stress-summary.csv`, `stress-physical.csv` and `fresh-support.csv`. `--stress-teams` picks the team
+sizes of the real stress run. `test-rooms.py --network --selection --seed 3` checks host and late clients.
+`test-spawn-risk.py` runs `EclipseRecoil.Maps.SpawnRisk.*` and timed bot matches.
 `test-map-playability.py` runs `EclipseRecoil.Maps.Playability.*` and proves report-only neutrality:
-identical geometry digests with and without the flag, on the same seeds. `--batch` covers 20 seeds
+identical layout digests, cell panels included, with and without the flag, on the same seeds. `--batch` covers 20 seeds
 per template and size.

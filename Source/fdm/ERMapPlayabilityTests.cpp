@@ -33,7 +33,7 @@ void SetBases(FERTacticalGraph& G,int32 Alpha,int32 Omega)
 FERPlayabilityReport Evaluate(const FERTacticalGraph& G)
 {
     FERPlayabilityReport R;R.Graph=G;
-    for(const TCHAR* Code:{TEXT("CONNECTED_ZONES"),TEXT("BASE_EXIT_PATHS"),TEXT("INITIAL_SPAWN_LOS")})R.Metrics.AddDefaulted_GetRef().Code=Code;
+    for(const TCHAR* Code:{TEXT("CONNECTED_ZONES"),TEXT("BASE_EXIT_PATHS"),TEXT("ROUTE_DIVERSITY"),TEXT("INITIAL_SPAWN_LOS")})R.Metrics.AddDefaulted_GetRef().Code=Code;
     ERPlayability::EvaluateGraph(R,FERPlayabilityPolicy());
     return R;
 }
@@ -44,7 +44,7 @@ TArray<int32> IntegerList(const TCHAR* Key,const TCHAR* Default)
     TArray<int32> Out;for(const auto& W:Words)Out.Add(FCString::Atoi(*W));
     return Out;
 }
-const TCHAR* const Templates[]={TEXT("CentralBuilding"),TEXT("MiddleEasternAlleys"),TEXT("FireTraining"),TEXT("Rooms"),TEXT("Village")};
+const TCHAR* const PlayabilityTemplates[]={TEXT("CentralBuilding"),TEXT("MiddleEasternAlleys"),TEXT("FireTraining"),TEXT("Rooms"),TEXT("Village")};
 UERMapTemplate* LoadTemplate(const TCHAR* Id)
 {
     return LoadObject<UERMapTemplate>(nullptr,*(FString(TEXT("/Game/EclipseRecoil/Art/MapTemplates/DA_"))+Id));
@@ -208,7 +208,7 @@ bool FERPlayabilityReportTest::RunTest(const FString&)
     const auto Seeds=IntegerList(TEXT("ERPlayabilitySeeds="),TEXT("42,73,7919"));
     const bool Keep=FParse::Param(FCommandLine::Get(),TEXT("ERPlayabilityReports"));
     FString Csv=CsvHeader;
-    for(const TCHAR* Id:Templates)
+    for(const TCHAR* Id:PlayabilityTemplates)
     {
         auto* T=LoadTemplate(Id);if(!TestNotNull(Id,T))return false;
         const bool Concrete=T->Archetype==EERMapArchetype::Rooms || T->Archetype==EERMapArchetype::FireTraining;
@@ -261,7 +261,7 @@ bool FERPlayabilityPhysicsTest::RunTest(const FString&)
     const auto Seeds=IntegerList(TEXT("ERPlayabilitySeeds="),TEXT("42,73,7919"));
     const bool Keep=FParse::Param(FCommandLine::Get(),TEXT("ERPlayabilityReports"));
     FString Csv=CsvHeader;
-    for(const TCHAR* Id:Templates)
+    for(const TCHAR* Id:PlayabilityTemplates)
     {
         auto* T=LoadTemplate(Id);if(!TestNotNull(Id,T))return false;
         for(int32 Team:Teams)
@@ -288,7 +288,7 @@ bool FERPlayabilityPhysicsTest::RunTest(const FString&)
                 TestEqual(*(Case+TEXT(": no walking edge is left unconfirmed")),Report.Find(TEXT("CONNECTED_ZONES"))->Value(TEXT("edges_unconfirmed")),0.);
                 Csv+=CsvRow(Report);
                 UE_LOG(LogTemp,Display,TEXT("ER_MAP_PLAYABILITY %s"),*ERPlayability::Summary(Report));
-                UE_LOG(LogTemp,Display,TEXT("ER_MAP_PLAYABILITY_DIGEST template=%s team=%d seed=%d digest=%u"),Id,Team,Seed,Map->GetTemplateGeometryDigest());
+                UE_LOG(LogTemp,Display,TEXT("ER_MAP_PLAYABILITY_DIGEST template=%s team=%d seed=%d digest=%u"),Id,Team,Seed,Map->GetLayoutDigest());
                 if(Keep)ERPlayability::Save(Report,OutputDirectory());
             }
             World->DestroyWorld(false);GEngine->DestroyWorldContext(World);

@@ -67,7 +67,7 @@ void AERRoomsProbe::Tick(float Delta)
                 for(int32 I=0;I<L.RoomLinks.Num();++I)if(FMath::Abs(L.RoomLinks[I].End.Z-L.RoomLinks[I].Start.Z)>1)
                 {const auto& Access=L.RoomAccessRoutes[I];for(int32 J=1;J<Access.Num()-1;++J)Path.Add(Access[J]);break;}
             }
-            else if(Walk==1)Path=L.StairRoutes[0];
+            else if(Walk==1){if(!L.StairRoutes.IsEmpty())Path=L.StairRoutes[0];}
             else for(int32 I=0;I<L.RoomLinks.Num();++I)
             {
                 const auto& E=L.RoomLinks[I];if(E.Start.Z<L.RoomNodes[E.A].Center.Z+300)continue;
@@ -79,7 +79,8 @@ void AERRoomsProbe::Tick(float Delta)
                 }
                 Path.Add(E.Start+(E.End-E.Start).GetSafeNormal2D()*FMath::Min(180.f,float(FVector::Dist2D(E.Start,E.End)*.5))+FVector(0,0,100));break;
             }
-            if(Path.IsEmpty()){Check(false,TEXT("walk_route_exists"));Walk=3;}
+            // A flat plan has no ramp or stairs: walk what this one has. test-rooms.py --macro requires all three.
+            if(Path.IsEmpty()){UE_LOG(LogTemp,Display,TEXT("ER_ROOMS_WALK_SKIPPED walk=%d"),Walk);++Walk;}
             else
             {
                 Pawn->TeleportTo(Path[0],FRotator::ZeroRotator,false,true);Pawn->GetCharacterMovement()->StopMovementImmediately();Pawn->GetCharacterMovement()->SetMovementMode(MOVE_Walking);

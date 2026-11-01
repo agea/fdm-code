@@ -5,6 +5,7 @@ import argparse
 import os
 import subprocess
 import time
+from client_shutdown import settle_clients
 
 project = Path(__file__).resolve().parents[1]
 editor = Path(os.environ.get("UE_ROOT", "/Users/Shared/Epic Games/UE_5.8")) / "Engine/Binaries/Mac/UnrealEditor.app/Contents/MacOS/UnrealEditor"
@@ -70,6 +71,7 @@ try:
     print("PASS T19: disconnect removes player without respawn")
     print("Logs:", logs)
 finally:
+    settle_clients(processes, handles)
     for process in processes:
         if process.poll() is None:
             process.terminate()

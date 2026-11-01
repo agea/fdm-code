@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Actual Dust door, underpass, stair and bridge traversal; optional LAN/Metal."""
+"""Actual Middle Eastern Alleys door, underpass, stair and bridge traversal; optional LAN/Metal."""
 import argparse, json, os, re, subprocess, time
 from pathlib import Path
+from client_shutdown import settle_clients
 
 p = argparse.ArgumentParser(description=__doc__)
 p.add_argument('--render', action='store_true')
 p.add_argument('--architecture', action='store_true', help='Real weapon, HE, controlled facade/roof cuts, pawn traversal, support collapse and peer reconstruction')
 p.add_argument('--network', action='store_true')
-p.add_argument('--alleys', action='store_true', help='Exercise the current Middle Eastern Alleys template')
 p.add_argument('--gallery', action='store_true', help='Capture held alley cameras after shader/asset compilation, without the gameplay probe')
 p.add_argument('--plans', action='store_true', help='Capture four square aerial views of alley seeds 42, 73, 511 and 7919')
 p.add_argument('--seed', type=int, default=42, help='Starting seed for the gameplay probe')
@@ -20,15 +20,14 @@ if args.modules:args.gallery=True
 if args.passage:args.gallery=True
 if args.tower:args.gallery=True
 if args.plans:args.gallery=True
-if args.architecture and (not args.alleys or args.gallery):p.error('--architecture requires --alleys without --gallery')
-if args.gallery and (not args.alleys or args.network):p.error('--gallery requires --alleys and standalone execution')
+if args.architecture and args.gallery:p.error('--architecture cannot run with --gallery')
+if args.gallery and args.network:p.error('--gallery requires standalone execution')
 if args.gallery:args.render=True
 root = Path(__file__).resolve().parents[1]
 out = root / 'Saved/Testing'
 out.mkdir(parents=True, exist_ok=True)
 exe = Path(os.environ.get('UE_ROOT', '/Users/Shared/Epic Games/UE_5.8')) / 'Engine/Binaries/Mac/UnrealEditor.app/Contents/MacOS/UnrealEditor'
-label = 'dust' + ('-network' if args.network else '-local') + ('-metal' if args.render else '')
-if args.alleys: label = 'alleys' + label.removeprefix('dust')
+label = 'alleys' + ('-network' if args.network else '-local') + ('-metal' if args.render else '')
 if args.gallery:label += '-gallery'
 if args.architecture:label += '-architecture'
 if args.plans:label += '-plans'
@@ -74,7 +73,7 @@ def launch(role, url, render=False, extra=()):
 def read(role): return paths[role].read_text(errors='replace')
 
 def wait(marker,role='host'):
-    end = time.monotonic() + (650 if args.alleys else 180)
+    end = time.monotonic() + 650
     while time.monotonic() < end:
         current=read(role)
         if marker in current: return
@@ -84,9 +83,7 @@ def wait(marker,role='host'):
     raise RuntimeError('Timed out before ' + marker)
 
 try:
-    url = '/Game/EclipseRecoil/Maps/L_DustMirror?Name=Host?Primary=0?MapSeed=42'
-    if args.alleys: url = url.replace('L_DustMirror', 'L_MiddleEasternAlleys').replace('Primary=0','Primary=4')
-    url=url.replace('MapSeed=42',f'MapSeed={args.seed}')
+    url = f'/Game/EclipseRecoil/Maps/L_MiddleEasternAlleys?Name=Host?Primary=4?MapSeed={args.seed}'
     if args.network: url += '?listen'
     extra=['-port=17793', '-MULTIHOME=127.0.0.1']
     if args.network:extra.append('-ERDustLateReceipt='+str(receipt))
@@ -102,7 +99,7 @@ try:
         launch('late', '127.0.0.1:17793?Name=Late?Primary=0')
         wait('ER_DUST_CLIENT_PASS phase=6 ', 'late')
         receipt.write_text('phase6\n')
-    host.wait(timeout=1000 if args.alleys else 220)
+    host.wait(timeout=1000)
     text = read('host')
     good = host.returncode == 0 and 'ER_DUST_COMPLETE result=PASS' in text and 'ER_DUST_FAIL' not in text
     states = {int(a): int(b) for a, b in re.findall(r'ER_DUST_STATE phase=(\d+) digest=(\d+)', text)}
@@ -156,6 +153,7 @@ except (RuntimeError, subprocess.TimeoutExpired) as error:
     print('FAIL', error)
     print('\n'.join(read('host').splitlines()[-20:])); raise SystemExit(1)
 finally:
+    settle_clients(children, handles)
     for child in children:
         if child.poll() is None: child.terminate()
     for child in children:

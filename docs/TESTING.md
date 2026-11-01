@@ -16,6 +16,9 @@ with `scripts/build-editor.command`. Report what really ran, on which platform a
 | Human playtest | Balance | |
 
 Any process that drives a server must exit 0 as well as print PASS: shutdown crashes are real.
+Two-process launchers call `settle_clients` from `client_shutdown.py` before terminating: SIGTERM
+during the menu load that follows host exit crashes the client and leaves `CrashReportClient`
+holding its sockets.
 
 ## Where commands live
 

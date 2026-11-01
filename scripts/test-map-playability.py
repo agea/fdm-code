@@ -69,5 +69,6 @@ else:
     good &= same and hooked == len(a) and len(written) == len(a)
     for path in written:
         data = json.loads(path.read_text())
-        good &= data['report_version'] == 1 and len(data['metrics']) == 7
+        scenarios = {'Rooms': 2, 'CentralBuilding': 4}.get(data['archetype'], 3)
+        good &= data['report_version'] == 3 and len(data['metrics']) == 7 and len(data['stress']) == scenarios
 raise SystemExit(0 if good else 1)

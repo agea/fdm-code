@@ -65,16 +65,16 @@ from anchors (`bAnchorBottom`, `bAnchored`, indestructible, ground rows). This i
 not load simulation. Ordinary upper decks are never permanently anchored.
 
 Evaluation runs on the 50ms timer, never inside a blast snapshot, with bounded removals
-per step (32768 cells). Each detached component spawns one cosmetic debris cube (8 per step,
-64 global) with no player, projectile or query collision. Regeneration and EndPlay clear all
-owned effects: 128 decals and bounded Niagara.
+per step (32768 cells). Damage starts it, so a fresh map is never checked: anything built
+without support stands until the first damage anywhere, then falls. Each detached component
+spawns one cosmetic debris cube (8 per step, 64 global) with no player, projectile or query
+collision. Regeneration and EndPlay clear all owned effects: 128 decals and bounded Niagara.
 
 ## Replication
 
 Only the server mutates (`CanMutateBlocks`). No client cell-damage RPC exists.
 
-Protocol is `AERBlockRoom::Protocol` (currently **18**), bumped for any geometry policy
-change. A descriptor carries cell settings, layout digest, material rules and shard manifest.
+Protocol is `AERBlockRoom::Protocol`, bumped for any geometry policy change. A descriptor carries cell settings, layout digest, material rules and shard manifest.
 `AERCellNetShard` fast arrays hold RLE alive masks for modified chunks only; shell masks may
 use bounded zlib frames. HP never leaves the server. Shard headers carry payload count and
 digest; clients apply a transaction only when the whole manifest matches, and fail closed.
@@ -90,5 +90,4 @@ through Unreal into the private maps mount.
 
 ## Verify
 
-`test-destruction.py` (`--game`, `--collapse`, `--procedural`, `--combat`), `test-cell-destruction.py`, `test-cell-network.py`,
-`test-destruction-network.py` (`--loss`, `--render`), `test-destruction-stress.py`. Native: `EclipseRecoil.Destruction.*`.
+Native: `EclipseRecoil.Destruction.*`.

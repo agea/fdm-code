@@ -110,11 +110,14 @@ public:
     static FString SanitizeName(const FString& Name);
 private:
     friend class AERIndustrialMapProbe;
+    friend class AERCapacityProbe;
     int32 MaxHumanPlayers = ERServer::DefaultMaxPlayers;
     TWeakObjectPtr<class AERProceduralMap> PreparedSpawnMap;
     uint32 PreparedSpawnEpoch = MAX_uint32;
     int32 PreparedSpawnSeed = 0;
     void PrepareTeamStarts();
+    AERTeamPlayerStart* ChooseScoredStart(EERTeam Team,const TArray<AERTeamPlayerStart*>& Clear);
+    TSharedPtr<struct FERSpawnMemory> SpawnMemory;
     class AERTeamPlayerStart* FindAdditionalStart(AController* Player, TConstArrayView<AERTeamPlayerStart*> Anchors);
     bool bSpawningPresetPawn = false;
     bool bLobby = false;

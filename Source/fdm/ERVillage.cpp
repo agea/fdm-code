@@ -334,7 +334,7 @@ bool BuildVillage(const FERProceduralConfig& C,const FERBlockRoomConfig& B,FERPr
     {
         Wood({X,GalleryFront-5,GalleryHeight+55},{GalleryWidth*.28f,20,110});GraySheet({X,GalleryFront+5.1f,GalleryHeight+55},{GalleryWidth*.28f,.2f,110});
     }
-    Wood({0,-HY+25,GalleryHeight+55},{GalleryWidth-20,20,110});
+    Wood({0,-HY+40,GalleryHeight+55},{GalleryWidth-20,20,110});
     FERTemplateBase Gallery;Gallery.Frame=FTransform(FVector(0,GalleryY,0));Gallery.Size={GalleryWidth,GalleryDepth,GalleryHeight};Gallery.RoofZ=GalleryHeight;
     L.Bases.Add(Gallery);Gallery.Frame=Gallery.Frame*HalfTurn;L.Bases.Add(Gallery);
     if(T->SizingTeamSize!=1)
